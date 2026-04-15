@@ -1,16 +1,14 @@
 name: Build & Submit Mobile Apps
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
       platform:
         description: 'Platform to build'
         required: true
-        default: 'all'
+        default: 'android'
         type: choice
-        options: [all, ios, android]
+        options: [android, ios, all]
 
 jobs:
   build:
@@ -47,9 +45,9 @@ jobs:
           echo "EXPO_PUBLIC_ADMIN_EMAIL=${{ secrets.ADMIN_EMAIL }}" >> .env
 
       - name: Build and submit iOS
-        if: github.event.inputs.platform == 'ios' || github.event.inputs.platform == 'all' || github.event_name == 'push'
+        if: github.event.inputs.platform == 'ios' || github.event.inputs.platform == 'all'
         run: eas build --platform ios --profile production --auto-submit --non-interactive
 
       - name: Build and submit Android
-        if: github.event.inputs.platform == 'android' || github.event.inputs.platform == 'all' || github.event_name == 'push'
+        if: github.event.inputs.platform == 'android' || github.event.inputs.platform == 'all'
         run: eas build --platform android --profile production --auto-submit --non-interactive
