@@ -10,6 +10,7 @@ const config = getDefaultConfig(__dirname);
 // equivalents which use process.env instead.
 config.resolver = {
   ...config.resolver,
+  unstable_enablePackageExports: true,
   resolveRequest: (context, moduleName, platform) => {
     // Redirect zustand ESM imports to CJS on web
     if (platform === 'web') {
