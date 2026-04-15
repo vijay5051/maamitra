@@ -80,7 +80,7 @@ export default function SignInScreen() {
     >
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' || Platform.OS === 'web' ? 'padding' : 'height'}
       >
         <ScrollView
           contentContainerStyle={[

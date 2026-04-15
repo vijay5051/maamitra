@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -25,17 +26,21 @@ export default function ChatBubble({ message, onSave }: ChatBubbleProps) {
 
   if (!isAssistant) {
     // User bubble — gradient, right aligned
+    // outerRow is a flex ROW with justifyContent:'flex-end' so that the child maxWidth
+    // is resolved as a flex-item constraint (not a block sizing problem)
     return (
-      <View style={styles.userWrapper}>
-        <LinearGradient
-          colors={['#ec4899', '#8b5cf6']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.userBubble}
-        >
-          <Text style={styles.userText}>{message.content}</Text>
-        </LinearGradient>
-        <Text style={styles.timestamp}>{formatTime(message.timestamp)}</Text>
+      <View style={styles.userOuterRow}>
+        <View style={styles.userWrapper}>
+          <LinearGradient
+            colors={['#ec4899', '#8b5cf6']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.userBubble}
+          >
+            <Text style={[styles.userText, webTextStyle]}>{message.content}</Text>
+          </LinearGradient>
+          <Text style={styles.timestamp}>{formatTime(message.timestamp)}</Text>
+        </View>
       </View>
     );
   }
@@ -46,11 +51,12 @@ export default function ChatBubble({ message, onSave }: ChatBubbleProps) {
     : {};
 
   return (
+    <View style={styles.outerRow}>
     <View style={styles.botWrapper}>
       <GradientAvatar emoji="🤱" size={32} style={styles.avatar} />
       <View style={styles.botContent}>
         <View style={[styles.botBubble, emergencyStyle]}>
-          <Text style={styles.botText}>{message.content}</Text>
+          <Text style={[styles.botText, webTextStyle]}>{message.content}</Text>
         </View>
         {message.tag ? (
           <TagPill
@@ -71,18 +77,34 @@ export default function ChatBubble({ message, onSave }: ChatBubbleProps) {
         <Text style={styles.timestamp}>{formatTime(message.timestamp)}</Text>
       </View>
     </View>
+    </View>
   );
 }
 
+// Web-specific text style to ensure long words/URLs break and wrap correctly
+const webTextStyle = Platform.OS === 'web'
+  ? ({ wordBreak: 'break-word', overflowWrap: 'anywhere' } as any)
+  : {};
+
 const styles = StyleSheet.create({
+  // Full-width outer row for bot bubble — ensures children can stretch to 100%
+  outerRow: {
+    width: '100%',
+  },
+
+  // Flex-row outer row for user bubble — maxWidth on flex-item resolves correctly in row context
+  userOuterRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    width: '100%',
+  },
+
   // User bubble
   userWrapper: {
-    alignSelf: 'flex-end',
     alignItems: 'flex-end',
     maxWidth: '82%',
     marginVertical: 4,
     marginRight: 12,
-    flexShrink: 1,
     minWidth: 0,
   },
   userBubble: {
@@ -90,26 +112,20 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 4,
     paddingVertical: 12,
     paddingHorizontal: 14,
-    flexShrink: 1,
-    minWidth: 0,
   },
   userText: {
     color: '#ffffff',
     fontSize: 15,
     lineHeight: 22,
-    flexShrink: 1,
-    flexWrap: 'wrap',
   },
 
-  // Bot bubble
+  // Bot bubble — definite width (not maxWidth) so flex:1 on botContent resolves correctly
   botWrapper: {
     flexDirection: 'row',
-    alignSelf: 'flex-start',
     alignItems: 'flex-end',
-    maxWidth: '82%',
+    width: '88%',
     marginVertical: 4,
     marginLeft: 8,
-    flexShrink: 1,
     minWidth: 0,
   },
   avatar: {
@@ -117,8 +133,10 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     flexShrink: 0,
   },
+  // flex: 1 is critical — tells botContent to fill the remaining row width
+  // (after the avatar) so the text inside knows its constraint and can wrap
   botContent: {
-    flexShrink: 1,
+    flex: 1,
     minWidth: 0,
   },
   botBubble: {
@@ -132,16 +150,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 2,
-    flexShrink: 1,
-    minWidth: 0,
     boxShadow: '0px 2px 8px rgba(236, 72, 153, 0.08)',
   },
   botText: {
     color: '#1a1a2e',
     fontSize: 15,
     lineHeight: 22,
-    flexShrink: 1,
-    flexWrap: 'wrap',
   },
   tagPill: {
     marginTop: 6,

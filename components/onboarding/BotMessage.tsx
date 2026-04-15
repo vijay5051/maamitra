@@ -1,6 +1,10 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
+import { Animated, Platform, StyleSheet, Text, View } from 'react-native';
 import GradientAvatar from '../ui/GradientAvatar';
+
+const webTextStyle = Platform.OS === 'web'
+  ? ({ wordBreak: 'break-word', overflowWrap: 'anywhere' } as any)
+  : {};
 
 interface BotMessageProps {
   text: string;
@@ -36,7 +40,7 @@ export default function BotMessage({ text, delay = 0 }: BotMessageProps) {
     >
       <GradientAvatar emoji="🤱" size={36} style={styles.avatar} />
       <View style={styles.bubble}>
-        <Text style={styles.text}>{text}</Text>
+        <Text style={[styles.text, webTextStyle]}>{text}</Text>
       </View>
     </Animated.View>
   );
@@ -46,10 +50,8 @@ const styles = StyleSheet.create({
   wrapper: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    alignSelf: 'flex-start',
-    maxWidth: '82%',
+    alignSelf: 'stretch',
     marginVertical: 6,
-    flexShrink: 1,
     minWidth: 0,
   },
   avatar: {
@@ -58,6 +60,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   bubble: {
+    flex: 1,
     backgroundColor: '#ffffff',
     borderRadius: 16,
     borderTopLeftRadius: 4,
@@ -68,16 +71,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 2,
-    flexShrink: 1,
     minWidth: 0,
-    flexWrap: 'wrap',
     boxShadow: '0px 2px 8px rgba(236, 72, 153, 0.08)',
   },
   text: {
     color: '#1a1a2e',
     fontSize: 15,
     lineHeight: 22,
-    flexShrink: 1,
-    flexWrap: 'wrap',
   },
 });

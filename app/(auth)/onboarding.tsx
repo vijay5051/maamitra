@@ -62,15 +62,15 @@ function UserMessage({ text }: { text: string }) {
 const msgStyles = StyleSheet.create({
   botRow: {
     flexDirection: 'row',
-    alignSelf: 'flex-start',
+    alignSelf: 'stretch',
     alignItems: 'flex-end',
-    maxWidth: '80%',
     marginVertical: 4,
     marginLeft: 8,
     minWidth: 0,
   },
-  avatar: { marginRight: 8, marginBottom: 2 },
+  avatar: { marginRight: 8, marginBottom: 2, flexShrink: 0 },
   botBubble: {
+    flex: 1,
     backgroundColor: '#ffffff',
     borderRadius: 16,
     borderTopLeftRadius: 4,
@@ -592,7 +592,7 @@ export default function OnboardingScreen() {
       {/* Chat area */}
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' || Platform.OS === 'web' ? 'padding' : 'height'}
         keyboardVerticalOffset={0}
       >
         <FlatList
