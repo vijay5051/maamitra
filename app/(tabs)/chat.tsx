@@ -245,7 +245,7 @@ export default function ChatScreen() {
               <View style={styles.welcomeSection}>
                 <GradientAvatar emoji="🤱" size={64} style={styles.welcomeAvatar} />
                 <Text style={styles.welcomeText}>
-                  Namaste {motherName ? `, ${motherName}` : ''}! 🙏{'\n'}
+                  Namaste{motherName ? `, ${motherName}` : ''}! 🙏{'\n'}
                   I'm MaaMitra, your personal companion. Ask me anything about your pregnancy,
                   baby, health, or wellbeing.
                 </Text>

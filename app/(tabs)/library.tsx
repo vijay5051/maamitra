@@ -84,7 +84,9 @@ function SubTabSelector({ active, onChange }: { active: SubTab; onChange: (t: Su
 
 const subTabStyles = StyleSheet.create({
   row: {
-    paddingHorizontal: 16,
+    flexDirection: 'row',
+    paddingLeft: 16,
+    paddingRight: 24,
     paddingVertical: 10,
     gap: 8,
     backgroundColor: '#ffffff',

@@ -81,7 +81,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="community"
         options={{
-          title: 'Community',
+          title: 'Connect',
           tabBarIcon: ({ focused }) => (
             <TabIcon name={focused ? 'heart-circle' : 'heart-circle-outline'} focused={focused} />
           ),

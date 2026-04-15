@@ -34,13 +34,17 @@ function ChildCard({
   // Safety guard: if DOB is in the past, never show "Due soon"
   const dobInFuture = kid.dob ? new Date(kid.dob) > new Date() : false;
   const isActuallyExpecting = kid.isExpecting && dobInFuture;
+  // Always calculate from DOB — ageInMonths may be stale/undefined in older profiles
+  const _diffMs = kid.dob ? Date.now() - new Date(kid.dob).getTime() : 0;
+  const _months = Math.max(0, Math.floor(_diffMs / (1000 * 60 * 60 * 24 * 30.44)));
+  const _weeks = Math.max(0, Math.floor(_diffMs / (1000 * 60 * 60 * 24 * 7)));
   const ageText = isActuallyExpecting
     ? 'Due soon'
-    : kid.ageInMonths < 1
-    ? `${kid.ageInWeeks}w`
-    : kid.ageInMonths < 24
-    ? `${kid.ageInMonths}mo`
-    : `${Math.floor(kid.ageInMonths / 12)}y`;
+    : _months < 1
+    ? `${_weeks}w`
+    : _months < 24
+    ? `${_months}mo`
+    : `${Math.floor(_months / 12)}y`;
 
   return (
     <TouchableOpacity

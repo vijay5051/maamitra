@@ -170,6 +170,12 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   initAuth: () => {
+    // Demo bypass: if maamitra-demo flag is set in localStorage, skip Firebase auth
+    if (typeof window !== 'undefined' && localStorage.getItem('maamitra-demo') === 'true') {
+      set({ user: MOCK_USER, isAuthenticated: true, isLoading: false });
+      return;
+    }
+
     if (!isFirebaseConfigured() || !auth) {
       // No Firebase — use demo user so the app can be previewed
       set({ user: MOCK_USER, isAuthenticated: true, isLoading: false });
