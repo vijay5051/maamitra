@@ -30,14 +30,16 @@ function validate(name: string, email: string, password: string) {
 export default function SignUpScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { signUp } = useAuthStore();
+  const { signUp, signInWithGoogle } = useAuthStore();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<{ name?: string; email?: string; password?: string }>({});
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [apiError, setApiError] = useState('');
 
   const handleSubmit = async () => {
@@ -51,11 +53,25 @@ export default function SignUpScreen() {
     setLoading(true);
     try {
       await signUp(email.trim(), password, name.trim());
-      router.replace('/(auth)/onboarding');
+      router.replace('/(auth)/verify-email');
     } catch (e: any) {
       setApiError(e?.message ?? 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
+    setApiError('');
+    try {
+      const destination = await signInWithGoogle();
+      if (destination === 'tabs') router.replace('/(tabs)/chat');
+      else if (destination === 'onboarding') router.replace('/(auth)/onboarding');
+    } catch (e: any) {
+      setApiError(e?.message ?? 'Google sign-in failed. Please try again.');
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -100,6 +116,26 @@ export default function SignUpScreen() {
           <Text style={styles.title}>Create Account</Text>
           <Text style={styles.subtitle}>Join thousands of Indian mothers on MaaMitra</Text>
 
+          {/* Google Sign-In */}
+          <TouchableOpacity
+            style={styles.googleBtn}
+            onPress={handleGoogleSignIn}
+            disabled={googleLoading}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.googleIcon}>G</Text>
+            <Text style={styles.googleText}>
+              {googleLoading ? 'Signing in…' : 'Continue with Google'}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Divider */}
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or sign up with email</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
           {/* Form */}
           <View style={styles.form}>
             {/* Full Name */}
@@ -117,6 +153,22 @@ export default function SignUpScreen() {
                 />
               </View>
               {errors.name ? <Text style={styles.errorText}>{errors.name}</Text> : null}
+            </View>
+
+            {/* Phone (optional) */}
+            <View style={styles.fieldGroup}>
+              <View style={styles.inputCard}>
+                <Ionicons name="phone-portrait-outline" size={20} color="#9ca3af" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Mobile Number (optional)"
+                  placeholderTextColor="#9ca3af"
+                  value={phone}
+                  onChangeText={setPhone}
+                  keyboardType="phone-pad"
+                  returnKeyType="next"
+                />
+              </View>
             </View>
 
             {/* Email */}
@@ -170,10 +222,10 @@ export default function SignUpScreen() {
             {apiError ? <Text style={styles.apiErrorText}>{apiError}</Text> : null}
 
             <GradientButton
-              title="Continue to Setup →"
+              title="Create Account →"
               onPress={handleSubmit}
               loading={loading}
-              disabled={loading}
+              disabled={loading || googleLoading}
               style={styles.submitButton}
             />
           </View>
@@ -316,5 +368,51 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 17,
     maxWidth: 280,
+  },
+  googleBtn: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderWidth: 1.5,
+    borderColor: '#e5e7eb',
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  googleIcon: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#4285F4',
+  },
+  googleText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  divider: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 20,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#e5e7eb',
+  },
+  dividerText: {
+    fontSize: 12,
+    color: '#9ca3af',
+    fontWeight: '500',
   },
 });

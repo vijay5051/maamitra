@@ -9,6 +9,7 @@ export interface Product {
   badge: string;
   emoji: string;
   description: string;
+  url: string;
 }
 
 export const PRODUCTS: Product[] = [
@@ -24,6 +25,7 @@ export const PRODUCTS: Product[] = [
     emoji: '🍼',
     description:
       'Hospital-grade double electric breast pump with quiet motor and hands-free operation. Includes two-phase expression technology that mimics natural nursing, making it ideal for working mothers. Comes with 4 breast shield sizes and a discreet carry bag.',
+    url: 'https://www.amazon.in/s?k=Medela+Freestyle+Breast+Pump',
   },
   {
     id: 'p02',
@@ -37,6 +39,7 @@ export const PRODUCTS: Product[] = [
     emoji: '🌿',
     description:
       "Gentle, paediatrician-tested cream formulated with aloe vera and almond oil to soothe and protect baby's delicate skin from diaper rash. Free from parabens, mineral oils, and artificial fragrances. Suitable from birth.",
+    url: 'https://www.amazon.in/s?k=Himalaya+Baby+Diaper+Rash+Cream',
   },
   {
     id: 'p03',
@@ -50,6 +53,7 @@ export const PRODUCTS: Product[] = [
     emoji: '🤱',
     description:
       'Ergonomically designed C-shaped nursing pillow that supports baby at the ideal height for comfortable breastfeeding or bottle feeding. The removable, washable cover features a soft cotton-polyester blend. Doubles as a tummy time support and a sitting prop for older babies.',
+    url: 'https://www.amazon.in/s?k=Mee+Mee+Nursing+Pillow',
   },
   {
     id: 'p04',
@@ -63,6 +67,7 @@ export const PRODUCTS: Product[] = [
     emoji: '📷',
     description:
       '2.8-inch colour screen with night vision and 300 m range. Features two-way talk, temperature display, lullabies, and a DECT secure signal to prevent interference. Up to 10 hours battery life on the parent unit keeps you connected through the night.',
+    url: 'https://www.amazon.in/s?k=Philips+AVENT+Video+Baby+Monitor',
   },
   {
     id: 'p05',
@@ -76,6 +81,7 @@ export const PRODUCTS: Product[] = [
     emoji: '🔊',
     description:
       'Portable USB-rechargeable white noise machine with three soothing sound options: bright white noise, deep white noise, and gentle surf. Compact clip-on design attaches to a pram or cot. Research-backed for reducing newborn startle reflex and improving sleep duration.',
+    url: 'https://www.amazon.in/s?k=Marpac+Hushh+White+Noise+Machine',
   },
   {
     id: 'p06',
@@ -89,6 +95,7 @@ export const PRODUCTS: Product[] = [
     emoji: '🌿',
     description:
       'Colourful activity gym with 5 removable, repositionable toys including a mirror, crinkle butterfly, and soft teether. Plays 20+ minutes of music and nature sounds. The padded mat provides a comfortable tummy time and back play surface that stimulates vision, motor skills, and sensory exploration.',
+    url: 'https://www.amazon.in/s?k=Fisher-Price+Rainforest+Play+Mat',
   },
   {
     id: 'p07',
@@ -102,6 +109,7 @@ export const PRODUCTS: Product[] = [
     emoji: '👶',
     description:
       'All-position carrier supports newborn to toddler (3.2–20 kg) in front-facing-in, front-facing-out, hip, and back carry positions with no infant insert needed. The lumbar support waistbelt and padded shoulder straps distribute weight evenly, making it comfortable for all-day wear.',
+    url: 'https://www.amazon.in/s?k=Ergobaby+Omni+360+Baby+Carrier',
   },
   {
     id: 'p08',
@@ -115,6 +123,7 @@ export const PRODUCTS: Product[] = [
     emoji: '💊',
     description:
       'HPA Lanolin nipple cream — 100% natural, ultra-pure, and safe for baby; no need to wipe off before feeding. Clinically proven to restore and protect cracked or sore nipples caused by breastfeeding. Hypoallergenic and free from preservatives, fragrances, and additives. The go-to cream recommended by lactation consultants.',
+    url: 'https://www.amazon.in/s?k=Lansinoh+Nipple+Cream',
   },
   {
     id: 'p09',
@@ -128,6 +137,7 @@ export const PRODUCTS: Product[] = [
     emoji: '🛒',
     description:
       '3-in-1 travel system combining a pram, car seat, and carrycot. The lightweight aluminium frame folds in one step. The KeyFit 30 infant car seat clicks directly onto the pram chassis without an adaptor, making transitions from car to stroller seamless. Suitable from birth up to 22 kg.',
+    url: 'https://www.amazon.in/s?k=Chicco+Trio+Travel+System',
   },
   {
     id: 'p10',
@@ -141,6 +151,7 @@ export const PRODUCTS: Product[] = [
     emoji: '😁',
     description:
       'BPA-free, food-grade silicone teether with multiple textures to soothe sore gums during teething. The soft nubs massage the gums gently while the easy-grip handle makes it simple for small hands to hold. Dishwasher-safe and freezer-safe for added soothing relief.',
+    url: 'https://www.amazon.in/s?k=Nuby+Silicone+Baby+Teether',
   },
   {
     id: 'p11',
@@ -154,6 +165,7 @@ export const PRODUCTS: Product[] = [
     emoji: '🌸',
     description:
       "Lightweight, fast-absorbing body oil with rosehip oil, almond oil, and cocoa butter to nourish skin and reduce the appearance of stretch marks. Free from parabens, mineral oils, and sulphates. Dermatologically tested and safe for use during pregnancy and postpartum. India's top-selling stretch mark oil.",
+    url: 'https://www.amazon.in/s?k=Mamaearth+Stretch+Marks+Oil',
   },
   {
     id: 'p12',
@@ -166,7 +178,8 @@ export const PRODUCTS: Product[] = [
     badge: 'Best Seller',
     emoji: '🍼',
     description:
-      'Set of 3 nursing bottles (120ml, 240ml, 330ml) with Pigeon\'s SofTouch nipple, which has a skin-like texture and a wide base that makes latching natural and easy, reducing nipple confusion for breastfed babies. Made from safe, BPA-free PPSU plastic that withstands repeated sterilisation.',
+      "Set of 3 nursing bottles (120ml, 240ml, 330ml) with Pigeon's SofTouch nipple, which has a skin-like texture and a wide base that makes latching natural and easy, reducing nipple confusion for breastfed babies. Made from safe, BPA-free PPSU plastic that withstands repeated sterilisation.",
+    url: 'https://www.amazon.in/s?k=Pigeon+Nursing+Bottle+Set',
   },
   {
     id: 'p13',
@@ -179,7 +192,8 @@ export const PRODUCTS: Product[] = [
     badge: "Mom's Choice",
     emoji: '🪑',
     description:
-      'Ergonomically shaped bouncer seat with natural motion that responds to baby\'s movements. Features a vibrating seat motor for extra calming, a recline adjustment for different activities and feeding, and a removable play arch with 3 hanging toys. Suitable from birth to 9 kg.',
+      "Ergonomically shaped bouncer seat with natural motion that responds to baby's movements. Features a vibrating seat motor for extra calming, a recline adjustment for different activities and feeding, and a removable play arch with 3 hanging toys. Suitable from birth to 9 kg.",
+    url: 'https://www.amazon.in/s?k=Chicco+Soft+Relax+Baby+Bouncer',
   },
   {
     id: 'p14',
@@ -193,6 +207,7 @@ export const PRODUCTS: Product[] = [
     emoji: '🛁',
     description:
       'Ultra-soft natural sea sponge for gentle baby bathing. The naturally hypoallergenic material is free from dyes, bleaches, and chemicals, making it safe for even the most sensitive newborn skin. Holds a rich lather with minimal product and dries quickly to prevent mould and bacteria build-up.',
+    url: 'https://www.amazon.in/s?k=Morisons+Baby+Dreams+Bath+Sponge',
   },
   {
     id: 'p15',
@@ -206,5 +221,6 @@ export const PRODUCTS: Product[] = [
     emoji: '🤰',
     description:
       "3-in-1 postpartum belly wrap providing targeted support for the abdomen, waist, and pelvis after delivery. The breathable cotton-spandex blend with hook-and-eye closure allows gradual size adjustment. Suitable for both vaginal and C-section recovery. India's best-selling postpartum support garment.",
+    url: 'https://www.amazon.in/s?k=Boldfit+Postpartum+Belly+Wrap',
   },
 ];

@@ -23,6 +23,7 @@ import ChatInput from '../../components/chat/ChatInput';
 import QuickChips from '../../components/chat/QuickChips';
 import TypingIndicator from '../../components/ui/TypingIndicator';
 import GradientAvatar from '../../components/ui/GradientAvatar';
+import SettingsModal from '../../components/ui/SettingsModal';
 
 // ─── Allergy Modal ─────────────────────────────────────────────────────────────
 
@@ -143,6 +144,7 @@ export default function ChatScreen() {
 
   const [allergyModalVisible, setAllergyModalVisible] = useState(false);
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
+  const [settingsVisible, setSettingsVisible] = useState(false);
 
   const flatListRef = useRef<FlatList>(null);
 
@@ -205,11 +207,20 @@ export default function ChatScreen() {
             <Text style={styles.headerSub}>Always here for you</Text>
           </View>
         </View>
-        {activeKid ? (
-          <View style={styles.kidPill}>
-            <Text style={styles.kidPillText}>{activeKid.name}</Text>
-          </View>
-        ) : null}
+        <View style={styles.headerRight}>
+          {activeKid ? (
+            <View style={styles.kidPill}>
+              <Text style={styles.kidPillText}>{activeKid.name}</Text>
+            </View>
+          ) : null}
+          <TouchableOpacity
+            onPress={() => setSettingsVisible(true)}
+            style={styles.gearBtn}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="settings-outline" size={22} color="#6b7280" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Chat */}
@@ -263,6 +274,9 @@ export default function ChatScreen() {
 
       {/* Allergy modal */}
       <AllergyModal visible={allergyModalVisible} onDone={handleAllergyDone} />
+
+      {/* Settings modal */}
+      <SettingsModal visible={settingsVisible} onClose={() => setSettingsVisible(false)} />
     </View>
   );
 }
@@ -286,7 +300,9 @@ const styles = StyleSheet.create({
     elevation: 3,
     boxShadow: '0px 2px 8px rgba(139, 92, 246, 0.06)',
   },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  gearBtn: { padding: 6 },
   headerInfo: {},
   headerNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   headerName: { fontSize: 17, fontWeight: '700', color: '#1a1a2e' },

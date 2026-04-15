@@ -14,65 +14,8 @@ import { useWellnessStore, MOOD_DATA, MOOD_RESPONSES } from '../../store/useWell
 import GradientHeader from '../../components/ui/GradientHeader';
 import Card from '../../components/ui/Card';
 import GradientButton from '../../components/ui/GradientButton';
-
-// ─── Yoga data ────────────────────────────────────────────────────────────────
-
-const YOGA_SESSIONS = [
-  {
-    id: 'y1',
-    title: 'Gentle Postpartum Flow',
-    emoji: '🧘',
-    duration: '15 min',
-    level: 'Beginner',
-    description: 'Gentle movements to restore core strength and ease tension after birth.',
-    contraindications: ['recent-csection'],
-  },
-  {
-    id: 'y2',
-    title: 'Pregnancy Breathing & Calm',
-    emoji: '🌬️',
-    duration: '10 min',
-    level: 'All levels',
-    description: 'Pranayama techniques to reduce anxiety and prepare for labour.',
-    contraindications: [],
-  },
-  {
-    id: 'y3',
-    title: 'Hip Opening for Labour Prep',
-    emoji: '🌸',
-    duration: '20 min',
-    level: 'Intermediate',
-    description: 'Opens the pelvis and relieves lower back pain in the third trimester.',
-    contraindications: ['placenta-previa'],
-  },
-  {
-    id: 'y4',
-    title: 'Postpartum Pelvic Floor',
-    emoji: '💪',
-    duration: '12 min',
-    level: 'Beginner',
-    description: 'Rebuild pelvic floor strength safely after vaginal delivery.',
-    contraindications: ['recent-csection'],
-  },
-  {
-    id: 'y5',
-    title: 'Restorative Rest & Recovery',
-    emoji: '🌙',
-    duration: '20 min',
-    level: 'All levels',
-    description: 'Deep relaxation poses for exhausted new mothers — sleep better tonight.',
-    contraindications: [],
-  },
-  {
-    id: 'y6',
-    title: 'Morning Energiser',
-    emoji: '☀️',
-    duration: '15 min',
-    level: 'Beginner',
-    description: 'Gentle sun salutations adapted for postpartum and pregnancy.',
-    contraindications: ['high-bp'],
-  },
-];
+import { YOGA_SESSIONS, YogaSession } from '../../data/yogaSessions';
+import YogaModalComponent from '../../components/wellness/YogaModal';
 
 const HEALTH_CONDITION_OPTIONS = [
   'Recent C-Section', 'High Blood Pressure', 'Gestational Diabetes',
@@ -81,13 +24,13 @@ const HEALTH_CONDITION_OPTIONS = [
 ];
 
 const CONDITION_KEY_MAP: Record<string, string> = {
-  'Recent C-Section': 'recent-csection',
-  'High Blood Pressure': 'high-bp',
-  'Gestational Diabetes': 'gestational-diabetes',
-  'Placenta Previa': 'placenta-previa',
-  'Back Pain': 'back-pain',
-  'Diastasis Recti': 'diastasis-recti',
-  'Anxiety/Depression': 'anxiety',
+  'Recent C-Section': 'C-section recovery',
+  'High Blood Pressure': 'Hypertension',
+  'Gestational Diabetes': 'Gestational diabetes',
+  'Placenta Previa': 'Placenta previa',
+  'Back Pain': 'Severe back pain',
+  'Diastasis Recti': 'Diastasis recti',
+  'Anxiety/Depression': 'Anxiety',
 };
 
 // ─── MoodSelector ─────────────────────────────────────────────────────────────
@@ -166,7 +109,7 @@ function YogaCard({
   session,
   onPress,
 }: {
-  session: (typeof YOGA_SESSIONS)[0];
+  session: YogaSession;
   onPress: () => void;
 }) {
   return (
@@ -175,9 +118,9 @@ function YogaCard({
         <Text style={yogaCardStyles.emoji}>{session.emoji}</Text>
       </View>
       <View style={yogaCardStyles.info}>
-        <Text style={yogaCardStyles.title}>{session.title}</Text>
+        <Text style={yogaCardStyles.title}>{session.name}</Text>
         <View style={yogaCardStyles.meta}>
-          <Text style={yogaCardStyles.metaText}>⏱ {session.duration}</Text>
+          <Text style={yogaCardStyles.metaText}>⏱ {session.duration} min</Text>
           <Text style={yogaCardStyles.metaText}>• {session.level}</Text>
         </View>
         <Text style={yogaCardStyles.desc} numberOfLines={2}>{session.description}</Text>
@@ -221,81 +164,7 @@ const yogaCardStyles = StyleSheet.create({
   desc: { fontSize: 12, color: '#6b7280', lineHeight: 17 },
 });
 
-// ─── YogaModal ────────────────────────────────────────────────────────────────
-
-function YogaModal({
-  session,
-  visible,
-  onClose,
-}: {
-  session: (typeof YOGA_SESSIONS)[0] | null;
-  visible: boolean;
-  onClose: () => void;
-}) {
-  if (!session) return null;
-
-  return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <LinearGradient
-        colors={['#fdf2f8', '#ede9fe', '#fdf6ff']}
-        style={yogaModalStyles.gradient}
-      >
-        <ScrollView contentContainerStyle={yogaModalStyles.content}>
-          <TouchableOpacity onPress={onClose} style={yogaModalStyles.closeBtn}>
-            <Ionicons name="close-circle" size={32} color="#ec4899" />
-          </TouchableOpacity>
-          <Text style={yogaModalStyles.emoji}>{session.emoji}</Text>
-          <Text style={yogaModalStyles.title}>{session.title}</Text>
-          <View style={yogaModalStyles.metaRow}>
-            <Text style={yogaModalStyles.metaText}>⏱ {session.duration}</Text>
-            <Text style={yogaModalStyles.metaText}>• {session.level}</Text>
-          </View>
-          <Text style={yogaModalStyles.desc}>{session.description}</Text>
-
-          <View style={yogaModalStyles.stepsCard}>
-            <Text style={yogaModalStyles.stepsTitle}>How to practice</Text>
-            <Text style={yogaModalStyles.stepsText}>
-              1. Find a quiet, comfortable space{'\n'}
-              2. Use a yoga mat or soft surface{'\n'}
-              3. Wear comfortable, loose clothing{'\n'}
-              4. Move gently and listen to your body{'\n'}
-              5. Stop if you feel any discomfort{'\n'}
-              6. Stay hydrated throughout
-            </Text>
-          </View>
-
-          <Card style={yogaModalStyles.disclaimer} shadow="sm">
-            <Text style={yogaModalStyles.disclaimerText}>
-              Always consult your doctor before beginning any exercise programme postpartum or during pregnancy.
-            </Text>
-          </Card>
-        </ScrollView>
-      </LinearGradient>
-    </Modal>
-  );
-}
-
-const yogaModalStyles = StyleSheet.create({
-  gradient: { flex: 1 },
-  content: { paddingHorizontal: 24, paddingTop: 60, paddingBottom: 40, alignItems: 'center' },
-  closeBtn: { position: 'absolute', top: 56, right: 24 },
-  emoji: { fontSize: 64, marginBottom: 16 },
-  title: { fontSize: 24, fontWeight: '800', color: '#1a1a2e', textAlign: 'center', marginBottom: 10 },
-  metaRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
-  metaText: { fontSize: 14, color: '#8b5cf6', fontWeight: '600' },
-  desc: { fontSize: 15, color: '#374151', textAlign: 'center', lineHeight: 23, marginBottom: 28 },
-  stepsCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 20,
-    width: '100%',
-    marginBottom: 16,
-  },
-  stepsTitle: { fontSize: 16, fontWeight: '700', color: '#1a1a2e', marginBottom: 10 },
-  stepsText: { fontSize: 14, color: '#374151', lineHeight: 24 },
-  disclaimer: { width: '100%', backgroundColor: 'rgba(139,92,246,0.05)' },
-  disclaimerText: { fontSize: 12, color: '#6b7280', textAlign: 'center', lineHeight: 18 },
-});
+// YogaModal is imported from components/wellness/YogaModal
 
 // ─── HealthCondModal ───────────────────────────────────────────────────────────
 
@@ -422,7 +291,7 @@ export default function WellnessScreen() {
   });
 
   const [showCondModal, setShowCondModal] = useState(false);
-  const [selectedYogaSession, setSelectedYogaSession] = useState<(typeof YOGA_SESSIONS)[0] | null>(null);
+  const [selectedYogaSession, setSelectedYogaSession] = useState<YogaSession | null>(null);
   const [showYogaModal, setShowYogaModal] = useState(false);
 
   const weekHistory = getWeekHistory();
@@ -516,7 +385,7 @@ export default function WellnessScreen() {
         }}
       />
 
-      <YogaModal
+      <YogaModalComponent
         session={selectedYogaSession}
         visible={showYogaModal}
         onClose={() => setShowYogaModal(false)}

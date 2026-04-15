@@ -18,6 +18,7 @@ import { useProfileStore, calculateAgeInMonths, calculateAgeInWeeks } from '../.
 import { INDIAN_STATES } from '../../data/states';
 import TypingIndicator from '../../components/ui/TypingIndicator';
 import GradientAvatar from '../../components/ui/GradientAvatar';
+import DatePickerField from '../../components/ui/DatePickerField';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -292,7 +293,7 @@ const TOTAL_STEPS = 7;
 
 const STEP_QUESTIONS = (name: string) => [
   `Hi ${name}! I'm MaaMitra, your personal companion 🤱 First, tell me — what's your current journey?`,
-  `Wonderful! When is your due date or baby's birthday? (e.g. 12 Sep 2025)`,
+  `Wonderful! When is your due date or baby's birthday? 📅 Tap the calendar to pick a date.`,
   `What's your little one's name? (or "not decided yet" if you're expecting)`,
   `Which state are you in? I'll give you location-specific advice 🇮🇳`,
   `What are your dietary preferences?`,
@@ -300,9 +301,9 @@ const STEP_QUESTIONS = (name: string) => [
   `Do you have more children?`,
 ];
 
-type InputType = 'chips' | 'text' | 'states';
+type InputType = 'chips' | 'text' | 'states' | 'date';
 
-const STEP_INPUT_TYPES: InputType[] = ['chips', 'text', 'text', 'states', 'chips', 'chips', 'chips'];
+const STEP_INPUT_TYPES: InputType[] = ['chips', 'date', 'text', 'states', 'chips', 'chips', 'chips'];
 
 const STEP_OPTIONS: (string[] | null)[] = [
   ["I'm pregnant 🤰", 'My baby has arrived 👶', 'Planning to conceive 🌸'],
@@ -328,18 +329,18 @@ const STEP_TEXT_PLACEHOLDERS = [
 const EXTRA_KID_QUESTIONS = [
   'What stage is this child at?',
   "What's their name?",
-  "What's their date of birth? (e.g. 10 Mar 2023)",
+  "What's their date of birth? 📅 Tap the calendar to pick.",
   'Would you like to add another child?',
 ];
 
-const EXTRA_KID_INPUT_TYPES: InputType[] = ['chips', 'text', 'text', 'chips'];
+const EXTRA_KID_INPUT_TYPES: InputType[] = ['chips', 'text', 'date', 'chips'];
 const EXTRA_KID_OPTIONS: (string[] | null)[] = [
   ['Expecting 🤰', 'Born 👶'],
   null,
   null,
   ["Yes, add another", "No, that's all"],
 ];
-const EXTRA_KID_PLACEHOLDERS = ['', "Child's name", 'e.g. 10 Mar 2023', ''];
+const EXTRA_KID_PLACEHOLDERS = ['', "Child's name", '', ''];
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -359,6 +360,7 @@ export default function OnboardingScreen() {
   const [textPlaceholder, setTextPlaceholder] = useState('');
   const [showInput, setShowInput] = useState(false);
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [datePickerValue, setDatePickerValue] = useState(''); // YYYY-MM-DD for current date step
 
   // For extra children sub-flow
   const [extraKidSubStep, setExtraKidSubStep] = useState<number | null>(null);
@@ -515,10 +517,10 @@ export default function OnboardingScreen() {
             : 'planning';
 
           const dietRaw = finalAnswers['step4'] ?? '';
-          const diet = dietRaw.includes('Vegetarian') && !dietRaw.includes('Eggetarian') ? 'vegetarian'
+          const diet = dietRaw.includes('Non-Vegetarian') ? 'non-vegetarian'
             : dietRaw.includes('Eggetarian') ? 'eggetarian'
-            : dietRaw.includes('Non-Vegetarian') ? 'non-vegetarian'
-            : 'vegan';
+            : dietRaw.includes('Vegan') ? 'vegan'
+            : 'vegetarian';
 
           const familyRaw = finalAnswers['step5'] ?? '';
           const familyType = familyRaw.includes('Nuclear') ? 'nuclear'
@@ -537,32 +539,38 @@ export default function OnboardingScreen() {
 
           // Add primary kid
           const kidName = finalAnswers['step2'] ?? 'Little one';
-          const isExpecting = stage === 'pregnant' || stage === 'planning';
           const keyDate = finalAnswers['step1'] ?? '';
           const parsedDate = keyDate ? new Date(keyDate) : new Date();
           const dobStr = isNaN(parsedDate.getTime()) ? new Date().toISOString() : parsedDate.toISOString();
+          // A child is only "expecting" if stage is pregnant/planning AND the date is in the future
+          const dateIsInFuture = parsedDate > new Date();
+          const isExpecting = (stage === 'pregnant' || stage === 'planning') && dateIsInFuture;
 
           addKid({
             name: kidName,
             dob: dobStr,
-            stage,
+            stage: isExpecting ? stage : 'newborn',
             gender: 'surprise',
             isExpecting,
           });
 
           // Add extra kids
           extraKidData.forEach((ekData) => {
-            const ekStage = ekData['sub0']?.includes('Expecting') ? 'pregnant' : 'newborn';
+            const ekSelectedExpecting = ekData['sub0']?.includes('Expecting') ?? false;
             const ekName = ekData['sub1'] ?? 'Sibling';
             const ekDobRaw = ekData['sub2'] ?? '';
             const ekParsed = ekDobRaw ? new Date(ekDobRaw) : new Date();
             const ekDob = isNaN(ekParsed.getTime()) ? new Date().toISOString() : ekParsed.toISOString();
+            // Only expecting if user selected Expecting AND date is in the future
+            const ekDateInFuture = ekParsed > new Date();
+            const ekIsExpecting = ekSelectedExpecting && ekDateInFuture;
+            const ekStage = ekIsExpecting ? 'pregnant' : 'newborn';
             addKid({
               name: ekName,
               dob: ekDob,
               stage: ekStage,
               gender: 'surprise',
-              isExpecting: ekStage === 'pregnant',
+              isExpecting: ekIsExpecting,
             });
           });
 
@@ -647,6 +655,32 @@ export default function OnboardingScreen() {
             {activeInputType === 'states' && (
               <StateSelector onSelect={handleAnswer} />
             )}
+            {activeInputType === 'date' && (
+              <View style={styles.datePickerWrap}>
+                <DatePickerField
+                  value={datePickerValue}
+                  onChange={setDatePickerValue}
+                  placeholder="Tap to select date"
+                />
+                <TouchableOpacity
+                  style={[styles.dateContinueBtn, !datePickerValue && styles.dateContinueBtnDisabled]}
+                  disabled={!datePickerValue}
+                  onPress={() => {
+                    if (!datePickerValue) return;
+                    // Format for display: "12 Sep 2025"
+                    const d = new Date(datePickerValue + 'T00:00:00');
+                    const display = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+                    handleAnswer(datePickerValue); // store YYYY-MM-DD for reliable parsing
+                    setDatePickerValue('');
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.dateContinueBtnText}>
+                    {datePickerValue ? 'Continue →' : 'Pick a date first'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         )}
       </KeyboardAvoidingView>
@@ -684,5 +718,24 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderTopWidth: 1,
     borderTopColor: 'rgba(236,72,153,0.1)',
+  },
+  datePickerWrap: {
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 12,
+  },
+  dateContinueBtn: {
+    backgroundColor: '#ec4899',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  dateContinueBtnDisabled: {
+    backgroundColor: '#e5e7eb',
+  },
+  dateContinueBtnText: {
+    color: '#ffffff',
+    fontWeight: '700',
+    fontSize: 15,
   },
 });

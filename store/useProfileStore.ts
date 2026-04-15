@@ -45,12 +45,18 @@ export function calculateAgeInWeeks(dob: string): number {
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 
+export interface CompletedVaccine {
+  done: boolean;
+  doneDate?: string; // ISO date string when marked done
+}
+
 interface ProfileState {
   motherName: string;
   profile: Profile | null;
   kids: Kid[];
   activeKidId: string | null;
   onboardingComplete: boolean;
+  completedVaccines: Record<string, CompletedVaccine>; // vaccineId → completion
 
   setMotherName: (name: string) => void;
   setProfile: (profile: Profile) => void;
@@ -59,6 +65,8 @@ interface ProfileState {
   setActiveKidId: (id: string) => void;
   setOnboardingComplete: (val: boolean) => void;
   getActiveKid: () => Kid | null;
+  markVaccineDone: (vaccineId: string, doneDate?: string) => void;
+  unmarkVaccineDone: (vaccineId: string) => void;
 }
 
 export const useProfileStore = create<ProfileState>()(
@@ -69,6 +77,7 @@ export const useProfileStore = create<ProfileState>()(
       kids: [],
       activeKidId: null,
       onboardingComplete: false,
+      completedVaccines: {},
 
       setMotherName: (name) => set({ motherName: name }),
 
@@ -76,9 +85,14 @@ export const useProfileStore = create<ProfileState>()(
 
       addKid: (kidData) => {
         const id = Date.now().toString();
-        const ageInMonths = kidData.isExpecting ? 0 : calculateAgeInMonths(kidData.dob);
-        const ageInWeeks = kidData.isExpecting ? 0 : calculateAgeInWeeks(kidData.dob);
-        const kid: Kid = { ...kidData, id, ageInMonths, ageInWeeks };
+        // Safety: if DOB is in the past, never treat as expecting
+        const dobDate = kidData.dob ? new Date(kidData.dob) : null;
+        const dobInFuture = dobDate ? dobDate > new Date() : false;
+        const isExpecting = kidData.isExpecting && dobInFuture;
+        const normalizedKidData = { ...kidData, isExpecting, stage: isExpecting ? kidData.stage : 'newborn' as Stage };
+        const ageInMonths = isExpecting ? 0 : calculateAgeInMonths(normalizedKidData.dob);
+        const ageInWeeks = isExpecting ? 0 : calculateAgeInWeeks(normalizedKidData.dob);
+        const kid: Kid = { ...normalizedKidData, id, ageInMonths, ageInWeeks };
         set((state) => ({
           kids: [...state.kids, kid],
           activeKidId: state.activeKidId ?? id,
@@ -106,6 +120,23 @@ export const useProfileStore = create<ProfileState>()(
       getActiveKid: () => {
         const { kids, activeKidId } = get();
         return kids.find((k) => k.id === activeKidId) ?? kids[0] ?? null;
+      },
+
+      markVaccineDone: (vaccineId, doneDate) => {
+        set((state) => ({
+          completedVaccines: {
+            ...state.completedVaccines,
+            [vaccineId]: { done: true, doneDate: doneDate ?? new Date().toISOString() },
+          },
+        }));
+      },
+
+      unmarkVaccineDone: (vaccineId) => {
+        set((state) => {
+          const next = { ...state.completedVaccines };
+          delete next[vaccineId];
+          return { completedVaccines: next };
+        });
       },
     }),
     {

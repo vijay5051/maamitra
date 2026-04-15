@@ -10,12 +10,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useVaccineSchedule, VaccineStatus } from '../../hooks/useVaccineSchedule';
+import { useVaccineSchedule } from '../../hooks/useVaccineSchedule';
 import { GOVERNMENT_SCHEMES } from '../../data/schemes';
 import { useActiveKid } from '../../hooks/useActiveKid';
 import GradientHeader from '../../components/ui/GradientHeader';
 import Card from '../../components/ui/Card';
 import TagPill from '../../components/ui/TagPill';
+import VaccineCardComponent from '../../components/health/VaccineCard';
 
 type SubTab = 'vaccines' | 'schemes' | 'myhealth';
 
@@ -96,47 +97,7 @@ const subTabStyles = StyleSheet.create({
   inactiveBtnText: { color: '#6b7280', fontSize: 13, fontWeight: '500' },
 });
 
-// ─── VaccineCard ───────────────────────────────────────────────────────────────
-
-const STATUS_CONFIG: Record<VaccineStatus, { color: string; label: string; bg: string }> = {
-  overdue: { color: '#ef4444', label: 'Overdue', bg: '#fff5f5' },
-  'due-soon': { color: '#f59e0b', label: 'Due Soon', bg: '#fffbeb' },
-  upcoming: { color: '#3b82f6', label: 'Upcoming', bg: '#eff6ff' },
-};
-
-function VaccineCard({ vaccine }: { vaccine: ReturnType<typeof useVaccineSchedule>[0] }) {
-  const cfg = STATUS_CONFIG[vaccine.status];
-  return (
-    <View style={[vacStyles.card, { backgroundColor: cfg.bg }]}>
-      <View style={vacStyles.row}>
-        <View style={vacStyles.info}>
-          <Text style={vacStyles.name}>{vaccine.name}</Text>
-          <Text style={vacStyles.ageLabel}>{vaccine.ageLabel}</Text>
-          <Text style={vacStyles.desc} numberOfLines={2}>{vaccine.description}</Text>
-        </View>
-        <View style={vacStyles.right}>
-          <TagPill label={cfg.label} color={cfg.color} />
-          <Text style={[vacStyles.date, { color: cfg.color }]}>{vaccine.formattedDate}</Text>
-        </View>
-      </View>
-    </View>
-  );
-}
-
-const vacStyles = StyleSheet.create({
-  card: {
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 10,
-  },
-  row: { flexDirection: 'row', gap: 12 },
-  info: { flex: 1 },
-  name: { fontSize: 14, fontWeight: '700', color: '#1a1a2e', marginBottom: 2 },
-  ageLabel: { fontSize: 12, color: '#ec4899', fontWeight: '600', marginBottom: 4 },
-  desc: { fontSize: 12, color: '#6b7280', lineHeight: 17 },
-  right: { alignItems: 'flex-end', gap: 6 },
-  date: { fontSize: 11, fontWeight: '600' },
-});
+// ─── VaccineCard — uses shared component with mark-as-done ────────────────────
 
 // ─── SchemeCard ────────────────────────────────────────────────────────────────
 
@@ -320,7 +281,9 @@ export default function HealthScreen() {
                 </Text>
               </Card>
             ) : (
-              vaccines.map((v) => <VaccineCard key={v.id} vaccine={v} />)
+              vaccines.map((v, i) => (
+                <VaccineCardComponent key={v.id} vaccine={v} isLast={i === vaccines.length - 1} />
+              ))
             )}
           </>
         )}

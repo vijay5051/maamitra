@@ -1,5 +1,13 @@
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
-import { getAuth, Auth } from 'firebase/auth';
+import {
+  getAuth,
+  Auth,
+  deleteUser,
+  GoogleAuthProvider,
+  signInWithPopup,
+  sendEmailVerification,
+  reload,
+} from 'firebase/auth';
 import {
   getFirestore,
   Firestore,
@@ -92,6 +100,66 @@ export async function getUserProfile(uid: string): Promise<Record<string, any> |
   } catch (error) {
     console.error('getUserProfile error:', error);
     return null;
+  }
+}
+
+// ─── Google Sign-In ───────────────────────────────────────────────────────────
+
+export async function signInWithGoogle(): Promise<{ uid: string; name: string; email: string } | null> {
+  if (!auth) return null;
+  try {
+    const provider = new GoogleAuthProvider();
+    provider.addScope('profile');
+    provider.addScope('email');
+    const result = await signInWithPopup(auth, provider);
+    const user = result.user;
+    const name = user.displayName ?? 'Mom';
+    const email = user.email ?? '';
+    // Save profile if new user
+    await saveUserProfile(user.uid, { name, email, provider: 'google', createdAt: new Date().toISOString() });
+    return { uid: user.uid, name, email };
+  } catch (error: any) {
+    // popup-closed-by-user or cancelled — not a real error
+    if (error?.code === 'auth/popup-closed-by-user' || error?.code === 'auth/cancelled-popup-request') {
+      return null;
+    }
+    console.error('signInWithGoogle error:', error);
+    throw error;
+  }
+}
+
+// ─── Email Verification ───────────────────────────────────────────────────────
+
+export async function sendVerificationEmail(): Promise<void> {
+  if (!auth?.currentUser) return;
+  await sendEmailVerification(auth.currentUser);
+}
+
+export async function checkEmailVerified(): Promise<boolean> {
+  if (!auth?.currentUser) return false;
+  await reload(auth.currentUser);
+  return auth.currentUser.emailVerified;
+}
+
+// ─── User Account Management ──────────────────────────────────────────────────
+
+export async function deleteUserAccount(uid: string): Promise<void> {
+  // Delete Firestore user document
+  if (db) {
+    try {
+      await deleteDoc(doc(db, 'users', uid));
+    } catch (error) {
+      console.error('deleteUserAccount (firestore) error:', error);
+    }
+  }
+  // Delete Firebase Auth user
+  if (auth?.currentUser) {
+    try {
+      await deleteUser(auth.currentUser);
+    } catch (error) {
+      console.error('deleteUserAccount (auth) error:', error);
+      throw error;
+    }
   }
 }
 

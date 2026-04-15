@@ -31,7 +31,10 @@ function ChildCard({
   isActive: boolean;
   onPress: () => void;
 }) {
-  const ageText = kid.isExpecting
+  // Safety guard: if DOB is in the past, never show "Due soon"
+  const dobInFuture = kid.dob ? new Date(kid.dob) > new Date() : false;
+  const isActuallyExpecting = kid.isExpecting && dobInFuture;
+  const ageText = isActuallyExpecting
     ? 'Due soon'
     : kid.ageInMonths < 1
     ? `${kid.ageInWeeks}w`
@@ -56,7 +59,7 @@ function ChildCard({
           style={childCardStyles.gradient}
         >
           <Text style={childCardStyles.emoji}>
-            {kid.isExpecting ? '🤰' : '👶'}
+            {isActuallyExpecting ? '🤰' : '👶'}
           </Text>
           <Text style={childCardStyles.nameActive}>{kid.name}</Text>
           <Text style={childCardStyles.ageActive}>{ageText}</Text>
@@ -64,7 +67,7 @@ function ChildCard({
       ) : (
         <View style={childCardStyles.inner}>
           <Text style={childCardStyles.emoji}>
-            {kid.isExpecting ? '🤰' : '👶'}
+            {isActuallyExpecting ? '🤰' : '👶'}
           </Text>
           <Text style={childCardStyles.name}>{kid.name}</Text>
           <Text style={childCardStyles.age}>{ageText}</Text>

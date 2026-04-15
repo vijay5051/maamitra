@@ -47,12 +47,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     alignSelf: 'flex-start',
-    maxWidth: '78%',
+    maxWidth: '82%',
     marginVertical: 6,
+    flexShrink: 1,
   },
   avatar: {
     marginRight: 10,
     marginBottom: 2,
+    flexShrink: 0,
   },
   bubble: {
     backgroundColor: '#ffffff',
@@ -66,11 +68,14 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
     flexShrink: 1,
+    flexWrap: 'wrap',
     boxShadow: '0px 2px 8px rgba(236, 72, 153, 0.08)',
   },
   text: {
     color: '#1a1a2e',
     fontSize: 15,
     lineHeight: 22,
+    flexShrink: 1,
+    flexWrap: 'wrap',
   },
 });

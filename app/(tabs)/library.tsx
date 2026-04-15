@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   FlatList,
+  Linking,
   Modal,
   ScrollView,
   StyleSheet,
@@ -26,12 +27,12 @@ const PRODUCT_CATEGORIES = ['All', 'Feeding', 'Skincare', 'Sleep', 'Development'
 const SORT_OPTIONS: SortMode[] = ['Featured', 'Price ↑', 'Price ↓', 'Top Rated'];
 
 const BOOKS = [
-  { emoji: '📖', title: 'What to Expect When You\'re Expecting', author: 'Heidi Murkoff', rating: 4.7, topic: 'Pregnancy' },
-  { emoji: '📗', title: 'The Baby Book', author: 'Dr. William Sears', rating: 4.6, topic: 'Parenting' },
-  { emoji: '📙', title: 'Nurturing the Soul of Your Family', author: 'Renée Peterson Trudeau', rating: 4.3, topic: 'Wellness' },
-  { emoji: '📘', title: 'Indian Baby Food and Recipes', author: 'Tarla Dalal', rating: 4.8, topic: 'Nutrition' },
-  { emoji: '📕', title: 'Yoga for Pregnancy and Birth', author: 'Uma Dinsmore-Tuli', rating: 4.5, topic: 'Yoga' },
-  { emoji: '📔', title: 'The Womanly Art of Breastfeeding', author: 'La Leche League', rating: 4.7, topic: 'Feeding' },
+  { emoji: '📖', title: 'What to Expect When You\'re Expecting', author: 'Heidi Murkoff', rating: 4.7, topic: 'Pregnancy', url: 'https://www.amazon.in/dp/0761187480' },
+  { emoji: '📗', title: 'The Baby Book', author: 'Dr. William Sears', rating: 4.6, topic: 'Parenting', url: 'https://www.amazon.in/dp/0316779415' },
+  { emoji: '📙', title: 'Nurturing the Soul of Your Family', author: 'Renée Peterson Trudeau', rating: 4.3, topic: 'Wellness', url: 'https://www.amazon.in/s?k=Nurturing+Soul+Family+Trudeau' },
+  { emoji: '📘', title: 'Indian Baby Food and Recipes', author: 'Tarla Dalal', rating: 4.8, topic: 'Nutrition', url: 'https://www.amazon.in/s?k=Indian+Baby+Food+Recipes+Tarla+Dalal' },
+  { emoji: '📕', title: 'Yoga for Pregnancy and Birth', author: 'Uma Dinsmore-Tuli', rating: 4.5, topic: 'Yoga', url: 'https://www.amazon.in/s?k=Yoga+Pregnancy+Birth+Uma+Dinsmore-Tuli' },
+  { emoji: '📔', title: 'The Womanly Art of Breastfeeding', author: 'La Leche League', rating: 4.7, topic: 'Feeding', url: 'https://www.amazon.in/dp/0345518446' },
 ];
 
 // ─── Sub-tab selector ──────────────────────────────────────────────────────────
@@ -162,6 +163,13 @@ function BookCard({ book }: { book: (typeof BOOKS)[0] }) {
             <Text style={bookStyles.rating}>⭐{book.rating}</Text>
             <TagPill label={book.topic} color="#ec4899" />
           </View>
+          <TouchableOpacity
+            style={bookStyles.buyBtn}
+            activeOpacity={0.8}
+            onPress={() => Linking.openURL(book.url)}
+          >
+            <Text style={bookStyles.buyBtnText}>View & Buy →</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </Card>
@@ -175,8 +183,10 @@ const bookStyles = StyleSheet.create({
   info: { flex: 1 },
   title: { fontSize: 14, fontWeight: '700', color: '#1a1a2e', marginBottom: 3 },
   author: { fontSize: 12, color: '#6b7280', marginBottom: 6 },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   rating: { fontSize: 12, color: '#f59e0b', fontWeight: '700' },
+  buyBtn: { alignSelf: 'flex-start', backgroundColor: '#fdf2f8', borderRadius: 8, paddingVertical: 5, paddingHorizontal: 10, borderWidth: 1, borderColor: '#f9a8d4' },
+  buyBtnText: { fontSize: 12, fontWeight: '700', color: '#ec4899' },
 });
 
 // ─── Product Card ──────────────────────────────────────────────────────────────
@@ -204,6 +214,13 @@ function ProductCard({ product }: { product: Product }) {
         <Text style={productCardStyles.rating}>⭐ {product.rating}</Text>
         <Text style={productCardStyles.reviews}>({product.reviews})</Text>
       </View>
+      <TouchableOpacity
+        style={productCardStyles.buyBtn}
+        activeOpacity={0.8}
+        onPress={() => Linking.openURL(product.url)}
+      >
+        <Text style={productCardStyles.buyBtnText}>Buy Now →</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -248,9 +265,11 @@ const productCardStyles = StyleSheet.create({
   priceRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
   price: { fontSize: 14, fontWeight: '800', color: '#1a1a2e' },
   discount: { fontSize: 11, color: '#22c55e', fontWeight: '700' },
-  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 8 },
   rating: { fontSize: 12, color: '#f59e0b', fontWeight: '600' },
   reviews: { fontSize: 11, color: '#9ca3af' },
+  buyBtn: { backgroundColor: '#fdf2f8', borderRadius: 8, paddingVertical: 6, paddingHorizontal: 10, borderWidth: 1, borderColor: '#f9a8d4', alignItems: 'center' },
+  buyBtnText: { fontSize: 12, fontWeight: '700', color: '#ec4899' },
 });
 
 // ─── Journey Item ──────────────────────────────────────────────────────────────

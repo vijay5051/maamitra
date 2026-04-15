@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
 import { VACCINE_SCHEDULE } from '../data/vaccines';
 import { useActiveKid } from './useActiveKid';
-import { addDays, isAfter, isBefore, differenceInDays } from 'date-fns';
+import { useProfileStore } from '../store/useProfileStore';
+import { addDays, isBefore, differenceInDays } from 'date-fns';
 
-export type VaccineStatus = 'overdue' | 'due-soon' | 'upcoming';
+export type VaccineStatus = 'overdue' | 'due-soon' | 'upcoming' | 'done';
 
 export interface VaccineWithDate {
   id: string;
@@ -13,10 +14,12 @@ export interface VaccineWithDate {
   dueDate: Date | null;
   status: VaccineStatus;
   formattedDate: string;
+  doneDate?: string;
 }
 
 export function useVaccineSchedule(): VaccineWithDate[] {
   const { activeKid } = useActiveKid();
+  const completedVaccines = useProfileStore((s) => s.completedVaccines);
 
   return useMemo(() => {
     if (!activeKid || activeKid.isExpecting || !activeKid.dob) {
@@ -32,6 +35,22 @@ export function useVaccineSchedule(): VaccineWithDate[] {
     const today = new Date();
 
     return VACCINE_SCHEDULE.map((v) => {
+      // If marked as done, always show done
+      const completed = completedVaccines[v.id];
+      if (completed?.done) {
+        const dueDate = addDays(dob, v.daysFromBirth);
+        const formattedDate = dueDate.toLocaleDateString('en-IN', {
+          day: '2-digit', month: 'short', year: 'numeric',
+        });
+        return {
+          ...v,
+          dueDate,
+          status: 'done' as VaccineStatus,
+          formattedDate,
+          doneDate: completed.doneDate,
+        };
+      }
+
       const dueDate = addDays(dob, v.daysFromBirth);
       const diffDays = differenceInDays(dueDate, today);
 
@@ -48,5 +67,5 @@ export function useVaccineSchedule(): VaccineWithDate[] {
 
       return { ...v, dueDate, status, formattedDate };
     });
-  }, [activeKid]);
+  }, [activeKid, completedVaccines]);
 }

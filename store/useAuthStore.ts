@@ -10,6 +10,9 @@ import {
   auth,
   saveUserProfile,
   getUserProfile,
+  deleteUserAccount,
+  signInWithGoogle as firebaseSignInWithGoogle,
+  sendVerificationEmail,
 } from '../services/firebase';
 
 interface AuthUser {
@@ -30,7 +33,9 @@ interface AuthState {
   isAuthenticated: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, name: string) => Promise<void>;
+  signInWithGoogle: () => Promise<'onboarding' | 'tabs' | null>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   initAuth: () => void;
 }
 
@@ -75,11 +80,27 @@ export const useAuthStore = create<AuthState>((set) => ({
         email: credential.user.email ?? email,
       };
       await saveUserProfile(credential.user.uid, { name, email, createdAt: new Date().toISOString() });
+      // Send email verification
+      await sendVerificationEmail().catch(() => {}); // non-blocking
       set({ user: authUser, isAuthenticated: true, isLoading: false });
     } catch (error) {
       set({ isLoading: false });
       throw error;
     }
+  },
+
+  signInWithGoogle: async () => {
+    if (!isFirebaseConfigured() || !auth) {
+      // Demo mode
+      set({ user: MOCK_USER, isAuthenticated: true, isLoading: false });
+      return 'tabs';
+    }
+    const result = await firebaseSignInWithGoogle();
+    if (!result) return null; // User cancelled
+    const profile = await getUserProfile(result.uid);
+    set({ user: result, isAuthenticated: true, isLoading: false });
+    // If profile has onboardingComplete, go to tabs; otherwise onboarding
+    return profile?.onboardingComplete ? 'tabs' : 'onboarding';
   },
 
   signOut: async () => {
@@ -94,6 +115,18 @@ export const useAuthStore = create<AuthState>((set) => ({
       console.error('signOut error:', error);
       throw error;
     }
+  },
+
+  deleteAccount: async () => {
+    const { user } = useAuthStore.getState();
+    if (!isFirebaseConfigured() || !auth) {
+      // Mock mode — just sign out
+      set({ user: null, isAuthenticated: false });
+      return;
+    }
+    if (!user) throw new Error('Not logged in');
+    await deleteUserAccount(user.uid);
+    set({ user: null, isAuthenticated: false });
   },
 
   initAuth: () => {

@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import {
-  FlatList,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -45,40 +45,38 @@ export default function StateSelector({ onSelect, selected }: StateSelectorProps
         )}
       </View>
 
-      {/* Horizontal chips */}
-      <FlatList
-        data={filtered}
-        keyExtractor={(item) => item}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.list}
-        renderItem={({ item }) => {
-          const isSelected = selected === item;
-          if (isSelected) {
+      {/* Wrapped chips — all state names fully visible */}
+      <ScrollView style={styles.scrollArea} showsVerticalScrollIndicator={false}>
+        <View style={styles.chipGrid}>
+          {filtered.map((item) => {
+            const isSelected = selected === item;
+            if (isSelected) {
+              return (
+                <TouchableOpacity key={item} onPress={() => onSelect(item)} activeOpacity={0.8}>
+                  <LinearGradient
+                    colors={['#ec4899', '#8b5cf6']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.chip}
+                  >
+                    <Text style={styles.chipTextSelected}>{item}</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              );
+            }
             return (
-              <TouchableOpacity onPress={() => onSelect(item)} activeOpacity={0.8}>
-                <LinearGradient
-                  colors={['#ec4899', '#8b5cf6']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.chip}
-                >
-                  <Text style={styles.chipTextSelected}>{item}</Text>
-                </LinearGradient>
+              <TouchableOpacity
+                key={item}
+                onPress={() => onSelect(item)}
+                activeOpacity={0.75}
+                style={styles.chipUnselected}
+              >
+                <Text style={styles.chipText}>{item}</Text>
               </TouchableOpacity>
             );
-          }
-          return (
-            <TouchableOpacity
-              onPress={() => onSelect(item)}
-              activeOpacity={0.75}
-              style={styles.chipUnselected}
-            >
-              <Text style={styles.chipText}>{item}</Text>
-            </TouchableOpacity>
-          );
-        }}
-      />
+          })}
+        </View>
+      </ScrollView>
     </View>
   );
 }
@@ -105,24 +103,27 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#1a1a2e',
   },
-  list: {
-    paddingVertical: 4,
+  scrollArea: {
+    maxHeight: 200,
+  },
+  chipGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
+    paddingVertical: 4,
   },
   chip: {
     borderRadius: 999,
     paddingVertical: 8,
-    paddingHorizontal: 16,
-    marginRight: 8,
+    paddingHorizontal: 14,
   },
   chipUnselected: {
     borderRadius: 999,
     paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     backgroundColor: '#ffffff',
     borderWidth: 1,
     borderColor: '#e5e7eb',
-    marginRight: 8,
   },
   chipText: {
     color: '#1a1a2e',

@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import GradientButton from '../ui/GradientButton';
+import DatePickerField from '../ui/DatePickerField';
 import { Kid } from '../../store/useProfileStore';
 
 interface AddChildModalProps {
@@ -101,7 +102,9 @@ export default function AddChildModal({ visible, onClose, onAdd }: AddChildModal
   const handleAdd = () => {
     let parsedDate: Date | undefined;
     if (dateStr.trim()) {
-      parsedDate = new Date(dateStr.trim());
+      // dateStr is YYYY-MM-DD from DatePickerField
+      parsedDate = new Date(dateStr.trim() + 'T00:00:00');
+      if (isNaN(parsedDate.getTime())) parsedDate = undefined;
     }
     const kid: Partial<Kid> = {
       stage: stage ?? 'newborn',
@@ -185,15 +188,13 @@ export default function AddChildModal({ visible, onClose, onAdd }: AddChildModal
                 <Text style={styles.stepTitle}>
                   {isExpecting ? 'When is the due date? 📅' : 'When was the birth date? 🎂'}
                 </Text>
-                <Text style={styles.stepSubtitle}>Format: DD MMM YYYY (e.g. 15 Jan 2024)</Text>
-                <TextInput
-                  style={styles.textInput}
+                <Text style={styles.stepSubtitle}>Tap to open calendar</Text>
+                <DatePickerField
                   value={dateStr}
-                  onChangeText={setDateStr}
-                  placeholder="15 Jan 2024"
-                  placeholderTextColor="#9ca3af"
-                  autoFocus
-                  returnKeyType="next"
+                  onChange={setDateStr}
+                  placeholder={isExpecting ? 'Select due date' : 'Select birth date'}
+                  maxDate={isExpecting ? undefined : new Date().toISOString().slice(0, 10)}
+                  minDate={isExpecting ? new Date().toISOString().slice(0, 10) : '2018-01-01'}
                 />
               </>
             )}

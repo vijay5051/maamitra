@@ -79,20 +79,24 @@ const styles = StyleSheet.create({
   userWrapper: {
     alignSelf: 'flex-end',
     alignItems: 'flex-end',
-    maxWidth: '80%',
+    maxWidth: '82%',
     marginVertical: 4,
     marginRight: 12,
+    flexShrink: 1,
   },
   userBubble: {
     borderRadius: 16,
     borderTopRightRadius: 4,
     paddingVertical: 12,
     paddingHorizontal: 14,
+    flexShrink: 1,
   },
   userText: {
     color: '#ffffff',
     fontSize: 15,
     lineHeight: 22,
+    flexShrink: 1,
+    flexWrap: 'wrap',
   },
 
   // Bot bubble
@@ -100,13 +104,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignSelf: 'flex-start',
     alignItems: 'flex-end',
-    maxWidth: '80%',
+    maxWidth: '82%',
     marginVertical: 4,
     marginLeft: 8,
+    flexShrink: 1,
   },
   avatar: {
     marginRight: 8,
     marginBottom: 4,
+    flexShrink: 0,
   },
   botContent: {
     flexShrink: 1,
@@ -122,12 +128,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 2,
+    flexShrink: 1,
     boxShadow: '0px 2px 8px rgba(236, 72, 153, 0.08)',
   },
   botText: {
     color: '#1a1a2e',
     fontSize: 15,
     lineHeight: 22,
+    flexShrink: 1,
+    flexWrap: 'wrap',
   },
   tagPill: {
     marginTop: 6,
