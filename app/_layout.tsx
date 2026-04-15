@@ -7,7 +7,6 @@ import * as SplashScreen from 'expo-splash-screen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
-import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../store/useAuthStore';
 import { useAppSettingsStore } from '../store/useAppSettingsStore';
 
@@ -17,8 +16,11 @@ export default function RootLayout() {
   const { initAuth } = useAuthStore();
   const { fetchSettings } = useAppSettingsStore();
 
-  // fontError is returned as second element — if loading fails we still render the app
-  const [fontsLoaded, fontError] = useFonts({ ...Ionicons.font });
+  // Load Ionicons from project assets (not node_modules) — ensures expo export includes the TTF
+  // and Firebase Hosting can serve it from a clean /assets path without @ scoped package issues
+  const [fontsLoaded, fontError] = useFonts({
+    Ionicons: require('../assets/fonts/Ionicons.ttf'),
+  });
 
   useEffect(() => {
     initAuth();
