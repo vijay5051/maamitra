@@ -11,17 +11,27 @@ import {
   saveUserProfile,
   getUserProfile,
   loadFullProfile,
+  saveFullProfile,
   deleteUserAccount,
   signInWithGoogle as firebaseSignInWithGoogle,
   sendVerificationEmail,
 } from '../services/firebase';
 import { useProfileStore } from './useProfileStore';
 
-// Helper — populate profile store from Firestore after any successful login
-async function hydrateProfileFromFirestore(uid: string) {
+// Helper — populate profile store from Firestore after any successful login.
+// Returns true if Firestore had data, false if not (used for migration trigger).
+async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
   try {
     const fullProfile = await loadFullProfile(uid);
-    if (!fullProfile) return;
+    if (!fullProfile) {
+      // Firestore has no data — check if local store has completed onboarding data
+      // (user completed onboarding before Firestore sync was added — migrate it now)
+      const { onboardingComplete, motherName, profile, kids, completedVaccines } = useProfileStore.getState();
+      if (onboardingComplete && motherName) {
+        saveFullProfile(uid, { motherName, profile, kids, completedVaccines, onboardingComplete: true }).catch(console.error);
+      }
+      return false;
+    }
     const { setMotherName, setProfile, addKid, setOnboardingComplete, markVaccineDone } = useProfileStore.getState();
     setMotherName(fullProfile.motherName);
     if (fullProfile.profile) setProfile(fullProfile.profile as any);
@@ -36,8 +46,10 @@ async function hydrateProfileFromFirestore(uid: string) {
       markVaccineDone(id, val.doneDate);
     });
     setOnboardingComplete(true);
+    return true;
   } catch (error) {
     console.error('hydrateProfileFromFirestore error:', error);
+    return false;
   }
 }
 

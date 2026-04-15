@@ -184,6 +184,10 @@ function AddChildModal({
   const handleAdd = () => {
     if (!name.trim()) { setError('Please enter a name'); return; }
     if (!isExpecting && !dob.trim()) { setError('Please enter a date of birth'); return; }
+    if (!isExpecting) {
+      const parsed = new Date(dob);
+      if (isNaN(parsed.getTime())) { setError('Invalid date — use YYYY-MM-DD format'); return; }
+    }
     onAdd({ name: name.trim(), dob: isExpecting ? new Date().toISOString() : new Date(dob).toISOString(), isExpecting });
     reset();
     onClose();

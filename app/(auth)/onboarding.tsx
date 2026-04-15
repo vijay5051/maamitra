@@ -490,9 +490,14 @@ export default function OnboardingScreen() {
             : 'single-parent';
 
           setMotherName(motherName);
+          // Validate keyDate — only store it if it parses to a real date
+          const rawKeyDate = finalAnswers['step1'] ?? '';
+          const parsedKeyDate = rawKeyDate ? new Date(rawKeyDate) : null;
+          const validKeyDate = parsedKeyDate && !isNaN(parsedKeyDate.getTime()) ? parsedKeyDate.toISOString() : '';
+
           setProfile({
             stage,
-            keyDate: finalAnswers['step1'] ?? '',
+            keyDate: validKeyDate,
             state: finalAnswers['step3'] ?? '',
             diet,
             familyType,
@@ -500,9 +505,8 @@ export default function OnboardingScreen() {
 
           // Add primary kid
           const kidName = finalAnswers['step2'] ?? 'Little one';
-          const keyDate = finalAnswers['step1'] ?? '';
-          const parsedDate = keyDate ? new Date(keyDate) : new Date();
-          const dobStr = isNaN(parsedDate.getTime()) ? new Date().toISOString() : parsedDate.toISOString();
+          const parsedDate = validKeyDate ? new Date(validKeyDate) : new Date();
+          const dobStr = parsedDate.toISOString(); // validKeyDate is already validated above
           // A child is only "expecting" if stage is pregnant/planning AND the date is in the future
           const dateIsInFuture = parsedDate > new Date();
           const isExpecting = (stage === 'pregnant' || stage === 'planning') && dateIsInFuture;
