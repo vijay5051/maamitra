@@ -15,10 +15,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useProfileStore, calculateAgeInMonths, calculateAgeInWeeks } from '../../store/useProfileStore';
-import { INDIAN_STATES } from '../../data/states';
 import TypingIndicator from '../../components/ui/TypingIndicator';
 import GradientAvatar from '../../components/ui/GradientAvatar';
 import DatePickerField from '../../components/ui/DatePickerField';
+import StateSelectorComponent from '../../components/onboarding/StateSelector';
+import { saveFullProfile } from '../../services/firebase';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -66,6 +67,7 @@ const msgStyles = StyleSheet.create({
     maxWidth: '80%',
     marginVertical: 4,
     marginLeft: 8,
+    minWidth: 0,
   },
   avatar: { marginRight: 8, marginBottom: 2 },
   botBubble: {
@@ -78,6 +80,7 @@ const msgStyles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
+    minWidth: 0,
     elevation: 2,
     boxShadow: '0px 2px 8px rgba(236, 72, 153, 0.08)',
   },
@@ -147,49 +150,7 @@ const chipStyles = StyleSheet.create({
   chipText: { color: '#ec4899', fontSize: 14, fontWeight: '600' },
 });
 
-// ─── StateSelector ────────────────────────────────────────────────────────────
-
-function StateSelector({ onSelect }: { onSelect: (val: string) => void }) {
-  return (
-    <View style={stateStyles.outer}>
-      <View style={stateStyles.wrap}>
-        {INDIAN_STATES.map((state) => (
-          <TouchableOpacity
-            key={state}
-            style={stateStyles.chip}
-            onPress={() => onSelect(state)}
-            activeOpacity={0.75}
-          >
-            <Text style={stateStyles.chipText}>{state}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </View>
-  );
-}
-
-const stateStyles = StyleSheet.create({
-  outer: {
-    maxHeight: 160,
-    overflow: 'hidden',
-  },
-  wrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 6,
-  },
-  chip: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#8b5cf6',
-    borderRadius: 16,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-  },
-  chipText: { color: '#8b5cf6', fontSize: 13, fontWeight: '500' },
-});
+// StateSelector is imported from components/onboarding/StateSelector
 
 // ─── TextInputBox ─────────────────────────────────────────────────────────────
 
@@ -575,6 +536,14 @@ export default function OnboardingScreen() {
           });
 
           setOnboardingComplete(true);
+
+          // Sync full profile to Firestore for cross-device persistence
+          const { user: authUser } = useAuthStore.getState();
+          if (authUser?.uid) {
+            const { motherName: mn, profile: pr, kids: k, completedVaccines: cv } = useProfileStore.getState();
+            saveFullProfile(authUser.uid, { motherName: mn, profile: pr, kids: k, completedVaccines: cv, onboardingComplete: true }).catch(console.error);
+          }
+
           router.replace('/(tabs)/chat');
         }, 1500);
       }, 800);
@@ -653,7 +622,7 @@ export default function OnboardingScreen() {
               <TextInputBox placeholder={activeTextPlaceholder} onSubmit={handleAnswer} />
             )}
             {activeInputType === 'states' && (
-              <StateSelector onSelect={handleAnswer} />
+              <StateSelectorComponent onSelect={handleAnswer} />
             )}
             {activeInputType === 'date' && (
               <View style={styles.datePickerWrap}>

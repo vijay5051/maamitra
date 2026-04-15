@@ -83,6 +83,7 @@ const styles = StyleSheet.create({
     marginVertical: 4,
     marginRight: 12,
     flexShrink: 1,
+    minWidth: 0,
   },
   userBubble: {
     borderRadius: 16,
@@ -90,6 +91,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 14,
     flexShrink: 1,
+    minWidth: 0,
   },
   userText: {
     color: '#ffffff',
@@ -108,6 +110,7 @@ const styles = StyleSheet.create({
     marginVertical: 4,
     marginLeft: 8,
     flexShrink: 1,
+    minWidth: 0,
   },
   avatar: {
     marginRight: 8,
@@ -116,6 +119,7 @@ const styles = StyleSheet.create({
   },
   botContent: {
     flexShrink: 1,
+    minWidth: 0,
   },
   botBubble: {
     backgroundColor: '#ffffff',
@@ -129,6 +133,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
     flexShrink: 1,
+    minWidth: 0,
     boxShadow: '0px 2px 8px rgba(236, 72, 153, 0.08)',
   },
   botText: {

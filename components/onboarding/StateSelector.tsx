@@ -1,13 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import {
-  ScrollView,
+  FlatList,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { INDIAN_STATES } from '../../data/states';
 
@@ -45,38 +44,27 @@ export default function StateSelector({ onSelect, selected }: StateSelectorProps
         )}
       </View>
 
-      {/* Wrapped chips — all state names fully visible */}
-      <ScrollView style={styles.scrollArea} showsVerticalScrollIndicator={false}>
-        <View style={styles.chipGrid}>
-          {filtered.map((item) => {
-            const isSelected = selected === item;
-            if (isSelected) {
-              return (
-                <TouchableOpacity key={item} onPress={() => onSelect(item)} activeOpacity={0.8}>
-                  <LinearGradient
-                    colors={['#ec4899', '#8b5cf6']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.chip}
-                  >
-                    <Text style={styles.chipTextSelected}>{item}</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              );
-            }
-            return (
-              <TouchableOpacity
-                key={item}
-                onPress={() => onSelect(item)}
-                activeOpacity={0.75}
-                style={styles.chipUnselected}
-              >
-                <Text style={styles.chipText}>{item}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </ScrollView>
+      {/* Vertical scrollable list */}
+      <FlatList
+        data={filtered}
+        keyExtractor={(item) => item}
+        style={styles.listArea}
+        showsVerticalScrollIndicator={true}
+        keyboardShouldPersistTaps="handled"
+        renderItem={({ item }) => {
+          const isSelected = selected === item;
+          return (
+            <TouchableOpacity
+              onPress={() => onSelect(item)}
+              activeOpacity={0.7}
+              style={[styles.stateRow, isSelected && styles.stateRowSelected]}
+            >
+              <Text style={[styles.stateText, isSelected && styles.stateTextSelected]}>{item}</Text>
+              <Ionicons name="chevron-forward" size={16} color={isSelected ? '#ec4899' : '#d1d5db'} />
+            </TouchableOpacity>
+          );
+        }}
+      />
     </View>
   );
 }
@@ -103,36 +91,34 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#1a1a2e',
   },
-  scrollArea: {
-    maxHeight: 200,
-  },
-  chipGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    paddingVertical: 4,
-  },
-  chip: {
-    borderRadius: 999,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-  },
-  chipUnselected: {
-    borderRadius: 999,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
+  listArea: {
+    maxHeight: 220,
+    borderRadius: 12,
     backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: '#f3e8ff',
   },
-  chipText: {
+  stateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 13,
+    paddingHorizontal: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+    minHeight: 44,
+  },
+  stateRowSelected: {
+    backgroundColor: '#fdf2f8',
+  },
+  stateText: {
+    fontSize: 15,
     color: '#1a1a2e',
-    fontSize: 13,
     fontWeight: '500',
+    flex: 1,
   },
-  chipTextSelected: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontWeight: '600',
+  stateTextSelected: {
+    color: '#ec4899',
+    fontWeight: '700',
   },
 });

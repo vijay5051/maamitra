@@ -2,8 +2,11 @@ import React, { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import TagPill from '../ui/TagPill';
+import DatePickerField from '../ui/DatePickerField';
 import { VaccineWithDate } from '../../hooks/useVaccineSchedule';
 import { useProfileStore } from '../../store/useProfileStore';
+import { useAuthStore } from '../../store/useAuthStore';
+import { syncCompletedVaccines } from '../../services/firebase';
 
 interface VaccineCardProps {
   vaccine: VaccineWithDate;
@@ -24,13 +27,44 @@ export default function VaccineCard({ vaccine, isLast }: VaccineCardProps) {
   const isDueSoon = vaccine.status === 'due-soon';
   const statusColor = getStatusColor(vaccine.status);
 
+  // Only allow marking done if already done (to undo), or if overdue/due-soon
+  const canMark = isDone || isOverdue || isDueSoon;
+
+  const [showDateInput, setShowDateInput] = useState(false);
+  const [pendingDate, setPendingDate] = useState('');
+
   const handleToggle = () => {
+    if (!canMark) return;
     if (isDone) {
       unmarkVaccineDone(vaccine.id);
-    } else {
-      markVaccineDone(vaccine.id, new Date().toISOString());
+      // Sync to Firestore
+      const uid = useAuthStore.getState().user?.uid;
+      if (uid) {
+        const { completedVaccines } = useProfileStore.getState();
+        syncCompletedVaccines(uid, completedVaccines).catch(console.error);
+      }
+      return;
+    }
+    // Show date picker
+    setShowDateInput(true);
+    setPendingDate(new Date().toISOString().split('T')[0]);
+  };
+
+  const handleConfirmDate = () => {
+    if (!pendingDate) return;
+    const chosen = new Date(pendingDate + 'T00:00:00');
+    if (chosen > new Date()) return; // reject future dates
+    markVaccineDone(vaccine.id, chosen.toISOString());
+    setShowDateInput(false);
+    // Sync to Firestore
+    const uid = useAuthStore.getState().user?.uid;
+    if (uid) {
+      const { completedVaccines } = useProfileStore.getState();
+      syncCompletedVaccines(uid, completedVaccines).catch(console.error);
     }
   };
+
+  const today = new Date().toISOString().split('T')[0];
 
   const doneDateStr = vaccine.doneDate
     ? new Date(vaccine.doneDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -74,15 +108,49 @@ export default function VaccineCard({ vaccine, isLast }: VaccineCardProps) {
           </Text>
         </View>
 
-        {/* Mark as done checkbox */}
-        <TouchableOpacity style={styles.checkRow} onPress={handleToggle} activeOpacity={0.7}>
-          <View style={[styles.checkbox, isDone && styles.checkboxDone]}>
-            {isDone && <Ionicons name="checkmark" size={13} color="#fff" />}
+        {/* Mark as done */}
+        {showDateInput ? (
+          <View style={styles.dateInputWrap}>
+            <Text style={styles.dateInputLabel}>When was this vaccine given?</Text>
+            <DatePickerField
+              value={pendingDate}
+              onChange={setPendingDate}
+              maxDate={today}
+              placeholder="Select date given"
+            />
+            <View style={styles.dateInputBtns}>
+              <TouchableOpacity
+                style={styles.cancelBtn}
+                onPress={() => { setShowDateInput(false); setPendingDate(''); }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmBtn, !pendingDate && styles.confirmBtnDisabled]}
+                onPress={handleConfirmDate}
+                disabled={!pendingDate}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.confirmBtnText}>Confirm ✓</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-          <Text style={[styles.checkLabel, isDone && styles.checkLabelDone]}>
-            {isDone ? 'Vaccine given — tap to undo' : 'Mark as given'}
-          </Text>
-        </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[styles.checkRow, !canMark && styles.checkRowDisabled]}
+            onPress={handleToggle}
+            activeOpacity={canMark ? 0.7 : 1}
+            disabled={!canMark}
+          >
+            <View style={[styles.checkbox, isDone && styles.checkboxDone, !canMark && styles.checkboxDisabled]}>
+              {isDone && <Ionicons name="checkmark" size={13} color="#fff" />}
+            </View>
+            <Text style={[styles.checkLabel, isDone && styles.checkLabelDone, !canMark && styles.checkLabelDisabled]}>
+              {isDone ? 'Vaccine given — tap to undo' : canMark ? 'Mark as given' : 'Not yet due'}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -200,5 +268,61 @@ const styles = StyleSheet.create({
   checkLabelDone: {
     color: '#16a34a',
     fontWeight: '600',
+  },
+  checkRowDisabled: {
+    opacity: 0.5,
+  },
+  checkboxDisabled: {
+    borderColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
+  },
+  checkLabelDisabled: {
+    color: '#9ca3af',
+    fontWeight: '400',
+  },
+  dateInputWrap: {
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#f3f4f6',
+    gap: 8,
+  },
+  dateInputLabel: {
+    fontSize: 12,
+    color: '#6b7280',
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  dateInputBtns: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+  },
+  cancelBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    alignItems: 'center',
+  },
+  cancelBtnText: {
+    fontSize: 13,
+    color: '#6b7280',
+    fontWeight: '600',
+  },
+  confirmBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: '#22c55e',
+    alignItems: 'center',
+  },
+  confirmBtnDisabled: {
+    backgroundColor: '#d1fae5',
+  },
+  confirmBtnText: {
+    fontSize: 13,
+    color: '#ffffff',
+    fontWeight: '700',
   },
 });

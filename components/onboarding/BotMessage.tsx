@@ -50,6 +50,7 @@ const styles = StyleSheet.create({
     maxWidth: '82%',
     marginVertical: 6,
     flexShrink: 1,
+    minWidth: 0,
   },
   avatar: {
     marginRight: 10,
@@ -68,6 +69,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
     flexShrink: 1,
+    minWidth: 0,
     flexWrap: 'wrap',
     boxShadow: '0px 2px 8px rgba(236, 72, 153, 0.08)',
   },

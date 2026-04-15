@@ -239,7 +239,7 @@ const productCardStyles = StyleSheet.create({
     elevation: 2,
     borderWidth: 1,
     borderColor: '#f3e8ff',
-    minHeight: 180,
+    overflow: 'hidden',
     boxShadow: '0px 2px 8px rgba(236, 72, 153, 0.07)',
   },
   emojiBox: {
@@ -336,6 +336,9 @@ export default function LibraryScreen() {
     return list;
   }, [productCategory, sortMode]);
 
+  // Curated milestone vaccine IDs: Birth, 6wk, 10wk, 14wk, 9mo, 15mo, 16-18mo, 4-6yr
+  const MILESTONE_IDS = ['v01', 'v02', 'v03', 'v04', 'v06', 'v08', 'v09', 'v11'];
+
   // Build journey events
   const journeyEvents = useMemo(() => {
     if (!activeKid || !activeKid.dob) return [];
@@ -343,7 +346,7 @@ export default function LibraryScreen() {
     const events: { date: Date; title: string; emoji: string; detail: string }[] = [
       {
         date: dob,
-        title: activeKid.isExpecting ? 'Due Date' : `${activeKid.name}'s Birthday 🎂`,
+        title: activeKid.isExpecting ? 'Expected Due Date' : `${activeKid.name}'s Birthday`,
         emoji: activeKid.isExpecting ? '🤰' : '👶',
         detail: activeKid.isExpecting
           ? 'The big day is almost here!'
@@ -351,17 +354,20 @@ export default function LibraryScreen() {
       },
     ];
 
-    const vaccinesWithDate = vaccines.filter((v) => v.dueDate !== null).slice(0, 6);
-    vaccinesWithDate.forEach((v) => {
-      if (v.dueDate) {
+    const seenDates = new Set<string>();
+    vaccines
+      .filter((v) => MILESTONE_IDS.includes(v.id) && v.dueDate)
+      .forEach((v) => {
+        const key = v.dueDate!.toISOString().split('T')[0];
+        if (seenDates.has(key)) return;
+        seenDates.add(key);
         events.push({
-          date: v.dueDate,
-          title: `${v.name}`,
+          date: v.dueDate!,
+          title: v.ageLabel,
           emoji: '💉',
-          detail: `${v.ageLabel} — ${v.formattedDate}`,
+          detail: v.name,
         });
-      }
-    });
+      });
 
     return events.sort((a, b) => a.date.getTime() - b.date.getTime());
   }, [activeKid, vaccines]);

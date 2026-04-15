@@ -90,7 +90,7 @@ const styles = StyleSheet.create({
     boxShadow: '0px 2px 6px rgba(236, 72, 153, 0.08)',
   },
   imageArea: {
-    height: 120,
+    aspectRatio: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',

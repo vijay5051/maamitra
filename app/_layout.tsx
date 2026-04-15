@@ -5,6 +5,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../store/useAuthStore';
 import { useAppSettingsStore } from '../store/useAppSettingsStore';
 
@@ -14,11 +16,18 @@ export default function RootLayout() {
   const { initAuth } = useAuthStore();
   const { fetchSettings } = useAppSettingsStore();
 
+  const [fontsLoaded] = useFonts({ ...Ionicons.font });
+
   useEffect(() => {
     initAuth();
     fetchSettings();
-    SplashScreen.hideAsync();
   }, []);
+
+  useEffect(() => {
+    if (fontsLoaded) SplashScreen.hideAsync();
+  }, [fontsLoaded]);
+
+  if (!fontsLoaded) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

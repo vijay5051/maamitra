@@ -103,6 +103,61 @@ export async function getUserProfile(uid: string): Promise<Record<string, any> |
   }
 }
 
+// ─── Full Profile Sync ─────────────────────────────────────────────────────────
+
+export interface FullProfileData {
+  motherName: string;
+  profile: Record<string, any> | null;
+  kids: any[];
+  completedVaccines: Record<string, any>;
+  onboardingComplete: boolean;
+}
+
+export async function saveFullProfile(uid: string, data: FullProfileData): Promise<void> {
+  if (!db) return;
+  try {
+    await setDoc(doc(db, 'users', uid), {
+      motherName: data.motherName,
+      profile: data.profile ?? null,
+      kids: data.kids,
+      completedVaccines: data.completedVaccines,
+      onboardingComplete: data.onboardingComplete,
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+  } catch (error) {
+    console.error('saveFullProfile error:', error);
+  }
+}
+
+export async function loadFullProfile(uid: string): Promise<FullProfileData | null> {
+  if (!db) return null;
+  try {
+    const snap = await getDoc(doc(db, 'users', uid));
+    if (!snap.exists()) return null;
+    const d = snap.data();
+    if (!d.onboardingComplete) return null;
+    return {
+      motherName: d.motherName ?? '',
+      profile: d.profile ?? null,
+      kids: d.kids ?? [],
+      completedVaccines: d.completedVaccines ?? {},
+      onboardingComplete: true,
+    };
+  } catch (error) {
+    console.error('loadFullProfile error:', error);
+    return null;
+  }
+}
+
+export async function syncCompletedVaccines(uid: string, completedVaccines: Record<string, any>): Promise<void> {
+  if (!db) return;
+  try {
+    await setDoc(doc(db, 'users', uid), { completedVaccines, updatedAt: serverTimestamp() }, { merge: true });
+  } catch (error) {
+    console.error('syncCompletedVaccines error:', error);
+  }
+}
+
 // ─── Google Sign-In ───────────────────────────────────────────────────────────
 
 export async function signInWithGoogle(): Promise<{ uid: string; name: string; email: string } | null> {

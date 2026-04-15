@@ -56,7 +56,7 @@ export function useVaccineSchedule(): VaccineWithDate[] {
 
       let status: VaccineStatus;
       if (isBefore(dueDate, today)) status = 'overdue';
-      else if (diffDays <= 30) status = 'due-soon';
+      else if (diffDays <= 7) status = 'due-soon';
       else status = 'upcoming';
 
       const formattedDate = dueDate.toLocaleDateString('en-IN', {

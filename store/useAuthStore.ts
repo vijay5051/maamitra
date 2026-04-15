@@ -10,10 +10,36 @@ import {
   auth,
   saveUserProfile,
   getUserProfile,
+  loadFullProfile,
   deleteUserAccount,
   signInWithGoogle as firebaseSignInWithGoogle,
   sendVerificationEmail,
 } from '../services/firebase';
+import { useProfileStore } from './useProfileStore';
+
+// Helper — populate profile store from Firestore after any successful login
+async function hydrateProfileFromFirestore(uid: string) {
+  try {
+    const fullProfile = await loadFullProfile(uid);
+    if (!fullProfile) return;
+    const { setMotherName, setProfile, addKid, setOnboardingComplete, markVaccineDone } = useProfileStore.getState();
+    setMotherName(fullProfile.motherName);
+    if (fullProfile.profile) setProfile(fullProfile.profile as any);
+    // Avoid duplicate kids if store already has data
+    const currentKids = useProfileStore.getState().kids;
+    if (currentKids.length === 0 && fullProfile.kids.length > 0) {
+      fullProfile.kids.forEach((kid: any) =>
+        addKid({ name: kid.name, dob: kid.dob, stage: kid.stage, gender: kid.gender, isExpecting: kid.isExpecting })
+      );
+    }
+    Object.entries(fullProfile.completedVaccines).forEach(([id, val]: [string, any]) => {
+      markVaccineDone(id, val.doneDate);
+    });
+    setOnboardingComplete(true);
+  } catch (error) {
+    console.error('hydrateProfileFromFirestore error:', error);
+  }
+}
 
 interface AuthUser {
   uid: string;
@@ -60,6 +86,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         email: credential.user.email ?? email,
       };
       set({ user: authUser, isAuthenticated: true, isLoading: false });
+      await hydrateProfileFromFirestore(credential.user.uid);
     } catch (error) {
       set({ isLoading: false });
       throw error;
@@ -99,6 +126,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     if (!result) return null; // User cancelled
     const profile = await getUserProfile(result.uid);
     set({ user: result, isAuthenticated: true, isLoading: false });
+    await hydrateProfileFromFirestore(result.uid);
     // If profile has onboardingComplete, go to tabs; otherwise onboarding
     return profile?.onboardingComplete ? 'tabs' : 'onboarding';
   },
@@ -146,6 +174,7 @@ export const useAuthStore = create<AuthState>((set) => ({
             email: firebaseUser.email ?? '',
           };
           set({ user: authUser, isAuthenticated: true, isLoading: false });
+          await hydrateProfileFromFirestore(firebaseUser.uid);
         } catch {
           set({
             user: {
@@ -156,6 +185,7 @@ export const useAuthStore = create<AuthState>((set) => ({
             isAuthenticated: true,
             isLoading: false,
           });
+          await hydrateProfileFromFirestore(firebaseUser.uid);
         }
       } else {
         set({ user: null, isAuthenticated: false, isLoading: false });
