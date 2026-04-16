@@ -1,5 +1,5 @@
-import { Tabs } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { Tabs, useRouter } from 'expo-router';
+import { StyleSheet, Text, View, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
   useSharedValue,
@@ -8,6 +8,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useEffect } from 'react';
 import { Fonts } from '../../constants/theme';
+import { useAuthStore } from '../../store/useAuthStore';
+import { useProfileStore } from '../../store/useProfileStore';
 
 const SPRING_CONFIG = { damping: 12, stiffness: 180 };
 
@@ -48,6 +50,38 @@ function TabIcon({
 }
 
 export default function TabLayout() {
+  const router = useRouter();
+  const { isAuthenticated, isLoading } = useAuthStore();
+  const { onboardingComplete } = useProfileStore();
+
+  // Guard: if iOS PWA restored a deep tab URL, we still enforce the auth flow.
+  // This runs after every render so the moment auth resolves we redirect correctly.
+  useEffect(() => {
+    if (isLoading) return; // wait for Firebase to resolve
+    if (!isAuthenticated) {
+      router.replace('/(auth)/welcome');
+      return;
+    }
+    if (!onboardingComplete) {
+      router.replace('/(auth)/onboarding');
+      return;
+    }
+  }, [isLoading, isAuthenticated, onboardingComplete]);
+
+  // While auth is still resolving, show a splash so tabs never flash empty data
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#1C1033', alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color="#E8487A" />
+      </View>
+    );
+  }
+
+  // Not authenticated yet (redirect is in flight) — blank to avoid flicker
+  if (!isAuthenticated || !onboardingComplete) {
+    return <View style={{ flex: 1, backgroundColor: '#1C1033' }} />;
+  }
+
   return (
     <Tabs
       screenOptions={{

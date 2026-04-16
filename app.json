@@ -33,7 +33,15 @@
     },
     "web": {
       "favicon": "./assets/favicon.png",
-      "bundler": "metro"
+      "bundler": "metro",
+      "name": "MaaMitra",
+      "shortName": "MaaMitra",
+      "description": "Your AI-powered Indian motherhood companion",
+      "themeColor": "#1C1033",
+      "backgroundColor": "#1C1033",
+      "startUrl": "/",
+      "display": "standalone",
+      "orientation": "portrait"
     },
     "plugins": [
       "expo-router",
