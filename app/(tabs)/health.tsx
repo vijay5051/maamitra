@@ -340,15 +340,21 @@ function buildPersonalMessage(
   }
 }
 
-function isRelevant(scheme: (typeof GOVERNMENT_SCHEMES)[0], kid: any): boolean {
-  if (!kid) return true;
+type EligibilityStatus = 'eligible' | 'ineligible' | 'check';
+
+function getEligibility(scheme: (typeof GOVERNMENT_SCHEMES)[0], kid: any): EligibilityStatus {
+  if (!kid) return 'check';
   const { tags } = scheme;
-  if (tags.includes('all')) return true;
-  if (tags.includes('pregnant') && kid.isExpecting) return true;
-  if (tags.includes('newborn') && !kid.isExpecting) return true;
-  if (tags.includes('all-kids') && !kid.isExpecting) return true;
-  if (tags.includes('girl') && kid.gender === 'girl') return true;
-  return false;
+  if (tags.includes('all')) return 'eligible';
+  if (tags.includes('pregnant') && kid.isExpecting) return 'eligible';
+  if (tags.includes('newborn') && !kid.isExpecting) return 'eligible';
+  if (tags.includes('all-kids') && !kid.isExpecting) return 'eligible';
+  if (tags.includes('girl')) {
+    if (kid.gender === 'girl') return 'eligible';
+    if (kid.gender === 'boy') return 'ineligible'; // definitively not eligible
+    return 'check'; // surprise/unknown
+  }
+  return 'check';
 }
 
 function SchemeCard({
@@ -369,7 +375,8 @@ function SchemeCard({
   const animHeight = useSharedValue(0);
   const animOpacity = useSharedValue(0);
 
-  const relevant = isRelevant(scheme, kid);
+  const eligibility = getEligibility(scheme, kid);
+  const relevant = eligibility === 'eligible';
   const personalMsg = buildPersonalMessage(scheme, kid, motherName);
   const schemeIcon = (SCHEME_ICONS[scheme.id] ?? 'document-text-outline') as any;
 
@@ -391,12 +398,17 @@ function SchemeCard({
   return (
     <View style={[scStyles.card, relevant && scStyles.cardRelevant]}>
       {/* Eligibility badge */}
-      {relevant && (
+      {eligibility === 'eligible' && (
         <View style={scStyles.eligibleBadge}>
           <Text style={scStyles.eligibleBadgeText}>Eligible ✓</Text>
         </View>
       )}
-      {!relevant && (
+      {eligibility === 'ineligible' && (
+        <View style={[scStyles.checkBadge, { backgroundColor: '#fee2e2' }]}>
+          <Text style={[scStyles.checkBadgeText, { color: '#dc2626' }]}>Not eligible ✗</Text>
+        </View>
+      )}
+      {eligibility === 'check' && (
         <View style={scStyles.checkBadge}>
           <Text style={scStyles.checkBadgeText}>Check eligibility</Text>
         </View>
@@ -762,6 +774,9 @@ function HealthCheckItem({
   const status   = getStatus(lastDone, item.freqDays);
   const progress = progressRatio(lastDone, item.freqDays);
   const color    = ringColor(status);
+  const doneToday = lastDone
+    ? new Date(lastDone).toDateString() === new Date().toDateString()
+    : false;
 
   const statusColors: Record<HealthStatus, { bg: string; border: string; text: string; badge: string }> = {
     'overdue':    { bg: 'rgba(239,68,68,0.04)',  border: 'rgba(239,68,68,0.2)',   text: '#dc2626', badge: '#fef2f2' },
@@ -835,7 +850,7 @@ function HealthCheckItem({
         </Text>
       )}
 
-      {(status === 'overdue' || status === 'due-soon' || !lastDone) && (
+      {!doneToday && (status === 'overdue' || status === 'due-soon' || !lastDone) && (
         <TouchableOpacity
           style={hStyles.markBtn}
           onPress={onMarkDone}

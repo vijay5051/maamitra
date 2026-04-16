@@ -35,6 +35,7 @@ export default function VaccineCard({ vaccine, isLast }: VaccineCardProps) {
 
   const [showDateInput, setShowDateInput] = useState(false);
   const [pendingDate, setPendingDate] = useState('');
+  const [dateError, setDateError] = useState('');
 
   const handleToggle = () => {
     if (!canMark) return;
@@ -55,12 +56,15 @@ export default function VaccineCard({ vaccine, isLast }: VaccineCardProps) {
 
   const handleConfirmDate = () => {
     if (!pendingDate) return;
-    if (isDone) return; // already marked done — do not silently overwrite the original doneDate
+    if (isDone) return;
     const chosen = new Date(pendingDate + 'T00:00:00');
-    if (chosen > new Date()) return; // reject future dates
+    if (chosen > new Date()) {
+      setDateError('Please select today or a past date — vaccines cannot be marked for future dates.');
+      return;
+    }
+    setDateError('');
     markVaccineDone(vaccine.id, kidId, chosen.toISOString());
     setShowDateInput(false);
-    // Sync to Firestore
     const uid = useAuthStore.getState().user?.uid;
     if (uid) {
       const { completedVaccines } = useProfileStore.getState();
@@ -118,10 +122,15 @@ export default function VaccineCard({ vaccine, isLast }: VaccineCardProps) {
             <Text style={styles.dateInputLabel}>When was this vaccine given?</Text>
             <DatePickerField
               value={pendingDate}
-              onChange={setPendingDate}
+              onChange={(d) => { setPendingDate(d); setDateError(''); }}
               maxDate={today}
               placeholder="Select date given"
             />
+            {!!dateError && (
+              <Text style={{ fontSize: 12, color: '#ef4444', marginTop: 4, fontWeight: '500' }}>
+                ⚠️ {dateError}
+              </Text>
+            )}
             <View style={styles.dateInputBtns}>
               <TouchableOpacity
                 style={styles.cancelBtn}

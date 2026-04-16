@@ -241,6 +241,7 @@ function AddChildModal({
       if (!dueDate) { setError('Please select a due date'); return; }
       const parsed = new Date(dueDate + 'T00:00:00');
       if (isNaN(parsed.getTime())) { setError('Invalid due date — please tap the calendar to pick one'); return; }
+      if (parsed <= new Date()) { setError('Due date must be in the future for an expecting baby'); return; }
     }
     const finalDob = isExpecting
       ? new Date(dueDate + 'T00:00:00').toISOString()
@@ -557,7 +558,7 @@ export default function FamilyScreen() {
             </View>
           </View>
           {(!profile?.diet || !profile?.state || !profile?.familyType || !parentGender) && (
-            <TouchableOpacity style={styles.completeNudge} onPress={() => router.push('/(tabs)/community')} activeOpacity={0.8}>
+            <TouchableOpacity style={styles.completeNudge} onPress={() => setShowSettings(true)} activeOpacity={0.8}>
               <Ionicons name="sparkles-outline" size={12} color="#F59E0B" />
               <Text style={styles.completeNudgeText}>Complete your profile</Text>
               <Ionicons name="chevron-forward" size={12} color="rgba(255,255,255,0.5)" />
@@ -643,16 +644,117 @@ export default function FamilyScreen() {
           </>
         )}
 
-        {activeKid?.isExpecting && (
-          <Card style={styles.expectingCard} shadow="sm">
-            <Text style={styles.expectingEmoji}>🤰</Text>
-            <Text style={styles.expectingTitle}>Milestones Coming Soon</Text>
-            <Text style={styles.expectingText}>
-              Milestones will appear after {activeKid.name} arrives!{'\n'}
-              For now, explore the Health tab for your pregnancy schedule.
-            </Text>
-          </Card>
-        )}
+        {activeKid?.isExpecting && (() => {
+          const edd = activeKid.dob ? new Date(activeKid.dob) : null;
+          const today = new Date();
+          const msUntilEDD = edd ? edd.getTime() - today.getTime() : 0;
+          const weeksLeft = edd ? Math.max(0, Math.ceil(msUntilEDD / (7 * 24 * 3600 * 1000))) : 0;
+          const currentWeek = Math.min(40, Math.max(1, 40 - weeksLeft));
+          const trimester = currentWeek <= 12 ? 1 : currentWeek <= 26 ? 2 : 3;
+
+          const PREGNANCY_MILESTONES = [
+            { week: 4,  emoji: '🌱', title: 'Tiny Seed',         desc: 'Baby is the size of a poppy seed. Heart cells are already dividing.' },
+            { week: 8,  emoji: '🫀', title: 'Heartbeat!',        desc: 'Baby\'s heart is beating and all major organs are forming.' },
+            { week: 12, emoji: '👶', title: 'End of 1st Trimester', desc: 'Miscarriage risk drops significantly. Baby can open and close fists.' },
+            { week: 16, emoji: '👂', title: 'Can Hear You',      desc: 'Baby starts hearing sounds. Talk and sing — they\'re listening!' },
+            { week: 20, emoji: '🏃', title: 'First Kicks',       desc: 'You may start feeling movements — flutters become kicks soon.' },
+            { week: 24, emoji: '👁️', title: 'Eyes Open',         desc: 'Baby opens their eyes for the first time and responds to light.' },
+            { week: 28, emoji: '🧠', title: '3rd Trimester',     desc: 'Brain develops rapidly. Baby now has sleep and wake cycles.' },
+            { week: 32, emoji: '🫁', title: 'Lungs Maturing',    desc: 'Baby practices breathing. Survival outside the womb is very high now.' },
+            { week: 36, emoji: '🏠', title: 'Moving Down',       desc: 'Baby settles into position for birth. Full-term is just weeks away.' },
+            { week: 40, emoji: '🎉', title: 'Due Date!',          desc: 'Your little one is ready to meet you. Every day is a gift now.' },
+          ];
+
+          const dueDateStr = edd
+            ? edd.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
+            : 'Due soon';
+
+          return (
+            <Card style={styles.expectingCard} shadow="sm">
+              {/* Header */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(232,72,122,0.1)', alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontSize: 20 }}>🤰</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: Fonts.sansBold, fontSize: 15, color: '#1C1033' }}>
+                    {activeKid.name}'s Pregnancy Journey
+                  </Text>
+                  <Text style={{ fontFamily: Fonts.sansRegular, fontSize: 12, color: '#9CA3AF', marginTop: 2 }}>
+                    Week {currentWeek} · Trimester {trimester} · Due {dueDateStr}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Current week highlight */}
+              <View style={{ backgroundColor: 'rgba(232,72,122,0.08)', borderRadius: 12, padding: 12, marginBottom: 16, borderWidth: 1, borderColor: 'rgba(232,72,122,0.15)' }}>
+                <Text style={{ fontFamily: Fonts.sansBold, fontSize: 13, color: '#E8487A', marginBottom: 2 }}>
+                  📍 You are at Week {currentWeek}
+                </Text>
+                <Text style={{ fontFamily: Fonts.sansRegular, fontSize: 12, color: '#6B7280' }}>
+                  {weeksLeft > 0 ? `${weeksLeft} week${weeksLeft === 1 ? '' : 's'} until your due date` : 'Your due date has arrived — congratulations! 🎊'}
+                </Text>
+              </View>
+
+              {/* Milestone timeline */}
+              {PREGNANCY_MILESTONES.map((m, idx) => {
+                const isPast    = m.week < currentWeek;
+                const isCurrent = m.week === PREGNANCY_MILESTONES.find(x => x.week >= currentWeek)?.week;
+                const isFuture  = !isPast && !isCurrent;
+                return (
+                  <View key={m.week} style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
+                    {/* Timeline dot + line */}
+                    <View style={{ alignItems: 'center', width: 28 }}>
+                      <View style={{
+                        width: isCurrent ? 28 : 20,
+                        height: isCurrent ? 28 : 20,
+                        borderRadius: 14,
+                        backgroundColor: isPast ? '#34D399' : isCurrent ? '#E8487A' : '#EDE9F6',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderWidth: isCurrent ? 2 : 0,
+                        borderColor: isCurrent ? '#fff' : 'transparent',
+                        shadowColor: isCurrent ? '#E8487A' : 'transparent',
+                        shadowOpacity: 0.4,
+                        shadowRadius: 6,
+                        shadowOffset: { width: 0, height: 2 },
+                        elevation: isCurrent ? 3 : 0,
+                      }}>
+                        {isPast
+                          ? <Ionicons name="checkmark" size={11} color="#fff" />
+                          : <Text style={{ fontSize: isCurrent ? 14 : 10 }}>{m.emoji}</Text>}
+                      </View>
+                      {idx < PREGNANCY_MILESTONES.length - 1 && (
+                        <View style={{ width: 2, flex: 1, minHeight: 8, backgroundColor: isPast ? '#34D39966' : '#EDE9F6', marginTop: 2 }} />
+                      )}
+                    </View>
+                    {/* Content */}
+                    <View style={{ flex: 1, paddingBottom: 4 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={{ fontFamily: isCurrent ? Fonts.sansBold : Fonts.sansMedium, fontSize: isCurrent ? 14 : 13, color: isCurrent ? '#1C1033' : isFuture ? '#9CA3AF' : '#374151' }}>
+                          {m.title}
+                        </Text>
+                        <Text style={{ fontFamily: Fonts.sansRegular, fontSize: 11, color: '#9CA3AF' }}>
+                          Wk {m.week}
+                        </Text>
+                        {isCurrent && (
+                          <View style={{ backgroundColor: '#E8487A', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+                            <Text style={{ fontFamily: Fonts.sansBold, fontSize: 9, color: '#fff' }}>NOW</Text>
+                          </View>
+                        )}
+                      </View>
+                      {(!isFuture || isCurrent) && (
+                        <Text style={{ fontFamily: Fonts.sansRegular, fontSize: 12, color: '#6B7280', marginTop: 2, lineHeight: 17 }}>
+                          {m.desc}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                );
+              })}
+            </Card>
+          );
+        })()}
 
       </ScrollView>
 

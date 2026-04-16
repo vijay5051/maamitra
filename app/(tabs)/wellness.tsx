@@ -662,48 +662,42 @@ function PullQuoteTip({ tip, index }: { tip: { emoji: string; text: string }; in
   const bg = TIP_BG[index % 2];
   return (
     <View style={[tipStyles.card, { backgroundColor: bg }]}>
-      {/* Decorative quote mark */}
-      <Text style={tipStyles.quoteDecor}>{'\u201C'}</Text>
-      {/* Tip text */}
+      <View style={tipStyles.emojiBox}>
+        <Text style={tipStyles.emoji}>{tip.emoji}</Text>
+      </View>
       <Text style={tipStyles.tipText}>{tip.text}</Text>
-      {/* Bottom accent dot */}
-      <View style={tipStyles.accentDot} />
     </View>
   );
 }
 
 const tipStyles = StyleSheet.create({
   card: {
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 10,
-    overflow: 'hidden',
-    position: 'relative',
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
-  quoteDecor: {
-    position: 'absolute',
-    top: -4,
-    left: 10,
-    fontSize: 64,
-    fontFamily: Fonts.serif,
-    color: 'rgba(232,72,122,0.15)',
-    lineHeight: 72,
+  emojiBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(232,72,122,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  emoji: {
+    fontSize: 18,
   },
   tipText: {
     fontFamily: Fonts.sansMedium,
-    fontSize: 14,
+    fontSize: 13,
     color: '#1C1033',
-    lineHeight: 21,
-    paddingLeft: 8,
-    paddingTop: 28, // clear space under the quote mark
-  },
-  accentDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#E8487A',
-    marginTop: 14,
-    marginLeft: 8,
+    lineHeight: 19,
+    flex: 1,
   },
 });
 
