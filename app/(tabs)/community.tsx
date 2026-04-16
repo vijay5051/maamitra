@@ -1254,5 +1254,6 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', paddingTop: 60 },
   emptyEmoji: { fontSize: 48, marginBottom: 12 },
   emptyText: { fontFamily: Fonts.sansRegular, fontSize: 15, color: '#9CA3AF', textAlign: 'center', lineHeight: 22 },
-  footerLoader: { paddingVertical: 20, alignItems: 'center' },
+  footerLoader: { alignItems: 'center', paddingVertical: 20, gap: 8 },
+  footerText: { fontFamily: Fonts.sansRegular, fontSize: 13, color: '#9CA3AF', textAlign: 'center', paddingVertical: 16 },
 });
