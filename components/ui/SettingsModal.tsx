@@ -389,6 +389,24 @@ export default function SettingsModal({ visible, onClose }: SettingsModalProps) 
 
   const editingKid = editingKidId ? kids.find((k) => k.id === editingKidId) ?? null : null;
 
+  // Toggles the given visibility key, updates the store, and immediately persists
+  // to Firestore so the change survives reloads.
+  const handlePrivacyToggle = (key: keyof typeof visibilitySettings) => {
+    const updated = { ...visibilitySettings, [key]: !visibilitySettings[key] };
+    setVisibilitySettings({ [key]: !visibilitySettings[key] });
+    if (user?.uid) {
+      const st = useProfileStore.getState();
+      saveFullProfile(user.uid, {
+        motherName: st.motherName,
+        profile: st.profile,
+        kids: st.kids,
+        completedVaccines: st.completedVaccines,
+        onboardingComplete: st.onboardingComplete,
+        visibilitySettings: updated,
+      }).catch(console.error);
+    }
+  };
+
   const handleClose = () => {
     setViewMode('main');
     setEditingKidId(null);
@@ -604,31 +622,31 @@ export default function SettingsModal({ visible, onClose }: SettingsModalProps) 
               <ToggleRow
                 label="Number of kids"
                 value={visibilitySettings.showKids}
-                onToggle={() => setVisibilitySettings({ showKids: !visibilitySettings.showKids })}
+                onToggle={() => handlePrivacyToggle('showKids')}
               />
               <View style={s.divider} />
               <ToggleRow
                 label="State / location"
                 value={visibilitySettings.showState}
-                onToggle={() => setVisibilitySettings({ showState: !visibilitySettings.showState })}
-              />
-              <View style={s.divider} />
-              <ToggleRow
-                label="Expertise tags"
-                value={visibilitySettings.showExpertise}
-                onToggle={() => setVisibilitySettings({ showExpertise: !visibilitySettings.showExpertise })}
+                onToggle={() => handlePrivacyToggle('showState')}
               />
               <View style={s.divider} />
               <ToggleRow
                 label="Bio"
                 value={visibilitySettings.showBio}
-                onToggle={() => setVisibilitySettings({ showBio: !visibilitySettings.showBio })}
+                onToggle={() => handlePrivacyToggle('showBio')}
+              />
+              <View style={s.divider} />
+              <ToggleRow
+                label="Expertise tags"
+                value={visibilitySettings.showExpertise}
+                onToggle={() => handlePrivacyToggle('showExpertise')}
               />
               <View style={s.divider} />
               <ToggleRow
                 label="Post count"
                 value={visibilitySettings.showPostCount}
-                onToggle={() => setVisibilitySettings({ showPostCount: !visibilitySettings.showPostCount })}
+                onToggle={() => handlePrivacyToggle('showPostCount')}
               />
             </View>
 

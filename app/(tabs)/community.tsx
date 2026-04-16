@@ -1048,11 +1048,13 @@ function MyProfileCard({ onEdit }: { onEdit: () => void }) {
           </View>
         )}
 
-        {/* Children */}
-        <View style={heroStyles.statBox}>
-          <Text style={heroStyles.statNum}>{kids.length}</Text>
-          <Text style={heroStyles.statLabel}>{kids.length === 1 ? 'Child' : 'Children'}</Text>
-        </View>
+        {/* Children — gated by showKids */}
+        {visibilitySettings.showKids && (
+          <View style={heroStyles.statBox}>
+            <Text style={heroStyles.statNum}>{kids.length}</Text>
+            <Text style={heroStyles.statLabel}>{kids.length === 1 ? 'Child' : 'Children'}</Text>
+          </View>
+        )}
 
         {/* City / streak */}
         <View style={heroStyles.statBox}>
@@ -1060,6 +1062,27 @@ function MyProfileCard({ onEdit }: { onEdit: () => void }) {
           <Text style={heroStyles.statLabel}>City</Text>
         </View>
       </View>
+
+      {/* Bio — gated by showBio */}
+      {visibilitySettings.showBio && !!bio && (
+        <Text style={heroStyles.bioText} numberOfLines={2}>{bio}</Text>
+      )}
+
+      {/* Expertise tags — gated by showExpertise */}
+      {visibilitySettings.showExpertise && expertise.length > 0 && (
+        <View style={heroStyles.tagRow}>
+          {expertise.slice(0, 4).map((tag) => (
+            <View key={tag} style={heroStyles.tag}>
+              <Text style={heroStyles.tagText}>{tag}</Text>
+            </View>
+          ))}
+          {expertise.length > 4 && (
+            <View style={heroStyles.tag}>
+              <Text style={heroStyles.tagText}>+{expertise.length - 4}</Text>
+            </View>
+          )}
+        </View>
+      )}
 
       {/* Complete profile link */}
       {!isProfileComplete && (
@@ -1197,6 +1220,32 @@ const heroStyles = StyleSheet.create({
     fontSize: 11,
     color: 'rgba(255,255,255,0.6)',
     marginTop: 2,
+  },
+  bioText: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.75)',
+    lineHeight: 18,
+    marginTop: 10,
+  },
+  tagRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 10,
+  },
+  tag: {
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 8,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+  },
+  tagText: {
+    fontFamily: Fonts.sansMedium,
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.85)',
   },
   completeLink: {
     flexDirection: 'row',
