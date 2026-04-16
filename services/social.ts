@@ -83,7 +83,7 @@ export interface FollowRequest {
   createdAt: Date;
 }
 
-export type NotifType = 'reaction' | 'comment' | 'follow_request' | 'follow_accepted';
+export type NotifType = 'reaction' | 'comment' | 'follow_request' | 'follow_accepted' | 'message';
 
 export interface AppNotification {
   id: string;
@@ -375,6 +375,13 @@ export async function addPostComment(
     };
   }
   try {
+    // Prevent commenting if either user has blocked the other
+    if (postAuthorUid && data.authorUid !== postAuthorUid) {
+      if (await isEitherBlocked(data.authorUid, postAuthorUid)) {
+        throw new Error('blocked');
+      }
+    }
+
     const commentsRef = collection(db, 'communityPosts', postId, 'comments');
     const ref = await addDoc(commentsRef, {
       ...data,
@@ -447,6 +454,20 @@ export async function fetchPostComments(postId: string): Promise<PostComment[]> 
   }
 }
 
+// ─── Block check helper ──────────────────────────────────────────────────────
+
+/** Returns true if either user has blocked the other */
+export async function isEitherBlocked(uid1: string, uid2: string): Promise<boolean> {
+  if (!db) return false;
+  try {
+    const [a, b] = await Promise.all([
+      getDoc(doc(db, 'blocks', `${uid1}_${uid2}`)),
+      getDoc(doc(db, 'blocks', `${uid2}_${uid1}`)),
+    ]);
+    return a.exists() || b.exists();
+  } catch { return false; }
+}
+
 // ─── Follow System ────────────────────────────────────────────────────────────
 
 export async function sendFollowRequest(
@@ -458,6 +479,9 @@ export async function sendFollowRequest(
 ): Promise<string> {
   if (!db) return '';
   try {
+    // Check if either user has blocked the other
+    if (await isEitherBlocked(myUid, toUid)) throw new Error('blocked');
+
     // Check if already following
     const followSnap = await getDoc(doc(db, 'follows', `${myUid}_${toUid}`));
     if (followSnap.exists()) throw new Error('already_following');

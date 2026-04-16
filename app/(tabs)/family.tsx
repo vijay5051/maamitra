@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
+  Image,
   Modal,
   ScrollView,
   StyleSheet,
@@ -394,7 +395,7 @@ const addChildStyles = StyleSheet.create({
 export default function FamilyScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { kids, activeKidId, setActiveKidId, addKid, motherName, profile, completedVaccines, parentGender } = useProfileStore();
+  const { kids, activeKidId, setActiveKidId, addKid, motherName, profile, completedVaccines, parentGender, photoUrl } = useProfileStore();
   const { activeKid } = useActiveKid();
   const { user } = useAuthStore();
   const [showAddModal, setShowAddModal] = useState(false);
@@ -535,7 +536,11 @@ export default function FamilyScreen() {
           <View style={styles.momGlowBlob} pointerEvents="none" />
           <View style={styles.momRow}>
             <View style={styles.momAvatarWrap}>
-              <GradientAvatar name={motherName || 'M'} size={60} />
+              {photoUrl ? (
+                <Image source={{ uri: photoUrl }} style={{ width: 60, height: 60, borderRadius: 30 }} />
+              ) : (
+                <GradientAvatar name={motherName || 'M'} size={60} />
+              )}
               <View style={styles.momGlowRing} />
             </View>
             <View style={styles.momInfo}>

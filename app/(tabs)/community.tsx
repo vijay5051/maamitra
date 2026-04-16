@@ -31,8 +31,10 @@ import SettingsModal from '../../components/ui/SettingsModal';
 import PostCardComponent from '../../components/community/PostCard';
 import UserProfileModalComponent from '../../components/community/UserProfileModal';
 import NotificationsSheet from '../../components/community/NotificationsSheet';
+import ConversationsSheet from '../../components/community/ConversationsSheet';
 import { Fonts } from '../../constants/theme';
 import { uploadPostImage } from '../../services/storage';
+import { useDMStore } from '../../store/useDMStore';
 
 const FILTERS: CommunityFilter[] = ['All', 'Newborn', 'Pregnancy', 'Nutrition', 'Mental Health', 'Milestones', 'Products'];
 const TOPICS = ['Newborn', 'Pregnancy', 'Nutrition', 'Mental Health', 'Milestones', 'Products', 'General'];
@@ -569,6 +571,9 @@ function MyProfileCard({ onEdit }: { onEdit: () => void }) {
   const { followersCount, followingCount } = useSocialStore();
   const [imgErr, setImgErr] = useState(false);
 
+  // Reset error state when photoUrl changes (e.g. after upload)
+  useEffect(() => { setImgErr(false); }, [photoUrl]);
+
   const postCount = getUserPostCount(motherName);
   const initial = (motherName || 'M').charAt(0).toUpperCase();
   const genderLabel = parentGender === 'mother' ? 'Mother' : parentGender === 'father' ? 'Father' : parentGender === 'other' ? 'Parent' : 'Parent';
@@ -893,6 +898,7 @@ export default function CommunityScreen() {
     loadSocialData,
     syncPublicProfile,
     unreadCount,
+    blockedUids,
   } = useSocialStore();
 
   // ── Load data on mount ──────────────────────────────────────────────────────
@@ -903,6 +909,7 @@ export default function CommunityScreen() {
       useCommunityStore.setState({ motherName: motherName || '' });
       loadSocialData();
       syncPublicProfile();
+      loadDMCount();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [myUid]);
@@ -932,9 +939,15 @@ export default function CommunityScreen() {
   const [showNewPost, setShowNewPost] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showMessages, setShowMessages] = useState(false);
   const [viewingUid, setViewingUid] = useState<string | null>(null);
+  const { unreadTotal: unreadDMs, loadUnreadCount: loadDMCount } = useDMStore();
   const [refreshing, setRefreshing] = useState(false);
-  const posts = getFilteredPosts();
+  const allPosts = getFilteredPosts();
+  // Filter out posts from blocked users
+  const posts = blockedUids.length > 0
+    ? allPosts.filter((p) => !blockedUids.includes(p.authorUid))
+    : allPosts;
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -961,6 +974,20 @@ export default function CommunityScreen() {
         <View style={styles.headerInner}>
           <Text style={styles.headerTitle}>Connect</Text>
           <View style={styles.headerRight}>
+            {/* Messages */}
+            <TouchableOpacity
+              style={styles.notifBtn}
+              onPress={() => setShowMessages(true)}
+              activeOpacity={0.75}
+            >
+              <Ionicons name="chatbubbles-outline" size={20} color="rgba(255,255,255,0.9)" />
+              {unreadDMs > 0 && (
+                <View style={styles.notifBadge}>
+                  <Text style={styles.notifBadgeText}>{unreadDMs > 9 ? '9+' : unreadDMs}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+
             {/* Notifications bell */}
             <TouchableOpacity
               style={styles.notifBtn}
@@ -997,6 +1024,12 @@ export default function CommunityScreen() {
         visible={showNotifications}
         onClose={() => setShowNotifications(false)}
         onViewProfile={(uid) => { setShowNotifications(false); setViewingUid(uid); }}
+      />
+
+      {/* Conversations list */}
+      <ConversationsSheet
+        visible={showMessages}
+        onClose={() => setShowMessages(false)}
       />
 
       {/* User profile modal (uid-based, loads from Firestore) */}
@@ -1074,6 +1107,7 @@ export default function CommunityScreen() {
             currentUserUid={myUid}
             currentUserName={motherName}
             currentUserPhotoUrl={myPhotoUrl || undefined}
+            blockedUids={blockedUids}
             onReact={(postId, emoji) => {
               if (myUid) {
                 toggleReactionFirestore(postId, myUid, motherName || 'Anonymous', emoji);

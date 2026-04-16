@@ -19,6 +19,7 @@ interface PostCardProps {
   currentUserUid: string;
   currentUserName: string;
   currentUserPhotoUrl?: string;                          // current user's profile photo for comment input
+  blockedUids?: string[];                                // UIDs blocked by current user — hides their comments
   onReact: (postId: string, emoji: string) => void;
   onToggleComments: (postId: string) => void;
   onAddComment: (postId: string, text: string) => void;
@@ -46,6 +47,7 @@ export default function PostCard({
   currentUserUid,
   currentUserName,
   currentUserPhotoUrl,
+  blockedUids = [],
   onReact,
   onToggleComments,
   onAddComment,
@@ -105,7 +107,11 @@ export default function PostCard({
   };
 
   // Support both old embedded `comments` array and new loaded `commentList`
-  const displayedComments = post.commentList ?? post.comments;
+  // Filter out comments from blocked users
+  const rawComments = post.commentList ?? post.comments;
+  const displayedComments = blockedUids.length > 0
+    ? rawComments?.filter((c: any) => !blockedUids.includes(c.authorUid))
+    : rawComments;
 
   const isOwnPost = post.authorUid === currentUserUid;
   const followStatus = useSocialStore((s) => s.followStatusCache[post.authorUid ?? ''] ?? 'none');

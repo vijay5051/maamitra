@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import GradientAvatar from '../ui/GradientAvatar';
 import { Fonts } from '../../constants/theme';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -25,6 +26,7 @@ import {
   type FollowEntry,
   getPublicProfile,
   fetchUserPosts,
+  isEitherBlocked,
 } from '../../services/social';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -173,6 +175,7 @@ const innerStyles = StyleSheet.create({
 export default function UserProfileModal({ uid, visible, onClose, onEditProfile }: Props) {
   const { user } = useAuthStore();
   const myUid = user?.uid ?? '';
+  const router = useRouter();
 
   const {
     followers,
@@ -206,6 +209,12 @@ export default function UserProfileModal({ uid, visible, onClose, onEditProfile 
 
   const isOwnProfile = uid === myUid;
   const blocked = isBlocked(uid);
+  const [blockedByThem, setBlockedByThem] = useState(false);
+
+  useEffect(() => {
+    if (!visible || !uid || !myUid || isOwnProfile) return;
+    isEitherBlocked(myUid, uid).then(setBlockedByThem);
+  }, [visible, uid, myUid]);
 
   useEffect(() => {
     if (!visible || !uid) return;
@@ -277,11 +286,10 @@ export default function UserProfileModal({ uid, visible, onClose, onEditProfile 
   }, [followStatus, profile, uid, outgoingRequests, sendFollowRequest, unfollow]);
 
   const handleMessagePress = useCallback(() => {
-    Alert.alert(
-      'Coming Soon',
-      "Messaging coming soon! You're connected — this feature is being built."
-    );
-  }, []);
+    if (!uid || uid === myUid) return;
+    onClose();
+    router.push({ pathname: '/conversation/[uid]', params: { uid } });
+  }, [uid, myUid, router, onClose]);
 
   const handleBlockPress = useCallback(() => {
     if (blocked) {
@@ -383,11 +391,11 @@ export default function UserProfileModal({ uid, visible, onClose, onEditProfile 
         </View>
       );
     }
-    if (!profile) {
+    if (!profile || (blockedByThem && !isOwnProfile)) {
       return (
         <View style={styles.centerContainer}>
           <Ionicons name="person-outline" size={48} color="#9ca3af" />
-          <Text style={styles.unavailableText}>Profile not available</Text>
+          <Text style={styles.unavailableText}>{blockedByThem ? 'This profile is unavailable' : 'Profile not available'}</Text>
         </View>
       );
     }

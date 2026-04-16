@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Alert,
+  Image as RNImage,
   Modal,
   ScrollView,
   StyleSheet,
@@ -18,6 +19,7 @@ import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useProfileStore, Kid, Profile, ParentGender, ParentRelation, calculateAgeInMonths, calculateAgeInWeeks, DEFAULT_VISIBILITY } from '../../store/useProfileStore';
 import { saveFullProfile } from '../../services/firebase';
+import { uploadAvatar } from '../../services/storage';
 import DatePickerField from './DatePickerField';
 import StateSelectorComponent from '../onboarding/StateSelector';
 
@@ -249,7 +251,7 @@ function EditProfileView({ onBack }: { onBack: () => void }) {
       const reader = new FileReader();
       reader.onload = (ev) => {
         const img = new Image();
-        img.onload = () => {
+        img.onload = async () => {
           const MAX = 300;
           let w = img.width, h = img.height;
           if (w > h) { h = Math.round((h / w) * MAX); w = MAX; }
@@ -258,7 +260,19 @@ function EditProfileView({ onBack }: { onBack: () => void }) {
           canvas.width = w; canvas.height = h;
           canvas.getContext('2d')?.drawImage(img, 0, 0, w, h);
           const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
-          setPhoto(dataUrl);
+          // Upload to Firebase Storage and use the download URL
+          const uid = user?.uid;
+          if (uid) {
+            try {
+              const downloadUrl = await uploadAvatar(uid, dataUrl);
+              setPhoto(downloadUrl);
+            } catch (uploadErr) {
+              console.error('Avatar upload failed, using data URL:', uploadErr);
+              setPhoto(dataUrl);
+            }
+          } else {
+            setPhoto(dataUrl);
+          }
           setImgError(false);
           setPhotoLoading(false);
         };
@@ -516,7 +530,7 @@ export default function SettingsModal({ visible, onClose }: SettingsModalProps) 
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, signOut, deleteAccount } = useAuthStore();
-  const { motherName, profile, kids, visibilitySettings, setVisibilitySettings, removeKid } = useProfileStore();
+  const { motherName, profile, kids, visibilitySettings, setVisibilitySettings, removeKid, photoUrl } = useProfileStore();
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('main');
   const [editingKidId, setEditingKidId] = useState<string | null>(null);
@@ -682,9 +696,13 @@ export default function SettingsModal({ visible, onClose }: SettingsModalProps) 
           >
             {/* Profile card */}
             <View style={s.profileCard}>
-              <View style={s.avatar}>
-                <Text style={s.avatarText}>{initials}</Text>
-              </View>
+              {photoUrl ? (
+                <RNImage source={{ uri: photoUrl }} style={s.avatar} />
+              ) : (
+                <View style={s.avatar}>
+                  <Text style={s.avatarText}>{initials}</Text>
+                </View>
+              )}
               <View style={s.profileInfo}>
                 <Text style={s.profileName}>{motherName || user?.name || 'Mom'}</Text>
                 <Text style={s.profileEmail}>{user?.email || 'demo@maamitra.app'}</Text>

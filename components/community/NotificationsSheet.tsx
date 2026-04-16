@@ -57,6 +57,8 @@ function notifText(notif: AppNotification): string {
       return `${name} wants to follow you`;
     case 'follow_accepted':
       return `${name} accepted your follow request 🎉`;
+    case 'message':
+      return `${name} sent you a message 💬`;
     default:
       return `${name} interacted with you`;
   }
@@ -138,7 +140,13 @@ export default function NotificationsSheet({ visible, onClose, onViewProfile }: 
     markAllRead,
     acceptRequest,
     declineRequest,
+    blockedUids,
   } = useSocialStore();
+
+  // Filter out notifications from blocked users
+  const filteredNotifications = (notifications ?? []).filter(
+    (n) => !blockedUids.includes(n.fromUid)
+  );
 
   const [handledRequests, setHandledRequests] = useState<Record<string, 'accepted' | 'declined'>>({});
   const markReadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -224,7 +232,7 @@ export default function NotificationsSheet({ visible, onClose, onViewProfile }: 
           </View>
         ) : (
           <FlatList
-            data={(notifications ?? []) as AppNotification[]}
+            data={filteredNotifications as AppNotification[]}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
               <NotifRow
@@ -241,7 +249,7 @@ export default function NotificationsSheet({ visible, onClose, onViewProfile }: 
             )}
             ListEmptyComponent={renderEmpty}
             contentContainerStyle={
-              (!notifications || notifications.length === 0)
+              filteredNotifications.length === 0
                 ? styles.emptyListContent
                 : styles.listContent
             }
