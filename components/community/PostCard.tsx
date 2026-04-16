@@ -17,6 +17,7 @@ interface PostCardProps {
   post: Post;                                             // Post from useCommunityStore — now has authorUid field
   currentUserUid: string;
   currentUserName: string;
+  currentUserPhotoUrl?: string;                          // current user's profile photo for comment input
   onReact: (postId: string, emoji: string) => void;
   onToggleComments: (postId: string) => void;
   onAddComment: (postId: string, text: string) => void;
@@ -41,6 +42,7 @@ export default function PostCard({
   post,
   currentUserUid,
   currentUserName,
+  currentUserPhotoUrl,
   onReact,
   onToggleComments,
   onAddComment,
@@ -82,7 +84,14 @@ export default function PostCard({
           onPress={() => onViewProfile(post.authorUid ?? '', post.authorName)}
           activeOpacity={0.75}
         >
-          <GradientAvatar name={post.authorName} size={40} />
+          {post.authorPhotoUrl ? (
+            <Image
+              source={{ uri: post.authorPhotoUrl }}
+              style={styles.authorPhoto}
+            />
+          ) : (
+            <GradientAvatar name={post.authorName} size={40} />
+          )}
         </TouchableOpacity>
         <View style={styles.authorInfo}>
           <View style={styles.authorNameRow}>
@@ -195,7 +204,14 @@ export default function PostCard({
                 )}
                 activeOpacity={0.75}
               >
-                <GradientAvatar name={comment.authorName} size={28} />
+                {(comment as any).authorPhotoUrl ? (
+                  <Image
+                    source={{ uri: (comment as any).authorPhotoUrl }}
+                    style={styles.commentPhoto}
+                  />
+                ) : (
+                  <GradientAvatar name={comment.authorName} size={28} />
+                )}
               </TouchableOpacity>
               <View style={styles.commentBubble}>
                 <TouchableOpacity
@@ -215,7 +231,11 @@ export default function PostCard({
 
           {/* Comment input */}
           <View style={styles.commentInputRow}>
-            <GradientAvatar name={currentUserName} size={28} />
+            {currentUserPhotoUrl ? (
+              <Image source={{ uri: currentUserPhotoUrl }} style={styles.commentPhoto} />
+            ) : (
+              <GradientAvatar name={currentUserName} size={28} />
+            )}
             <TextInput
               style={styles.commentInput}
               value={commentText}
@@ -319,6 +339,16 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     marginBottom: 12,
     backgroundColor: '#f3f4f6',
+  },
+  authorPhoto: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  commentPhoto: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
   },
   imageArea: {
     backgroundColor: '#fdf2f8',

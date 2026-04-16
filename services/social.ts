@@ -39,6 +39,7 @@ export interface CommunityPost {
   authorUid: string;
   authorName: string;
   authorInitial: string;
+  authorPhotoUrl?: string;                    // profile photo at post-creation time
   badge: string;
   topic: string;
   text: string;
@@ -57,6 +58,7 @@ export interface PostComment {
   authorUid: string;
   authorName: string;
   authorInitial: string;
+  authorPhotoUrl?: string;                    // profile photo at comment-creation time
   text: string;
   createdAt: Date;
 }
@@ -142,6 +144,7 @@ export async function createPost(data: {
   authorUid: string;
   authorName: string;
   authorInitial: string;
+  authorPhotoUrl?: string;
   badge: string;
   topic: string;
   text: string;
@@ -309,6 +312,7 @@ export async function addPostComment(
     authorUid: string;
     authorName: string;
     authorInitial: string;
+    authorPhotoUrl?: string;
     text: string;
   },
   postAuthorUid: string,
@@ -320,6 +324,7 @@ export async function addPostComment(
       authorUid: data.authorUid,
       authorName: data.authorName,
       authorInitial: data.authorInitial,
+      authorPhotoUrl: data.authorPhotoUrl,
       text: data.text,
       createdAt: new Date(),
     };

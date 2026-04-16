@@ -13,6 +13,7 @@ export interface Comment {
   authorName: string;
   authorInitial: string;
   authorUid: string;
+  authorPhotoUrl?: string;
   text: string;
   createdAt: Date;
 }
@@ -22,6 +23,7 @@ export interface Post {
   authorName: string;
   authorInitial: string;
   authorUid: string;         // Firebase UID of the author — empty string for seed posts
+  authorPhotoUrl?: string;   // profile photo snapshot at post-creation time
   badge: string;
   topic: string;
   text: string;
@@ -117,9 +119,9 @@ interface CommunityState {
 
   // Firestore-backed actions
   loadPostsFromFirestore: () => Promise<void>;
-  addPostFirestore: (text: string, topic: string, authorUid: string, imageUri?: string, imageAspectRatio?: number) => Promise<void>;
+  addPostFirestore: (text: string, topic: string, authorUid: string, imageUri?: string, imageAspectRatio?: number, authorPhotoUrl?: string) => Promise<void>;
   toggleReactionFirestore: (postId: string, myUid: string, myName: string, emoji: string) => Promise<void>;
-  addCommentFirestore: (postId: string, authorUid: string, authorName: string, text: string) => Promise<void>;
+  addCommentFirestore: (postId: string, authorUid: string, authorName: string, text: string, authorPhotoUrl?: string) => Promise<void>;
   loadCommentsForPost: (postId: string) => Promise<void>;
 }
 
@@ -267,7 +269,8 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
     topic: string,
     authorUid: string,
     imageUri?: string,
-    imageAspectRatio?: number
+    imageAspectRatio?: number,
+    authorPhotoUrl?: string
   ) => {
     const { motherName } = get();
     const authorName = motherName || 'Community Member';
@@ -278,6 +281,7 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
         authorUid,
         authorName,
         authorInitial,
+        ...(authorPhotoUrl && { authorPhotoUrl }),
         badge: 'Community Member',
         topic,
         text,
@@ -292,6 +296,7 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
         authorName,
         authorInitial,
         authorUid,
+        authorPhotoUrl,
         badge: 'Community Member',
         topic,
         text,
@@ -343,7 +348,8 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
     postId: string,
     authorUid: string,
     authorName: string,
-    text: string
+    text: string,
+    authorPhotoUrl?: string
   ) => {
     const posts = get().posts;
     const post = posts.find((p) => p.id === postId);
@@ -356,6 +362,7 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
           authorUid,
           authorName,
           authorInitial: authorName.charAt(0).toUpperCase(),
+          ...(authorPhotoUrl && { authorPhotoUrl }),
           text,
         },
         postAuthorUid,
@@ -368,6 +375,7 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
         authorName: comment.authorName ?? authorName,
         authorInitial: (comment.authorName ?? authorName).charAt(0).toUpperCase(),
         authorUid,
+        authorPhotoUrl: comment.authorPhotoUrl,
         text,
         createdAt: comment.createdAt instanceof Date ? comment.createdAt : new Date(comment.createdAt),
       };

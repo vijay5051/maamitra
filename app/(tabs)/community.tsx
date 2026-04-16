@@ -847,7 +847,7 @@ export default function CommunityScreen() {
     addCommentFirestore,
     loadCommentsForPost,
   } = useCommunityStore();
-  const { motherName } = useProfileStore();
+  const { motherName, photoUrl: myPhotoUrl } = useProfileStore();
   const profile = useProfileStore((s) => s.profile);
   const activeKid = useProfileStore((s) => s.getActiveKid());
   const { user } = useAuthStore();
@@ -1015,6 +1015,7 @@ export default function CommunityScreen() {
             post={item}
             currentUserUid={myUid}
             currentUserName={motherName}
+            currentUserPhotoUrl={myPhotoUrl || undefined}
             onReact={(postId, emoji) => {
               if (myUid) {
                 toggleReactionFirestore(postId, myUid, motherName || 'Anonymous', emoji);
@@ -1032,7 +1033,7 @@ export default function CommunityScreen() {
             }}
             onAddComment={(postId, text) => {
               if (myUid) {
-                addCommentFirestore(postId, myUid, motherName || 'Anonymous', text);
+                addCommentFirestore(postId, myUid, motherName || 'Anonymous', text, myPhotoUrl || undefined);
               } else {
                 addComment(postId, motherName || 'Anonymous', text);
               }
@@ -1056,7 +1057,7 @@ export default function CommunityScreen() {
         onClose={() => setShowNewPost(false)}
         onPost={(text, topic, _authorName, imageUri, imageAspectRatio) => {
           if (myUid) {
-            addPostFirestore(text, topic, myUid, imageUri, imageAspectRatio).catch(() => {
+            addPostFirestore(text, topic, myUid, imageUri, imageAspectRatio, myPhotoUrl || undefined).catch(() => {
               if (typeof window !== 'undefined') {
                 window.alert('Failed to publish your post. Please check your connection and try again.');
               }

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   Modal,
   Platform,
   StyleSheet,
@@ -82,7 +83,11 @@ function NotifRow({ notif, handled, onAccept, onDecline, onPress }: NotifRowProp
       activeOpacity={0.75}
     >
       {/* Avatar */}
-      <GradientAvatar name={notif.fromName ?? '?'} size={44} />
+      {notif.fromPhotoUrl ? (
+        <Image source={{ uri: notif.fromPhotoUrl }} style={styles.notifAvatar} />
+      ) : (
+        <GradientAvatar name={notif.fromName ?? '?'} size={44} />
+      )}
 
       {/* Content */}
       <View style={styles.notifContent}>
@@ -316,6 +321,11 @@ const styles = StyleSheet.create({
     gap: 12,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0,0,0,0.04)',
+  },
+  notifAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
   },
   notifRowUnread: {
     backgroundColor: 'rgba(232,72,122,0.05)',
