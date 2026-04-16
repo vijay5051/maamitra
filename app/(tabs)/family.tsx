@@ -606,28 +606,6 @@ export default function FamilyScreen() {
           </Card>
         )}
 
-        {/* ── Next Action Card ── */}
-        {activeKid && !activeKid.isExpecting && (
-          <TouchableOpacity activeOpacity={0.85} style={styles.actionCard}>
-            <LinearGradient
-              colors={['rgba(232,72,122,0.06)', 'rgba(124,58,237,0.04)']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.actionCardGrad}
-            >
-              <View style={styles.actionCardLeft}>
-                <Text style={styles.actionCardEmoji}>💉</Text>
-                <View>
-                  <Text style={styles.actionCardTitle}>Vaccination Schedule</Text>
-                  <Text style={styles.actionCardSub}>Tap to view {activeKid.name}'s vaccines</Text>
-                </View>
-              </View>
-              <View style={styles.actionCardArrow}>
-                <Ionicons name="chevron-forward" size={16} color="#E8487A" />
-              </View>
-            </LinearGradient>
-          </TouchableOpacity>
-        )}
       </ScrollView>
 
       <AddChildModal

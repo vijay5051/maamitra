@@ -7,19 +7,6 @@ import * as SplashScreen from 'expo-splash-screen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
-import {
-  DMSerifDisplay_400Regular,
-} from '@expo-google-fonts/dm-serif-display';
-import {
-  DMSans_400Regular,
-  DMSans_500Medium,
-  DMSans_600SemiBold,
-  DMSans_700Bold,
-} from '@expo-google-fonts/dm-sans';
-import {
-  DMMono_400Regular,
-  DMMono_500Medium,
-} from '@expo-google-fonts/dm-mono';
 import { useAuthStore } from '../store/useAuthStore';
 import { useAppSettingsStore } from '../store/useAppSettingsStore';
 
@@ -29,17 +16,17 @@ export default function RootLayout() {
   const { initAuth } = useAuthStore();
   const { fetchSettings } = useAppSettingsStore();
 
-  // Load Ionicons from project assets (not node_modules) — ensures expo export includes the TTF
-  // and Firebase Hosting can serve it from a clean /assets path without @ scoped package issues
+  // All fonts loaded from local assets — guarantees they're bundled and served
+  // correctly by Firebase Hosting (no external font URL requests that can fail).
   const [fontsLoaded, fontError] = useFonts({
-    Ionicons: require('../assets/fonts/Ionicons.ttf'),
-    DMSerifDisplay_400Regular,
-    DMSans_400Regular,
-    DMSans_500Medium,
-    DMSans_600SemiBold,
-    DMSans_700Bold,
-    DMMono_400Regular,
-    DMMono_500Medium,
+    Ionicons:                  require('../assets/fonts/Ionicons.ttf'),
+    DMSerifDisplay_400Regular: require('../assets/fonts/DMSerifDisplay_400Regular.ttf'),
+    DMSans_400Regular:         require('../assets/fonts/DMSans_400Regular.ttf'),
+    DMSans_500Medium:          require('../assets/fonts/DMSans_500Medium.ttf'),
+    DMSans_600SemiBold:        require('../assets/fonts/DMSans_600SemiBold.ttf'),
+    DMSans_700Bold:            require('../assets/fonts/DMSans_700Bold.ttf'),
+    DMMono_400Regular:         require('../assets/fonts/DMMono_400Regular.ttf'),
+    DMMono_500Medium:          require('../assets/fonts/DMMono_500Medium.ttf'),
   });
 
   useEffect(() => {
