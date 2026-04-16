@@ -250,7 +250,7 @@ const dotStyles = StyleSheet.create({
 
 // ─── Step config ──────────────────────────────────────────────────────────────
 
-const TOTAL_STEPS = 8;
+const TOTAL_STEPS = 9;
 
 const STEP_QUESTIONS = (name: string) => [
   `Hi ${name}! I'm MaaMitra, your personal companion 🤱 First, tell me — what's your current journey?`,
@@ -337,6 +337,11 @@ export default function OnboardingScreen() {
 
   const flatListRef = useRef<FlatList>(null);
   const stepQueue = useRef<number>(0);
+  // Always-current answers snapshot so extra-kid callbacks never read stale closure
+  const answersRef = useRef<Record<string, string>>({});
+  // Stores YYYY-MM-DD when a date step is active; handleAnswer shows display text in bubble
+  // but we store the raw value in answers for reliable parsing
+  const pendingDateRaw = useRef('');
 
   const addMsg = useCallback((msg: ChatMsg) => {
     setMessages((prev) => [...prev, msg]);
@@ -360,8 +365,12 @@ export default function OnboardingScreen() {
     [addMsg]
   );
 
-  // Initial greeting
+  // Keep answersRef in sync with answers state
+  useEffect(() => { answersRef.current = answers; }, [answers]);
+
+  // Initial greeting — also reset extraKids ref so remounts don't accumulate
   useEffect(() => {
+    extraKids.current = [];
     const question = STEP_QUESTIONS(motherName)[0];
     setIsTyping(true);
     setTimeout(() => {
@@ -378,10 +387,13 @@ export default function OnboardingScreen() {
     (answer: string) => {
       setShowInput(false);
 
-      // Add user reply
+      // Add user reply — for date steps, answer is the formatted display string ("12 Sep 2025")
+      // but we store the raw YYYY-MM-DD from pendingDateRaw so parsing is unambiguous
       addMsg({ id: `user-${Date.now()}`, role: 'user', text: answer });
 
-      const newAnswers = { ...answers, [`step${currentStep}`]: answer };
+      const valueToStore = pendingDateRaw.current || answer;
+      pendingDateRaw.current = '';
+      const newAnswers = { ...answers, [`step${currentStep}`]: valueToStore };
       setAnswers(newAnswers);
 
       const nextStep = currentStep + 1;
@@ -420,7 +432,11 @@ export default function OnboardingScreen() {
       // After baby name step (step 3), tailor gender question based on stage
       if (currentStep === 3) {
         const stageAnswer = newAnswers['step0'] ?? '';
-        const isExpecting = stageAnswer.includes('pregnant') || stageAnswer.includes('Planning');
+        // Normalize: same derivation used in finishOnboarding so the two paths can't drift
+        const derivedStage = stageAnswer.includes('pregnant') ? 'pregnant'
+          : stageAnswer.includes('arrived') ? 'newborn'
+          : 'planning';
+        const isExpecting = derivedStage === 'pregnant' || derivedStage === 'planning';
         if (isExpecting) {
           // Expecting baby — gender is a surprise; auto-skip the gender step
           const answersWithGender = { ...newAnswers, step4: 'Surprise 🎁' };
@@ -456,7 +472,10 @@ export default function OnboardingScreen() {
       setShowInput(false);
       addMsg({ id: `user-ek-${Date.now()}`, role: 'user', text: answer });
 
-      const updatedKid = { ...currentExtraKid, [`sub${subStep}`]: answer };
+      // For date sub-steps, store raw YYYY-MM-DD; answer is the formatted display string
+      const valueToStore = pendingDateRaw.current || answer;
+      pendingDateRaw.current = '';
+      const updatedKid = { ...currentExtraKid, [`sub${subStep}`]: valueToStore };
       setCurrentExtraKid(updatedKid);
 
       const nextSubStep = subStep + 1;
@@ -477,7 +496,8 @@ export default function OnboardingScreen() {
             EXTRA_KID_PLACEHOLDERS[0]
           );
         } else {
-          finishOnboarding(answers, extraKids.current);
+          // Use answersRef to avoid stale closure — answers state may lag one render behind
+          finishOnboarding(answersRef.current, extraKids.current);
         }
         return;
       }
@@ -564,9 +584,10 @@ export default function OnboardingScreen() {
             : 'single-parent';
 
           setMotherName(motherName);
-          // Validate keyDate — only store it if it parses to a real date
+          // Validate keyDate — append T00:00:00 to prevent UTC midnight being interpreted
+          // as the previous calendar day in IST (+5:30) and other eastern timezones
           const rawKeyDate = finalAnswers['step2'] ?? '';
-          const parsedKeyDate = rawKeyDate ? new Date(rawKeyDate) : null;
+          const parsedKeyDate = rawKeyDate ? new Date(rawKeyDate + 'T00:00:00') : null;
           const validKeyDate = parsedKeyDate && !isNaN(parsedKeyDate.getTime()) ? parsedKeyDate.toISOString() : '';
 
           setProfile({
@@ -578,11 +599,15 @@ export default function OnboardingScreen() {
           });
 
           // Add primary kid
-          const kidName = finalAnswers['step3'] ?? 'Little one';
+          // Sanitise name: "not decided yet" typed verbatim should not become the stored name
+          const rawKidName = (finalAnswers['step3'] ?? '').trim();
+          const kidName = !rawKidName || rawKidName.toLowerCase() === 'not decided yet'
+            ? 'Little one'
+            : rawKidName;
           const genderRaw = finalAnswers['step4'] ?? '';
           const gender = genderRaw.includes('Boy') ? 'boy' : genderRaw.includes('Girl') ? 'girl' : 'surprise';
           const parsedDate = validKeyDate ? new Date(validKeyDate) : new Date();
-          const dobStr = parsedDate.toISOString(); // validKeyDate is already validated above
+          const dobStr = parsedDate.toISOString();
           // A child is only "expecting" if stage is pregnant/planning AND the date is in the future
           const dateIsInFuture = parsedDate > new Date();
           const isExpecting = (stage === 'pregnant' || stage === 'planning') && dateIsInFuture;
@@ -590,7 +615,8 @@ export default function OnboardingScreen() {
           addKid({
             name: kidName,
             dob: dobStr,
-            stage: isExpecting ? stage : 'newborn',
+            // Never pass 'planning' as Kid stage — use 'pregnant' for all expecting kids
+            stage: isExpecting ? 'pregnant' : 'newborn',
             gender,
             isExpecting,
           });
@@ -602,7 +628,8 @@ export default function OnboardingScreen() {
             const ekDobRaw = ekData['sub2'] ?? '';
             const ekGenderRaw = ekData['sub3'] ?? '';
             const ekGender = ekGenderRaw.includes('Boy') ? 'boy' : ekGenderRaw.includes('Girl') ? 'girl' : 'surprise';
-            const ekParsed = ekDobRaw ? new Date(ekDobRaw) : new Date();
+            // Same T00:00:00 suffix to avoid UTC-offset day-shift in IST
+            const ekParsed = ekDobRaw ? new Date(ekDobRaw + 'T00:00:00') : new Date();
             const ekDob = isNaN(ekParsed.getTime()) ? new Date().toISOString() : ekParsed.toISOString();
             // Only expecting if user selected Expecting AND date is in the future
             const ekDateInFuture = ekParsed > new Date();
@@ -650,7 +677,10 @@ export default function OnboardingScreen() {
   const activeChipOptions = extraKidSubStep !== null ? (EXTRA_KID_OPTIONS[extraKidSubStep] ?? []) : chipOptions;
   const activeTextPlaceholder = extraKidSubStep !== null ? EXTRA_KID_PLACEHOLDERS[extraKidSubStep] : textPlaceholder;
 
-  const displayStep = Math.min(currentStep, TOTAL_STEPS - 1);
+  // During extra-kid sub-flow currentStep stays at 8; show fully-progressed dots
+  const displayStep = extraKidSubStep !== null
+    ? TOTAL_STEPS - 1
+    : Math.min(currentStep, TOTAL_STEPS - 1);
 
   return (
     <View style={styles.container}>
@@ -711,15 +741,18 @@ export default function OnboardingScreen() {
               const stageAnswer = answers['step0'] ?? '';
               const isBabyArrived = stageAnswer.includes('arrived');
               const isPregnant = stageAnswer.includes('pregnant');
+              // Planning users also need a future date (can't have due date in the past)
+              const isPlanning = !isBabyArrived && !isPregnant;
               // For extra kid sub-step 2: check if the extra kid is born or expecting
-              const ekIsNot = currentExtraKid['sub0']?.includes('Born') ?? false;
+              const ekIsBorn = currentExtraKid['sub0']?.includes('Born') ?? false;
               const ekIsExpecting = currentExtraKid['sub0']?.includes('Expecting') ?? false;
               const maxDate = extraKidSubStep === 2
-                ? (ekIsNot ? todayStr : undefined)
+                ? (ekIsBorn ? todayStr : undefined)
                 : (isBabyArrived ? todayStr : undefined);
               const minDate = extraKidSubStep === 2
                 ? (ekIsExpecting ? todayStr : undefined)
-                : (isPregnant ? todayStr : undefined);
+                // Pregnant and planning users must pick today or future
+                : (isPregnant || isPlanning ? todayStr : undefined);
               return (
               <View style={styles.datePickerWrap}>
                 <DatePickerField
@@ -734,10 +767,12 @@ export default function OnboardingScreen() {
                   disabled={!datePickerValue}
                   onPress={() => {
                     if (!datePickerValue) return;
-                    // Format for display: "12 Sep 2025"
+                    // Show human-readable date in chat bubble ("12 Sep 2025")
+                    // but store raw YYYY-MM-DD in answers via pendingDateRaw ref
                     const d = new Date(datePickerValue + 'T00:00:00');
                     const display = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-                    handleAnswer(datePickerValue); // store YYYY-MM-DD for reliable parsing
+                    pendingDateRaw.current = datePickerValue; // consumed in handleUserAnswer/handleExtraKidAnswer
+                    handleAnswer(display); // display string shown in user bubble
                     setDatePickerValue('');
                   }}
                   activeOpacity={0.8}
