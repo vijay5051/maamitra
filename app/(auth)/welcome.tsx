@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  ScrollView,
+  Image,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -10,14 +10,17 @@ import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import GradientButton from '../../components/ui/GradientButton';
+import { Fonts } from '../../constants/theme';
+
+const LOGO = require('../../assets/logo.png');
 
 const FEATURES = [
-  { emoji: '💬', text: 'Chat-first — like texting a knowledgeable friend' },
-  { emoji: '🇮🇳', text: 'India-specific — local foods, schemes & languages' },
-  { emoji: '🧠', text: 'Self-learning — remembers every detail about you' },
-  { emoji: '🏥', text: 'IAP & FOGSI aligned medical content' },
-  { emoji: '👨‍👩‍👧', text: 'Multi-child profiles — including expecting' },
-  { emoji: '👥', text: 'Community of Indian mothers — real support' },
+  { emoji: '💬', title: 'AI Companion', text: 'Chat like texting a knowledgeable friend' },
+  { emoji: '🇮🇳', title: 'India-First', text: 'India-specific foods, schemes & languages' },
+  { emoji: '🧠', title: 'Remembers You', text: 'Remembers every detail about you & baby' },
+  { emoji: '🏥', title: 'Trusted Info', text: 'IAP & FOGSI aligned medical content' },
+  { emoji: '👨‍👩‍👧', title: 'Multi-Child', text: 'Profiles for all your children' },
+  { emoji: '👥', title: 'Community', text: 'Connect with Indian mothers' },
 ];
 
 export default function WelcomeScreen() {
@@ -26,52 +29,47 @@ export default function WelcomeScreen() {
 
   return (
     <LinearGradient
-      colors={['#fdf2f8', '#ede9fe', '#fdf6ff']}
+      colors={['#1C1033', '#3b1060', '#6d1a7a']}
       start={{ x: 0, y: 0 }}
-      end={{ x: 0.5, y: 1 }}
+      end={{ x: 1, y: 1 }}
       style={styles.gradient}
     >
-      <ScrollView
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingTop: insets.top + 32, paddingBottom: insets.bottom + 32 },
-        ]}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Logo circle */}
-        <LinearGradient
-          colors={['#ec4899', '#8b5cf6']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.logoCircle}
-        >
-          <Text style={styles.logoEmoji}>🤱</Text>
-        </LinearGradient>
+      {/* Glow blobs */}
+      <View style={styles.glowTopRight} pointerEvents="none" />
+      <View style={styles.glowBottomLeft} pointerEvents="none" />
+      <View style={styles.glowCenter} pointerEvents="none" />
 
-        {/* App name */}
-        <Text style={styles.appName}>MaaMitra</Text>
-        <Text style={styles.tagline}>
-          Your AI-powered companion for every step of motherhood — from bump to toddler and beyond
-        </Text>
+      <View style={[styles.container, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
 
-        {/* Feature cards */}
-        <View style={styles.featuresContainer}>
+        {/* ── Hero ── */}
+        <View style={styles.hero}>
+          <Image source={LOGO} style={styles.logoImage} resizeMode="contain" />
+          <Text style={styles.wordmark}>MaaMitra</Text>
+          <Text style={styles.tagline}>
+            Your AI companion for every step of motherhood
+          </Text>
+        </View>
+
+        {/* ── Feature grid ── */}
+        <View style={styles.featuresGrid}>
           {FEATURES.map((f, i) => (
-            <View key={i} style={styles.featureRow}>
+            <View key={i} style={styles.featureCard}>
               <Text style={styles.featureEmoji}>{f.emoji}</Text>
-              <Text style={styles.featureText}>{f.text}</Text>
+              <View style={styles.featureTextWrap}>
+                <Text style={styles.featureTitle}>{f.title}</Text>
+                <Text style={styles.featureText}>{f.text}</Text>
+              </View>
             </View>
           ))}
         </View>
 
-        {/* CTA buttons */}
+        {/* ── CTA buttons ── */}
         <View style={styles.buttonsContainer}>
           <GradientButton
             title="Get Started — It's Free ✨"
             onPress={() => router.push('/(auth)/sign-up')}
             style={styles.primaryButton}
           />
-
           <TouchableOpacity
             style={styles.outlineButton}
             onPress={() => router.push('/(auth)/sign-in')}
@@ -81,118 +79,116 @@ export default function WelcomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Footer */}
         <Text style={styles.footer}>
           Protected under India's DPDP Act 2023 · IAP & FOGSI guidelines
         </Text>
-      </ScrollView>
+
+      </View>
     </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  gradient: {
+  gradient: { flex: 1 },
+
+  // Glow blobs
+  glowTopRight: {
+    position: 'absolute', width: 300, height: 300, borderRadius: 150,
+    backgroundColor: 'rgba(232,72,122,0.2)', top: -80, right: -80,
+  },
+  glowBottomLeft: {
+    position: 'absolute', width: 240, height: 240, borderRadius: 120,
+    backgroundColor: 'rgba(124,58,237,0.18)', bottom: 80, left: -80,
+  },
+  glowCenter: {
+    position: 'absolute', width: 200, height: 200, borderRadius: 100,
+    backgroundColor: 'rgba(232,72,122,0.08)', top: '35%', right: -60,
+  },
+
+  container: {
     flex: 1,
+    paddingHorizontal: 22,
+    justifyContent: 'space-between',
   },
-  scrollContent: {
-    alignItems: 'center',
-    paddingHorizontal: 24,
-  },
-  logoCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#ec4899',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
-    marginBottom: 24,
-    boxShadow: '0px 8px 20px rgba(236, 72, 153, 0.30)',
-  },
-  logoEmoji: {
-    fontSize: 52,
-    lineHeight: 60,
-    textAlign: 'center',
-  },
-  appName: {
-    fontSize: 36,
-    fontWeight: '800',
-    color: '#be185d',
-    letterSpacing: -0.5,
-    marginBottom: 12,
+
+  // Hero
+  hero: { alignItems: 'center' },
+  logoImage: { width: 100, height: 100, marginBottom: 4 },
+  wordmark: {
+    fontFamily: Fonts.serif,
+    fontSize: 38,
+    color: '#ffffff',
+    letterSpacing: -1,
+    textShadowColor: 'rgba(232,72,122,0.5)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 16,
+    marginBottom: 8,
   },
   tagline: {
-    fontSize: 16,
-    color: '#6b7280',
+    fontFamily: Fonts.sansRegular,
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.55)',
     textAlign: 'center',
-    maxWidth: 280,
-    lineHeight: 24,
-    marginBottom: 32,
+    maxWidth: 260,
+    lineHeight: 21,
   },
-  featuresContainer: {
-    width: '100%',
-    marginBottom: 36,
-    gap: 10,
-  },
-  featureRow: {
+
+  // Features 2-column grid
+  featuresGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.85)',
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    shadowColor: '#8b5cf6',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-    boxShadow: '0px 2px 8px rgba(139, 92, 246, 0.06)',
+    flexWrap: 'wrap',
+    gap: 8,
   },
-  featureEmoji: {
-    fontSize: 22,
-    marginRight: 14,
-    width: 28,
-    textAlign: 'center',
+  featureCard: {
+    width: '48.5%',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  } as any,
+  featureEmoji: { fontSize: 20, width: 24, textAlign: 'center', marginTop: 1 },
+  featureTextWrap: { flex: 1 },
+  featureTitle: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.9)',
+    marginBottom: 2,
   },
   featureText: {
-    flex: 1,
-    fontSize: 14,
-    color: '#374151',
-    fontWeight: '500',
-    lineHeight: 20,
+    fontFamily: Fonts.sansRegular,
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.45)',
+    lineHeight: 16,
   },
-  buttonsContainer: {
-    width: '100%',
-    gap: 12,
-    marginBottom: 28,
-  },
-  primaryButton: {
-    width: '100%',
-  },
+
+  // Buttons
+  buttonsContainer: { gap: 10 },
+  primaryButton: { width: '100%' },
   outlineButton: {
-    borderRadius: 999,
+    borderRadius: 18,
     borderWidth: 1.5,
-    borderColor: '#ec4899',
+    borderColor: 'rgba(255,255,255,0.25)',
     paddingVertical: 16,
-    paddingHorizontal: 20,
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.7)',
+    backgroundColor: 'rgba(255,255,255,0.06)',
   },
   outlineButtonText: {
-    color: '#ec4899',
-    fontWeight: '700',
-    fontSize: 16,
-    letterSpacing: 0.3,
+    fontFamily: Fonts.sansBold,
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 15,
+    letterSpacing: 0.2,
   },
+
   footer: {
-    fontSize: 11,
-    color: '#9ca3af',
+    fontFamily: Fonts.sansRegular,
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.3)',
     textAlign: 'center',
-    lineHeight: 16,
-    maxWidth: 280,
+    lineHeight: 15,
   },
 });

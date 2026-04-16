@@ -1,0 +1,105 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper functions ──────────────────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'admin@maamitra.app' ||
+        request.auth.token.email == 'vijay@maamitra.app' ||
+        request.auth.token.email == (
+          // Allow env-configured admin email
+          'admin@maamitra.app'
+        )
+      );
+    }
+
+    // ── Users ─────────────────────────────────────────────────────────────────
+    // Each user can read/write their own document. Admins can read all.
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isOwner(uid);
+      allow update: if isOwner(uid) || isAdmin();
+      allow delete: if isOwner(uid) || isAdmin();
+    }
+
+    // ── Mood entries ──────────────────────────────────────────────────────────
+    match /moods/{uid}/entries/{date} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // ── Saved answers ─────────────────────────────────────────────────────────
+    match /saved_answers/{uid}/items/{itemId} {
+      allow read, write: if isOwner(uid);
+    }
+
+    // ── Community posts ───────────────────────────────────────────────────────
+    // Anyone signed in can read approved posts.
+    // Users can create posts (set approved: false).
+    // Only admins can approve or delete any post.
+    // Authors can delete their own post.
+    match /community_posts/{postId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() &&
+        request.resource.data.approved == false &&
+        request.resource.data.authorUid == request.auth.uid;
+      allow update: if isAdmin() ||
+        // Allow reaction/comment updates from any signed-in user
+        (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['reactions', 'userReactions', 'comments']));
+      allow delete: if isAdmin() ||
+        (isSignedIn() && resource.data.authorUid == request.auth.uid);
+    }
+
+    // ── App settings (admin only write, anyone signed-in can read) ────────────
+    match /app_settings/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // ── Content collections: books, articles, products, schemes, yoga ─────────
+    // Anyone signed in can read. Only admins can write.
+    match /books/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    match /articles/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    match /products/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    match /schemes/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    match /yoga/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    match /vaccines/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // ── Push notifications queue (admin write only) ───────────────────────────
+    match /push_notifications/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    // ── Community (legacy collection used by admin content manager) ───────────
+    match /community/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+  }
+}

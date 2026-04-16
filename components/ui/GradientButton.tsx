@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { Fonts } from '../../constants/theme';
 
 interface GradientButtonProps {
   title: string;
@@ -71,14 +72,14 @@ export default function GradientButton({
           ]}
         >
           {loading ? (
-            <ActivityIndicator color="#ec4899" size="small" />
+            <ActivityIndicator color="#E8487A" size="small" />
           ) : (
             <View style={styles.inner}>
               {icon && (
                 <Ionicons
                   name={icon}
                   size={18}
-                  color="#ec4899"
+                  color="#E8487A"
                   style={styles.icon}
                 />
               )}
@@ -105,7 +106,7 @@ export default function GradientButton({
         ]}
       >
         <LinearGradient
-          colors={['#ec4899', '#8b5cf6']}
+          colors={['#E8487A', '#7C3AED']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.gradient}
@@ -133,26 +134,26 @@ export default function GradientButton({
 
 const styles = StyleSheet.create({
   wrapper: {
-    borderRadius: 999,
+    borderRadius: 18,
     overflow: 'hidden',
-    shadowColor: '#ec4899',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
+    shadowColor: '#E8487A',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
     elevation: 6,
-    boxShadow: '0px 4px 12px rgba(236, 72, 153, 0.25)',
+    boxShadow: '0px 8px 24px rgba(232, 72, 122, 0.35)',
   },
   gradient: {
-    paddingVertical: 16,
+    paddingVertical: 17,
     paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 999,
+    borderRadius: 18,
   },
   outlineButton: {
-    borderRadius: 999,
+    borderRadius: 18,
     borderWidth: 1.5,
-    borderColor: '#ec4899',
+    borderColor: '#E8487A',
     paddingVertical: 16,
     paddingHorizontal: 20,
     alignItems: 'center',
@@ -169,14 +170,14 @@ const styles = StyleSheet.create({
   },
   text: {
     color: '#ffffff',
-    fontWeight: '700',
+    fontFamily: Fonts.sansBold,
     fontSize: 16,
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
   outlineText: {
-    color: '#ec4899',
-    fontWeight: '700',
+    color: '#E8487A',
+    fontFamily: Fonts.sansBold,
     fontSize: 16,
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
 });

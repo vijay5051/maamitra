@@ -84,7 +84,6 @@ export default function YogaModal({ session, visible, onClose }: YogaModalProps)
         setTimeLeft((prev) => {
           if (prev <= 1) {
             clearInterval(timerRef.current!);
-            // Advance to next pose or complete
             setTimeout(() => {
               setPoseIndex((pi) => {
                 const nextIndex = pi + 1;
@@ -109,9 +108,7 @@ export default function YogaModal({ session, visible, onClose }: YogaModalProps)
   }, [isPlaying, poses]);
 
   const handlePrev = useCallback(() => {
-    if (poseIndex > 0) {
-      setPoseIndex((pi) => pi - 1);
-    }
+    if (poseIndex > 0) setPoseIndex((pi) => pi - 1);
   }, [poseIndex]);
 
   const handleNext = useCallback(() => {
@@ -134,15 +131,11 @@ export default function YogaModal({ session, visible, onClose }: YogaModalProps)
 
   if (!session) return null;
 
-  const overallProgress = poses.length > 0 ? (poseIndex + 1) / poses.length : 0;
-
+  // ── Completion screen ─────────────────────────────────────────────────────
   if (completed) {
     return (
       <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-        <LinearGradient
-          colors={['#1e1b4b', '#4c1d95']}
-          style={styles.flex}
-        >
+        <LinearGradient colors={['#1e1b4b', '#4c1d95']} style={styles.flex}>
           <SafeAreaView style={[styles.flex, styles.completedContainer]}>
             <Text style={styles.completedEmoji}>🎉</Text>
             <Text style={styles.completedTitle}>Session Complete!</Text>
@@ -168,24 +161,33 @@ export default function YogaModal({ session, visible, onClose }: YogaModalProps)
     );
   }
 
+  // ── Main session screen ───────────────────────────────────────────────────
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <LinearGradient colors={['#1e1b4b', '#4c1d95']} style={styles.flex}>
         <SafeAreaView style={styles.flex}>
-          {/* Header */}
+
+          {/* ── Header ── */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
-              <Text style={styles.sessionName}>{session.name}</Text>
+              <Text style={styles.sessionName} numberOfLines={1}>{session.name}</Text>
+              <Text style={styles.stepLabel}>Step {poseIndex + 1} of {poses.length}</Text>
             </View>
-            <Text style={styles.stepLabel}>
-              Step {poseIndex + 1} / {poses.length}
-            </Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Ionicons name="close" size={22} color="#ffffff" />
+            <TouchableOpacity onPress={onClose} style={styles.closeBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="close" size={24} color="#ffffff" />
             </TouchableOpacity>
           </View>
 
-          {/* Progress bar */}
+          {/* ── Step progress dots ── */}
+          <View style={styles.stepDots}>
+            {poses.map((_: YogaPose, i: number) => (
+              <TouchableOpacity key={i} onPress={() => setPoseIndex(i)} style={styles.dotWrap}>
+                <View style={[styles.dot, i === poseIndex && styles.dotActive, i < poseIndex && styles.dotDone]} />
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* ── Thin progress bar ── */}
           <View style={styles.progressTrack}>
             <Animated.View
               style={[
@@ -200,64 +202,64 @@ export default function YogaModal({ session, visible, onClose }: YogaModalProps)
             />
           </View>
 
-          {/* Main content */}
-          <View style={styles.poseContainer}>
-            <Text style={styles.poseEmoji}>{currentPose?.emoji}</Text>
-
-            <View style={styles.poseCard}>
+          {/* ── Pose card (scrollable in case of long text) ── */}
+          <ScrollView
+            style={styles.poseScroll}
+            contentContainerStyle={styles.poseScrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Pose header row: emoji + name */}
+            <View style={styles.poseHeader}>
+              <Text style={styles.poseEmoji}>{currentPose?.emoji}</Text>
               <Text style={styles.poseName}>{currentPose?.name}</Text>
+            </View>
+
+            {/* Instructions card */}
+            <View style={styles.poseCard}>
               <Text style={styles.poseInstruction}>{currentPose?.instruction}</Text>
               <View style={styles.breathingRow}>
-                <Text style={styles.breathingText}>🌿 {currentPose?.breathCue}</Text>
+                <Text style={styles.breathLeaf}>🌿</Text>
+                <Text style={styles.breathingText}>{currentPose?.breathCue}</Text>
               </View>
             </View>
+          </ScrollView>
 
-            {/* Timer */}
+          {/* ── Timer ── */}
+          <View style={styles.timerRow}>
             <Text style={styles.timer}>{formatTime(timeLeft)}</Text>
-
-            {/* Controls */}
-            <View style={styles.controls}>
-              <TouchableOpacity
-                onPress={handlePrev}
-                disabled={poseIndex === 0}
-                style={[styles.controlBtn, poseIndex === 0 && styles.controlBtnDisabled]}
-              >
-                <Ionicons name="play-back" size={24} color="#ffffff" />
-              </TouchableOpacity>
-
-              <TouchableOpacity onPress={handlePlayPause} style={styles.playBtn}>
-                <Ionicons
-                  name={isPlaying ? 'pause' : 'play'}
-                  size={32}
-                  color="#1e1b4b"
-                />
-              </TouchableOpacity>
-
-              <TouchableOpacity onPress={handleNext} style={styles.controlBtn}>
-                <Ionicons name="play-forward" size={24} color="#ffffff" />
-              </TouchableOpacity>
-            </View>
           </View>
 
-          {/* Step indicators */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.stepsScroll}
-          >
-            {poses.map((pose: YogaPose, i: number) => (
-              <TouchableOpacity
-                key={pose.name}
-                onPress={() => setPoseIndex(i)}
-                style={[
-                  styles.stepIndicator,
-                  i === poseIndex && styles.stepIndicatorActive,
-                ]}
-              >
-                <Text style={styles.stepEmoji}>{pose.emoji}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+          {/* ── Controls ── */}
+          <View style={styles.controls}>
+            <TouchableOpacity
+              onPress={handlePrev}
+              disabled={poseIndex === 0}
+              style={[styles.controlBtn, poseIndex === 0 && styles.controlBtnDisabled]}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <Ionicons name="play-back" size={26} color="#ffffff" />
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={handlePlayPause} style={styles.playBtn}>
+              <Ionicons
+                name={isPlaying ? 'pause' : 'play'}
+                size={34}
+                color="#1e1b4b"
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={handleNext}
+              style={styles.controlBtn}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <Ionicons name="play-forward" size={26} color="#ffffff" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Bottom spacer */}
+          <View style={styles.bottomSpacer} />
+
         </SafeAreaView>
       </LinearGradient>
     </Modal>
@@ -266,93 +268,164 @@ export default function YogaModal({ session, visible, onClose }: YogaModalProps)
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+
+  // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 12,
-    gap: 8,
+    paddingTop: 12,
+    paddingBottom: 8,
   },
-  headerLeft: { flex: 1 },
+  headerLeft: { flex: 1, marginRight: 12 },
   sessionName: {
     color: '#ffffff',
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '700',
+    marginBottom: 2,
   },
   stepLabel: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 13,
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 12,
     fontWeight: '500',
   },
   closeBtn: {
-    padding: 4,
-  },
-  progressTrack: {
-    height: 3,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    marginHorizontal: 20,
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: 3,
-    backgroundColor: '#ec4899',
-    borderRadius: 2,
-  },
-  poseContainer: {
-    flex: 1,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.15)',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 24,
-    gap: 16,
+  },
+
+  // Step dots
+  stepDots: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+  },
+  dotWrap: { padding: 4 },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+  },
+  dotActive: {
+    backgroundColor: '#ec4899',
+    width: 20,
+    borderRadius: 4,
+  },
+  dotDone: {
+    backgroundColor: 'rgba(236,72,153,0.5)',
+  },
+
+  // Progress bar
+  progressTrack: {
+    height: 2,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    marginHorizontal: 20,
+    borderRadius: 1,
+    overflow: 'hidden',
+    marginBottom: 12,
+  },
+  progressFill: {
+    height: 2,
+    backgroundColor: '#ec4899',
+    borderRadius: 1,
+  },
+
+  // Pose scroll area
+  poseScroll: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  poseScrollContent: {
+    gap: 12,
+    paddingBottom: 8,
+  },
+
+  // Pose header: emoji + name inline
+  poseHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 4,
   },
   poseEmoji: {
-    fontSize: 100,
-  },
-  poseCard: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 20,
-    padding: 20,
-    width: '100%',
-    gap: 10,
+    fontSize: 40,
   },
   poseName: {
+    flex: 1,
     color: '#ffffff',
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '700',
-    textAlign: 'center',
+    lineHeight: 28,
+  },
+
+  // Instruction card
+  poseCard: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 16,
+    padding: 18,
+    gap: 12,
   },
   poseInstruction: {
-    color: 'rgba(255,255,255,0.82)',
+    color: 'rgba(255,255,255,0.88)',
     fontSize: 14,
     lineHeight: 22,
-    textAlign: 'center',
   },
   breathingRow: {
-    alignItems: 'center',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.12)',
+    paddingTop: 10,
   },
+  breathLeaf: { fontSize: 14, marginTop: 1 },
   breathingText: {
+    flex: 1,
     color: 'rgba(255,255,255,0.7)',
     fontSize: 13,
     fontStyle: 'italic',
+    lineHeight: 20,
+  },
+
+  // Timer
+  timerRow: {
+    alignItems: 'center',
+    paddingVertical: 16,
   },
   timer: {
     color: '#ec4899',
     fontSize: 52,
     fontWeight: '700',
-    letterSpacing: 2,
+    fontVariant: ['tabular-nums'],
+    letterSpacing: 4,
   },
+
+  // Controls
   controls: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 32,
+    justifyContent: 'center',
+    gap: 36,
+    paddingBottom: 8,
   },
   controlBtn: {
-    opacity: 1,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   controlBtnDisabled: {
-    opacity: 0.35,
+    opacity: 0.3,
   },
   playBtn: {
     width: 72,
@@ -361,35 +434,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#ec4899',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 8,
-    boxShadow: '0px 4px 12px rgba(236, 72, 153, 0.30)',
+    boxShadow: '0px 4px 16px rgba(236, 72, 153, 0.40)',
   },
-  stepsScroll: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    gap: 8,
-  },
-  stepIndicator: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
-  },
-  stepIndicatorActive: {
-    borderWidth: 2,
-    borderColor: '#ec4899',
-    backgroundColor: 'rgba(236,72,153,0.2)',
-  },
-  stepEmoji: {
-    fontSize: 22,
-  },
+
+  bottomSpacer: { height: 16 },
+
   // Completion screen
   completedContainer: {
     alignItems: 'center',
@@ -397,9 +446,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     gap: 16,
   },
-  completedEmoji: {
-    fontSize: 80,
-  },
+  completedEmoji: { fontSize: 72 },
   completedTitle: {
     color: '#ffffff',
     fontSize: 28,
@@ -417,7 +464,5 @@ const styles = StyleSheet.create({
     gap: 12,
     marginTop: 16,
   },
-  completedBtn: {
-    width: '100%',
-  },
+  completedBtn: { width: '100%' },
 });

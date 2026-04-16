@@ -21,28 +21,28 @@ function getShadow(shadow?: ShadowSize) {
   if (!shadow) return {};
   const map: Record<ShadowSize, object> = {
     sm: {
-      shadowColor: '#ec4899',
+      shadowColor: '#E8487A',
       shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.08,
-      shadowRadius: 6,
-      elevation: 2,
-      boxShadow: '0px 2px 6px rgba(236, 72, 153, 0.08)',
+      shadowOpacity: 0.07,
+      shadowRadius: 8,
+      elevation: 3,
+      boxShadow: '0px 2px 8px rgba(232, 72, 122, 0.07)',
     },
     md: {
-      shadowColor: '#ec4899',
+      shadowColor: '#E8487A',
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.10,
-      shadowRadius: 12,
-      elevation: 4,
-      boxShadow: '0px 4px 12px rgba(236, 72, 153, 0.10)',
+      shadowRadius: 14,
+      elevation: 5,
+      boxShadow: '0px 4px 14px rgba(232, 72, 122, 0.10)',
     },
     lg: {
-      shadowColor: '#ec4899',
+      shadowColor: '#7C3AED',
       shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.12,
+      shadowOpacity: 0.14,
       shadowRadius: 20,
       elevation: 8,
-      boxShadow: '0px 8px 20px rgba(236, 72, 153, 0.12)',
+      boxShadow: '0px 8px 20px rgba(124, 58, 237, 0.14)',
     },
   };
   return map[shadow];
@@ -81,6 +81,8 @@ export default function Card({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: '#ffffff',
-    borderRadius: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#EDE9F6',
   },
 });

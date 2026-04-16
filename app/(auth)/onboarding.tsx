@@ -250,12 +250,14 @@ const dotStyles = StyleSheet.create({
 
 // ─── Step config ──────────────────────────────────────────────────────────────
 
-const TOTAL_STEPS = 7;
+const TOTAL_STEPS = 8;
 
 const STEP_QUESTIONS = (name: string) => [
   `Hi ${name}! I'm MaaMitra, your personal companion 🤱 First, tell me — what's your current journey?`,
+  `Lovely! And what's your relation to this little one? This helps me give you the most relevant support 💕`,
   `Wonderful! When is your due date or baby's birthday? 📅 Tap the calendar to pick a date.`,
   `What's your little one's name? (or "not decided yet" if you're expecting)`,
+  `What is your baby's gender? 💕`,
   `Which state are you in? I'll give you location-specific advice 🇮🇳`,
   `What are your dietary preferences?`,
   `What's your family setup like?`,
@@ -264,12 +266,14 @@ const STEP_QUESTIONS = (name: string) => [
 
 type InputType = 'chips' | 'text' | 'states' | 'date';
 
-const STEP_INPUT_TYPES: InputType[] = ['chips', 'date', 'text', 'states', 'chips', 'chips', 'chips'];
+const STEP_INPUT_TYPES: InputType[] = ['chips', 'chips', 'date', 'text', 'chips', 'states', 'chips', 'chips', 'chips'];
 
 const STEP_OPTIONS: (string[] | null)[] = [
   ["I'm pregnant 🤰", 'My baby has arrived 👶', 'Planning to conceive 🌸'],
+  ['Mom 👩', 'Dad 👨', 'Grandparent 👴', 'Guardian 🤝', 'Other 💙'],
   null,
   null,
+  ['Boy 👦', 'Girl 👧', 'Surprise 🎁'],
   null,
   ['Vegetarian 🥦', 'Eggetarian 🥚', 'Non-Vegetarian 🍗', 'Vegan 🌱'],
   ['Nuclear family', 'Joint family', 'Living with in-laws', 'Single parent'],
@@ -278,8 +282,10 @@ const STEP_OPTIONS: (string[] | null)[] = [
 
 const STEP_TEXT_PLACEHOLDERS = [
   '',
+  '',
   'e.g. 12 Sep 2025',
   "Baby's name",
+  '',
   '',
   '',
   '',
@@ -291,17 +297,19 @@ const EXTRA_KID_QUESTIONS = [
   'What stage is this child at?',
   "What's their name?",
   "What's their date of birth? 📅 Tap the calendar to pick.",
+  "What's their gender? 💕",
   'Would you like to add another child?',
 ];
 
-const EXTRA_KID_INPUT_TYPES: InputType[] = ['chips', 'text', 'date', 'chips'];
+const EXTRA_KID_INPUT_TYPES: InputType[] = ['chips', 'text', 'date', 'chips', 'chips'];
 const EXTRA_KID_OPTIONS: (string[] | null)[] = [
   ['Expecting 🤰', 'Born 👶'],
   null,
   null,
+  ['Boy 👦', 'Girl 👧', 'Surprise 🎁'],
   ["Yes, add another", "No, that's all"],
 ];
-const EXTRA_KID_PLACEHOLDERS = ['', "Child's name", '', ''];
+const EXTRA_KID_PLACEHOLDERS = ['', "Child's name", '', '', ''];
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -378,7 +386,19 @@ export default function OnboardingScreen() {
 
       const nextStep = currentStep + 1;
 
-      if (currentStep === 6) {
+      // When advancing to the date step (step 2), use stage-aware question text
+      if (nextStep === 2 && currentStep === 1) {
+        const stageAnswer = newAnswers['step0'] ?? '';
+        const dateQ = stageAnswer.includes('arrived')
+          ? "When was your little one born? 🎂 Tap the calendar to pick the birth date."
+          : stageAnswer.includes('pregnant')
+          ? "When is your due date? 📅 Tap the calendar to pick a date."
+          : "What's the expected date? 📅 Tap the calendar to pick a date.";
+        showBotMessage(dateQ, nextStep, STEP_INPUT_TYPES[nextStep], STEP_OPTIONS[nextStep], STEP_TEXT_PLACEHOLDERS[nextStep]);
+        return;
+      }
+
+      if (currentStep === 8) {
         // "Do you have more children?"
         if (answer.startsWith('Yes')) {
           // Start extra kid sub-flow
@@ -393,6 +413,24 @@ export default function OnboardingScreen() {
         } else {
           // Done
           finishOnboarding(newAnswers, []);
+        }
+        return;
+      }
+
+      // After baby name step (step 3), tailor gender question based on stage
+      if (currentStep === 3) {
+        const stageAnswer = newAnswers['step0'] ?? '';
+        const isExpecting = stageAnswer.includes('pregnant') || stageAnswer.includes('Planning');
+        if (isExpecting) {
+          // Expecting baby — gender is a surprise; auto-skip the gender step
+          const answersWithGender = { ...newAnswers, step4: 'Surprise 🎁' };
+          setAnswers(answersWithGender);
+          const q = STEP_QUESTIONS(motherName)[5]; // jump to state question
+          showBotMessage(q, 5, STEP_INPUT_TYPES[5], STEP_OPTIONS[5], STEP_TEXT_PLACEHOLDERS[5]);
+        } else {
+          // Born baby — only Boy / Girl options
+          const q = STEP_QUESTIONS(motherName)[4];
+          showBotMessage(q, 4, 'chips', ['Boy 👦', 'Girl 👧'], '');
         }
         return;
       }
@@ -423,7 +461,7 @@ export default function OnboardingScreen() {
 
       const nextSubStep = subStep + 1;
 
-      if (subStep === 3) {
+      if (subStep === 4) {
         // "Add another?" answer
         const finalKid = { ...updatedKid, [`sub${subStep}`]: answer };
         extraKids.current = [...extraKids.current, finalKid];
@@ -446,6 +484,35 @@ export default function OnboardingScreen() {
 
       setCurrentExtraKid(updatedKid);
       setExtraKidSubStep(nextSubStep);
+
+      // After extra kid DOB (sub-step 2), tailor gender question based on expecting status
+      if (subStep === 2) {
+        const isExpecting = (updatedKid['sub0'] ?? '').includes('Expecting');
+        if (isExpecting) {
+          // Expecting — auto-set surprise, skip to "add another?" step
+          const kidWithGender = { ...updatedKid, sub3: 'Surprise 🎁' };
+          setCurrentExtraKid(kidWithGender);
+          setExtraKidSubStep(4);
+          showBotMessage(
+            EXTRA_KID_QUESTIONS[4],
+            currentStep,
+            EXTRA_KID_INPUT_TYPES[4],
+            EXTRA_KID_OPTIONS[4],
+            EXTRA_KID_PLACEHOLDERS[4]
+          );
+        } else {
+          // Born — show only Boy / Girl
+          showBotMessage(
+            EXTRA_KID_QUESTIONS[3],
+            currentStep,
+            'chips',
+            ['Boy 👦', 'Girl 👧'],
+            ''
+          );
+        }
+        return;
+      }
+
       showBotMessage(
         EXTRA_KID_QUESTIONS[nextSubStep],
         currentStep,
@@ -477,13 +544,20 @@ export default function OnboardingScreen() {
             : stageRaw.includes('arrived') ? 'newborn'
             : 'planning';
 
-          const dietRaw = finalAnswers['step4'] ?? '';
+          // step1 = relation to child (NEW)
+          const relationRaw = finalAnswers['step1'] ?? '';
+          const parentGenderVal = relationRaw.includes('Mom') ? 'mother'
+            : relationRaw.includes('Dad') ? 'father'
+            : 'other';
+          useProfileStore.getState().setParentGender(parentGenderVal);
+
+          const dietRaw = finalAnswers['step6'] ?? '';
           const diet = dietRaw.includes('Non-Vegetarian') ? 'non-vegetarian'
             : dietRaw.includes('Eggetarian') ? 'eggetarian'
             : dietRaw.includes('Vegan') ? 'vegan'
             : 'vegetarian';
 
-          const familyRaw = finalAnswers['step5'] ?? '';
+          const familyRaw = finalAnswers['step7'] ?? '';
           const familyType = familyRaw.includes('Nuclear') ? 'nuclear'
             : familyRaw.includes('Joint') ? 'joint'
             : familyRaw.includes('in-laws') ? 'in-laws'
@@ -491,20 +565,22 @@ export default function OnboardingScreen() {
 
           setMotherName(motherName);
           // Validate keyDate — only store it if it parses to a real date
-          const rawKeyDate = finalAnswers['step1'] ?? '';
+          const rawKeyDate = finalAnswers['step2'] ?? '';
           const parsedKeyDate = rawKeyDate ? new Date(rawKeyDate) : null;
           const validKeyDate = parsedKeyDate && !isNaN(parsedKeyDate.getTime()) ? parsedKeyDate.toISOString() : '';
 
           setProfile({
             stage,
             keyDate: validKeyDate,
-            state: finalAnswers['step3'] ?? '',
+            state: finalAnswers['step5'] ?? '',
             diet,
             familyType,
           });
 
           // Add primary kid
-          const kidName = finalAnswers['step2'] ?? 'Little one';
+          const kidName = finalAnswers['step3'] ?? 'Little one';
+          const genderRaw = finalAnswers['step4'] ?? '';
+          const gender = genderRaw.includes('Boy') ? 'boy' : genderRaw.includes('Girl') ? 'girl' : 'surprise';
           const parsedDate = validKeyDate ? new Date(validKeyDate) : new Date();
           const dobStr = parsedDate.toISOString(); // validKeyDate is already validated above
           // A child is only "expecting" if stage is pregnant/planning AND the date is in the future
@@ -515,7 +591,7 @@ export default function OnboardingScreen() {
             name: kidName,
             dob: dobStr,
             stage: isExpecting ? stage : 'newborn',
-            gender: 'surprise',
+            gender,
             isExpecting,
           });
 
@@ -524,6 +600,8 @@ export default function OnboardingScreen() {
             const ekSelectedExpecting = ekData['sub0']?.includes('Expecting') ?? false;
             const ekName = ekData['sub1'] ?? 'Sibling';
             const ekDobRaw = ekData['sub2'] ?? '';
+            const ekGenderRaw = ekData['sub3'] ?? '';
+            const ekGender = ekGenderRaw.includes('Boy') ? 'boy' : ekGenderRaw.includes('Girl') ? 'girl' : 'surprise';
             const ekParsed = ekDobRaw ? new Date(ekDobRaw) : new Date();
             const ekDob = isNaN(ekParsed.getTime()) ? new Date().toISOString() : ekParsed.toISOString();
             // Only expecting if user selected Expecting AND date is in the future
@@ -534,7 +612,7 @@ export default function OnboardingScreen() {
               name: ekName,
               dob: ekDob,
               stage: ekStage,
-              gender: 'surprise',
+              gender: ekGender,
               isExpecting: ekIsExpecting,
             });
           });
@@ -628,12 +706,28 @@ export default function OnboardingScreen() {
             {activeInputType === 'states' && (
               <StateSelectorComponent onSelect={handleAnswer} />
             )}
-            {activeInputType === 'date' && (
+            {activeInputType === 'date' && (() => {
+              const todayStr = new Date().toISOString().split('T')[0];
+              const stageAnswer = answers['step0'] ?? '';
+              const isBabyArrived = stageAnswer.includes('arrived');
+              const isPregnant = stageAnswer.includes('pregnant');
+              // For extra kid sub-step 2: check if the extra kid is born or expecting
+              const ekIsNot = currentExtraKid['sub0']?.includes('Born') ?? false;
+              const ekIsExpecting = currentExtraKid['sub0']?.includes('Expecting') ?? false;
+              const maxDate = extraKidSubStep === 2
+                ? (ekIsNot ? todayStr : undefined)
+                : (isBabyArrived ? todayStr : undefined);
+              const minDate = extraKidSubStep === 2
+                ? (ekIsExpecting ? todayStr : undefined)
+                : (isPregnant ? todayStr : undefined);
+              return (
               <View style={styles.datePickerWrap}>
                 <DatePickerField
                   value={datePickerValue}
                   onChange={setDatePickerValue}
                   placeholder="Tap to select date"
+                  maxDate={maxDate}
+                  minDate={minDate}
                 />
                 <TouchableOpacity
                   style={[styles.dateContinueBtn, !datePickerValue && styles.dateContinueBtnDisabled]}
@@ -653,7 +747,8 @@ export default function OnboardingScreen() {
                   </Text>
                 </TouchableOpacity>
               </View>
-            )}
+              );
+            })()}
           </View>
         )}
       </KeyboardAvoidingView>

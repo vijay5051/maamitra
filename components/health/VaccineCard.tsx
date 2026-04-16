@@ -6,6 +6,7 @@ import DatePickerField from '../ui/DatePickerField';
 import { VaccineWithDate } from '../../hooks/useVaccineSchedule';
 import { useProfileStore } from '../../store/useProfileStore';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useActiveKid } from '../../hooks/useActiveKid';
 import { syncCompletedVaccines } from '../../services/firebase';
 
 interface VaccineCardProps {
@@ -22,6 +23,8 @@ function getStatusColor(status: VaccineWithDate['status']): string {
 
 export default function VaccineCard({ vaccine, isLast }: VaccineCardProps) {
   const { markVaccineDone, unmarkVaccineDone } = useProfileStore();
+  const { activeKid } = useActiveKid();
+  const kidId = activeKid?.id ?? '';
   const isDone = vaccine.status === 'done';
   const isOverdue = vaccine.status === 'overdue';
   const isDueSoon = vaccine.status === 'due-soon';
@@ -36,7 +39,7 @@ export default function VaccineCard({ vaccine, isLast }: VaccineCardProps) {
   const handleToggle = () => {
     if (!canMark) return;
     if (isDone) {
-      unmarkVaccineDone(vaccine.id);
+      unmarkVaccineDone(vaccine.id, kidId);
       // Sync to Firestore
       const uid = useAuthStore.getState().user?.uid;
       if (uid) {
@@ -54,7 +57,7 @@ export default function VaccineCard({ vaccine, isLast }: VaccineCardProps) {
     if (!pendingDate) return;
     const chosen = new Date(pendingDate + 'T00:00:00');
     if (chosen > new Date()) return; // reject future dates
-    markVaccineDone(vaccine.id, chosen.toISOString());
+    markVaccineDone(vaccine.id, kidId, chosen.toISOString());
     setShowDateInput(false);
     // Sync to Firestore
     const uid = useAuthStore.getState().user?.uid;

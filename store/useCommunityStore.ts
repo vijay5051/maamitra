@@ -15,8 +15,8 @@ export interface Post {
   badge: string;
   topic: string;
   text: string;
-  imageEmoji?: string;
-  imageCaption?: string;
+  imageUri?: string;
+  imageAspectRatio?: number; // width/height ratio after cropping
   reactions: Record<string, number>;
   userReactions: string[];
   comments: Comment[];
@@ -86,19 +86,20 @@ interface CommunityState {
   posts: Post[];
   activeFilter: CommunityFilter;
 
-  addPost: (text: string, topic: string, authorName: string) => void;
+  addPost: (text: string, topic: string, authorName: string, imageUri?: string, imageAspectRatio?: number) => void;
   toggleReaction: (postId: string, emoji: string) => void;
   addComment: (postId: string, authorName: string, text: string) => void;
   toggleComments: (postId: string) => void;
   setFilter: (filter: CommunityFilter) => void;
   getFilteredPosts: () => Post[];
+  getUserPostCount: (authorName: string) => number;
 }
 
 export const useCommunityStore = create<CommunityState>((set, get) => ({
   posts: SEED_POSTS,
   activeFilter: 'All',
 
-  addPost: (text: string, topic: string, authorName: string) => {
+  addPost: (text: string, topic: string, authorName: string, imageUri?: string, imageAspectRatio?: number) => {
     const initial = authorName.charAt(0).toUpperCase();
     const newPost: Post = {
       id: Date.now().toString(),
@@ -107,6 +108,8 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
       badge: 'Community Member',
       topic,
       text,
+      imageUri,
+      imageAspectRatio,
       reactions: {},
       userReactions: [],
       comments: [],
@@ -175,5 +178,9 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
     const { posts, activeFilter } = get();
     if (activeFilter === 'All') return posts;
     return posts.filter((p) => p.topic === activeFilter);
+  },
+
+  getUserPostCount: (authorName: string) => {
+    return get().posts.filter((p) => p.authorName === authorName).length;
   },
 }));

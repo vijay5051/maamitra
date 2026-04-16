@@ -1,8 +1,8 @@
-import Anthropic from '@anthropic-ai/sdk';
+// API key is no longer used client-side — all calls go through the Cloudflare Worker proxy.
+// Set EXPO_PUBLIC_CLAUDE_WORKER_URL in .env to your Worker URL.
+const WORKER_URL = process.env.EXPO_PUBLIC_CLAUDE_WORKER_URL ?? '';
 
-const apiKey = process.env.EXPO_PUBLIC_ANTHROPIC_API_KEY;
-
-export const isAnthropicConfigured = (): boolean => !!apiKey;
+export const isAnthropicConfigured = (): boolean => !!WORKER_URL;
 
 export interface ChatContext {
   motherName: string;
@@ -17,31 +17,61 @@ export interface ChatContext {
 }
 
 export function buildSystemPrompt(ctx: ChatContext): string {
-  return `You are MaaMitra, a warm and knowledgeable AI companion for Indian mothers. You are like a trusted, well-informed friend who genuinely cares.
+  const kidLine = ctx.kidName
+    ? `${ctx.kidName}${ctx.kidAgeMonths !== undefined ? `, who is ${ctx.kidAgeMonths} months old` : ''}`
+    : null;
 
-ABOUT THIS MOTHER:
-- Name: ${ctx.motherName}
-- Stage: ${ctx.stage}
-- Location: ${ctx.state}, India
-- Diet: ${ctx.diet}
-${ctx.kidName ? `- Baby's name: ${ctx.kidName}` : ''}
-${ctx.kidAgeMonths !== undefined ? `- Baby's age: ${ctx.kidAgeMonths} months` : ''}
-${ctx.allergies && ctx.allergies.length > 0 ? `- Known allergies: ${ctx.allergies.join(', ')}` : ''}
-${ctx.healthConditions && ctx.healthConditions.length > 0 ? `- Health conditions: ${ctx.healthConditions.join(', ')}` : ''}
+  return `You are MaaMitra — a warm, knowledgeable companion for Indian mothers. Think of yourself as that one close friend who happens to know everything about babies, pregnancy, and health, and always responds with love and zero judgment.
 
-GUIDELINES:
-- Speak warmly in simple English, like a knowledgeable friend — not a medical textbook
-- Always be India-specific: suggest local foods (dal, ragi, khichdi, ghee), reference Indian seasons, festivals
-- Follow IAP 2024 immunisation guidelines and FOGSI maternal health guidelines
-- For medical emergencies, always say "Important — Act Now ⚠️" at the start and recommend calling doctor/108
-- Keep responses concise (3-5 sentences usually enough), use emojis sparingly but warmly
-- If asked about yoga/exercise, gently mention the Wellness tab
-- Respect all dietary preferences (${ctx.diet})
-- Never give diagnoses — always recommend consulting a doctor for medical concerns
-- End with a warm note or emoji when appropriate
-- Comply with India's DPDP Act 2023 — never store or request sensitive personal data beyond what's shared
+WHO YOU'RE TALKING TO:
+${ctx.motherName} lives in ${ctx.state}, India. She follows a ${ctx.diet} diet.${kidLine ? ` Her baby is ${kidLine}.` : ''}${ctx.allergies && ctx.allergies.length > 0 ? ` Known allergies: ${ctx.allergies.join(', ')}.` : ''}${ctx.healthConditions && ctx.healthConditions.length > 0 ? ` Health conditions: ${ctx.healthConditions.join(', ')}.` : ''}
 
-EMERGENCY DETECTION: If user mentions: not breathing, unconscious, severe bleeding, fits/seizures, high fever >104°F, difficulty breathing — start response with "🚨 Important — Act Now ⚠️" and give first aid steps while calling for emergency help.`;
+HOW TO WRITE — READ THIS CAREFULLY:
+Plain conversational text only. Write exactly like a caring friend sending a message — warm, natural sentences that flow together.
+
+Never use any markdown formatting. This means:
+- No **bold** or *italics* — ever
+- No bullet points (no -, no •, no *)
+- No numbered lists like 1. 2. 3.
+- No headings or subheadings (no ##, no bold titles)
+- No "Here are X tips:" followed by a list
+
+Instead of listing, weave things naturally into sentences. Say "you could try ragi, banana, or sweet potato to start" not a bullet list. If you genuinely need to separate distinct things, use a new line between them — but write each as a complete sentence, not a fragment.
+
+Keep it short and warm. 3 to 5 sentences is almost always enough. A shorter answer with heart beats a long answer that feels like a brochure.
+
+Sound like a human who cares. Say things like "Oh that's actually really common" or "Don't worry, this happened to me too" or "Honestly, the easiest thing to try is..." Use her name sometimes — it makes her feel seen. End with warmth.
+
+Be India-specific. Suggest local foods like dal, ragi, khichdi, moong, ghee. Reference Indian seasons and routines where relevant.
+
+Medical guidance: Follow IAP 2024 and FOGSI guidelines. Never diagnose — always suggest seeing a doctor for anything that needs one. For emergencies (not breathing, unconscious, severe bleeding, seizures, fever above 104°F, difficulty breathing), start your response with "🚨 Please act right now —" and give clear steps while telling her to call 108.`;
+}
+
+/**
+ * Strips markdown formatting from AI responses so text renders as natural
+ * conversational language in the chat bubble (which uses plain <Text>).
+ */
+export function stripMarkdown(text: string): string {
+  return text
+    // Remove bold (**text** and __text__)
+    .replace(/\*\*([^*\n]+)\*\*/g, '$1')
+    .replace(/__([^_\n]+)__/g, '$1')
+    // Remove italic (*text* and _text_) — careful not to eat emoji asterisks
+    .replace(/(?<!\*)\*(?!\*)([^*\n]+)(?<!\*)\*(?!\*)/g, '$1')
+    .replace(/(?<!_)_(?!_)([^_\n]+)(?<!_)_(?!_)/g, '$1')
+    // Remove headings (##, ###, etc.) — replace with just the heading text
+    .replace(/^#{1,6}\s+(.+)$/gm, '$1')
+    // Replace markdown-style bullet lines (-, *, •) with a clean em-dash inline
+    .replace(/^\s*[-*•]\s+/gm, '— ')
+    // Replace numbered list items (1. 2. etc.) with em-dash
+    .replace(/^\s*\d+\.\s+/gm, '— ')
+    // Remove horizontal rules
+    .replace(/^[-*_]{3,}\s*$/gm, '')
+    // Remove inline code backticks
+    .replace(/`([^`]+)`/g, '$1')
+    // Remove triple+ newlines → double
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 export function detectIsEmergency(text: string): boolean {
@@ -67,25 +97,23 @@ export function detectIsEmergency(text: string): boolean {
 }
 
 export function detectIsFood(text: string): boolean {
-  const keywords = [
-    'food',
-    'eat',
-    'feed',
-    'meal',
-    'diet',
-    'recipe',
-    'nutrition',
-    'solid',
-    'fruit',
-    'vegetable',
-    'cereal',
-    'porridge',
-    'khichdi',
-    'ragi',
-    'dal',
-  ];
   const lower = text.toLowerCase();
-  return keywords.some(k => lower.includes(k));
+
+  // Never intercept emergency / medical queries — they must go straight to AI
+  const emergencyKeywords = [
+    'breathing', 'not breathing', 'unconscious', 'seizure', 'fever',
+    'emergency', 'hospital', 'scared', 'help', 'ambulance', 'moving', 'blue',
+    'choking', 'choke', 'convulsion', 'unresponsive', '104', '105',
+  ];
+  if (emergencyKeywords.some(k => lower.includes(k))) return false;
+
+  const foodKeywords = [
+    'food', 'eat', 'meal', 'diet', 'recipe', 'nutrition',
+    'solid', 'fruit', 'vegetable', 'cereal', 'porridge',
+    'khichdi', 'ragi', 'dal', 'introduce', 'weaning',
+    'breastfeed', 'formula', 'snack', 'cook',
+  ];
+  return foodKeywords.some(k => lower.includes(k));
 }
 
 export function detectIsYoga(text: string): boolean {
@@ -94,34 +122,39 @@ export function detectIsYoga(text: string): boolean {
   return keywords.some(k => lower.includes(k));
 }
 
-// Non-streaming version for React Native compatibility
+// All Claude API calls are proxied through the Cloudflare Worker so the API
+// key is never exposed in the browser bundle.
 export async function sendMessage(
   messages: Array<{ role: 'user' | 'assistant'; content: string }>,
   context: ChatContext
 ): Promise<string> {
-  if (!apiKey) {
-    return "⚙️ AI chat isn't set up yet. Please add your Anthropic API key to the .env file to enable this feature.";
+  if (!WORKER_URL) {
+    return "⚙️ AI chat isn't configured yet. Set EXPO_PUBLIC_CLAUDE_WORKER_URL in .env.";
   }
 
-  const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
-
   try {
-    const response = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 1024,
-      system: buildSystemPrompt(context),
-      messages: messages.map(m => ({ role: m.role, content: m.content })),
+    const res = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        systemPrompt: buildSystemPrompt(context),
+        messages: messages.map(m => ({ role: m.role, content: m.content })),
+      }),
     });
 
-    const content = response.content[0];
-    if (content.type === 'text') return content.text;
+    if (!res.ok) {
+      const status = res.status;
+      if (status === 429) return "I'm getting a lot of requests right now. Please try again in a moment. 😊";
+      if (status === 401) return "⚙️ Worker configuration error — API key issue on the server.";
+      throw new Error(`Worker returned ${status}`);
+    }
+
+    const data = await res.json();
+    const content = data?.content?.[0];
+    if (content?.type === 'text') return stripMarkdown(content.text);
     return 'I had trouble understanding that. Could you try again?';
   } catch (error: any) {
-    if (error?.status === 401)
-      return '⚙️ Invalid API key. Please check your Anthropic API key in the .env file.';
-    if (error?.status === 429)
-      return "I'm getting a lot of requests right now. Please try again in a moment. 😊";
-    console.error('Claude API error:', error);
+    console.error('Claude proxy error:', error);
     return "I'm having a little trouble right now. Please try again in a moment. 💙";
   }
 }

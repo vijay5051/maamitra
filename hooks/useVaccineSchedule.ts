@@ -19,9 +19,12 @@ export interface VaccineWithDate {
 
 export function useVaccineSchedule(): VaccineWithDate[] {
   const { activeKid } = useActiveKid();
-  const completedVaccines = useProfileStore((s) => s.completedVaccines);
+  const completedVaccinesAll = useProfileStore((s) => s.completedVaccines);
 
   return useMemo(() => {
+    // Per-kid vaccine tracking: get only this kid's vaccines
+    const completedVaccines = activeKid ? (completedVaccinesAll[activeKid.id] ?? {}) : {};
+
     if (!activeKid || activeKid.isExpecting || !activeKid.dob) {
       return VACCINE_SCHEDULE.map((v) => ({
         ...v,
@@ -67,5 +70,5 @@ export function useVaccineSchedule(): VaccineWithDate[] {
 
       return { ...v, dueDate, status, formattedDate };
     });
-  }, [activeKid, completedVaccines]);
+  }, [activeKid, completedVaccinesAll]);
 }

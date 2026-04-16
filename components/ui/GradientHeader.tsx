@@ -9,6 +9,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { Fonts } from '../../constants/theme';
 
 interface GradientHeaderProps {
   title: string;
@@ -29,11 +30,16 @@ export default function GradientHeader({
 }: GradientHeaderProps) {
   return (
     <LinearGradient
-      colors={['#f472b6', '#a78bfa']}
+      colors={['#1C1033', '#3b1060', '#6d1a7a']}
       start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 0 }}
+      end={{ x: 1, y: 1 }}
       style={[styles.gradient, style]}
     >
+      {/* Ambient glow — top right */}
+      <View style={styles.glowTopRight} pointerEvents="none" />
+      {/* Ambient glow — bottom left */}
+      <View style={styles.glowBottomLeft} pointerEvents="none" />
+
       <SafeAreaView edges={['top']} style={styles.safeArea}>
         <View style={styles.row}>
           {/* Left: back button or spacer */}
@@ -74,6 +80,25 @@ export default function GradientHeader({
 const styles = StyleSheet.create({
   gradient: {
     width: '100%',
+    overflow: 'hidden',
+  },
+  glowTopRight: {
+    position: 'absolute',
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(232,72,122,0.28)',
+    top: -80,
+    right: -40,
+  },
+  glowBottomLeft: {
+    position: 'absolute',
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: 'rgba(124,58,237,0.2)',
+    bottom: -50,
+    left: -30,
   },
   safeArea: {
     width: '100%',
@@ -99,14 +124,15 @@ const styles = StyleSheet.create({
   },
   title: {
     color: '#ffffff',
-    fontWeight: '700',
-    fontSize: 20,
-    letterSpacing: 0.2,
+    fontFamily: Fonts.serif,
+    fontSize: 22,
+    letterSpacing: -0.3,
   },
   subtitle: {
-    color: 'rgba(255,255,255,0.82)',
-    fontSize: 14,
-    marginTop: 2,
-    letterSpacing: 0.1,
+    color: 'rgba(255,255,255,0.55)',
+    fontFamily: Fonts.sansRegular,
+    fontSize: 12,
+    marginTop: 3,
+    letterSpacing: 0.2,
   },
 });

@@ -19,31 +19,32 @@ import {
 import { useProfileStore } from './useProfileStore';
 
 // Helper — populate profile store from Firestore after any successful login.
-// Returns true if Firestore had data, false if not (used for migration trigger).
+// IMPORTANT: always call resetProfile() before this so no previous user's data leaks.
+// Returns true if Firestore had data, false if not.
 async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
   try {
     const fullProfile = await loadFullProfile(uid);
     if (!fullProfile) {
-      // Firestore has no data — check if local store has completed onboarding data
-      // (user completed onboarding before Firestore sync was added — migrate it now)
-      const { onboardingComplete, motherName, profile, kids, completedVaccines } = useProfileStore.getState();
-      if (onboardingComplete && motherName) {
-        saveFullProfile(uid, { motherName, profile, kids, completedVaccines, onboardingComplete: true }).catch(console.error);
-      }
       return false;
     }
+    // Reset before populating — makes this function idempotent even if called twice
+    // (prevents duplicate kids when both signIn and onAuthStateChanged call this)
+    useProfileStore.getState().resetProfile();
     const { setMotherName, setProfile, addKid, setOnboardingComplete, markVaccineDone } = useProfileStore.getState();
     setMotherName(fullProfile.motherName);
     if (fullProfile.profile) setProfile(fullProfile.profile as any);
-    // Avoid duplicate kids if store already has data
-    const currentKids = useProfileStore.getState().kids;
-    if (currentKids.length === 0 && fullProfile.kids.length > 0) {
-      fullProfile.kids.forEach((kid: any) =>
-        addKid({ name: kid.name, dob: kid.dob, stage: kid.stage, gender: kid.gender, isExpecting: kid.isExpecting })
-      );
-    }
-    Object.entries(fullProfile.completedVaccines).forEach(([id, val]: [string, any]) => {
-      markVaccineDone(id, val.doneDate);
+    // Restore kids with their saved IDs so completedVaccines mapping stays intact
+    fullProfile.kids.forEach((kid: any) =>
+      addKid({ id: kid.id, name: kid.name, dob: kid.dob, stage: kid.stage, gender: kid.gender, isExpecting: kid.isExpecting })
+    );
+    // Per-kid vaccine structure: { kidId: { vaccineId: { done, doneDate } } }
+    // Old flat format (vaccineId → { done, doneDate }) is silently ignored
+    Object.entries(fullProfile.completedVaccines).forEach(([kidId, vaccines]: [string, any]) => {
+      if (typeof vaccines === 'object' && vaccines !== null && !('done' in vaccines)) {
+        Object.entries(vaccines).forEach(([vaccineId, val]: [string, any]) => {
+          if (val?.done) markVaccineDone(vaccineId, kidId, val.doneDate);
+        });
+      }
     });
     setOnboardingComplete(true);
     return true;
@@ -89,6 +90,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       return;
     }
     set({ isLoading: true });
+    // Always wipe local profile data before loading a new user's data
+    useProfileStore.getState().resetProfile();
     try {
       const credential = await signInWithEmailAndPassword(auth, email, password);
       const profile = await getUserProfile(credential.user.uid);
@@ -97,8 +100,10 @@ export const useAuthStore = create<AuthState>((set) => ({
         name: profile?.name ?? credential.user.displayName ?? 'Mom',
         email: credential.user.email ?? email,
       };
-      set({ user: authUser, isAuthenticated: true, isLoading: false });
+      // Hydrate profile BEFORE setting isAuthenticated — prevents index.tsx from
+      // seeing the transient state: isAuthenticated:true + onboardingComplete:false
       await hydrateProfileFromFirestore(credential.user.uid);
+      set({ user: authUser, isAuthenticated: true, isLoading: false });
     } catch (error) {
       set({ isLoading: false });
       throw error;
@@ -110,6 +115,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ user: MOCK_USER, isAuthenticated: true, isLoading: false });
       return;
     }
+    // Wipe any stale data from a previous user before creating new account
+    useProfileStore.getState().resetProfile();
     set({ isLoading: true });
     try {
       const credential = await createUserWithEmailAndPassword(auth, email, password);
@@ -134,16 +141,23 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ user: MOCK_USER, isAuthenticated: true, isLoading: false });
       return 'tabs';
     }
+    // Wipe local data before loading new user
+    useProfileStore.getState().resetProfile();
+    set({ isLoading: true });
     const result = await firebaseSignInWithGoogle();
-    if (!result) return null; // User cancelled
+    if (!result) { set({ isLoading: false }); return null; } // User cancelled
     const profile = await getUserProfile(result.uid);
+    // Hydrate profile BEFORE setting isAuthenticated to avoid the transient
+    // state where isAuthenticated:true but onboardingComplete:false
+    const hadProfile = await hydrateProfileFromFirestore(result.uid);
     set({ user: result, isAuthenticated: true, isLoading: false });
-    await hydrateProfileFromFirestore(result.uid);
     // If profile has onboardingComplete, go to tabs; otherwise onboarding
-    return profile?.onboardingComplete ? 'tabs' : 'onboarding';
+    return (profile?.onboardingComplete || hadProfile) ? 'tabs' : 'onboarding';
   },
 
   signOut: async () => {
+    // Always wipe local profile data immediately on sign-out — before any async calls
+    useProfileStore.getState().resetProfile();
     if (!isFirebaseConfigured() || !auth) {
       set({ user: null, isAuthenticated: false });
       return;
@@ -184,6 +198,8 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
+        // Clear any stale profile data from a previous session/user
+        useProfileStore.getState().resetProfile();
         try {
           const profile = await getUserProfile(firebaseUser.uid);
           const authUser: AuthUser = {
@@ -191,9 +207,13 @@ export const useAuthStore = create<AuthState>((set) => ({
             name: profile?.name ?? firebaseUser.displayName ?? 'Mom',
             email: firebaseUser.email ?? '',
           };
-          set({ user: authUser, isAuthenticated: true, isLoading: false });
+          // Hydrate profile BEFORE setting isAuthenticated so index.tsx never sees
+          // the transient state: isAuthenticated:true + onboardingComplete:false
           await hydrateProfileFromFirestore(firebaseUser.uid);
+          set({ user: authUser, isAuthenticated: true, isLoading: false });
         } catch {
+          // Even on error, try to hydrate then set authenticated
+          await hydrateProfileFromFirestore(firebaseUser.uid);
           set({
             user: {
               uid: firebaseUser.uid,
@@ -203,9 +223,9 @@ export const useAuthStore = create<AuthState>((set) => ({
             isAuthenticated: true,
             isLoading: false,
           });
-          await hydrateProfileFromFirestore(firebaseUser.uid);
         }
       } else {
+        useProfileStore.getState().resetProfile();
         set({ user: null, isAuthenticated: false, isLoading: false });
       }
     });

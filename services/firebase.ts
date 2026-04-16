@@ -436,6 +436,92 @@ export async function deleteContent(type: string, id: string): Promise<void> {
   }
 }
 
+/** Upsert a document at a known ID (used for vaccine overrides over static data) */
+export async function setContentById(type: string, id: string, data: Record<string, any>): Promise<void> {
+  if (!db) return;
+  try {
+    await setDoc(doc(db, type, id), { ...data, updatedAt: serverTimestamp() }, { merge: true });
+  } catch (error) {
+    console.error(`setContentById(${type}, ${id}) error:`, error);
+  }
+}
+
+// ─── Admin: User Management ───────────────────────────────────────────────────
+
+export interface AdminUser {
+  uid: string;
+  name: string;
+  email: string;
+  createdAt: string;
+  onboardingComplete: boolean;
+  kidsCount: number;
+  state: string;
+  photoUrl?: string;
+}
+
+export async function getUsers(): Promise<AdminUser[]> {
+  if (!db) return [];
+  try {
+    const snap = await getDocs(collection(db, 'users'));
+    return snap.docs.map((d) => {
+      const data = d.data();
+      return {
+        uid: d.id,
+        name: data.name ?? data.motherName ?? 'Unknown',
+        email: data.email ?? '',
+        createdAt: data.createdAt ?? '',
+        onboardingComplete: data.onboardingComplete ?? false,
+        kidsCount: Array.isArray(data.kids) ? data.kids.length : 0,
+        state: data.profile?.state ?? '',
+        photoUrl: data.photoUrl ?? undefined,
+      };
+    });
+  } catch (error) {
+    console.error('getUsers error:', error);
+    return [];
+  }
+}
+
+export async function deleteUserData(uid: string): Promise<void> {
+  if (!db) return;
+  try {
+    await deleteDoc(doc(db, 'users', uid));
+  } catch (error) {
+    console.error('deleteUserData error:', error);
+  }
+}
+
+export async function approveCommunityPost(postId: string): Promise<void> {
+  if (!db) return;
+  try {
+    await updateDoc(doc(db, 'community_posts', postId), { approved: true });
+  } catch (error) {
+    console.error('approveCommunityPost error:', error);
+  }
+}
+
+export async function deleteCommunityPost(postId: string): Promise<void> {
+  if (!db) return;
+  try {
+    await deleteDoc(doc(db, 'community_posts', postId));
+  } catch (error) {
+    console.error('deleteCommunityPost error:', error);
+  }
+}
+
+export async function getAllCommunityPosts(): Promise<any[]> {
+  if (!db) return [];
+  try {
+    const snap = await getDocs(
+      query(collection(db, 'community_posts'), orderBy('createdAt', 'desc'))
+    );
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch (error) {
+    console.error('getAllCommunityPosts error:', error);
+    return [];
+  }
+}
+
 // ─── Admin Stats ──────────────────────────────────────────────────────────────
 
 export async function getAdminStats(): Promise<{ totalUsers: number; totalPosts: number; postsToday: number }> {

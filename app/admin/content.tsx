@@ -1,524 +1,463 @@
+/**
+ * Admin — Content Manager
+ * Full CRUD for: Books · Articles · Products · Schemes · Yoga
+ * All changes sync to Firestore so all users see updates immediately.
+ */
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
-  Animated,
-  Dimensions,
   KeyboardAvoidingView,
   Modal,
   Platform,
+  RefreshControl,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   TouchableOpacity,
-  TouchableWithoutFeedback,
   View,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+import { getContent, createContent, updateContent, deleteContent } from '../../services/firebase';
 
-type ContentTab = 'articles' | 'products' | 'yoga' | 'schemes';
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-interface Article {
+type ContentTab = 'books' | 'articles' | 'products' | 'schemes' | 'yoga';
+
+interface ContentItem {
   id?: string;
-  title: string;
-  preview: string;
-  topic: string;
-  readTime: string;
-  ageMin: string;
-  ageMax: string;
-  emoji: string;
+  [key: string]: any;
 }
 
-interface Product {
-  id?: string;
-  name: string;
-  category: string;
-  price: string;
-  originalPrice: string;
-  rating: string;
-  emoji: string;
-  badge: string;
+// ─── Field schemas per content type ──────────────────────────────────────────
+
+const SCHEMAS: Record<ContentTab, { key: string; label: string; multiline?: boolean; numeric?: boolean; hint?: string }[]> = {
+  books: [
+    { key: 'title', label: 'Title *' },
+    { key: 'author', label: 'Author *' },
+    { key: 'description', label: 'Description', multiline: true },
+    { key: 'topic', label: 'Topic (e.g. Pregnancy, Sleep)' },
+    { key: 'rating', label: 'Rating (1–5)', numeric: true },
+    { key: 'reviews', label: 'Review Count', numeric: true },
+    { key: 'url', label: 'Buy URL' },
+    { key: 'sampleUrl', label: 'Sample/Preview URL' },
+    { key: 'imageUrl', label: 'Cover Image URL' },
+    { key: 'ageMin', label: 'Age Min (months; -9 = pregnancy)', numeric: true },
+    { key: 'ageMax', label: 'Age Max (months; 999 = all ages)', numeric: true },
+  ],
+  articles: [
+    { key: 'title', label: 'Title *' },
+    { key: 'preview', label: 'Preview (short summary) *', multiline: true },
+    { key: 'body', label: 'Full Body Text', multiline: true },
+    { key: 'topic', label: 'Topic (Feeding, Sleep, Nutrition…)' },
+    { key: 'readTime', label: 'Read Time (e.g. "4 min read")' },
+    { key: 'emoji', label: 'Emoji icon' },
+    { key: 'tag', label: 'Tag (e.g. Breastfeeding)' },
+    { key: 'url', label: 'External URL (optional)' },
+    { key: 'imageUrl', label: 'Header Image URL' },
+    { key: 'ageMin', label: 'Age Min (months; -9 = pregnancy)', numeric: true },
+    { key: 'ageMax', label: 'Age Max (months; 999 = all ages)', numeric: true },
+  ],
+  products: [
+    { key: 'name', label: 'Product Name *' },
+    { key: 'category', label: 'Category (Feeding, Sleep, Skincare…)' },
+    { key: 'emoji', label: 'Emoji' },
+    { key: 'price', label: 'Price (₹)', numeric: true },
+    { key: 'originalPrice', label: 'Original Price (₹)', numeric: true },
+    { key: 'rating', label: 'Rating (1–5)', numeric: true },
+    { key: 'reviews', label: 'Review Count', numeric: true },
+    { key: 'badge', label: 'Badge (e.g. Best Seller)' },
+    { key: 'description', label: 'Description', multiline: true },
+    { key: 'url', label: 'Affiliate / Buy URL' },
+    { key: 'imageUrl', label: 'Product Image URL' },
+  ],
+  schemes: [
+    { key: 'name', label: 'Scheme Name *' },
+    { key: 'shortName', label: 'Short Name / Abbreviation' },
+    { key: 'emoji', label: 'Emoji' },
+    { key: 'shortDesc', label: 'Short Description (one line) *' },
+    { key: 'description', label: 'Full Description', multiline: true },
+    { key: 'eligibility', label: 'Eligibility', multiline: true },
+    { key: 'benefit', label: 'What They Get', multiline: true },
+    { key: 'howToApply', label: 'How To Apply', multiline: true },
+    { key: 'url', label: 'Official Government URL' },
+    { key: 'tags', label: 'Tags (comma-separated: pregnant, newborn, girl, all-kids)', hint: 'e.g. pregnant,newborn' },
+  ],
+  yoga: [
+    { key: 'name', label: 'Session Name *' },
+    { key: 'description', label: 'Description', multiline: true },
+    { key: 'duration', label: 'Duration (e.g. 20 min)' },
+    { key: 'level', label: 'Level (Beginner / Intermediate / Advanced)' },
+    { key: 'poses', label: 'Poses (comma-separated)' },
+    { key: 'trimester', label: 'Trimester (1, 2, 3 or All)' },
+    { key: 'emoji', label: 'Emoji' },
+  ],
+};
+
+const TAB_META: Record<ContentTab, { label: string; icon: string; collection: string; primaryKey: string }> = {
+  books:    { label: '📗 Books',    icon: 'book-outline',          collection: 'books',           primaryKey: 'title' },
+  articles: { label: '📰 Articles', icon: 'newspaper-outline',     collection: 'articles',        primaryKey: 'title' },
+  products: { label: '🛍️ Products', icon: 'bag-handle-outline',    collection: 'products',        primaryKey: 'name'  },
+  schemes:  { label: '🇮🇳 Schemes',  icon: 'ribbon-outline',        collection: 'schemes',         primaryKey: 'name'  },
+  yoga:     { label: '🧘 Yoga',     icon: 'body-outline',          collection: 'yoga',            primaryKey: 'name'  },
+};
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function getDisplayTitle(item: ContentItem, tab: ContentTab): string {
+  return item[TAB_META[tab].primaryKey] ?? item.title ?? item.name ?? '(Untitled)';
 }
 
-interface Yoga {
-  id?: string;
-  name: string;
-  description: string;
-  duration: string;
-  level: string;
-  poses: string;
+function getDisplaySub(item: ContentItem, tab: ContentTab): string {
+  switch (tab) {
+    case 'books':    return `${item.author ?? ''} · ${item.topic ?? ''}`.trim().replace(/^·|·$/, '').trim();
+    case 'articles': return `${item.topic ?? ''} · ${item.readTime ?? ''}`.trim().replace(/^·|·$/, '').trim();
+    case 'products': return `${item.category ?? ''} · ₹${item.price ?? ''}`.trim().replace(/^·|·$/, '').trim();
+    case 'schemes':  return item.shortDesc ?? '';
+    case 'yoga':     return `${item.level ?? ''} · ${item.duration ?? ''}`.trim().replace(/^·|·$/, '').trim();
+    default:         return '';
+  }
 }
 
-interface Scheme {
-  id?: string;
-  name: string;
-  shortDesc: string;
-  eligibility: string;
-  url: string;
-  emoji: string;
+function blankItem(tab: ContentTab): ContentItem {
+  const item: ContentItem = {};
+  SCHEMAS[tab].forEach((f) => { item[f.key] = ''; });
+  return item;
 }
 
-type ContentItem = Article | Product | Yoga | Scheme;
+// ─── Form Modal ───────────────────────────────────────────────────────────────
 
-const ARTICLE_TOPICS = ['Pregnancy', 'Newborn', 'Toddler', 'Nutrition', 'Mental Health', 'Wellness'];
-const YOGA_LEVELS = ['Beginner', 'Intermediate', 'Advanced'];
-
-const SCREEN_HEIGHT = Dimensions.get('window').height;
-
-// ─── Toast ────────────────────────────────────────────────────────────────────
-
-function Toast({ message, type }: { message: string; type: 'success' | 'error' }) {
-  return (
-    <View style={[styles.toast, type === 'error' ? styles.toastError : styles.toastSuccess]}>
-      <Ionicons
-        name={type === 'success' ? 'checkmark-circle' : 'close-circle'}
-        size={16}
-        color="#fff"
-      />
-      <Text style={styles.toastText}>{message}</Text>
-    </View>
-  );
-}
-
-// ─── Field ────────────────────────────────────────────────────────────────────
-
-function Field({
-  label,
-  value,
-  onChange,
-  multiline,
-  placeholder,
+function FormModal({
+  visible,
+  tab,
+  item,
+  onClose,
+  onSave,
 }: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  multiline?: boolean;
-  placeholder?: string;
+  visible: boolean;
+  tab: ContentTab;
+  item: ContentItem | null;
+  onClose: () => void;
+  onSave: (data: ContentItem) => Promise<void>;
 }) {
-  return (
-    <View style={styles.field}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <TextInput
-        style={[styles.fieldInput, multiline && styles.fieldInputMulti]}
-        value={value}
-        onChangeText={onChange}
-        placeholder={placeholder ?? label}
-        placeholderTextColor="#d1d5db"
-        multiline={multiline}
-        numberOfLines={multiline ? 3 : 1}
-      />
-    </View>
-  );
-}
+  const isEdit = !!(item?.id);
+  const [form, setForm] = useState<ContentItem>(item ?? blankItem(tab));
+  const [saving, setSaving] = useState(false);
 
-// ─── Dropdown ─────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    setForm(item ?? blankItem(tab));
+  }, [item, tab, visible]);
 
-function Dropdown({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  options: string[];
-  onChange: (v: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
+  const schema = SCHEMAS[tab];
+  const primaryField = schema[0];
+  const isValid = !!(form[primaryField.key]?.toString().trim());
+
+  async function handleSave() {
+    if (!isValid) return;
+    setSaving(true);
+    await onSave(form);
+    setSaving(false);
+  }
+
   return (
-    <View style={styles.field}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <TouchableOpacity style={styles.fieldInput} onPress={() => setOpen(!open)} activeOpacity={0.8}>
-        <Text style={{ color: value ? '#1a1a2e' : '#d1d5db', fontSize: 14 }}>
-          {value || `Select ${label}`}
-        </Text>
-        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color="#9ca3af" />
-      </TouchableOpacity>
-      {open && (
-        <View style={styles.dropdownList}>
-          {options.map((opt) => (
-            <TouchableOpacity
-              key={opt}
-              style={[styles.dropdownItem, value === opt && styles.dropdownItemActive]}
-              onPress={() => { onChange(opt); setOpen(false); }}
-            >
-              <Text style={[styles.dropdownItemText, value === opt && { color: '#ec4899' }]}>{opt}</Text>
-            </TouchableOpacity>
-          ))}
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        {/* Header */}
+        <View style={fStyles.header}>
+          <TouchableOpacity onPress={onClose} style={fStyles.headerBtn}>
+            <Ionicons name="close" size={22} color="#6b7280" />
+          </TouchableOpacity>
+          <Text style={fStyles.headerTitle}>{isEdit ? `Edit ${TAB_META[tab].label}` : `Add ${TAB_META[tab].label}`}</Text>
+          <TouchableOpacity
+            style={[fStyles.saveBtn, !isValid && fStyles.saveBtnDim]}
+            onPress={handleSave}
+            disabled={!isValid || saving}
+            activeOpacity={0.85}
+          >
+            {saving
+              ? <ActivityIndicator size="small" color="#fff" />
+              : <Text style={fStyles.saveBtnText}>{isEdit ? 'Update' : 'Add'}</Text>
+            }
+          </TouchableOpacity>
         </View>
-      )}
-    </View>
+
+        <ScrollView contentContainerStyle={fStyles.body} keyboardShouldPersistTaps="handled">
+          {schema.map((field) => (
+            <View key={field.key} style={fStyles.fieldWrap}>
+              <Text style={fStyles.label}>{field.label}</Text>
+              {field.hint && <Text style={fStyles.hint}>{field.hint}</Text>}
+              <TextInput
+                style={[fStyles.input, field.multiline && fStyles.textArea]}
+                value={String(form[field.key] ?? '')}
+                onChangeText={(v) => setForm((f) => ({ ...f, [field.key]: field.numeric ? v : v }))}
+                multiline={field.multiline}
+                keyboardType={field.numeric ? 'decimal-pad' : 'default'}
+                autoCapitalize={field.key === 'url' || field.key === 'imageUrl' || field.key === 'sampleUrl' ? 'none' : 'sentences'}
+                placeholderTextColor="#9ca3af"
+                placeholder={field.label.replace(' *', '')}
+              />
+            </View>
+          ))}
+          <View style={{ height: 40 }} />
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </Modal>
   );
 }
 
-// ─── Firebase not configured banner ──────────────────────────────────────────
-
-function FirebaseBanner() {
-  return (
-    <View style={styles.banner}>
-      <Ionicons name="warning-outline" size={16} color="#92400e" />
-      <Text style={styles.bannerText}>Connect Firebase to edit content</Text>
-    </View>
-  );
-}
+const fStyles = StyleSheet.create({
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: '#f3f4f6',
+    backgroundColor: '#fff',
+  },
+  headerBtn: { padding: 4 },
+  headerTitle: { fontSize: 16, fontWeight: '700', color: '#1a1a2e' },
+  saveBtn: {
+    backgroundColor: '#ec4899', borderRadius: 20,
+    paddingHorizontal: 18, paddingVertical: 8,
+  },
+  saveBtnDim: { opacity: 0.4 },
+  saveBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  body: { padding: 16, gap: 4 },
+  fieldWrap: { marginBottom: 14 },
+  label: { fontSize: 12, fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6 },
+  hint: { fontSize: 11, color: '#9ca3af', marginBottom: 4 },
+  input: {
+    backgroundColor: '#f9fafb', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10,
+    fontSize: 14, color: '#1a1a2e', borderWidth: 1, borderColor: '#e5e7eb',
+  },
+  textArea: { minHeight: 80, textAlignVertical: 'top' },
+});
 
 // ─── Item Card ────────────────────────────────────────────────────────────────
 
 function ItemCard({
-  title,
-  subtitle,
+  item,
+  tab,
   onEdit,
   onDelete,
 }: {
-  title: string;
-  subtitle?: string;
+  item: ContentItem;
+  tab: ContentTab;
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const title = getDisplayTitle(item, tab);
+  const sub   = getDisplaySub(item, tab);
+
   return (
     <View style={styles.itemCard}>
-      <View style={{ flex: 1 }}>
+      <View style={styles.itemEmoji}>
+        <Text style={{ fontSize: 22 }}>{item.emoji ?? TAB_META[tab].icon.charAt(0)}</Text>
+      </View>
+      <View style={styles.itemInfo}>
         <Text style={styles.itemTitle} numberOfLines={1}>{title}</Text>
-        {subtitle ? <Text style={styles.itemSubtitle} numberOfLines={1}>{subtitle}</Text> : null}
+        {sub ? <Text style={styles.itemSub} numberOfLines={1}>{sub}</Text> : null}
       </View>
-      <View style={styles.itemActions}>
-        <TouchableOpacity style={styles.editBtn} onPress={onEdit}>
-          <Ionicons name="pencil" size={14} color="#ec4899" />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.deleteBtn} onPress={onDelete}>
-          <Ionicons name="trash" size={14} color="#ef4444" />
-        </TouchableOpacity>
-      </View>
+      <TouchableOpacity style={styles.editBtn} onPress={onEdit} activeOpacity={0.7}>
+        <Ionicons name="pencil-outline" size={16} color="#8b5cf6" />
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.deleteBtn} onPress={onDelete} activeOpacity={0.7}>
+        <Ionicons name="trash-outline" size={16} color="#ef4444" />
+      </TouchableOpacity>
     </View>
   );
 }
 
-// ─── Article Form ─────────────────────────────────────────────────────────────
+// ─── Tab Bar ─────────────────────────────────────────────────────────────────
 
-function ArticleForm({ data, onChange }: { data: Article; onChange: (d: Article) => void }) {
+function TabBar({ active, onChange }: { active: ContentTab; onChange: (t: ContentTab) => void }) {
+  const tabs = Object.keys(TAB_META) as ContentTab[];
   return (
-    <>
-      <Field label="Title" value={data.title} onChange={(v) => onChange({ ...data, title: v })} />
-      <Field label="Preview" value={data.preview} onChange={(v) => onChange({ ...data, preview: v })} multiline />
-      <Dropdown
-        label="Topic"
-        value={data.topic}
-        options={ARTICLE_TOPICS}
-        onChange={(v) => onChange({ ...data, topic: v })}
-      />
-      <Field label="Read Time (e.g. 5 min)" value={data.readTime} onChange={(v) => onChange({ ...data, readTime: v })} />
-      <View style={{ flexDirection: 'row', gap: 10 }}>
-        <View style={{ flex: 1 }}>
-          <Field label="Age Min" value={data.ageMin} onChange={(v) => onChange({ ...data, ageMin: v })} placeholder="0" />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Field label="Age Max" value={data.ageMax} onChange={(v) => onChange({ ...data, ageMax: v })} placeholder="12" />
-        </View>
-      </View>
-      <Field label="Emoji" value={data.emoji} onChange={(v) => onChange({ ...data, emoji: v })} placeholder="📖" />
-    </>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabBar} contentContainerStyle={styles.tabBarContent}>
+      {tabs.map((t) => (
+        <TouchableOpacity
+          key={t}
+          style={[styles.tab, t === active && styles.tabActive]}
+          onPress={() => onChange(t)}
+          activeOpacity={0.75}
+        >
+          <Text style={[styles.tabText, t === active && styles.tabTextActive]}>
+            {TAB_META[t].label}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </ScrollView>
   );
 }
 
-// ─── Product Form ─────────────────────────────────────────────────────────────
+// ─── Main Screen ──────────────────────────────────────────────────────────────
 
-function ProductForm({ data, onChange }: { data: Product; onChange: (d: Product) => void }) {
-  return (
-    <>
-      <Field label="Name" value={data.name} onChange={(v) => onChange({ ...data, name: v })} />
-      <Field label="Category" value={data.category} onChange={(v) => onChange({ ...data, category: v })} />
-      <View style={{ flexDirection: 'row', gap: 10 }}>
-        <View style={{ flex: 1 }}>
-          <Field label="Price" value={data.price} onChange={(v) => onChange({ ...data, price: v })} placeholder="499" />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Field label="Original Price" value={data.originalPrice} onChange={(v) => onChange({ ...data, originalPrice: v })} placeholder="799" />
-        </View>
-      </View>
-      <Field label="Rating (1-5)" value={data.rating} onChange={(v) => onChange({ ...data, rating: v })} placeholder="4.5" />
-      <Field label="Emoji" value={data.emoji} onChange={(v) => onChange({ ...data, emoji: v })} placeholder="🛍️" />
-      <Field label="Badge (e.g. Bestseller)" value={data.badge} onChange={(v) => onChange({ ...data, badge: v })} />
-    </>
-  );
-}
-
-// ─── Yoga Form ────────────────────────────────────────────────────────────────
-
-function YogaForm({ data, onChange }: { data: Yoga; onChange: (d: Yoga) => void }) {
-  return (
-    <>
-      <Field label="Name" value={data.name} onChange={(v) => onChange({ ...data, name: v })} />
-      <Field label="Description" value={data.description} onChange={(v) => onChange({ ...data, description: v })} multiline />
-      <Field label="Duration (e.g. 30 min)" value={data.duration} onChange={(v) => onChange({ ...data, duration: v })} />
-      <Dropdown
-        label="Level"
-        value={data.level}
-        options={YOGA_LEVELS}
-        onChange={(v) => onChange({ ...data, level: v })}
-      />
-      <Field
-        label="Poses (comma-separated)"
-        value={data.poses}
-        onChange={(v) => onChange({ ...data, poses: v })}
-        multiline
-        placeholder="Cat Pose, Cow Pose, Child's Pose"
-      />
-    </>
-  );
-}
-
-// ─── Scheme Form ──────────────────────────────────────────────────────────────
-
-function SchemeForm({ data, onChange }: { data: Scheme; onChange: (d: Scheme) => void }) {
-  return (
-    <>
-      <Field label="Name" value={data.name} onChange={(v) => onChange({ ...data, name: v })} />
-      <Field label="Short Description" value={data.shortDesc} onChange={(v) => onChange({ ...data, shortDesc: v })} multiline />
-      <Field label="Eligibility" value={data.eligibility} onChange={(v) => onChange({ ...data, eligibility: v })} multiline />
-      <Field label="URL" value={data.url} onChange={(v) => onChange({ ...data, url: v })} placeholder="https://" />
-      <Field label="Emoji" value={data.emoji} onChange={(v) => onChange({ ...data, emoji: v })} placeholder="🏛️" />
-    </>
-  );
-}
-
-// ─── Blank Forms ──────────────────────────────────────────────────────────────
-
-const blankArticle = (): Article => ({ title: '', preview: '', topic: '', readTime: '', ageMin: '', ageMax: '', emoji: '' });
-const blankProduct = (): Product => ({ name: '', category: '', price: '', originalPrice: '', rating: '', emoji: '', badge: '' });
-const blankYoga = (): Yoga => ({ name: '', description: '', duration: '', level: '', poses: '' });
-const blankScheme = (): Scheme => ({ name: '', shortDesc: '', eligibility: '', url: '', emoji: '' });
-
-// ─── Main Component ───────────────────────────────────────────────────────────
-
-export default function AdminContent() {
-  const [activeTab, setActiveTab] = useState<ContentTab>('articles');
+export default function ContentScreen() {
+  const [tab, setTab] = useState<ContentTab>('books');
   const [items, setItems] = useState<ContentItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [firebaseReady, setFirebaseReady] = useState(true);
-
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState<ContentItem | null>(null);
-  const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  const [search, setSearch] = useState('');
+  const [toast, setToast] = useState<string | null>(null);
 
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  useEffect(() => { loadContent(); }, [tab]);
 
-  const TABS: { key: ContentTab; label: string }[] = [
-    { key: 'articles', label: 'Articles' },
-    { key: 'products', label: 'Products' },
-    { key: 'yoga', label: 'Yoga' },
-    { key: 'schemes', label: 'Schemes' },
-  ];
-
-  useEffect(() => {
-    loadItems();
-  }, [activeTab]);
-
-  async function loadItems() {
+  async function loadContent() {
     setLoading(true);
-    try {
-      const { getContent } = await import('../../services/firebase');
-      const data = await getContent(activeTab);
-      setItems(data as ContentItem[]);
-      setFirebaseReady(true);
-    } catch {
-      setFirebaseReady(false);
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
+    const data = await getContent(TAB_META[tab].collection);
+    setItems(data);
+    setLoading(false);
   }
 
-  function showToast(message: string, type: 'success' | 'error') {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
+  async function doRefresh() {
+    setRefreshing(true);
+    const data = await getContent(TAB_META[tab].collection);
+    setItems(data);
+    setRefreshing(false);
   }
 
-  function openModal(item: ContentItem | null) {
-    setEditingItem(item ?? getBlank());
+  function showToast(msg: string) {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2500);
+  }
+
+  function openAdd() {
+    setEditingItem(null);
     setModalVisible(true);
-    Animated.spring(slideAnim, {
-      toValue: 0,
-      useNativeDriver: true,
-      tension: 65,
-      friction: 11,
-    }).start();
   }
 
-  function closeModal() {
-    Animated.timing(slideAnim, {
-      toValue: SCREEN_HEIGHT,
-      duration: 250,
-      useNativeDriver: true,
-    }).start(() => {
-      setModalVisible(false);
-      setEditingItem(null);
-    });
+  function openEdit(item: ContentItem) {
+    setEditingItem(item);
+    setModalVisible(true);
   }
 
-  function getBlank(): ContentItem {
-    if (activeTab === 'articles') return blankArticle();
-    if (activeTab === 'products') return blankProduct();
-    if (activeTab === 'yoga') return blankYoga();
-    return blankScheme();
-  }
+  async function handleSave(data: ContentItem) {
+    const col = TAB_META[tab].collection;
 
-  function getItemTitle(item: ContentItem): string {
-    if ('title' in item) return (item as Article).title;
-    if ('name' in item) return (item as Product | Yoga | Scheme).name;
-    return 'Untitled';
-  }
-
-  function getItemSubtitle(item: ContentItem): string {
-    if (activeTab === 'articles') return (item as Article).topic;
-    if (activeTab === 'products') return (item as Product).category;
-    if (activeTab === 'yoga') return (item as Yoga).level;
-    return (item as Scheme).shortDesc;
-  }
-
-  async function handleSave() {
-    if (!editingItem) return;
-    try {
-      const { createContent, updateContent } = await import('../../services/firebase');
-      if ((editingItem as any).id) {
-        await updateContent(activeTab, (editingItem as any).id, editingItem);
-        showToast('Updated successfully!', 'success');
-      } else {
-        await createContent(activeTab, editingItem);
-        showToast('Created successfully!', 'success');
+    // Convert numeric fields
+    const schema = SCHEMAS[tab];
+    const cleaned: ContentItem = { ...data };
+    schema.forEach((f) => {
+      if (f.numeric && cleaned[f.key] !== '') {
+        cleaned[f.key] = parseFloat(cleaned[f.key]) || 0;
       }
-      closeModal();
-      loadItems();
-    } catch {
-      showToast('Save failed. Check Firebase connection.', 'error');
+      // Tags field: convert comma string to array for schemes
+      if (tab === 'schemes' && f.key === 'tags' && typeof cleaned.tags === 'string') {
+        cleaned.tags = cleaned.tags.split(',').map((s: string) => s.trim()).filter(Boolean);
+      }
+    });
+
+    if (editingItem?.id) {
+      await updateContent(col, editingItem.id, cleaned);
+      setItems((prev) => prev.map((i) => (i.id === editingItem.id ? { ...i, ...cleaned } : i)));
+      showToast('✅ Updated successfully');
+    } else {
+      const newId = await createContent(col, cleaned);
+      setItems((prev) => [{ ...cleaned, id: newId ?? Date.now().toString() }, ...prev]);
+      showToast('✅ Added to library');
     }
+    setModalVisible(false);
   }
 
-  function handleDelete(item: ContentItem) {
-    Alert.alert(
-      'Delete',
-      `Are you sure you want to delete "${getItemTitle(item)}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const { deleteContent } = await import('../../services/firebase');
-              await deleteContent(activeTab, (item as any).id);
-              showToast('Deleted successfully!', 'success');
-              loadItems();
-            } catch {
-              showToast('Delete failed.', 'error');
-            }
-          },
+  function confirmDelete(item: ContentItem) {
+    const title = getDisplayTitle(item, tab);
+    Alert.alert('Delete', `Remove "${title}"?\n\nThis will hide it from all users immediately.`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          if (!item.id) return;
+          await deleteContent(TAB_META[tab].collection, item.id);
+          setItems((prev) => prev.filter((i) => i.id !== item.id));
+          showToast('🗑️ Deleted');
         },
-      ]
-    );
+      },
+    ]);
   }
+
+  const primaryKey = TAB_META[tab].primaryKey;
+  const filtered = items.filter((i) =>
+    (i[primaryKey] ?? i.title ?? i.name ?? '')
+      .toString().toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <View style={styles.container}>
-      {!firebaseReady && <FirebaseBanner />}
+      {/* Tab Bar */}
+      <TabBar active={tab} onChange={(t) => { setTab(t); setSearch(''); }} />
 
-      {/* Tab Selector */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.tabBar}
-        contentContainerStyle={styles.tabBarContent}
-      >
-        {TABS.map((tab) => (
-          <TouchableOpacity
-            key={tab.key}
-            style={[styles.tabBtn, activeTab === tab.key && styles.tabBtnActive]}
-            onPress={() => setActiveTab(tab.key)}
-          >
-            <Text style={[styles.tabBtnText, activeTab === tab.key && styles.tabBtnTextActive]}>
-              {tab.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      {/* Add New Button */}
-      <View style={styles.addRow}>
-        <TouchableOpacity style={styles.addBtn} onPress={() => openModal(null)} activeOpacity={0.8}>
-          <Ionicons name="add" size={18} color="#fff" />
-          <Text style={styles.addBtnText}>Add New</Text>
+      {/* Search + Add Row */}
+      <View style={styles.actionRow}>
+        <View style={styles.searchWrap}>
+          <Ionicons name="search" size={15} color="#9ca3af" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search…"
+            placeholderTextColor="#9ca3af"
+            value={search}
+            onChangeText={setSearch}
+          />
+        </View>
+        <TouchableOpacity style={styles.addBtn} onPress={openAdd} activeOpacity={0.85}>
+          <LinearGradient colors={['#ec4899', '#8b5cf6']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.addBtnGrad}>
+            <Ionicons name="add" size={18} color="#fff" />
+            <Text style={styles.addBtnText}>Add</Text>
+          </LinearGradient>
         </TouchableOpacity>
       </View>
 
-      {/* Items List */}
-      <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
+      {/* Count */}
+      <Text style={styles.countText}>{filtered.length} item{filtered.length !== 1 ? 's' : ''}</Text>
+
+      {/* List */}
+      <ScrollView
+        contentContainerStyle={styles.list}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={doRefresh} tintColor="#ec4899" />}
+      >
         {loading ? (
-          <Text style={styles.loadingText}>Loading...</Text>
-        ) : items.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="folder-open-outline" size={40} color="#d1d5db" />
-            <Text style={styles.emptyText}>No items yet. Add your first one!</Text>
+          <ActivityIndicator color="#ec4899" style={{ marginTop: 40 }} />
+        ) : filtered.length === 0 ? (
+          <View style={styles.empty}>
+            <Ionicons name={TAB_META[tab].icon as any} size={36} color="#d1d5db" />
+            <Text style={styles.emptyText}>No {TAB_META[tab].label} yet</Text>
+            <TouchableOpacity style={styles.emptyAdd} onPress={openAdd}>
+              <Text style={styles.emptyAddText}>+ Add the first one</Text>
+            </TouchableOpacity>
           </View>
         ) : (
-          items.map((item, index) => (
+          filtered.map((item) => (
             <ItemCard
-              key={(item as any).id ?? index}
-              title={getItemTitle(item)}
-              subtitle={getItemSubtitle(item)}
-              onEdit={() => openModal(item)}
-              onDelete={() => handleDelete(item)}
+              key={item.id ?? item.title}
+              item={item}
+              tab={tab}
+              onEdit={() => openEdit(item)}
+              onDelete={() => confirmDelete(item)}
             />
           ))
         )}
+        <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* Form Modal */}
+      <FormModal
+        visible={modalVisible}
+        tab={tab}
+        item={editingItem}
+        onClose={() => setModalVisible(false)}
+        onSave={handleSave}
+      />
 
       {/* Toast */}
       {toast && (
-        <View style={styles.toastContainer}>
-          <Toast message={toast.message} type={toast.type} />
+        <View style={styles.toast}>
+          <Text style={styles.toastText}>{toast}</Text>
         </View>
       )}
-
-      {/* Bottom Sheet Modal */}
-      <Modal visible={modalVisible} transparent animationType="none" onRequestClose={closeModal}>
-        <TouchableWithoutFeedback onPress={closeModal}>
-          <View style={styles.overlay} />
-        </TouchableWithoutFeedback>
-        <Animated.View style={[styles.sheet, { transform: [{ translateY: slideAnim }] }]}>
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-            <View style={styles.sheetHandle} />
-            <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>
-                {editingItem && (editingItem as any).id ? 'Edit' : 'Add'}{' '}
-                {activeTab.charAt(0).toUpperCase() + activeTab.slice(1, -1)}
-              </Text>
-              <TouchableOpacity onPress={closeModal}>
-                <Ionicons name="close" size={22} color="#9ca3af" />
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={styles.sheetScroll} showsVerticalScrollIndicator={false}>
-              {activeTab === 'articles' && editingItem && (
-                <ArticleForm data={editingItem as Article} onChange={setEditingItem} />
-              )}
-              {activeTab === 'products' && editingItem && (
-                <ProductForm data={editingItem as Product} onChange={setEditingItem} />
-              )}
-              {activeTab === 'yoga' && editingItem && (
-                <YogaForm data={editingItem as Yoga} onChange={setEditingItem} />
-              )}
-              {activeTab === 'schemes' && editingItem && (
-                <SchemeForm data={editingItem as Scheme} onChange={setEditingItem} />
-              )}
-              <View style={{ height: 16 }} />
-            </ScrollView>
-            <TouchableOpacity style={styles.saveBtn} onPress={handleSave} activeOpacity={0.85}>
-              <Text style={styles.saveBtnText}>Save</Text>
-            </TouchableOpacity>
-          </KeyboardAvoidingView>
-        </Animated.View>
-      </Modal>
     </View>
   );
 }
@@ -526,160 +465,57 @@ export default function AdminContent() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: '#fafafa' },
 
-  banner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#fef3c7',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#fde68a',
+  tabBar: { backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#f3f4f6' },
+  tabBarContent: { paddingHorizontal: 12, paddingVertical: 10, gap: 8 },
+  tab: {
+    paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20,
+    backgroundColor: '#f3f4f6',
   },
-  bannerText: { fontSize: 13, color: '#92400e', fontWeight: '600' },
+  tabActive: { backgroundColor: '#fdf2f8', borderWidth: 1, borderColor: '#ec4899' },
+  tabText: { fontSize: 13, fontWeight: '600', color: '#6b7280' },
+  tabTextActive: { color: '#ec4899' },
 
-  tabBar: { borderBottomWidth: 1, borderBottomColor: '#f3f4f6', maxHeight: 50 },
-  tabBarContent: { paddingHorizontal: 16, gap: 8, alignItems: 'center' },
-  tabBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
+  actionRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 12 },
+  searchWrap: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#fff', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 9,
+    borderWidth: 1, borderColor: '#e5e7eb',
   },
-  tabBtnActive: { backgroundColor: '#fce7f3' },
-  tabBtnText: { fontSize: 13, color: '#9ca3af', fontWeight: '600' },
-  tabBtnTextActive: { color: '#ec4899' },
+  searchInput: { flex: 1, fontSize: 14, color: '#1a1a2e' },
+  addBtn: { borderRadius: 10, overflow: 'hidden' },
+  addBtnGrad: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 14, paddingVertical: 10 },
+  addBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
 
-  addRow: { paddingHorizontal: 16, paddingVertical: 12 },
-  addBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#ec4899',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-    alignSelf: 'flex-start',
-  },
-  addBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  countText: { fontSize: 12, color: '#9ca3af', paddingHorizontal: 16, marginBottom: 4, fontWeight: '600' },
 
-  list: { flex: 1 },
-  listContent: { padding: 16, gap: 10, paddingBottom: 40 },
-  loadingText: { textAlign: 'center', color: '#9ca3af', marginTop: 40 },
-
-  emptyState: { alignItems: 'center', paddingVertical: 40, gap: 12 },
-  emptyText: { color: '#9ca3af', fontSize: 14, textAlign: 'center' },
+  list: { paddingHorizontal: 16 },
 
   itemCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fdf6ff',
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#f0e6ff',
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#fff', borderRadius: 14, padding: 12, marginBottom: 8,
+    borderWidth: 1, borderColor: '#f3f4f6',
   },
+  itemEmoji: {
+    width: 44, height: 44, borderRadius: 12, backgroundColor: '#fdf2f8',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  itemInfo: { flex: 1 },
   itemTitle: { fontSize: 14, fontWeight: '700', color: '#1a1a2e' },
-  itemSubtitle: { fontSize: 12, color: '#9ca3af', marginTop: 2 },
-  itemActions: { flexDirection: 'row', gap: 8 },
-  editBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#fce7f3',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  deleteBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#fee2e2',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  itemSub: { fontSize: 12, color: '#9ca3af', marginTop: 2 },
+  editBtn: { padding: 8 },
+  deleteBtn: { padding: 8 },
 
-  toastContainer: { position: 'absolute', bottom: 100, left: 20, right: 20, zIndex: 100 },
+  empty: { alignItems: 'center', paddingVertical: 48, gap: 10 },
+  emptyText: { fontSize: 15, color: '#9ca3af' },
+  emptyAdd: { marginTop: 6 },
+  emptyAddText: { fontSize: 14, color: '#ec4899', fontWeight: '700' },
+
   toast: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    padding: 12,
-    borderRadius: 12,
+    position: 'absolute', bottom: 30, left: 20, right: 20,
+    backgroundColor: '#1a1a2e', borderRadius: 12,
+    paddingVertical: 12, paddingHorizontal: 18, alignItems: 'center',
   },
-  toastSuccess: { backgroundColor: '#10b981' },
-  toastError: { backgroundColor: '#ef4444' },
-  toastText: { color: '#fff', fontSize: 13, fontWeight: '600', flex: 1 },
-
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' },
-  sheet: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: SCREEN_HEIGHT * 0.85,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
-  },
-  sheetHandle: {
-    width: 40,
-    height: 4,
-    backgroundColor: '#e5e7eb',
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginTop: 12,
-    marginBottom: 4,
-  },
-  sheetHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
-  },
-  sheetTitle: { fontSize: 17, fontWeight: '700', color: '#1a1a2e' },
-  sheetScroll: { paddingHorizontal: 20, paddingTop: 8 },
-
-  field: { marginBottom: 14 },
-  fieldLabel: { fontSize: 12, fontWeight: '600', color: '#6b7280', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
-  fieldInput: {
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: '#1a1a2e',
-    backgroundColor: '#fafafa',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  fieldInputMulti: { minHeight: 80, textAlignVertical: 'top' },
-
-  dropdownList: {
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 10,
-    marginTop: 4,
-    backgroundColor: '#fff',
-    overflow: 'hidden',
-  },
-  dropdownItem: { paddingHorizontal: 14, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: '#f3f4f6' },
-  dropdownItemActive: { backgroundColor: '#fdf6ff' },
-  dropdownItemText: { fontSize: 14, color: '#1a1a2e' },
-
-  saveBtn: {
-    margin: 16,
-    backgroundColor: '#ec4899',
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  toastText: { color: '#fff', fontWeight: '700', fontSize: 14 },
 });

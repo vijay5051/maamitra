@@ -3,6 +3,8 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type Stage = 'pregnant' | 'newborn' | 'planning';
+export type ParentGender = 'mother' | 'father' | 'other' | '';
+export type ParentRelation = 'mother' | 'father' | 'guardian' | 'grandparent' | 'aunt/uncle' | 'other' | '';
 
 export interface Kid {
   id: string;
@@ -13,7 +15,24 @@ export interface Kid {
   ageInMonths: number;
   ageInWeeks: number;
   isExpecting: boolean;
+  relation?: ParentRelation; // this parent's relation to the child
 }
+
+export interface VisibilitySettings {
+  showKids: boolean;
+  showState: boolean;
+  showExpertise: boolean;
+  showBio: boolean;
+  showPostCount: boolean;
+}
+
+export const DEFAULT_VISIBILITY: VisibilitySettings = {
+  showKids: true,
+  showState: true,
+  showExpertise: true,
+  showBio: true,
+  showPostCount: true,
+};
 
 export interface Profile {
   stage: Stage;
@@ -56,17 +75,34 @@ interface ProfileState {
   kids: Kid[];
   activeKidId: string | null;
   onboardingComplete: boolean;
-  completedVaccines: Record<string, CompletedVaccine>; // vaccineId → completion
+  completedVaccines: Record<string, Record<string, CompletedVaccine>>; // { kidId: { vaccineId: CompletedVaccine } }
+
+  // Public profile fields
+  photoUrl: string;
+  parentGender: ParentGender;
+  bio: string;
+  expertise: string[];
+  visibilitySettings: VisibilitySettings;
 
   setMotherName: (name: string) => void;
   setProfile: (profile: Profile) => void;
-  addKid: (kid: Omit<Kid, 'id' | 'ageInMonths' | 'ageInWeeks'>) => void;
+  addKid: (kid: Omit<Kid, 'ageInMonths' | 'ageInWeeks'> & { id?: string }) => void;
   updateKid: (id: string, data: Partial<Omit<Kid, 'id'>>) => void;
+  removeKid: (id: string) => void;
   setActiveKidId: (id: string) => void;
   setOnboardingComplete: (val: boolean) => void;
   getActiveKid: () => Kid | null;
-  markVaccineDone: (vaccineId: string, doneDate?: string) => void;
-  unmarkVaccineDone: (vaccineId: string) => void;
+  markVaccineDone: (vaccineId: string, kidId: string, doneDate?: string) => void;
+  unmarkVaccineDone: (vaccineId: string, kidId: string) => void;
+  /** Wipes ALL profile data — call on sign-out so no data leaks to the next user */
+  resetProfile: () => void;
+
+  // Public profile setters
+  setPhotoUrl: (url: string) => void;
+  setParentGender: (g: ParentGender) => void;
+  setBio: (bio: string) => void;
+  setExpertise: (tags: string[]) => void;
+  setVisibilitySettings: (s: Partial<VisibilitySettings>) => void;
 }
 
 export const useProfileStore = create<ProfileState>()(
@@ -79,12 +115,19 @@ export const useProfileStore = create<ProfileState>()(
       onboardingComplete: false,
       completedVaccines: {},
 
+      // Public profile
+      photoUrl: '',
+      parentGender: '',
+      bio: '',
+      expertise: [],
+      visibilitySettings: DEFAULT_VISIBILITY,
+
       setMotherName: (name) => set({ motherName: name }),
 
       setProfile: (profile) => set({ profile }),
 
       addKid: (kidData) => {
-        const id = Date.now().toString();
+        const id = (kidData as any).id ?? Date.now().toString();
         // Safety: if DOB is in the past, never treat as expecting
         const dobDate = kidData.dob ? new Date(kidData.dob) : null;
         const dobInFuture = dobDate ? dobDate > new Date() : false;
@@ -113,6 +156,19 @@ export const useProfileStore = create<ProfileState>()(
         }));
       },
 
+      removeKid: (id) => {
+        set((state) => {
+          const remaining = state.kids.filter((k) => k.id !== id);
+          const newActiveId = state.activeKidId === id
+            ? (remaining[0]?.id ?? null)
+            : state.activeKidId;
+          // Also remove the kid's completedVaccines entry
+          const completedVaccines = { ...state.completedVaccines };
+          delete completedVaccines[id];
+          return { kids: remaining, activeKidId: newActiveId, completedVaccines };
+        });
+      },
+
       setActiveKidId: (id) => set({ activeKidId: id }),
 
       setOnboardingComplete: (val) => set({ onboardingComplete: val }),
@@ -122,22 +178,52 @@ export const useProfileStore = create<ProfileState>()(
         return kids.find((k) => k.id === activeKidId) ?? kids[0] ?? null;
       },
 
-      markVaccineDone: (vaccineId, doneDate) => {
+      markVaccineDone: (vaccineId, kidId, doneDate) => {
         set((state) => ({
           completedVaccines: {
             ...state.completedVaccines,
-            [vaccineId]: { done: true, doneDate: doneDate ?? new Date().toISOString() },
+            [kidId]: {
+              ...(state.completedVaccines[kidId] ?? {}),
+              [vaccineId]: { done: true, doneDate: doneDate ?? new Date().toISOString() },
+            },
           },
         }));
       },
 
-      unmarkVaccineDone: (vaccineId) => {
+      unmarkVaccineDone: (vaccineId, kidId) => {
         set((state) => {
-          const next = { ...state.completedVaccines };
-          delete next[vaccineId];
-          return { completedVaccines: next };
+          const kidVaccines = { ...(state.completedVaccines[kidId] ?? {}) };
+          delete kidVaccines[vaccineId];
+          return {
+            completedVaccines: {
+              ...state.completedVaccines,
+              [kidId]: kidVaccines,
+            },
+          };
         });
       },
+
+      resetProfile: () =>
+        set({
+          motherName: '',
+          profile: null,
+          kids: [],
+          activeKidId: null,
+          onboardingComplete: false,
+          completedVaccines: {},
+          photoUrl: '',
+          parentGender: '',
+          bio: '',
+          expertise: [],
+          visibilitySettings: DEFAULT_VISIBILITY,
+        }),
+
+      setPhotoUrl: (url) => set({ photoUrl: url }),
+      setParentGender: (g) => set({ parentGender: g }),
+      setBio: (bio) => set({ bio }),
+      setExpertise: (tags) => set({ expertise: tags }),
+      setVisibilitySettings: (s) =>
+        set((state) => ({ visibilitySettings: { ...state.visibilitySettings, ...s } })),
     }),
     {
       name: 'maamitra-profile',

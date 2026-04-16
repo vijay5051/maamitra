@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { Fonts } from '../../constants/theme';
 
 type PillSize = 'sm' | 'md';
 
@@ -21,12 +22,12 @@ function hexToRgba(hex: string, alpha: number): string {
 
 export default function TagPill({
   label,
-  color = '#ec4899',
+  color = '#E8487A',
   bgColor,
   style,
   size = 'sm',
 }: TagPillProps) {
-  const resolvedBg = bgColor ?? hexToRgba(color, 0.12);
+  const resolvedBg = bgColor ?? hexToRgba(color, 0.10);
 
   const isMd = size === 'md';
 
@@ -47,7 +48,8 @@ export default function TagPill({
           styles.label,
           {
             color,
-            fontSize: isMd ? 13 : 12,
+            fontSize: isMd ? 13 : 11,
+            fontFamily: Fonts.sansSemiBold,
           },
         ]}
       >
@@ -63,7 +65,6 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   label: {
-    fontWeight: '600',
     letterSpacing: 0.2,
   },
 });

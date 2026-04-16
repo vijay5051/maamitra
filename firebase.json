@@ -21,7 +21,18 @@
           { "key": "Content-Type", "value": "font/woff2" },
           { "key": "Cache-Control", "value": "max-age=31536000" }
         ]
+      },
+      {
+        "source": "**",
+        "headers": [
+          { "key": "Cross-Origin-Opener-Policy", "value": "same-origin-allow-popups" },
+          { "key": "Cross-Origin-Embedder-Policy", "value": "unsafe-none" }
+        ]
       }
     ]
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
   }
 }

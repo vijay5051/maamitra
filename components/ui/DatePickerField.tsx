@@ -4,7 +4,6 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -48,18 +47,19 @@ export default function DatePickerField({
           <Text style={[styles.displayText, !value && styles.placeholder]}>
             {displayValue || placeholder}
           </Text>
-          {/* Hidden native date input overlaid on top — captures taps & shows native picker */}
-          <TextInput
-            // @ts-ignore — web-only prop
+          {/*
+            Raw HTML <input type="date"> overlaid transparently over the styled row.
+            This bypasses React Native's TextInput wrapper entirely, which lets mobile
+            Safari's native date-wheel fire the standard DOM `change` event reliably.
+          */}
+          {/* @ts-ignore — JSX HTML element used on web only */}
+          <input
             type="date"
-            value={value}
+            value={value || ''}
             min={minDate}
             max={maxDate}
-            onChange={(e: any) => {
-              const raw = e?.target?.value ?? e?.nativeEvent?.text ?? '';
-              onChange(raw);
-            }}
-            style={styles.nativeDateInput as any}
+            onChange={(e: any) => onChange(e.target.value)}
+            style={webInputStyle}
           />
         </View>
       </View>
@@ -84,6 +84,22 @@ export default function DatePickerField({
     </View>
   );
 }
+
+// Plain DOM style object for the raw <input type="date"> — not processed by StyleSheet
+const webInputStyle = {
+  position: 'absolute' as const,
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  width: '100%',
+  height: '100%',
+  minHeight: 44,
+  opacity: 0.01,
+  cursor: 'pointer',
+  touchAction: 'manipulation', // removes 300ms tap delay on iOS Safari
+  zIndex: 1,
+};
 
 const styles = StyleSheet.create({
   wrapper: {
@@ -119,21 +135,6 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
     fontWeight: '400',
   },
-  // Overlay the native <input type="date"> over the styled row
-  nativeDateInput: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    opacity: 0.01,
-    width: '100%',
-    height: '100%',
-    minHeight: 44,
-    cursor: 'pointer',
-    touchAction: 'manipulation',
-    zIndex: 1,
-  } as any,
   nativeInput: {
     flex: 1,
     fontSize: 15,

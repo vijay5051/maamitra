@@ -3,10 +3,14 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -44,10 +48,12 @@ function PostCard({
   post,
   onApprove,
   onDelete,
+  onEdit,
 }: {
   post: CommunityPost;
   onApprove: () => void;
   onDelete: () => void;
+  onEdit: () => void;
 }) {
   const dateStr = post.createdAt
     ? new Date(post.createdAt).toLocaleDateString('en-IN', {
@@ -102,6 +108,10 @@ function PostCard({
             <Text style={styles.approvedTagText}>Live</Text>
           </View>
         )}
+        <TouchableOpacity style={styles.editBtn} onPress={onEdit} activeOpacity={0.8}>
+          <Ionicons name="pencil" size={14} color="#8b5cf6" />
+          <Text style={styles.editBtnText}>Edit</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.deleteBtn} onPress={onDelete} activeOpacity={0.8}>
           <Ionicons name="trash" size={14} color="#fff" />
           <Text style={styles.deleteBtnText}>Delete</Text>
@@ -110,6 +120,94 @@ function PostCard({
     </View>
   );
 }
+
+// ─── Edit Post Modal ──────────────────────────────────────────────────────────
+
+function EditPostModal({
+  post,
+  visible,
+  onClose,
+  onSave,
+}: {
+  post: CommunityPost | null;
+  visible: boolean;
+  onClose: () => void;
+  onSave: (updated: Partial<CommunityPost>) => Promise<void>;
+}) {
+  const [text, setText] = useState('');
+  const [topic, setTopic] = useState('');
+  const [saving, setSaving] = useState(false);
+  const TOPICS = ['Newborn', 'Pregnancy', 'Nutrition', 'Sleep', 'Mental Health', 'Milestones', 'Products', 'General'];
+
+  useEffect(() => {
+    setText(post?.text ?? '');
+    setTopic(post?.topic ?? '');
+  }, [post, visible]);
+
+  async function handleSave() {
+    if (!text.trim()) return;
+    setSaving(true);
+    await onSave({ text: text.trim(), topic });
+    setSaving(false);
+  }
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <View style={editStyles.header}>
+          <TouchableOpacity onPress={onClose} style={{ padding: 4 }}>
+            <Ionicons name="close" size={22} color="#6b7280" />
+          </TouchableOpacity>
+          <Text style={editStyles.title}>Edit Post</Text>
+          <TouchableOpacity
+            style={[editStyles.saveBtn, !text.trim() && { opacity: 0.4 }]}
+            onPress={handleSave} disabled={!text.trim() || saving} activeOpacity={0.85}
+          >
+            {saving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={editStyles.saveBtnText}>Save</Text>}
+          </TouchableOpacity>
+        </View>
+        <ScrollView contentContainerStyle={editStyles.body} keyboardShouldPersistTaps="handled">
+          <Text style={editStyles.label}>Post Content</Text>
+          <TextInput
+            style={[editStyles.input, editStyles.textArea]}
+            value={text}
+            onChangeText={setText}
+            multiline
+            placeholder="Post content…"
+            placeholderTextColor="#9ca3af"
+          />
+          <Text style={editStyles.label}>Topic</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+            {TOPICS.map((t) => (
+              <TouchableOpacity
+                key={t}
+                style={[editStyles.chip, t === topic && editStyles.chipActive]}
+                onPress={() => setTopic(t)}
+              >
+                <Text style={[editStyles.chipText, t === topic && editStyles.chipTextActive]}>{t}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+const editStyles = StyleSheet.create({
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14, borderBottomWidth: 1, borderBottomColor: '#f3f4f6', backgroundColor: '#fff' },
+  title: { fontSize: 16, fontWeight: '700', color: '#1a1a2e' },
+  saveBtn: { backgroundColor: '#8b5cf6', borderRadius: 20, paddingHorizontal: 18, paddingVertical: 8 },
+  saveBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  body: { padding: 16 },
+  label: { fontSize: 12, fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6, marginTop: 12 },
+  input: { backgroundColor: '#f9fafb', borderRadius: 10, padding: 12, fontSize: 14, color: '#1a1a2e', borderWidth: 1, borderColor: '#e5e7eb' },
+  textArea: { minHeight: 120, textAlignVertical: 'top' },
+  chip: { marginRight: 8, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f3f4f6' },
+  chipActive: { backgroundColor: '#ede9fe', borderWidth: 1, borderColor: '#8b5cf6' },
+  chipText: { fontSize: 13, color: '#6b7280', fontWeight: '600' },
+  chipTextActive: { color: '#7c3aed', fontWeight: '700' },
+});
 
 // ─── Filter Tab ───────────────────────────────────────────────────────────────
 
@@ -145,6 +243,8 @@ export default function AdminCommunity() {
   const [filter, setFilter] = useState<FilterTab>('all');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [editingPost, setEditingPost] = useState<CommunityPost | null>(null);
+  const [editModalVisible, setEditModalVisible] = useState(false);
 
   useEffect(() => {
     loadPosts();
@@ -154,12 +254,9 @@ export default function AdminCommunity() {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
     try {
-      const { getContent } = await import('../../services/firebase');
-      const data = await getContent('community');
-      const sorted = (data as CommunityPost[]).sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
-      setPosts(sorted);
+      const { getAllCommunityPosts } = await import('../../services/firebase');
+      const data = await getAllCommunityPosts();
+      setPosts(data as CommunityPost[]);
     } catch {
       setPosts([]);
     } finally {
@@ -170,13 +267,24 @@ export default function AdminCommunity() {
 
   async function handleApprove(post: CommunityPost) {
     try {
-      const { updateContent } = await import('../../services/firebase');
-      await updateContent('community', post.id, { ...post, approved: true });
-      setPosts((prev) =>
-        prev.map((p) => (p.id === post.id ? { ...p, approved: true } : p))
-      );
+      const { approveCommunityPost } = await import('../../services/firebase');
+      await approveCommunityPost(post.id);
+      setPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p, approved: true } : p)));
     } catch {
       Alert.alert('Error', 'Failed to approve post.');
+    }
+  }
+
+  async function handleEditSave(updated: Partial<CommunityPost>) {
+    if (!editingPost) return;
+    try {
+      const { updateContent } = await import('../../services/firebase');
+      await updateContent('community_posts', editingPost.id, updated);
+      setPosts((prev) => prev.map((p) => p.id === editingPost.id ? { ...p, ...updated } : p));
+      setEditModalVisible(false);
+      setEditingPost(null);
+    } catch {
+      Alert.alert('Error', 'Failed to update post.');
     }
   }
 
@@ -191,8 +299,8 @@ export default function AdminCommunity() {
           style: 'destructive',
           onPress: async () => {
             try {
-              const { deleteContent } = await import('../../services/firebase');
-              await deleteContent('community', post.id);
+              const { deleteCommunityPost } = await import('../../services/firebase');
+              await deleteCommunityPost(post.id);
               setPosts((prev) => prev.filter((p) => p.id !== post.id));
             } catch {
               Alert.alert('Error', 'Failed to delete post.');
@@ -276,12 +384,20 @@ export default function AdminCommunity() {
                 post={post}
                 onApprove={() => handleApprove(post)}
                 onDelete={() => handleDelete(post)}
+                onEdit={() => { setEditingPost(post); setEditModalVisible(true); }}
               />
             ))
           )}
           <View style={{ height: 40 }} />
         </ScrollView>
       )}
+
+      <EditPostModal
+        post={editingPost}
+        visible={editModalVisible}
+        onClose={() => { setEditModalVisible(false); setEditingPost(null); }}
+        onSave={handleEditSave}
+      />
     </View>
   );
 }
@@ -418,4 +534,10 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   deleteBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  editBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    backgroundColor: 'rgba(139,92,246,0.1)', paddingVertical: 10, borderRadius: 10,
+    borderWidth: 1, borderColor: 'rgba(139,92,246,0.2)',
+  },
+  editBtnText: { color: '#8b5cf6', fontSize: 13, fontWeight: '700' },
 });
