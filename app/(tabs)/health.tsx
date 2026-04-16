@@ -84,67 +84,76 @@ function SubTabSelector({
   }));
 
   return (
-    <View style={subTabStyles.container} onLayout={handleLayout}>
-      {/* Animated pill behind labels */}
-      <Animated.View style={[subTabStyles.slidingPill, pillStyle]} pointerEvents="none">
-        <LinearGradient
-          colors={[ROSE, PLUM]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={StyleSheet.absoluteFill}
-        />
-      </Animated.View>
+    <View style={subTabStyles.wrapper}>
+      <View style={subTabStyles.track} onLayout={handleLayout}>
+        {/* Animated gradient pill */}
+        <Animated.View style={[subTabStyles.slidingPill, pillStyle]} pointerEvents="none">
+          <LinearGradient
+            colors={[ROSE, PLUM]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={StyleSheet.absoluteFill}
+          />
+        </Animated.View>
 
-      {/* Tab buttons */}
-      {TABS.map((t) => {
-        const isActive = t.key === active;
-        return (
-          <TouchableOpacity
-            key={t.key}
-            onPress={() => onChange(t.key)}
-            activeOpacity={0.8}
-            style={subTabStyles.tab}
-          >
-            <TabIcon name={t.icon} active={isActive} />
-            <Text style={[subTabStyles.tabText, isActive && subTabStyles.tabTextActive]}>
-              {t.label}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
+        {/* Tab buttons */}
+        {TABS.map((t) => {
+          const isActive = t.key === active;
+          return (
+            <TouchableOpacity
+              key={t.key}
+              onPress={() => onChange(t.key)}
+              activeOpacity={0.8}
+              style={subTabStyles.tab}
+            >
+              <TabIcon name={t.icon} active={isActive} />
+              <Text style={[subTabStyles.tabText, isActive && subTabStyles.tabTextActive]}>
+                {t.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
     </View>
   );
 }
 
 const subTabStyles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    gap: 6,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+  wrapper: {
     backgroundColor: '#FFF8FC',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: MIST,
+    borderBottomColor: '#F0EBF8',
+  },
+  track: {
+    flexDirection: 'row',
+    backgroundColor: '#EDE9F6',
+    borderRadius: 12,
+    padding: 3,
     position: 'relative',
   },
   slidingPill: {
     position: 'absolute',
-    top: 12,
-    left: 16,
-    height: 38, // matches paddingVertical 9 * 2 + ~20 content
-    borderRadius: 20,
+    top: 3,
+    left: 3,
+    height: 36,
+    borderRadius: 9,
     overflow: 'hidden',
+    shadowColor: ROSE,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 4,
   },
   tab: {
     flex: 1,
-    borderRadius: 20,
-    paddingVertical: 9,
+    borderRadius: 9,
+    paddingVertical: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 5,
-    borderWidth: 1.5,
-    borderColor: MIST,
     backgroundColor: 'transparent',
   },
   tabText: {

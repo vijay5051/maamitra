@@ -280,70 +280,65 @@ function SubTabSelector({ active, onChange }: { active: SubTab; onChange: (t: Su
   ];
 
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      style={subTabStyles.scrollContainer}
-      contentContainerStyle={subTabStyles.row}
-    >
-      {tabs.map((t, i) => {
-        const isActive = t.key === active;
-        return (
-          <TouchableOpacity
-            key={t.key}
-            onPress={() => onChange(t.key)}
-            activeOpacity={0.8}
-            style={[subTabStyles.btn, isActive ? subTabStyles.btnActive : subTabStyles.btnInactive, i < tabs.length - 1 && { marginRight: 8 }]}
-          >
-            {isActive && (
-              <LinearGradient
-                colors={['#E8487A', '#7C3AED']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={StyleSheet.absoluteFill}
-              />
-            )}
-            <TabIcon name={t.icon} active={isActive} />
-            <Text style={isActive ? subTabStyles.activeBtnText : subTabStyles.inactiveBtnText}>{t.label}</Text>
-          </TouchableOpacity>
-        );
-      })}
-    </ScrollView>
+    <View style={subTabStyles.wrapper}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={subTabStyles.row}
+      >
+        {tabs.map((t, i) => {
+          const isActive = t.key === active;
+          return (
+            <TouchableOpacity
+              key={t.key}
+              onPress={() => onChange(t.key)}
+              activeOpacity={0.8}
+              style={[subTabStyles.btn, i < tabs.length - 1 && { marginRight: 8 }]}
+            >
+              {isActive && (
+                <LinearGradient
+                  colors={['#E8487A', '#7C3AED']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={[StyleSheet.absoluteFill, { borderRadius: 20 }]}
+                />
+              )}
+              <TabIcon name={t.icon} active={isActive} />
+              <Text style={isActive ? subTabStyles.activeBtnText : subTabStyles.inactiveBtnText}>{t.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+    </View>
   );
 }
 
 const subTabStyles = StyleSheet.create({
-  scrollContainer: {
-    flexShrink: 0,
-    flexGrow: 0,
+  wrapper: {
     backgroundColor: '#FFF8FC',
     borderBottomWidth: 1,
-    borderBottomColor: '#EDE9F6',
+    borderBottomColor: '#F0EBF8',
+    paddingVertical: 10,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    gap: 8,
   },
   btn: {
     height: 36,
-    borderRadius: 18,
-    paddingHorizontal: 12,
+    borderRadius: 20,
+    paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 5,
     overflow: 'hidden',
-  },
-  btnActive: {},
-  btnInactive: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1.5,
-    borderColor: '#EDE9F6',
+    backgroundColor: '#EDE9F6',
   },
   activeBtnText: { fontFamily: Fonts.sansBold, color: '#ffffff', fontSize: 12.5 },
-  inactiveBtnText: { fontFamily: Fonts.sansMedium, color: '#A78BCA', fontSize: 12.5 },
+  inactiveBtnText: { fontFamily: Fonts.sansMedium, color: '#7C3AED', fontSize: 12.5 },
 });
 
 // ─── Article topic → Ionicons icon ───────────────────────────────────────────
