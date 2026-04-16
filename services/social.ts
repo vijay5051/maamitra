@@ -172,9 +172,12 @@ export async function createPost(data: {
 export async function fetchRecentPosts(limitN = 40): Promise<CommunityPost[]> {
   if (!db) return [];
   try {
+    // NOTE: Avoid combining where('approved','==',true) + orderBy('createdAt')
+    // on different fields — that requires a Firestore composite index.
+    // All posts are written with approved:true so the filter is redundant;
+    // a simple orderBy query works without any extra index.
     const q = query(
       collection(db, 'communityPosts'),
-      where('approved', '==', true),
       orderBy('createdAt', 'desc'),
       limit(limitN),
     );
@@ -208,10 +211,11 @@ export async function fetchRecentPosts(limitN = 40): Promise<CommunityPost[]> {
 export async function fetchUserPosts(uid: string): Promise<CommunityPost[]> {
   if (!db) return [];
   try {
+    // where(authorUid) + orderBy(createdAt) requires a composite index;
+    // drop the approved filter — all posts are approved:true at write time.
     const q = query(
       collection(db, 'communityPosts'),
       where('authorUid', '==', uid),
-      where('approved', '==', true),
       orderBy('createdAt', 'desc'),
     );
     const snap = await getDocs(q);

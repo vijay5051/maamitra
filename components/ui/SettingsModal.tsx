@@ -290,16 +290,24 @@ function EditProfileView({ onBack }: { onBack: () => void }) {
     setParentGender(gender);
     setBio(bioText.trim());
     setExpertise(expertiseTags);
-    // Persist to Firestore so changes survive reload
+    // Persist ALL profile fields to Firestore so nothing is lost on next login.
+    // IMPORTANT: st is read AFTER all setters above so it already has the new values.
     if (user?.uid) {
       const st = useProfileStore.getState();
       saveFullProfile(user.uid, {
         motherName: name.trim() || st.motherName,
-        profile: st.profile ? { ...st.profile, state: state.trim() || st.profile.state, diet: diet as any, familyType: familyType as any } : st.profile,
+        profile: st.profile
+          ? { ...st.profile, state: state.trim() || st.profile.state, diet: diet as any, familyType: familyType as any }
+          : st.profile,
         kids: st.kids,
         completedVaccines: st.completedVaccines,
         onboardingComplete: st.onboardingComplete,
         visibilitySettings: st.visibilitySettings,
+        // These were previously omitted — Firestore was overwriting them with ''
+        photoUrl: photo.trim(),
+        parentGender: gender,
+        bio: bioText.trim(),
+        expertise: expertiseTags,
       }).catch(console.error);
     }
     setSaving(false);
@@ -514,6 +522,10 @@ export default function SettingsModal({ visible, onClose }: SettingsModalProps) 
         completedVaccines: st.completedVaccines,
         onboardingComplete: st.onboardingComplete,
         visibilitySettings: updated,
+        photoUrl: st.photoUrl || '',
+        parentGender: st.parentGender || '',
+        bio: st.bio || '',
+        expertise: st.expertise || [],
       }).catch(console.error);
     }
   };
@@ -542,6 +554,11 @@ export default function SettingsModal({ visible, onClose }: SettingsModalProps) 
           kids: s.kids,
           completedVaccines: s.completedVaccines,
           onboardingComplete: s.onboardingComplete,
+          visibilitySettings: s.visibilitySettings,
+          photoUrl: s.photoUrl || '',
+          parentGender: s.parentGender || '',
+          bio: s.bio || '',
+          expertise: s.expertise || [],
         }).catch(console.error);
       }
       setViewMode('main');

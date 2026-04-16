@@ -450,6 +450,11 @@ export default function FamilyScreen() {
         kids: updatedState.kids,
         completedVaccines: updatedState.completedVaccines,
         onboardingComplete: updatedState.onboardingComplete,
+        photoUrl: updatedState.photoUrl || '',
+        parentGender: updatedState.parentGender || '',
+        bio: updatedState.bio || '',
+        expertise: updatedState.expertise || [],
+        visibilitySettings: updatedState.visibilitySettings,
       }).catch(console.error);
     }
   };
