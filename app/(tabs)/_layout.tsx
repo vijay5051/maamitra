@@ -1,22 +1,47 @@
 import { Tabs } from 'expo-router';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from 'react-native-reanimated';
+import { useEffect } from 'react';
+import { Fonts } from '../../constants/theme';
 
-function TabIcon({ name, focused }: { name: string; focused: boolean }) {
-  if (focused) {
-    return (
-      <LinearGradient
-        colors={['#ec4899', '#8b5cf6']}
-        style={styles.activeIconBg}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      >
-        <Ionicons name={name as any} size={20} color="#fff" />
-      </LinearGradient>
-    );
-  }
-  return <Ionicons name={name as any} size={22} color="#9ca3af" />;
+const SPRING_CONFIG = { damping: 12, stiffness: 180 };
+
+function TabIcon({
+  name,
+  focused,
+  label,
+}: {
+  name: string;
+  focused: boolean;
+  label: string;
+}) {
+  const scale = useSharedValue(focused ? 1.15 : 1.0);
+
+  useEffect(() => {
+    scale.value = withSpring(focused ? 1.15 : 0.9, SPRING_CONFIG);
+  }, [focused]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  return (
+    <View style={styles.tabWrap}>
+      <Animated.View style={animatedStyle}>
+        <Ionicons
+          name={name as any}
+          size={24}
+          color={focused ? '#E8487A' : '#C4B5D4'}
+        />
+      </Animated.View>
+      {focused && <View style={styles.activeDot} />}
+    </View>
+  );
 }
 
 export default function TabLayout() {
@@ -25,21 +50,26 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: '#fff',
+          backgroundColor: 'rgba(255,248,252,0.96)',
           borderTopWidth: 1,
-          borderTopColor: '#f3e8ff',
-          height: 80,
-          paddingBottom: 16,
-          paddingTop: 8,
-          shadowColor: '#8b5cf6',
+          borderTopColor: '#EDE9F6',
+          height: 68,
+          paddingBottom: 10,
+          paddingTop: 6,
+          shadowColor: '#E8487A',
           shadowOpacity: 0.08,
-          shadowRadius: 12,
-          elevation: 8,
-          boxShadow: '0px 0px 12px rgba(139, 92, 246, 0.08)',
+          shadowRadius: 16,
+          elevation: 12,
+          boxShadow: '0px -2px 16px rgba(232, 72, 122, 0.08)',
         },
-        tabBarActiveTintColor: '#ec4899',
-        tabBarInactiveTintColor: '#9ca3af',
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '500', marginTop: 2 },
+        tabBarActiveTintColor: '#E8487A',
+        tabBarInactiveTintColor: '#C4B5D4',
+        tabBarLabelStyle: {
+          fontFamily: Fonts.sansMedium,
+          fontSize: 10,
+          marginTop: 1,
+          letterSpacing: 0.2,
+        },
       }}
     >
       <Tabs.Screen
@@ -47,7 +77,11 @@ export default function TabLayout() {
         options={{
           title: 'Chat',
           tabBarIcon: ({ focused }) => (
-            <TabIcon name={focused ? 'chatbubble' : 'chatbubble-outline'} focused={focused} />
+            <TabIcon
+              name={focused ? 'chatbubble' : 'chatbubble-outline'}
+              focused={focused}
+              label="Chat"
+            />
           ),
         }}
       />
@@ -56,7 +90,11 @@ export default function TabLayout() {
         options={{
           title: 'Family',
           tabBarIcon: ({ focused }) => (
-            <TabIcon name={focused ? 'people' : 'people-outline'} focused={focused} />
+            <TabIcon
+              name={focused ? 'people' : 'people-outline'}
+              focused={focused}
+              label="Family"
+            />
           ),
         }}
       />
@@ -65,7 +103,11 @@ export default function TabLayout() {
         options={{
           title: 'Health',
           tabBarIcon: ({ focused }) => (
-            <TabIcon name={focused ? 'medical' : 'medical-outline'} focused={focused} />
+            <TabIcon
+              name={focused ? 'medical' : 'medical-outline'}
+              focused={focused}
+              label="Health"
+            />
           ),
         }}
       />
@@ -74,7 +116,11 @@ export default function TabLayout() {
         options={{
           title: 'Wellness',
           tabBarIcon: ({ focused }) => (
-            <TabIcon name={focused ? 'leaf' : 'leaf-outline'} focused={focused} />
+            <TabIcon
+              name={focused ? 'leaf' : 'leaf-outline'}
+              focused={focused}
+              label="Wellness"
+            />
           ),
         }}
       />
@@ -83,7 +129,11 @@ export default function TabLayout() {
         options={{
           title: 'Connect',
           tabBarIcon: ({ focused }) => (
-            <TabIcon name={focused ? 'heart-circle' : 'heart-circle-outline'} focused={focused} />
+            <TabIcon
+              name={focused ? 'heart-circle' : 'heart-circle-outline'}
+              focused={focused}
+              label="Connect"
+            />
           ),
         }}
       />
@@ -92,7 +142,11 @@ export default function TabLayout() {
         options={{
           title: 'Library',
           tabBarIcon: ({ focused }) => (
-            <TabIcon name={focused ? 'library' : 'library-outline'} focused={focused} />
+            <TabIcon
+              name={focused ? 'library' : 'library-outline'}
+              focused={focused}
+              label="Library"
+            />
           ),
         }}
       />
@@ -101,11 +155,15 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
-  activeIconBg: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+  tabWrap: {
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 3,
+    minHeight: 30,
+  },
+  activeDot: {
+    width: 4,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: '#E8487A',
   },
 });

@@ -7,6 +7,19 @@ import * as SplashScreen from 'expo-splash-screen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
+import {
+  DMSerifDisplay_400Regular,
+} from '@expo-google-fonts/dm-serif-display';
+import {
+  DMSans_400Regular,
+  DMSans_500Medium,
+  DMSans_600SemiBold,
+  DMSans_700Bold,
+} from '@expo-google-fonts/dm-sans';
+import {
+  DMMono_400Regular,
+  DMMono_500Medium,
+} from '@expo-google-fonts/dm-mono';
 import { useAuthStore } from '../store/useAuthStore';
 import { useAppSettingsStore } from '../store/useAppSettingsStore';
 
@@ -20,6 +33,13 @@ export default function RootLayout() {
   // and Firebase Hosting can serve it from a clean /assets path without @ scoped package issues
   const [fontsLoaded, fontError] = useFonts({
     Ionicons: require('../assets/fonts/Ionicons.ttf'),
+    DMSerifDisplay_400Regular,
+    DMSans_400Regular,
+    DMSans_500Medium,
+    DMSans_600SemiBold,
+    DMSans_700Bold,
+    DMMono_400Regular,
+    DMMono_500Medium,
   });
 
   useEffect(() => {

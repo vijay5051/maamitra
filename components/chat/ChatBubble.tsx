@@ -10,10 +10,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import GradientAvatar from '../ui/GradientAvatar';
 import TagPill from '../ui/TagPill';
 import { ChatMessage } from '../../store/useChatStore';
+import { Fonts } from '../../constants/theme';
 
 interface ChatBubbleProps {
   message: ChatMessage;
   onSave?: (id: string) => void;
+  isFirstInGroup?: boolean;
 }
 
 function formatTime(date: Date | string): string {
@@ -21,18 +23,15 @@ function formatTime(date: Date | string): string {
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-export default function ChatBubble({ message, onSave }: ChatBubbleProps) {
+export default function ChatBubble({ message, onSave, isFirstInGroup = true }: ChatBubbleProps) {
   const isAssistant = message.role === 'assistant';
 
   if (!isAssistant) {
-    // User bubble — gradient, right aligned
-    // outerRow is a flex ROW with justifyContent:'flex-end' so that the child maxWidth
-    // is resolved as a flex-item constraint (not a block sizing problem)
     return (
       <View style={styles.userOuterRow}>
         <View style={styles.userWrapper}>
           <LinearGradient
-            colors={['#ec4899', '#8b5cf6']}
+            colors={['#E8487A', '#7C3AED']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.userBubble}
@@ -45,38 +44,49 @@ export default function ChatBubble({ message, onSave }: ChatBubbleProps) {
     );
   }
 
-  // Bot bubble — white, left aligned
+  // Bot bubble — frosted white with rose left border strip
   const emergencyStyle = message.isEmergency
-    ? { borderLeftWidth: 4, borderLeftColor: '#ef4444', backgroundColor: '#fff5f5' }
+    ? { backgroundColor: '#fff5f5' }
     : {};
 
   return (
     <View style={styles.outerRow}>
-    <View style={styles.botWrapper}>
-      <GradientAvatar emoji="🤱" size={32} style={styles.avatar} />
-      <View style={styles.botContent}>
-        <View style={[styles.botBubble, emergencyStyle]}>
-          <Text style={[styles.botText, webTextStyle]}>{message.content}</Text>
+      <View style={styles.botWrapper}>
+        {isFirstInGroup ? (
+          <GradientAvatar emoji="🤱" size={30} style={styles.avatar} />
+        ) : (
+          <View style={styles.avatarSpacer} />
+        )}
+        <View style={styles.botContent}>
+          <View style={[styles.botBubble, emergencyStyle]}>
+            {/* Rose left border strip */}
+            <LinearGradient
+              colors={message.isEmergency ? ['#ef4444', '#ef4444'] : ['#E8487A', '#7C3AED']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={styles.leftBorderStrip}
+            />
+            <Text style={[styles.botText, webTextStyle]}>{message.content}</Text>
+          </View>
+          {message.tag ? (
+            <TagPill
+              label={message.tag.tag}
+              color={message.tag.color}
+              style={styles.tagPill}
+            />
+          ) : null}
+          {onSave ? (
+            <TouchableOpacity
+              onPress={() => onSave(message.id)}
+              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+              style={styles.saveButton}
+            >
+              <Text style={styles.saveText}>Save 🔖</Text>
+            </TouchableOpacity>
+          ) : null}
+          <Text style={styles.timestamp}>{formatTime(message.timestamp)}</Text>
         </View>
-        {message.tag ? (
-          <TagPill
-            label={message.tag.tag}
-            color={message.tag.color}
-            style={styles.tagPill}
-          />
-        ) : null}
-        {onSave ? (
-          <TouchableOpacity
-            onPress={() => onSave(message.id)}
-            hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-            style={styles.saveButton}
-          >
-            <Text style={styles.saveText}>Save 🔖</Text>
-          </TouchableOpacity>
-        ) : null}
-        <Text style={styles.timestamp}>{formatTime(message.timestamp)}</Text>
       </View>
-    </View>
     </View>
   );
 }
@@ -87,12 +97,9 @@ const webTextStyle = Platform.OS === 'web'
   : {};
 
 const styles = StyleSheet.create({
-  // Full-width outer row for bot bubble — ensures children can stretch to 100%
   outerRow: {
     width: '100%',
   },
-
-  // Flex-row outer row for user bubble — maxWidth on flex-item resolves correctly in row context
   userOuterRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
@@ -102,24 +109,31 @@ const styles = StyleSheet.create({
   // User bubble
   userWrapper: {
     alignItems: 'flex-end',
-    maxWidth: '82%',
+    maxWidth: '80%',
     marginVertical: 4,
     marginRight: 12,
     minWidth: 0,
   },
   userBubble: {
-    borderRadius: 16,
+    borderRadius: 18,
     borderTopRightRadius: 4,
-    paddingVertical: 12,
+    paddingVertical: 11,
     paddingHorizontal: 14,
+    shadowColor: '#E8487A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.28,
+    shadowRadius: 12,
+    elevation: 4,
+    boxShadow: '0px 4px 16px rgba(232, 72, 122, 0.28)',
   },
   userText: {
     color: '#ffffff',
+    fontFamily: Fonts.sansRegular,
     fontSize: 15,
     lineHeight: 22,
   },
 
-  // Bot bubble — definite width (not maxWidth) so flex:1 on botContent resolves correctly
+  // Bot bubble
   botWrapper: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -133,27 +147,45 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     flexShrink: 0,
   },
-  // flex: 1 is critical — tells botContent to fill the remaining row width
-  // (after the avatar) so the text inside knows its constraint and can wrap
+  avatarSpacer: {
+    width: 30,
+    marginRight: 8,
+    flexShrink: 0,
+  },
   botContent: {
     flex: 1,
     minWidth: 0,
   },
   botBubble: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.94)',
+    borderRadius: 18,
     borderTopLeftRadius: 4,
-    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(232,72,122,0.1)',
+    paddingVertical: 11,
     paddingHorizontal: 14,
-    shadowColor: '#ec4899',
+    paddingLeft: 18,
+    overflow: 'hidden',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
     elevation: 2,
-    boxShadow: '0px 2px 8px rgba(236, 72, 153, 0.08)',
+    boxShadow: '0px 2px 10px rgba(0, 0, 0, 0.06)',
+    position: 'relative',
+  },
+  leftBorderStrip: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 3,
+    borderTopLeftRadius: 4,
+    borderBottomLeftRadius: 18,
   },
   botText: {
-    color: '#1a1a2e',
+    color: '#1C1033',
+    fontFamily: Fonts.sansRegular,
     fontSize: 15,
     lineHeight: 22,
   },
@@ -166,12 +198,13 @@ const styles = StyleSheet.create({
   },
   saveText: {
     color: '#9ca3af',
+    fontFamily: Fonts.sansMedium,
     fontSize: 12,
-    fontWeight: '600',
   },
   timestamp: {
-    color: '#9ca3af',
-    fontSize: 11,
+    color: '#C4B5D4',
+    fontFamily: Fonts.sansMedium,
+    fontSize: 10,
     marginTop: 4,
     marginHorizontal: 2,
   },

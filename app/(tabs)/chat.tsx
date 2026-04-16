@@ -4,10 +4,8 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -24,6 +22,7 @@ import QuickChips from '../../components/chat/QuickChips';
 import TypingIndicator from '../../components/ui/TypingIndicator';
 import GradientAvatar from '../../components/ui/GradientAvatar';
 import SettingsModal from '../../components/ui/SettingsModal';
+import { Fonts } from '../../constants/theme';
 
 // ─── Allergy Modal ─────────────────────────────────────────────────────────────
 
@@ -55,6 +54,7 @@ function AllergyModal({
     <Modal visible={visible} transparent animationType="slide">
       <View style={allergyStyles.overlay}>
         <View style={allergyStyles.sheet}>
+          <View style={allergyStyles.handle} />
           <Text style={allergyStyles.title}>Any known allergies? 🌿</Text>
           <Text style={allergyStyles.subtitle}>
             This helps me give you safe food recommendations for your family
@@ -87,7 +87,7 @@ function AllergyModal({
             activeOpacity={0.85}
           >
             <LinearGradient
-              colors={['#ec4899', '#8b5cf6']}
+              colors={['#E8487A', '#7C3AED']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={allergyStyles.doneBtnGrad}
@@ -104,34 +104,89 @@ function AllergyModal({
 const allergyStyles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#ffffff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    backgroundColor: '#FFF8FC',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
     paddingHorizontal: 24,
-    paddingTop: 28,
+    paddingTop: 16,
     paddingBottom: 40,
   },
-  title: { fontSize: 20, fontWeight: '700', color: '#1a1a2e', marginBottom: 6 },
-  subtitle: { fontSize: 14, color: '#6b7280', marginBottom: 20, lineHeight: 20 },
+  handle: { width: 36, height: 4, backgroundColor: '#EDE9F6', borderRadius: 2, alignSelf: 'center', marginBottom: 24 },
+  title: { fontFamily: Fonts.sansBold, fontSize: 20, color: '#1C1033', marginBottom: 6 },
+  subtitle: { fontFamily: Fonts.sansRegular, fontSize: 14, color: '#9CA3AF', marginBottom: 20, lineHeight: 20 },
   chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 24 },
   chip: {
     borderWidth: 1.5,
-    borderColor: '#e5e7eb',
+    borderColor: '#EDE9F6',
     borderRadius: 20,
     paddingVertical: 8,
     paddingHorizontal: 14,
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#ffffff',
   },
-  chipSelected: { borderColor: '#ec4899', backgroundColor: 'rgba(236,72,153,0.08)' },
-  chipText: { fontSize: 14, color: '#6b7280', fontWeight: '500' },
-  chipTextSelected: { color: '#ec4899', fontWeight: '700' },
-  doneBtn: { borderRadius: 999, overflow: 'hidden' },
+  chipSelected: { borderColor: '#E8487A', backgroundColor: 'rgba(232,72,122,0.08)' },
+  chipText: { fontFamily: Fonts.sansMedium, fontSize: 14, color: '#9CA3AF' },
+  chipTextSelected: { color: '#E8487A', fontFamily: Fonts.sansBold },
+  doneBtn: { borderRadius: 18, overflow: 'hidden' },
   doneBtnGrad: { paddingVertical: 16, alignItems: 'center' },
-  doneBtnText: { color: '#ffffff', fontWeight: '700', fontSize: 16 },
+  doneBtnText: { fontFamily: Fonts.sansBold, color: '#ffffff', fontSize: 16 },
+});
+
+// ─── TODAY Separator with gradient lines ──────────────────────────────────────
+
+function TodaySeparator() {
+  return (
+    <View style={sepStyles.container}>
+      {/* Left gradient line */}
+      <View style={sepStyles.lineWrap}>
+        <LinearGradient
+          colors={['transparent', 'rgba(232,72,122,0.2)', 'transparent']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={sepStyles.gradLine}
+        />
+      </View>
+      <Text style={sepStyles.label}>TODAY</Text>
+      {/* Right gradient line */}
+      <View style={sepStyles.lineWrap}>
+        <LinearGradient
+          colors={['transparent', 'rgba(232,72,122,0.2)', 'transparent']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={sepStyles.gradLine}
+        />
+      </View>
+    </View>
+  );
+}
+
+const sepStyles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 24,
+    width: '100%',
+  },
+  lineWrap: {
+    flex: 1,
+    height: 1,
+    overflow: 'hidden',
+  },
+  gradLine: {
+    flex: 1,
+    height: 1,
+  },
+  label: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: 11,
+    color: '#6B7280',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    marginHorizontal: 12,
+  },
 });
 
 // ─── Chat Screen ──────────────────────────────────────────────────────────────
@@ -195,60 +250,94 @@ export default function ChatScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <View style={styles.headerLeft}>
-          <GradientAvatar emoji="🤱" size={40} />
-          <View style={styles.headerInfo}>
-            <View style={styles.headerNameRow}>
-              <Text style={styles.headerName}>MaaMitra</Text>
-              <View style={styles.onlineIndicator} />
+      {/* ── Dark Gradient Header ── */}
+      <LinearGradient
+        colors={['#1C1033', '#3b1060', '#6d1a7a']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.header, { paddingTop: insets.top + 12 }]}
+      >
+        {/* Glow blobs */}
+        <View style={styles.glowTopRight} pointerEvents="none" />
+        <View style={styles.glowBottomLeft} pointerEvents="none" />
+
+        <View style={styles.headerInner}>
+          {/* Left: Avatar + info */}
+          <View style={styles.headerLeft}>
+            <View style={styles.avatarWrap}>
+              <GradientAvatar emoji="🤱" size={40} />
+              <View style={styles.onlineDot} />
             </View>
-            <Text style={styles.headerSub}>Always here for you</Text>
+            <View style={styles.headerInfo}>
+              <View style={styles.headerNameRow}>
+                <Text style={styles.headerName}>MaaMitra</Text>
+              </View>
+              <Text style={styles.headerSub}>Always here for you ✨</Text>
+            </View>
+          </View>
+
+          {/* Right: Kid pill + settings */}
+          <View style={styles.headerRight}>
+            {activeKid ? (
+              <View style={styles.kidPill}>
+                <Text style={styles.kidPillText}>
+                  {activeKid.name}{activeKid.ageInMonths !== undefined ? ` · ${ageLabel}` : ''}
+                </Text>
+              </View>
+            ) : null}
+            <TouchableOpacity
+              onPress={() => setSettingsVisible(true)}
+              style={styles.gearBtn}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="settings-outline" size={20} color="rgba(255,255,255,0.7)" />
+            </TouchableOpacity>
           </View>
         </View>
-        <View style={styles.headerRight}>
-          {activeKid ? (
-            <View style={styles.kidPill}>
-              <Text style={styles.kidPillText}>{activeKid.name}</Text>
-            </View>
-          ) : null}
-          <TouchableOpacity
-            onPress={() => setSettingsVisible(true)}
-            style={styles.gearBtn}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="settings-outline" size={22} color="#6b7280" />
-          </TouchableOpacity>
-        </View>
-      </View>
+      </LinearGradient>
 
-      {/* Chat */}
+      {/* ── Chat Body ── */}
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' || Platform.OS === 'web' ? 'padding' : 'height'}
         keyboardVerticalOffset={0}
       >
+        {/* Radial glow bloom behind message list */}
+        <View style={styles.radialGlow} pointerEvents="none" />
+
         <FlatList
           ref={flatListRef}
           data={data}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.chatContent}
-          renderItem={({ item }) => (
-            <ChatBubble
-              message={item}
-              onSave={item.role === 'assistant' && !item.saved ? handleSave : undefined}
-            />
-          )}
+          renderItem={({ item, index }) => {
+            const prevMessage = index > 0 ? data[index - 1] : null;
+            const isFirstInGroup =
+              !prevMessage || prevMessage.role !== item.role;
+            return (
+              <ChatBubble
+                message={item}
+                isFirstInGroup={isFirstInGroup}
+                onSave={item.role === 'assistant' && !item.saved ? handleSave : undefined}
+              />
+            );
+          }}
           ListHeaderComponent={
             messages.length === 0 && !isTyping ? (
               <View style={styles.welcomeSection}>
-                <GradientAvatar emoji="🤱" size={64} style={styles.welcomeAvatar} />
+                <View style={styles.welcomeAvatarWrap}>
+                  <GradientAvatar emoji="🤱" size={72} style={styles.welcomeAvatar} />
+                  <View style={styles.welcomeOnlineDot} />
+                </View>
+                <Text style={styles.welcomeHeading}>
+                  Namaste{motherName ? `, ${motherName}` : ''}! 🙏
+                </Text>
                 <Text style={styles.welcomeText}>
-                  Namaste{motherName ? `, ${motherName}` : ''}! 🙏{'\n'}
                   I'm MaaMitra, your personal companion. Ask me anything about your pregnancy,
                   baby, health, or wellbeing.
                 </Text>
+                {/* Today separator with gradient lines */}
+                <TodaySeparator />
               </View>
             ) : null
           }
@@ -282,65 +371,128 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fdf6ff' },
+  container: { flex: 1, backgroundColor: '#FFF8FC' },
   flex: { flex: 1 },
+
+  // ── Header ──
   header: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  glowTopRight: {
+    position: 'absolute', width: 180, height: 180, borderRadius: 90,
+    backgroundColor: 'rgba(232,72,122,0.22)', top: -60, right: -40,
+  },
+  glowBottomLeft: {
+    position: 'absolute', width: 120, height: 120, borderRadius: 60,
+    backgroundColor: 'rgba(124,58,237,0.18)', bottom: -40, left: -20,
+  },
+  headerInner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 14,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3e8ff',
-    shadowColor: '#8b5cf6',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
-    boxShadow: '0px 2px 8px rgba(139, 92, 246, 0.06)',
   },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  gearBtn: { padding: 6 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+
+  avatarWrap: { position: 'relative' },
+  onlineDot: {
+    position: 'absolute', bottom: 1, right: 1,
+    width: 10, height: 10, borderRadius: 5,
+    backgroundColor: '#22c55e',
+    borderWidth: 2, borderColor: '#1C1033',
+  },
+
   headerInfo: {},
   headerNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  headerName: { fontSize: 17, fontWeight: '700', color: '#1a1a2e' },
-  onlineIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#22c55e',
+  headerName: {
+    fontFamily: Fonts.serif,
+    fontSize: 20,
+    color: '#ffffff',
+    letterSpacing: -0.3,
   },
-  headerSub: { fontSize: 12, color: '#9ca3af', marginTop: 1 },
+  headerSub: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.55)',
+    marginTop: 1,
+  },
+
   kidPill: {
-    backgroundColor: 'rgba(236,72,153,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.12)',
     borderRadius: 20,
-    paddingVertical: 6,
+    paddingVertical: 5,
     paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: 'rgba(236,72,153,0.2)',
+    borderColor: 'rgba(255,255,255,0.2)',
   },
-  kidPillText: { color: '#ec4899', fontSize: 13, fontWeight: '600' },
+  kidPillText: {
+    fontFamily: Fonts.sansSemiBold,
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 12,
+  },
+  gearBtn: {
+    width: 34, height: 34, borderRadius: 17,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+
+  // ── Radial glow bloom ──
+  radialGlow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 300,
+    backgroundColor: 'rgba(232,72,122,0.04)',
+    borderBottomLeftRadius: 200,
+    borderBottomRightRadius: 200,
+    zIndex: 0,
+  },
+
+  // ── Chat content ──
   chatContent: {
     paddingHorizontal: 4,
     paddingTop: 16,
     paddingBottom: 8,
     flexGrow: 1,
   },
+
+  // ── Welcome section ──
   welcomeSection: {
     alignItems: 'center',
     paddingHorizontal: 24,
     paddingBottom: 24,
-    paddingTop: 16,
+    paddingTop: 20,
   },
-  welcomeAvatar: { marginBottom: 16 },
+  welcomeAvatarWrap: { position: 'relative', marginBottom: 16 },
+  welcomeAvatar: {},
+  welcomeOnlineDot: {
+    position: 'absolute', bottom: 2, right: 2,
+    width: 14, height: 14, borderRadius: 7,
+    backgroundColor: '#22c55e',
+    borderWidth: 2, borderColor: '#FFF8FC',
+  },
+  welcomeHeading: {
+    fontFamily: Fonts.serif,
+    fontSize: 22,
+    color: '#1C1033',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
   welcomeText: {
-    fontSize: 15,
-    color: '#6b7280',
+    fontFamily: Fonts.sansRegular,
+    fontSize: 14,
+    color: '#9CA3AF',
     textAlign: 'center',
     lineHeight: 22,
+    maxWidth: 280,
   },
+
+  // ── Typing indicator ──
   typingWrap: {
     flexDirection: 'row',
     alignItems: 'flex-end',

@@ -10,6 +10,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,6 +27,26 @@ import { Fonts } from '../../constants/theme';
 
 const FILTERS: CommunityFilter[] = ['All', 'Newborn', 'Pregnancy', 'Nutrition', 'Mental Health', 'Milestones', 'Products'];
 const TOPICS = ['Newborn', 'Pregnancy', 'Nutrition', 'Mental Health', 'Milestones', 'Products', 'General'];
+
+// ─── Topic color map ──────────────────────────────────────────────────────────
+
+const TOPIC_COLORS: Record<string, string> = {
+  Newborn: '#E8487A',
+  Pregnancy: '#7C3AED',
+  Nutrition: '#34D399',
+  'Mental Health': '#60A5FA',
+  Milestones: '#F59E0B',
+  Sleep: '#A78BCA',
+  Products: '#F97316',
+};
+
+function getTopicColor(topic: string): string {
+  return TOPIC_COLORS[topic] ?? '#EDE9F6';
+}
+
+// ─── Mock reaction avatar names (for stacked circles) ────────────────────────
+
+const MOCK_REACTOR_NAMES = ['Priya', 'Ananya', 'Meera', 'Sunita', 'Kavya', 'Divya'];
 
 // ─── Image Crop Helpers ───────────────────────────────────────────────────────
 
@@ -230,6 +255,136 @@ const uStyles = StyleSheet.create({
   closeBtnText: { fontFamily: Fonts.sansBold, fontSize: 15, color: '#7C3AED' },
 });
 
+// ─── Animated Heart React Button ──────────────────────────────────────────────
+
+function AnimatedHeartButton({
+  hasReacted,
+  onPress,
+}: {
+  hasReacted: boolean;
+  onPress: () => void;
+}) {
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePress = () => {
+    scale.value = withSpring(1.3, { damping: 4, stiffness: 300 }, () => {
+      scale.value = withSpring(1, { damping: 6, stiffness: 250 });
+    });
+    onPress();
+  };
+
+  return (
+    <TouchableOpacity
+      style={heartStyles.pill}
+      onPress={handlePress}
+      activeOpacity={0.75}
+    >
+      <Animated.View style={[heartStyles.inner, animatedStyle]}>
+        <Ionicons
+          name={hasReacted ? 'heart' : 'heart-outline'}
+          size={13}
+          color={hasReacted ? '#E8487A' : '#E8487A'}
+        />
+        <Text style={heartStyles.text}>React</Text>
+      </Animated.View>
+    </TouchableOpacity>
+  );
+}
+
+const heartStyles = StyleSheet.create({
+  pill: {
+    borderWidth: 1.5,
+    borderColor: 'rgba(232,72,122,0.25)',
+    borderRadius: 12,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    backgroundColor: 'rgba(232,72,122,0.04)',
+  },
+  inner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  text: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 12,
+    color: '#E8487A',
+  },
+});
+
+// ─── Stacked Reactor Avatars ──────────────────────────────────────────────────
+
+function StackedReactorAvatars({ count }: { count: number }) {
+  if (count === 0) return null;
+  const visibleCount = Math.min(count, 3);
+  const names = MOCK_REACTOR_NAMES.slice(0, visibleCount);
+
+  return (
+    <View style={stackStyles.row}>
+      <View style={stackStyles.avatarsWrap}>
+        {names.map((name, index) => (
+          <View
+            key={name}
+            style={[
+              stackStyles.avatarCircle,
+              { left: index * 12, zIndex: visibleCount - index },
+            ]}
+          >
+            <LinearGradient
+              colors={['#E8487A', '#7C3AED']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+            <Text style={stackStyles.avatarInitial}>{name.charAt(0)}</Text>
+          </View>
+        ))}
+      </View>
+      <Text style={stackStyles.countText}>{count}</Text>
+    </View>
+  );
+}
+
+const stackStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  avatarsWrap: {
+    flexDirection: 'row',
+    width: 3 * 12 + 20, // 3 avatars with overlap + last avatar width
+    height: 20,
+    position: 'relative',
+  },
+  avatarCircle: {
+    position: 'absolute',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#ffffff',
+  },
+  avatarInitial: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 9,
+    color: '#ffffff',
+    zIndex: 1,
+  },
+  countText: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 13,
+    color: '#6B7280',
+  },
+});
+
 // ─── Post Card ────────────────────────────────────────────────────────────────
 
 const REACTION_EMOJIS = ['❤️', '💜', '😊', '💪', '🙏', '🤱'];
@@ -271,13 +426,15 @@ function PostCard({
 
   // Compiled reaction summary
   const totalReactions = Object.values(post.reactions).reduce((a, b) => a + b, 0);
-  const topEmojis = Object.entries(post.reactions)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 3)
-    .map(([emoji]) => emoji);
+
+  // Has the current user reacted with any emoji?
+  const hasReacted = post.userReactions.length > 0;
+
+  // Topic color for left border
+  const topicColor = getTopicColor(post.topic);
 
   return (
-    <View style={postStyles.card}>
+    <View style={[postStyles.card, { borderLeftColor: topicColor }]}>
       {/* Author row */}
       <View style={postStyles.authorRow}>
         <TouchableOpacity
@@ -313,23 +470,20 @@ function PostCard({
 
       {/* Reactions bar */}
       <View style={postStyles.reactionsBar}>
-        {/* Left: compiled emoji summary */}
-        <TouchableOpacity
-          style={postStyles.reactionSummary}
-          onPress={() => setShowReactPicker((v) => !v)}
-          activeOpacity={0.75}
-        >
-          {topEmojis.length > 0 ? (
-            <>
-              <Text style={postStyles.reactionCluster}>{topEmojis.join('')}</Text>
-              <Text style={postStyles.reactionTotal}>{totalReactions}</Text>
-            </>
-          ) : null}
-          <View style={postStyles.reactBtn}>
-            <Text style={postStyles.reactBtnText}>React</Text>
-            <Ionicons name="add" size={13} color="#E8487A" />
-          </View>
-        </TouchableOpacity>
+        {/* Left: stacked avatars + count + animated heart */}
+        <View style={postStyles.reactionLeft}>
+          <TouchableOpacity
+            onPress={() => setShowReactPicker((v) => !v)}
+            activeOpacity={0.75}
+            style={postStyles.reactionSummaryTap}
+          >
+            <StackedReactorAvatars count={totalReactions} />
+          </TouchableOpacity>
+          <AnimatedHeartButton
+            hasReacted={hasReacted}
+            onPress={() => setShowReactPicker((v) => !v)}
+          />
+        </View>
 
         {/* Right: comment count */}
         <TouchableOpacity
@@ -418,6 +572,7 @@ const postStyles = StyleSheet.create({
     elevation: 2,
     borderWidth: 1,
     borderColor: '#EDE9F6',
+    borderLeftWidth: 3,
     boxShadow: '0px 2px 10px rgba(232, 72, 122, 0.06)',
   } as any,
   authorRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 12, justifyContent: 'space-between' },
@@ -442,25 +597,14 @@ const postStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  reactionSummary: {
+  reactionLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
-  reactionCluster: { fontSize: 16 },
-  reactionTotal: { fontFamily: Fonts.sansSemiBold, fontSize: 13, color: '#9CA3AF' },
-  reactBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    borderWidth: 1.5,
-    borderColor: 'rgba(232,72,122,0.25)',
-    borderRadius: 12,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    backgroundColor: 'rgba(232,72,122,0.04)',
+  reactionSummaryTap: {
+    // just a touch wrapper
   },
-  reactBtnText: { fontFamily: Fonts.sansSemiBold, fontSize: 12, color: '#E8487A' },
   commentsBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -820,9 +964,7 @@ const newPostStyles = StyleSheet.create({
   postBtnText: { fontFamily: Fonts.sansBold, color: '#ffffff', fontSize: 16 },
 });
 
-// ─── Main Screen ──────────────────────────────────────────────────────────────
-
-// ─── My Profile Card ──────────────────────────────────────────────────────────
+// ─── My Profile Card — Premium Dark Hero ──────────────────────────────────────
 
 function MyProfileCard({ onEdit }: { onEdit: () => void }) {
   const {
@@ -837,149 +979,236 @@ function MyProfileCard({ onEdit }: { onEdit: () => void }) {
   const genderLabel = parentGender === 'mother' ? 'Mother' : parentGender === 'father' ? 'Father' : parentGender === 'other' ? 'Parent' : 'Parent';
   const kidsLabel = kids.length === 0 ? 'No kids added' : kids.length === 1 ? `${genderLabel} of 1` : `${genderLabel} of ${kids.length}`;
 
+  const hasPhoto = photoUrl && !imgErr;
+  const isProfileComplete = !!(bio && expertise.length > 0);
+
+  // Stat 3: city or streak placeholder
+  const cityOrStreak = profile?.state || 'India';
+
   return (
-    <View style={profileStyles.card}>
-      <LinearGradient colors={['rgba(232,72,122,0.04)', 'rgba(124,58,237,0.04)']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+    <View style={heroStyles.card}>
+      <LinearGradient
+        colors={['#1C1033', '#3b1060', '#6d1a7a']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
 
-      {/* Label */}
-      <View style={profileStyles.cardLabel}>
-        <Ionicons name="person-circle-outline" size={13} color="#8b5cf6" />
-        <Text style={profileStyles.cardLabelText}>My Profile</Text>
-      </View>
+      {/* Glow blobs */}
+      <View style={heroStyles.glowTopRight} pointerEvents="none" />
+      <View style={heroStyles.glowBottomLeft} pointerEvents="none" />
 
-      <View style={profileStyles.row}>
-        {/* Avatar */}
-        <View style={profileStyles.avatarWrap}>
-          {photoUrl && !imgErr ? (
+      {/* Edit button — frosted glass, top-right */}
+      <TouchableOpacity style={heroStyles.editBtn} onPress={onEdit} activeOpacity={0.75}>
+        <Ionicons name="create-outline" size={15} color="rgba(255,255,255,0.85)" />
+        <Text style={heroStyles.editBtnText}>Edit</Text>
+      </TouchableOpacity>
+
+      {/* Avatar + name block */}
+      <View style={heroStyles.topRow}>
+        {/* Gold-ringed avatar */}
+        <View style={heroStyles.avatarRing}>
+          {hasPhoto ? (
             // @ts-ignore
-            <img src={photoUrl} alt="avatar" style={{ width: 60, height: 60, borderRadius: 30, objectFit: 'cover' }} onError={() => setImgErr(true)} />
+            <img
+              src={photoUrl}
+              alt="avatar"
+              style={{ width: 66, height: 66, borderRadius: 33, objectFit: 'cover' }}
+              onError={() => setImgErr(true)}
+            />
           ) : (
-            <View style={profileStyles.avatarFallback}>
-              <Text style={profileStyles.avatarInitial}>{initial}</Text>
-            </View>
+            <LinearGradient
+              colors={['#E8487A', '#7C3AED']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={heroStyles.avatarFallback}
+            >
+              <Text style={heroStyles.avatarInitial}>{initial}</Text>
+            </LinearGradient>
           )}
         </View>
 
-        {/* Info */}
-        <View style={profileStyles.info}>
-          <Text style={profileStyles.name}>{motherName || 'Your Name'}</Text>
-          {visibilitySettings.showKids && <Text style={profileStyles.role}>{kidsLabel}</Text>}
-          {visibilitySettings.showState && profile?.state ? <Text style={profileStyles.location}>📍 {profile.state}</Text> : null}
+        {/* Name + subtitle */}
+        <View style={heroStyles.nameBlock}>
+          <Text style={heroStyles.name} numberOfLines={1}>{motherName || 'Your Name'}</Text>
+          <Text style={heroStyles.subtitle} numberOfLines={1}>
+            {kidsLabel}
+            {visibilitySettings.showState && profile?.state ? ` · ${profile.state}` : ''}
+          </Text>
         </View>
-
-        {/* Edit button */}
-        <TouchableOpacity style={profileStyles.editBtn} onPress={onEdit} activeOpacity={0.75}>
-          <Ionicons name="create-outline" size={16} color="#8b5cf6" />
-          <Text style={profileStyles.editBtnText}>Edit</Text>
-        </TouchableOpacity>
       </View>
 
-      {/* Bio */}
-      {bio && visibilitySettings.showBio ? (
-        <Text style={profileStyles.bio}>{bio}</Text>
-      ) : null}
-
-      {/* Stats row */}
-      <View style={profileStyles.statsRow}>
+      {/* Stats row — frosted glass boxes */}
+      <View style={heroStyles.statsRow}>
+        {/* Posts */}
         {visibilitySettings.showPostCount && (
-          <View style={profileStyles.stat}>
-            <Text style={profileStyles.statNum}>{postCount}</Text>
-            <Text style={profileStyles.statLabel}>Posts</Text>
+          <View style={heroStyles.statBox}>
+            <Text style={heroStyles.statNum}>{postCount}</Text>
+            <Text style={heroStyles.statLabel}>Posts</Text>
           </View>
         )}
-        <View style={profileStyles.stat}>
-          <Text style={profileStyles.statNum}>{kids.length}</Text>
-          <Text style={profileStyles.statLabel}>{kids.length === 1 ? 'Child' : 'Children'}</Text>
+
+        {/* Children */}
+        <View style={heroStyles.statBox}>
+          <Text style={heroStyles.statNum}>{kids.length}</Text>
+          <Text style={heroStyles.statLabel}>{kids.length === 1 ? 'Child' : 'Children'}</Text>
+        </View>
+
+        {/* City / streak */}
+        <View style={heroStyles.statBox}>
+          <Text style={heroStyles.statNumSmall} numberOfLines={1}>{cityOrStreak}</Text>
+          <Text style={heroStyles.statLabel}>City</Text>
         </View>
       </View>
 
-      {/* Expertise chips */}
-      {expertise.length > 0 && visibilitySettings.showExpertise && (
-        <View style={profileStyles.expertiseRow}>
-          {expertise.map((tag) => (
-            <View key={tag} style={profileStyles.expertiseChip}>
-              <Text style={profileStyles.expertiseChipText}>{tag}</Text>
-            </View>
-          ))}
-        </View>
-      )}
-
-      {/* Empty state nudge */}
-      {!bio && expertise.length === 0 && (
-        <TouchableOpacity style={profileStyles.nudge} onPress={onEdit} activeOpacity={0.75}>
-          <Ionicons name="sparkles-outline" size={14} color="#8b5cf6" />
-          <Text style={profileStyles.nudgeText}>Complete your profile — add bio & expertise</Text>
+      {/* Complete profile link */}
+      {!isProfileComplete && (
+        <TouchableOpacity style={heroStyles.completeLink} onPress={onEdit} activeOpacity={0.75}>
+          <Ionicons name="sparkles-outline" size={13} color="#E8487A" />
+          <Text style={heroStyles.completeLinkText}>Complete your profile</Text>
         </TouchableOpacity>
       )}
     </View>
   );
 }
 
-const profileStyles = StyleSheet.create({
+const heroStyles = StyleSheet.create({
   card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 18,
-    padding: 16,
-    marginHorizontal: 16,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#EDE9F6',
+    borderRadius: 24,
     overflow: 'hidden',
-    shadowColor: '#E8487A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 3,
-    boxShadow: '0px 2px 10px rgba(232, 72, 122, 0.06)',
-  } as any,
-  cardLabel: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    padding: 20,
+    paddingTop: 22,
+    position: 'relative',
+  },
+  glowTopRight: {
+    position: 'absolute',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(232,72,122,0.25)',
+    top: -30,
+    right: -20,
+    opacity: 0.9,
+  },
+  glowBottomLeft: {
+    position: 'absolute',
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: 'rgba(124,58,237,0.2)',
+    bottom: -20,
+    left: -10,
+    opacity: 0.8,
+  },
+  editBtn: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    zIndex: 10,
+  },
+  editBtnText: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.85)',
+  },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginBottom: 20,
+    marginTop: 4,
+  },
+  avatarRing: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    borderWidth: 3,
+    borderColor: '#F59E0B',
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarFallback: {
+    width: 66,
+    height: 66,
+    borderRadius: 33,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarInitial: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 26,
+    color: '#ffffff',
+  },
+  nameBlock: {
+    flex: 1,
+    paddingRight: 48, // don't overlap edit button
+  },
+  name: {
+    fontFamily: Fonts.serif,
+    fontSize: 22,
+    color: '#ffffff',
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.7)',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 4,
+  },
+  statBox: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  statNum: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 22,
+    color: '#ffffff',
+  },
+  statNumSmall: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 14,
+    color: '#ffffff',
+    marginTop: 2,
+  },
+  statLabel: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.6)',
+    marginTop: 2,
+  },
+  completeLink: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    marginBottom: 10,
+    marginTop: 14,
   },
-  cardLabelText: {
-    fontFamily: Fonts.sansBold,
-    fontSize: 10,
-    color: '#7C3AED',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+  completeLinkText: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 13,
+    color: '#E8487A',
   },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 },
-  avatarWrap: { width: 60, height: 60, borderRadius: 30, overflow: 'hidden' },
-  avatarFallback: {
-    width: 60, height: 60, borderRadius: 30,
-    backgroundColor: '#E8487A', alignItems: 'center', justifyContent: 'center',
-  },
-  avatarInitial: { fontFamily: Fonts.sansBold, color: '#fff', fontSize: 24 },
-  info: { flex: 1 },
-  name: { fontFamily: Fonts.sansBold, fontSize: 17, color: '#1C1033', marginBottom: 2 },
-  role: { fontFamily: Fonts.sansRegular, fontSize: 13, color: '#9CA3AF' },
-  location: { fontFamily: Fonts.sansRegular, fontSize: 12, color: '#9CA3AF', marginTop: 1 },
-  editBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    borderWidth: 1.5, borderColor: 'rgba(124,58,237,0.2)', borderRadius: 10,
-    paddingHorizontal: 10, paddingVertical: 6,
-    backgroundColor: 'rgba(124,58,237,0.04)',
-  },
-  editBtnText: { fontFamily: Fonts.sansBold, fontSize: 12, color: '#7C3AED' },
-  bio: { fontFamily: Fonts.sansRegular, fontSize: 13, color: '#4b5563', lineHeight: 19, marginBottom: 10 },
-  statsRow: { flexDirection: 'row', gap: 20, marginBottom: 10 },
-  stat: { alignItems: 'center' },
-  statNum: { fontFamily: Fonts.sansBold, fontSize: 18, color: '#1C1033' },
-  statLabel: { fontFamily: Fonts.sansRegular, fontSize: 11, color: '#9CA3AF' },
-  expertiseRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 2 },
-  expertiseChip: {
-    backgroundColor: 'rgba(124,58,237,0.06)', borderRadius: 20,
-    paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: 'rgba(124,58,237,0.15)',
-  },
-  expertiseChipText: { fontFamily: Fonts.sansSemiBold, fontSize: 12, color: '#7C3AED' },
-  nudge: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: 'rgba(124,58,237,0.04)', borderRadius: 10,
-    paddingHorizontal: 12, paddingVertical: 8, marginTop: 4,
-  },
-  nudgeText: { fontFamily: Fonts.sansSemiBold, fontSize: 12, color: '#7C3AED' },
 });
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
@@ -1039,7 +1268,7 @@ export default function CommunityScreen() {
         />
       )}
 
-      {/* Filter chips */}
+      {/* Filter chips with right-fade gradient */}
       <View style={styles.filtersWrap}>
         <ScrollView
           horizontal
@@ -1067,6 +1296,16 @@ export default function CommunityScreen() {
             </TouchableOpacity>
           ))}
         </ScrollView>
+
+        {/* Fade overlay on right edge */}
+        <View style={styles.filterFadeRight} pointerEvents="none">
+          <LinearGradient
+            colors={['rgba(255,248,252,0)', '#FFF8FC']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={StyleSheet.absoluteFill}
+          />
+        </View>
       </View>
 
       {/* Posts */}
@@ -1139,6 +1378,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#EDE9F6',
     flexShrink: 0,
     flexGrow: 0,
+    position: 'relative',
   },
   filtersRow: {
     paddingHorizontal: 16,
@@ -1146,21 +1386,29 @@ const styles = StyleSheet.create({
     gap: 8,
     alignItems: 'center',
     flexDirection: 'row',
+    paddingRight: 48,
   },
   filterChip: {
     borderRadius: 20,
     paddingVertical: 7,
     paddingHorizontal: 14,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#F8F4FF',
     borderWidth: 1.5,
     borderColor: '#EDE9F6',
   },
   filterChipActive: {
-    backgroundColor: 'rgba(232,72,122,0.08)',
+    backgroundColor: '#E8487A',
     borderColor: '#E8487A',
   },
-  filterChipText: { fontFamily: Fonts.sansMedium, fontSize: 13, color: '#9CA3AF' },
-  filterChipTextActive: { fontFamily: Fonts.sansBold, color: '#E8487A' },
+  filterChipText: { fontFamily: Fonts.sansMedium, fontSize: 13, color: '#6B7280' },
+  filterChipTextActive: { fontFamily: Fonts.sansBold, color: '#ffffff' },
+  filterFadeRight: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: 40,
+  },
   listContent: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8 },
   empty: { alignItems: 'center', paddingTop: 60 },
   emptyEmoji: { fontSize: 48, marginBottom: 12 },
