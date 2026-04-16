@@ -11,11 +11,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useWellnessStore, MOOD_DATA, MOOD_RESPONSES } from '../../store/useWellnessStore';
-import GradientHeader from '../../components/ui/GradientHeader';
 import Card from '../../components/ui/Card';
 import GradientButton from '../../components/ui/GradientButton';
 import { YOGA_SESSIONS, YogaSession } from '../../data/yogaSessions';
 import YogaModalComponent from '../../components/wellness/YogaModal';
+import { Fonts } from '../../constants/theme';
 
 const HEALTH_CONDITION_OPTIONS = [
   'Recent C-Section', 'High Blood Pressure', 'Gestational Diabetes',
@@ -56,8 +56,8 @@ function MoodSelector({ onSelect }: { onSelect: (score: 1 | 2 | 3 | 4 | 5) => vo
 const moodStyles = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 8 },
   moodBtn: { alignItems: 'center', gap: 4 },
-  moodEmoji: { fontSize: 30 },
-  moodLabel: { fontSize: 11, color: '#6b7280', fontWeight: '500' },
+  moodEmoji: { fontSize: 36 },
+  moodLabel: { fontFamily: Fonts.sansMedium, fontSize: 11, color: '#9CA3AF' },
 });
 
 // ─── MoodChart ────────────────────────────────────────────────────────────────
@@ -95,12 +95,12 @@ function MoodChart({ weekHistory }: { weekHistory: Array<{ score: number; emoji:
 
 const chartStyles = StyleSheet.create({
   container: { marginTop: 16 },
-  label: { fontSize: 12, color: '#9ca3af', fontWeight: '600', marginBottom: 10 },
+  label: { fontFamily: Fonts.sansSemiBold, fontSize: 11, color: '#C4B5D4', letterSpacing: 0.8, marginBottom: 10 },
   bars: { flexDirection: 'row', alignItems: 'flex-end', gap: 6, height: 80 },
   barCol: { flex: 1, alignItems: 'center', gap: 4 },
   bar: { width: '100%', borderRadius: 4 },
-  emptyBar: { backgroundColor: '#e5e7eb' },
-  dayLabel: { fontSize: 10, color: '#9ca3af', fontWeight: '500' },
+  emptyBar: { backgroundColor: '#EDE9F6' },
+  dayLabel: { fontFamily: Fonts.sansMedium, fontSize: 10, color: '#C4B5D4' },
 });
 
 // ─── YogaCard ─────────────────────────────────────────────────────────────────
@@ -115,17 +115,18 @@ function YogaCard({
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={yogaCardStyles.card}>
       <View style={yogaCardStyles.left}>
-        <Text style={yogaCardStyles.emoji}>{session.emoji}</Text>
+        <Ionicons name="body-outline" size={22} color="#E8487A" />
       </View>
       <View style={yogaCardStyles.info}>
         <Text style={yogaCardStyles.title}>{session.name}</Text>
         <View style={yogaCardStyles.meta}>
-          <Text style={yogaCardStyles.metaText}>⏱ {session.duration} min</Text>
+          <Ionicons name="time-outline" size={11} color="#A78BCA" />
+          <Text style={yogaCardStyles.metaText}>{session.duration} min</Text>
           <Text style={yogaCardStyles.metaText}>• {session.level}</Text>
         </View>
         <Text style={yogaCardStyles.desc} numberOfLines={2}>{session.description}</Text>
       </View>
-      <Ionicons name="play-circle-outline" size={28} color="#ec4899" />
+      <Ionicons name="play-circle-outline" size={28} color="#E8487A" />
     </TouchableOpacity>
   );
 }
@@ -136,32 +137,31 @@ const yogaCardStyles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     backgroundColor: '#ffffff',
-    borderRadius: 14,
+    borderRadius: 16,
     padding: 14,
     marginBottom: 10,
-    shadowColor: '#ec4899',
+    shadowColor: '#E8487A',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.07,
     shadowRadius: 8,
     elevation: 2,
     borderWidth: 1,
-    borderColor: '#f3e8ff',
-    boxShadow: '0px 2px 8px rgba(236, 72, 153, 0.07)',
-  },
+    borderColor: '#EDE9F6',
+    boxShadow: '0px 2px 8px rgba(232, 72, 122, 0.07)',
+  } as any,
   left: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: '#fdf2f8',
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: 'rgba(232,72,122,0.06)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  emoji: { fontSize: 22 },
   info: { flex: 1 },
-  title: { fontSize: 14, fontWeight: '700', color: '#1a1a2e', marginBottom: 3 },
+  title: { fontFamily: Fonts.sansBold, fontSize: 14, color: '#1C1033', marginBottom: 3 },
   meta: { flexDirection: 'row', gap: 4, marginBottom: 4 },
-  metaText: { fontSize: 11, color: '#8b5cf6', fontWeight: '500' },
-  desc: { fontSize: 12, color: '#6b7280', lineHeight: 17 },
+  metaText: { fontFamily: Fonts.sansMedium, fontSize: 11, color: '#7C3AED' },
+  desc: { fontFamily: Fonts.sansRegular, fontSize: 12, color: '#9CA3AF', lineHeight: 17 },
 });
 
 // YogaModal is imported from components/wellness/YogaModal
@@ -201,6 +201,7 @@ function HealthCondModal({
     <Modal visible={visible} transparent animationType="slide">
       <View style={condStyles.overlay}>
         <View style={condStyles.sheet}>
+          <View style={condStyles.handle} />
           <Text style={condStyles.title}>Any health conditions? 🌿</Text>
           <Text style={condStyles.subtitle}>
             This helps us suggest safe yoga sessions for you
@@ -234,31 +235,32 @@ function HealthCondModal({
 const condStyles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#ffffff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    backgroundColor: '#FFF8FC',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
     paddingHorizontal: 24,
-    paddingTop: 28,
+    paddingTop: 16,
     paddingBottom: 44,
   },
-  title: { fontSize: 20, fontWeight: '700', color: '#1a1a2e', marginBottom: 6 },
-  subtitle: { fontSize: 14, color: '#6b7280', marginBottom: 20, lineHeight: 20 },
+  handle: { width: 36, height: 4, backgroundColor: '#EDE9F6', borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
+  title: { fontFamily: Fonts.sansBold, fontSize: 20, color: '#1C1033', marginBottom: 6 },
+  subtitle: { fontFamily: Fonts.sansRegular, fontSize: 14, color: '#9CA3AF', marginBottom: 20, lineHeight: 20 },
   chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 24 },
   chip: {
     borderWidth: 1.5,
-    borderColor: '#e5e7eb',
+    borderColor: '#EDE9F6',
     borderRadius: 20,
     paddingVertical: 8,
     paddingHorizontal: 14,
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#ffffff',
   },
-  chipSelected: { borderColor: '#8b5cf6', backgroundColor: 'rgba(139,92,246,0.08)' },
-  chipText: { fontSize: 13, color: '#6b7280', fontWeight: '500' },
-  chipTextSelected: { color: '#8b5cf6', fontWeight: '700' },
+  chipSelected: { borderColor: '#7C3AED', backgroundColor: 'rgba(124,58,237,0.06)' },
+  chipText: { fontFamily: Fonts.sansMedium, fontSize: 13, color: '#9CA3AF' },
+  chipTextSelected: { fontFamily: Fonts.sansBold, color: '#7C3AED' },
 });
 
 const MENTAL_TIPS = [
@@ -310,7 +312,18 @@ export default function WellnessScreen() {
 
   return (
     <View style={styles.container}>
-      <GradientHeader title="Wellness 🌿" subtitle="Your mind & body, every day" />
+      {/* ── Dark Gradient Header ── */}
+      <LinearGradient
+        colors={['#1C1033', '#3b1060', '#6d1a7a']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.header, { paddingTop: insets.top + 14 }]}
+      >
+        <View style={styles.glowTopRight} pointerEvents="none" />
+        <View style={styles.glowBottomLeft} pointerEvents="none" />
+        <Text style={styles.headerTitle}>Wellness</Text>
+        <Text style={styles.headerSub}>Your mind & body, every day</Text>
+      </LinearGradient>
 
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}
@@ -329,11 +342,13 @@ export default function WellnessScreen() {
         </Card>
 
         {/* Yoga section */}
-        <Text style={styles.sectionTitle}>Yoga & Movement 🧘</Text>
+        <Text style={styles.sectionTitle}>Yoga & Movement</Text>
 
         {healthConditions === null ? (
           <Card style={styles.condCard} shadow="sm">
-            <Text style={styles.condEmoji}>🧘</Text>
+            <View style={styles.condIconBox}>
+              <Ionicons name="body-outline" size={28} color="#E8487A" />
+            </View>
             <Text style={styles.condTitle}>Before we start...</Text>
             <Text style={styles.condSubtitle}>
               Tell us about any health conditions so we can suggest the safest sessions for you.
@@ -368,7 +383,7 @@ export default function WellnessScreen() {
         )}
 
         {/* Mental Wellness tips */}
-        <Text style={styles.sectionTitle}>Mental Wellness 🌈</Text>
+        <Text style={styles.sectionTitle}>Mental Wellness</Text>
         {MENTAL_TIPS.map((tip, i) => (
           <View key={i} style={styles.tipRow}>
             <Text style={styles.tipEmoji}>{tip.emoji}</Text>
@@ -395,30 +410,57 @@ export default function WellnessScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fdf6ff' },
+  container: { flex: 1, backgroundColor: '#FFF8FC' },
+  // Dark header
+  header: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  glowTopRight: {
+    position: 'absolute', width: 180, height: 180, borderRadius: 90,
+    backgroundColor: 'rgba(232,72,122,0.22)', top: -60, right: -40,
+  },
+  glowBottomLeft: {
+    position: 'absolute', width: 120, height: 120, borderRadius: 60,
+    backgroundColor: 'rgba(124,58,237,0.18)', bottom: -40, left: -20,
+  },
+  headerTitle: {
+    fontFamily: Fonts.serif,
+    fontSize: 26,
+    color: '#ffffff',
+    letterSpacing: -0.3,
+    marginBottom: 4,
+  },
+  headerSub: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.5)',
+  },
   content: { paddingHorizontal: 16, paddingTop: 16 },
   moodCard: { marginBottom: 24 },
-  moodTitle: { fontSize: 16, fontWeight: '700', color: '#1a1a2e', marginBottom: 12 },
+  moodTitle: { fontFamily: Fonts.sansBold, fontSize: 16, color: '#1C1033', marginBottom: 12 },
   moodResponse: {
-    backgroundColor: 'rgba(139,92,246,0.08)',
+    backgroundColor: 'rgba(124,58,237,0.06)',
     borderRadius: 12,
     padding: 14,
     marginTop: 12,
     borderLeftWidth: 3,
-    borderLeftColor: '#8b5cf6',
+    borderLeftColor: '#7C3AED',
   },
-  moodResponseText: { fontSize: 14, color: '#374151', lineHeight: 21 },
+  moodResponseText: { fontFamily: Fonts.sansRegular, fontSize: 14, color: '#374151', lineHeight: 21 },
   sectionTitle: {
+    fontFamily: Fonts.sansBold,
     fontSize: 18,
-    fontWeight: '700',
-    color: '#1a1a2e',
+    color: '#1C1033',
     marginBottom: 12,
     marginTop: 8,
   },
   condCard: { alignItems: 'center', paddingVertical: 28, marginBottom: 8 },
-  condEmoji: { fontSize: 40, marginBottom: 10 },
-  condTitle: { fontSize: 17, fontWeight: '700', color: '#1a1a2e', marginBottom: 6 },
-  condSubtitle: { fontSize: 14, color: '#6b7280', textAlign: 'center', lineHeight: 21, maxWidth: 260 },
+  condIconBox: { width: 56, height: 56, borderRadius: 16, backgroundColor: 'rgba(232,72,122,0.09)', alignItems: 'center', justifyContent: 'center', marginBottom: 10, alignSelf: 'center' },
+  condTitle: { fontFamily: Fonts.sansBold, fontSize: 17, color: '#1C1033', marginBottom: 6 },
+  condSubtitle: { fontFamily: Fonts.sansRegular, fontSize: 14, color: '#9CA3AF', textAlign: 'center', lineHeight: 21, maxWidth: 260 },
   changeCondBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -426,24 +468,24 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end',
     marginBottom: 10,
   },
-  changeCondText: { fontSize: 12, color: '#8b5cf6', fontWeight: '600' },
+  changeCondText: { fontFamily: Fonts.sansSemiBold, fontSize: 12, color: '#7C3AED' },
   tipRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 12,
     backgroundColor: '#ffffff',
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 14,
     marginBottom: 8,
-    shadowColor: '#ec4899',
+    shadowColor: '#E8487A',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 6,
     elevation: 1,
     borderWidth: 1,
-    borderColor: '#f3e8ff',
-    boxShadow: '0px 1px 6px rgba(236, 72, 153, 0.05)',
-  },
+    borderColor: '#EDE9F6',
+    boxShadow: '0px 1px 6px rgba(232, 72, 122, 0.05)',
+  } as any,
   tipEmoji: { fontSize: 20, marginTop: 1 },
-  tipText: { flex: 1, fontSize: 14, color: '#374151', lineHeight: 21 },
+  tipText: { fontFamily: Fonts.sansRegular, flex: 1, fontSize: 14, color: '#374151', lineHeight: 21 },
 });

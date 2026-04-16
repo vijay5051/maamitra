@@ -1,11 +1,14 @@
 import React, { useMemo, useState } from 'react';
 import {
   FlatList,
+  Image,
   Linking,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -13,68 +16,295 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useFilteredArticles } from '../../hooks/useFilteredContent';
-import { useVaccineSchedule } from '../../hooks/useVaccineSchedule';
 import { useActiveKid } from '../../hooks/useActiveKid';
+import { useProfileStore } from '../../store/useProfileStore';
 import { useChatStore } from '../../store/useChatStore';
+import { useBookStore, DynamicBook } from '../../store/useBookStore';
+import { useArticleStore, DynamicArticle } from '../../store/useArticleStore';
+import { useProductStore, DynamicProduct } from '../../store/useProductStore';
+import { useRouter } from 'expo-router';
+import { useAuthStore } from '../../store/useAuthStore';
 import { PRODUCTS, Product } from '../../data/products';
+import { Article } from '../../data/articles';
+import { MILESTONES } from '../../data/milestones';
+import { VACCINE_SCHEDULE } from '../../data/vaccines';
 import Card from '../../components/ui/Card';
 import TagPill from '../../components/ui/TagPill';
+import { TabIcon } from '../../components/ui/AppIcon';
+import { Fonts } from '../../constants/theme';
 
-type SubTab = 'read' | 'products' | 'saved' | 'journey';
+type SubTab = 'read' | 'books' | 'products' | 'saved' | 'journey';
 type SortMode = 'Featured' | 'Price ↑' | 'Price ↓' | 'Top Rated';
 
-const PRODUCT_CATEGORIES = ['All', 'Feeding', 'Skincare', 'Sleep', 'Development', 'Mother'];
+const PRODUCT_CATEGORIES = ['All', 'Feeding', 'Skincare', 'Sleep', 'Development', 'Mother', 'Toddler'];
 const SORT_OPTIONS: SortMode[] = ['Featured', 'Price ↑', 'Price ↓', 'Top Rated'];
 
-const BOOKS = [
-  { emoji: '📖', title: 'What to Expect When You\'re Expecting', author: 'Heidi Murkoff', rating: 4.7, topic: 'Pregnancy', url: 'https://www.amazon.in/dp/0761187480' },
-  { emoji: '📗', title: 'The Baby Book', author: 'Dr. William Sears', rating: 4.6, topic: 'Parenting', url: 'https://www.amazon.in/dp/0316779415' },
-  { emoji: '📙', title: 'Nurturing the Soul of Your Family', author: 'Renée Peterson Trudeau', rating: 4.3, topic: 'Wellness', url: 'https://www.amazon.in/s?k=Nurturing+Soul+Family+Trudeau' },
-  { emoji: '📘', title: 'Indian Baby Food and Recipes', author: 'Tarla Dalal', rating: 4.8, topic: 'Nutrition', url: 'https://www.amazon.in/s?k=Indian+Baby+Food+Recipes+Tarla+Dalal' },
-  { emoji: '📕', title: 'Yoga for Pregnancy and Birth', author: 'Uma Dinsmore-Tuli', rating: 4.5, topic: 'Yoga', url: 'https://www.amazon.in/s?k=Yoga+Pregnancy+Birth+Uma+Dinsmore-Tuli' },
-  { emoji: '📔', title: 'The Womanly Art of Breastfeeding', author: 'La Leche League', rating: 4.7, topic: 'Feeding', url: 'https://www.amazon.in/dp/0345518446' },
+interface Book {
+  id: string;
+  emoji: string;
+  title: string;
+  author: string;
+  rating: number;
+  reviews: number;
+  topic: string;
+  brief: string;
+  badge?: string;
+  coverColors: [string, string];
+  url: string;
+  sampleUrl?: string;
+  imageUrl?: string;   // real cover from Google Books (dynamic books)
+  ageMin: number;  // months; -9 = pregnancy
+  ageMax: number;  // months; 999 = always relevant
+}
+
+/** Adapts a DynamicBook from the store to the unified Book display format */
+function dynamicToBook(d: DynamicBook): Book {
+  return {
+    id: d.id,
+    emoji: '📗',
+    title: d.title,
+    author: d.author,
+    rating: d.rating,
+    reviews: d.reviews,
+    topic: d.topic,
+    brief: d.description,
+    coverColors: ['#E8487A', '#7C3AED'],
+    url: d.url,
+    sampleUrl: d.sampleUrl,
+    imageUrl: d.imageUrl,
+    ageMin: d.ageMin,
+    ageMax: d.ageMax,
+  };
+}
+
+/** Adapts a DynamicArticle from the store to the Article display format */
+function dynamicToArticle(d: DynamicArticle): Article {
+  return {
+    id: d.id,
+    title: d.title,
+    preview: d.preview,
+    body: d.body || d.preview,
+    topic: d.topic,
+    readTime: d.readTime,
+    ageMin: d.ageMin,
+    ageMax: d.ageMax,
+    emoji: d.emoji,
+    tag: d.tag,
+    url: d.url,
+    imageUrl: d.imageUrl,
+  };
+}
+
+/** Adapts a DynamicProduct from the store to the Product display format */
+function dynamicToProduct(d: DynamicProduct): Product {
+  return {
+    id: d.id,
+    name: d.name,
+    category: d.category,
+    price: d.price,
+    originalPrice: d.originalPrice,
+    rating: d.rating,
+    reviews: d.reviews,
+    badge: d.badge ?? '',
+    emoji: d.emoji,
+    description: d.description,
+    url: d.url,
+    imageUrl: d.imageUrl,
+    ageMinMonths: (d as any).ageMinMonths ?? 0,
+    ageMaxMonths: (d as any).ageMaxMonths ?? 999,
+  };
+}
+
+const BOOKS: Book[] = [
+  {
+    id: 'b01',
+    emoji: '🤰',
+    title: "What to Expect When You're Expecting",
+    author: 'Heidi Murkoff',
+    rating: 4.7,
+    reviews: 14200,
+    topic: 'Pregnancy',
+    brief: 'The world\'s bestselling pregnancy guide — week-by-week breakdowns, symptoms, nutrition, and birth prep trusted by millions of Indian mothers.',
+    badge: 'Bestseller',
+    coverColors: ['#E8487A', '#f472b6'],
+    url: 'https://www.amazon.in/dp/0761187480',
+    sampleUrl: 'https://books.google.com/books?id=WhatToExpect',
+    ageMin: -9,
+    ageMax: 0,
+  },
+  {
+    id: 'b02',
+    emoji: '🤱',
+    title: 'The Womanly Art of Breastfeeding',
+    author: 'La Leche League International',
+    rating: 4.7,
+    reviews: 8900,
+    topic: 'Breastfeeding',
+    brief: 'The gold standard breastfeeding guide — latch, supply, pumping, and returning to work, written with warmth and evidence-based care.',
+    badge: 'IAP Recommended',
+    coverColors: ['#7C3AED', '#a78bfa'],
+    url: 'https://www.amazon.in/dp/0345518446',
+    sampleUrl: 'https://www.llli.org/breastfeeding-info/',
+    ageMin: -1,
+    ageMax: 24,
+  },
+  {
+    id: 'b03',
+    emoji: '👶',
+    title: 'The Baby Book',
+    author: 'Dr. William & Martha Sears',
+    rating: 4.6,
+    reviews: 11300,
+    topic: 'Newborn Care',
+    brief: 'Comprehensive attachment parenting guide covering feeding, sleep, development, and health in the first two years. A classic for new parents.',
+    badge: "Editor's Pick",
+    coverColors: ['#f59e0b', '#fbbf24'],
+    url: 'https://www.amazon.in/dp/0316779415',
+    sampleUrl: 'https://books.google.com/books?id=BabyBook',
+    ageMin: 0,
+    ageMax: 24,
+  },
+  {
+    id: 'b04',
+    emoji: '🍛',
+    title: 'Indian Baby Food & Recipes',
+    author: 'Tarla Dalal',
+    rating: 4.8,
+    reviews: 6700,
+    topic: 'Nutrition',
+    brief: '200+ easy Indian recipes for babies and toddlers — dal khichdi, ragi porridge, sabzi purees — from weaning to family meals. A must-have.',
+    badge: 'Top Rated',
+    coverColors: ['#22c55e', '#4ade80'],
+    url: 'https://www.amazon.in/s?k=Indian+Baby+Food+Tarla+Dalal',
+    ageMin: 4,
+    ageMax: 36,
+  },
+  {
+    id: 'b05',
+    emoji: '🧘',
+    title: 'Yoga for Pregnancy and Birth',
+    author: 'Uma Dinsmore-Tuli',
+    rating: 4.5,
+    reviews: 3200,
+    topic: 'Yoga & Wellness',
+    brief: 'Gentle yoga sequences designed for every trimester and postpartum recovery — breathing, relaxation, and poses that support your changing body.',
+    coverColors: ['#a855f7', '#c084fc'],
+    url: 'https://www.amazon.in/s?k=Yoga+Pregnancy+Birth+Uma',
+    ageMin: -9,
+    ageMax: 3,
+  },
+  {
+    id: 'b06',
+    emoji: '🌸',
+    title: 'Nurturing the Soul of Your Family',
+    author: 'Renée Peterson Trudeau',
+    rating: 4.3,
+    reviews: 2100,
+    topic: 'Self-Care',
+    brief: 'A powerful guide for overwhelmed mothers on reclaiming balance, setting boundaries, and practising self-care without guilt.',
+    coverColors: ['#E8487A', '#7C3AED'],
+    url: 'https://www.amazon.in/s?k=Nurturing+Soul+Family+Trudeau',
+    ageMin: 0,
+    ageMax: 999,
+  },
+  {
+    id: 'b07',
+    emoji: '😴',
+    title: 'The No-Cry Sleep Solution',
+    author: 'Elizabeth Pantley',
+    rating: 4.4,
+    reviews: 9800,
+    topic: 'Sleep',
+    brief: 'Gentle, proven strategies to help your baby sleep longer without hours of crying — tailored for co-sleeping families and Indian households.',
+    badge: 'Popular',
+    coverColors: ['#3b82f6', '#60a5fa'],
+    url: 'https://www.amazon.in/s?k=No+Cry+Sleep+Solution+Pantley',
+    ageMin: 0,
+    ageMax: 18,
+  },
+  {
+    id: 'b08',
+    emoji: '🧠',
+    title: 'The Whole-Brain Child',
+    author: 'Dr. Daniel J. Siegel',
+    rating: 4.7,
+    reviews: 13500,
+    topic: 'Development',
+    brief: '12 strategies to nurture your child\'s developing mind — helps parents understand tantrums, emotions, and behaviour through neuroscience.',
+    badge: 'Bestseller',
+    coverColors: ['#6366f1', '#818cf8'],
+    url: 'https://www.amazon.in/dp/0553386697',
+    sampleUrl: 'https://books.google.com/books?id=WholeBrainChild',
+    ageMin: 12,
+    ageMax: 999,
+  },
+  {
+    id: 'b09',
+    emoji: '🍼',
+    title: 'Heading Home with Your Newborn',
+    author: 'Laura A. Jana & Jennifer Shu',
+    rating: 4.5,
+    reviews: 5600,
+    topic: 'Newborn Care',
+    brief: 'Practical AAP-backed guidance for the first weeks — feeding, sleep safety, when to call the doctor, and surviving the fourth trimester.',
+    coverColors: ['#f97316', '#fb923c'],
+    url: 'https://www.amazon.in/s?k=Heading+Home+Newborn+Jana',
+    ageMin: -1,
+    ageMax: 3,
+  },
+  {
+    id: 'b10',
+    emoji: '💪',
+    title: 'Strong Mothers, Strong Sons',
+    author: 'Dr. Meg Meeker',
+    rating: 4.6,
+    reviews: 4300,
+    topic: 'Parenting',
+    brief: 'How mothers shape their sons\' character, confidence, and relationships — warm, research-backed, and deeply relevant for Indian families.',
+    coverColors: ['#10b981', '#34d399'],
+    url: 'https://www.amazon.in/s?k=Strong+Mothers+Strong+Sons+Meeker',
+    ageMin: 0,
+    ageMax: 999,
+  },
 ];
 
 // ─── Sub-tab selector ──────────────────────────────────────────────────────────
 
 function SubTabSelector({ active, onChange }: { active: SubTab; onChange: (t: SubTab) => void }) {
-  const tabs: { key: SubTab; label: string }[] = [
-    { key: 'read', label: '📚 Read' },
-    { key: 'products', label: '🛍️ Products' },
-    { key: 'saved', label: '🔖 Saved' },
-    { key: 'journey', label: '🗓️ Journey' },
+  const tabs: { key: SubTab; label: string; icon: string }[] = [
+    { key: 'read',     label: 'Articles', icon: 'newspaper-outline' },
+    { key: 'books',    label: 'Books',    icon: 'book-outline' },
+    { key: 'products', label: 'Products', icon: 'bag-handle-outline' },
+    { key: 'saved',    label: 'Saved',    icon: 'bookmark-outline' },
+    { key: 'journey',  label: 'Journey',  icon: 'map-outline' },
   ];
 
   return (
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
+      style={subTabStyles.scrollContainer}
       contentContainerStyle={subTabStyles.row}
     >
-      {tabs.map((t) => {
+      {tabs.map((t, i) => {
         const isActive = t.key === active;
-        if (isActive) {
-          return (
-            <TouchableOpacity key={t.key} onPress={() => onChange(t.key)} activeOpacity={0.8}>
-              <LinearGradient
-                colors={['#ec4899', '#8b5cf6']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={subTabStyles.activeBtn}
-              >
-                <Text style={subTabStyles.activeBtnText}>{t.label}</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          );
-        }
         return (
           <TouchableOpacity
             key={t.key}
             onPress={() => onChange(t.key)}
-            style={subTabStyles.inactiveBtn}
-            activeOpacity={0.75}
+            activeOpacity={0.8}
+            style={[subTabStyles.btn, isActive ? subTabStyles.btnActive : subTabStyles.btnInactive, i < tabs.length - 1 && { marginRight: 8 }]}
           >
-            <Text style={subTabStyles.inactiveBtnText}>{t.label}</Text>
+            {isActive && (
+              <LinearGradient
+                colors={['#E8487A', '#7C3AED']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={StyleSheet.absoluteFill}
+              />
+            )}
+            <TabIcon name={t.icon} active={isActive} />
+            <Text style={isActive ? subTabStyles.activeBtnText : subTabStyles.inactiveBtnText}>{t.label}</Text>
           </TouchableOpacity>
         );
       })}
@@ -83,122 +313,600 @@ function SubTabSelector({ active, onChange }: { active: SubTab; onChange: (t: Su
 }
 
 const subTabStyles = StyleSheet.create({
+  scrollContainer: {
+    flexShrink: 0,
+    flexGrow: 0,
+    backgroundColor: '#FFF8FC',
+    borderBottomWidth: 1,
+    borderBottomColor: '#EDE9F6',
+  },
   row: {
     flexDirection: 'row',
-    paddingLeft: 16,
-    paddingRight: 24,
+    alignItems: 'center',
+    paddingHorizontal: 16,
     paddingVertical: 10,
-    gap: 8,
+  },
+  btn: {
+    height: 36,
+    borderRadius: 18,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    overflow: 'hidden',
+  },
+  btnActive: {},
+  btnInactive: {
     backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3e8ff',
+    borderWidth: 1.5,
+    borderColor: '#EDE9F6',
   },
-  activeBtn: {
-    borderRadius: 20,
-    paddingVertical: 9,
-    paddingHorizontal: 16,
-  },
-  activeBtnText: { color: '#ffffff', fontSize: 13, fontWeight: '700' },
-  inactiveBtn: {
-    borderRadius: 20,
-    paddingVertical: 9,
-    paddingHorizontal: 16,
-    backgroundColor: '#f9fafb',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-  },
-  inactiveBtnText: { color: '#6b7280', fontSize: 13, fontWeight: '500' },
+  activeBtnText: { fontFamily: Fonts.sansBold, color: '#ffffff', fontSize: 12.5 },
+  inactiveBtnText: { fontFamily: Fonts.sansMedium, color: '#A78BCA', fontSize: 12.5 },
 });
 
-// ─── Article Card ──────────────────────────────────────────────────────────────
+// ─── Article topic → Ionicons icon ───────────────────────────────────────────
 
-function ArticleCard({ article }: { article: ReturnType<typeof useFilteredArticles>[0] }) {
+function getTopicIcon(topic: string): string {
+  const map: Record<string, string> = {
+    Feeding:        'restaurant-outline',
+    Sleep:          'moon-outline',
+    Development:    'trending-up-outline',
+    Postpartum:     'heart-outline',
+    Vaccination:    'shield-checkmark-outline',
+    Nutrition:      'leaf-outline',
+    'Mental Health':'happy-outline',
+    Yoga:           'body-outline',
+    'Baby Care':    'flower-outline',
+    Pregnancy:      'ellipse-outline',
+  };
+  return map[topic] ?? 'document-text-outline';
+}
+
+// ─── Article topic → gradient colors ─────────────────────────────────────────
+
+function getArticleGradient(topic: string): [string, string] {
+  const map: Record<string, [string, string]> = {
+    Feeding: ['#E8487A', '#f472b6'],
+    Sleep: ['#7C3AED', '#a78bfa'],
+    Development: ['#f59e0b', '#fbbf24'],
+    Postpartum: ['#10b981', '#34d399'],
+    Vaccination: ['#3b82f6', '#60a5fa'],
+    Nutrition: ['#22c55e', '#4ade80'],
+    'Mental Health': ['#6366f1', '#818cf8'],
+    Yoga: ['#a855f7', '#c084fc'],
+    'Baby Care': ['#f97316', '#fb923c'],
+  };
+  return map[topic] ?? ['#E8487A', '#7C3AED'];
+}
+
+// ─── Article Card (rich preview) ──────────────────────────────────────────────
+
+function ArticleCard({ article }: { article: Article }) {
   const [expanded, setExpanded] = useState(false);
+  const [imgError, setImgError] = useState(false);
+  const [colors] = useState<[string, string]>(() => getArticleGradient(article.topic));
+  const showRealImg = !!(article.imageUrl && !imgError);
+
   return (
-    <Card style={articleStyles.card} shadow="sm">
-      <TouchableOpacity onPress={() => setExpanded((v) => !v)} activeOpacity={0.8}>
-        <View style={articleStyles.row}>
-          <Text style={articleStyles.emoji}>{article.emoji}</Text>
-          <View style={articleStyles.info}>
-            <Text style={articleStyles.title}>{article.title}</Text>
-            <View style={articleStyles.meta}>
-              <TagPill label={article.tag} color="#8b5cf6" />
-              <Text style={articleStyles.readTime}>⏱ {article.readTime}</Text>
+    <View style={articleStyles.card}>
+      {/* ── Cover image area ── */}
+      <TouchableOpacity onPress={() => setExpanded((v) => !v)} activeOpacity={0.85}>
+        {showRealImg ? (
+          <View style={articleStyles.cover}>
+            <Image
+              source={{ uri: article.imageUrl }}
+              style={StyleSheet.absoluteFill}
+              resizeMode="cover"
+              onError={() => setImgError(true)}
+            />
+            {/* overlay so badges remain readable */}
+            <View style={articleStyles.imgOverlay} />
+            <View style={articleStyles.tagBadge}>
+              <Text style={articleStyles.tagBadgeText}>{article.tag}</Text>
+            </View>
+            <View style={articleStyles.readTimeBadge}>
+              <Ionicons name="time-outline" size={11} color="rgba(255,255,255,0.9)" />
+              <Text style={articleStyles.readTimeText}>{article.readTime}</Text>
             </View>
           </View>
-          <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color="#9ca3af" />
-        </View>
-        {!expanded && (
-          <Text style={articleStyles.preview} numberOfLines={2}>{article.preview}</Text>
+        ) : (
+          <LinearGradient colors={colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={articleStyles.cover}>
+            {/* Tag badge top-left */}
+            <View style={articleStyles.tagBadge}>
+              <Text style={articleStyles.tagBadgeText}>{article.tag}</Text>
+            </View>
+            {/* Big icon centered */}
+            <View style={articleStyles.coverIconWrap}>
+              <Ionicons name={getTopicIcon(article.topic) as any} size={36} color="rgba(255,255,255,0.9)" />
+            </View>
+            {/* Read time bottom-right */}
+            <View style={articleStyles.readTimeBadge}>
+              <Ionicons name="time-outline" size={11} color="rgba(255,255,255,0.9)" />
+              <Text style={articleStyles.readTimeText}>{article.readTime}</Text>
+            </View>
+          </LinearGradient>
         )}
       </TouchableOpacity>
-      {expanded && (
-        <Text style={articleStyles.body}>{article.body}</Text>
-      )}
-    </Card>
+
+      {/* ── Body ── */}
+      <View style={articleStyles.body}>
+        <TouchableOpacity onPress={() => setExpanded((v) => !v)} activeOpacity={0.8}>
+          <Text style={articleStyles.title} numberOfLines={expanded ? undefined : 2}>{article.title}</Text>
+          {!expanded && (
+            <Text style={articleStyles.preview} numberOfLines={2}>{article.preview}</Text>
+          )}
+        </TouchableOpacity>
+
+        {expanded && (
+          <Text style={[articleStyles.bodyText, Platform.OS === 'web' ? { wordBreak: 'break-word' } as any : {}]}>
+            {article.body}
+          </Text>
+        )}
+
+        {/* ── Actions ── */}
+        <View style={articleStyles.actions}>
+          <TouchableOpacity
+            onPress={() => setExpanded((v) => !v)}
+            style={articleStyles.readBtn}
+            activeOpacity={0.75}
+          >
+            <Ionicons name={expanded ? 'chevron-up' : 'book-outline'} size={14} color="#7C3AED" />
+            <Text style={articleStyles.readBtnText}>{expanded ? 'Show less' : 'Read inside'}</Text>
+          </TouchableOpacity>
+
+          {article.url && (
+            <TouchableOpacity
+              onPress={() => Linking.openURL(article.url!)}
+              style={articleStyles.openBtn}
+              activeOpacity={0.75}
+            >
+              <Text style={articleStyles.openBtnText}>Open article</Text>
+              <Ionicons name="open-outline" size={13} color="#E8487A" />
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+    </View>
   );
 }
 
 const articleStyles = StyleSheet.create({
-  card: { marginBottom: 10 },
-  row: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 8 },
-  emoji: { fontSize: 28, width: 36, textAlign: 'center', marginTop: 2 },
-  info: { flex: 1 },
-  title: { fontSize: 15, fontWeight: '700', color: '#1a1a2e', marginBottom: 6 },
-  meta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  readTime: { fontSize: 11, color: '#9ca3af' },
-  preview: { fontSize: 13, color: '#6b7280', lineHeight: 19, marginTop: 2 },
-  body: { fontSize: 14, color: '#374151', lineHeight: 22, marginTop: 10 },
+  card: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    marginBottom: 14,
+    overflow: 'hidden',
+    shadowColor: '#7C3AED',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+    boxShadow: '0px 3px 8px rgba(139, 92, 246, 0.10)',
+  } as any,
+  cover: {
+    height: 130,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  imgOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.28)',
+  },
+  tagBadge: {
+    position: 'absolute',
+    top: 10,
+    left: 12,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  tagBadgeText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  coverIconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  readTimeBadge: {
+    position: 'absolute',
+    bottom: 10,
+    right: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  readTimeText: {
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  body: {
+    padding: 14,
+    gap: 8,
+  },
+  title: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1a1a2e',
+    lineHeight: 21,
+    marginBottom: 4,
+  },
+  preview: {
+    fontSize: 13,
+    color: '#6b7280',
+    lineHeight: 19,
+  },
+  bodyText: {
+    fontSize: 14,
+    color: '#374151',
+    lineHeight: 22,
+    marginTop: 4,
+  },
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 4,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#f3f4f6',
+  },
+  readBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: 'rgba(124,58,237,0.08)',
+  },
+  readBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#7C3AED',
+  },
+  openBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: 'rgba(232,72,122,0.08)',
+  },
+  openBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#E8487A',
+  },
 });
 
 // ─── Book Card ─────────────────────────────────────────────────────────────────
 
-function BookCard({ book }: { book: (typeof BOOKS)[0] }) {
-  return (
-    <Card style={bookStyles.card} shadow="sm">
-      <View style={bookStyles.row}>
-        <Text style={bookStyles.emoji}>{book.emoji}</Text>
-        <View style={bookStyles.info}>
-          <Text style={bookStyles.title}>{book.title}</Text>
-          <Text style={bookStyles.author}>{book.author}</Text>
-          <View style={bookStyles.metaRow}>
-            <Text style={bookStyles.rating}>⭐{book.rating}</Text>
-            <TagPill label={book.topic} color="#ec4899" />
+function BookCover({ book }: { book: Book }) {
+  const [imgErr, setImgErr] = useState(false);
+
+  if (book.imageUrl && !imgErr) {
+    return (
+      <View style={bookStyles.cover}>
+        <Image
+          source={{ uri: book.imageUrl }}
+          style={bookStyles.coverRealImg}
+          resizeMode="cover"
+          onError={() => setImgErr(true)}
+        />
+        {book.badge && (
+          <View style={bookStyles.coverBadge}>
+            <Text style={bookStyles.coverBadgeText}>{book.badge}</Text>
           </View>
-          <TouchableOpacity
-            style={bookStyles.buyBtn}
-            activeOpacity={0.8}
-            onPress={() => Linking.openURL(book.url)}
-          >
-            <Text style={bookStyles.buyBtnText}>View & Buy →</Text>
-          </TouchableOpacity>
+        )}
+      </View>
+    );
+  }
+
+  return (
+    <LinearGradient
+      colors={book.coverColors}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0.5, y: 1 }}
+      style={bookStyles.cover}
+    >
+      {book.badge && (
+        <View style={bookStyles.coverBadge}>
+          <Text style={bookStyles.coverBadgeText}>{book.badge}</Text>
+        </View>
+      )}
+      <View style={bookStyles.coverIconWrap}>
+        <Ionicons name="book-outline" size={32} color="rgba(255,255,255,0.9)" />
+      </View>
+    </LinearGradient>
+  );
+}
+
+function BookCard({ book, highlighted }: { book: Book; highlighted?: boolean }) {
+  const [expanded, setExpanded] = useState(false);
+
+  const reviewsFormatted = book.reviews >= 1000
+    ? `${(book.reviews / 1000).toFixed(1)}k`
+    : book.reviews > 0 ? `${book.reviews}` : '';
+
+  return (
+    <View style={[bookStyles.card, highlighted && bookStyles.cardHighlighted]}>
+      {highlighted && (
+        <View style={bookStyles.forYouBadge}>
+          <Ionicons name="sparkles" size={11} color="#E8487A" />
+          <Text style={bookStyles.forYouText}>Recommended for you</Text>
+        </View>
+      )}
+
+      <View style={bookStyles.row}>
+        {/* Portrait book cover — real image or gradient */}
+        <BookCover book={book} />
+
+        {/* Content */}
+        <View style={bookStyles.content}>
+          <Text style={bookStyles.title} numberOfLines={2}>{book.title}</Text>
+          <Text style={bookStyles.author}>{book.author}</Text>
+
+          {/* Rating row */}
+          {book.rating > 0 && (
+            <View style={bookStyles.ratingRow}>
+              <Text style={bookStyles.stars}>{'★'.repeat(Math.min(5, Math.round(book.rating)))}</Text>
+              <Text style={bookStyles.ratingNum}>{book.rating.toFixed(1)}</Text>
+              {reviewsFormatted !== '' && (
+                <Text style={bookStyles.reviews}>({reviewsFormatted})</Text>
+              )}
+            </View>
+          )}
+
+          <TagPill label={book.topic} color="#7C3AED" style={bookStyles.topicPill} />
         </View>
       </View>
-    </Card>
+
+      {/* Brief */}
+      <TouchableOpacity onPress={() => setExpanded(v => !v)} activeOpacity={0.8}>
+        <Text style={bookStyles.brief} numberOfLines={expanded ? undefined : 2}>
+          {book.brief}
+        </Text>
+        {!expanded && (
+          <Text style={bookStyles.briefMore}>Read more…</Text>
+        )}
+      </TouchableOpacity>
+
+      {/* Action buttons */}
+      <View style={bookStyles.actions}>
+        {book.sampleUrl && (
+          <TouchableOpacity
+            style={bookStyles.sampleBtn}
+            activeOpacity={0.8}
+            onPress={() => Linking.openURL(book.sampleUrl!)}
+          >
+            <Ionicons name="book-outline" size={13} color="#7C3AED" />
+            <Text style={bookStyles.sampleBtnText}>Read sample</Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity
+          style={[bookStyles.buyBtn, !book.sampleUrl && bookStyles.buyBtnFull]}
+          activeOpacity={0.8}
+          onPress={() => Linking.openURL(book.url)}
+        >
+          <Ionicons name="cart-outline" size={13} color="#ffffff" />
+          <Text style={bookStyles.buyBtnText}>Buy on Amazon</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
 
 const bookStyles = StyleSheet.create({
-  card: { marginBottom: 8 },
-  row: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
-  emoji: { fontSize: 32, width: 40, textAlign: 'center' },
-  info: { flex: 1 },
-  title: { fontSize: 14, fontWeight: '700', color: '#1a1a2e', marginBottom: 3 },
-  author: { fontSize: 12, color: '#6b7280', marginBottom: 6 },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  rating: { fontSize: 12, color: '#f59e0b', fontWeight: '700' },
-  buyBtn: { alignSelf: 'flex-start', backgroundColor: '#fdf2f8', borderRadius: 8, paddingVertical: 5, paddingHorizontal: 10, borderWidth: 1, borderColor: '#f9a8d4' },
-  buyBtnText: { fontSize: 12, fontWeight: '700', color: '#ec4899' },
+  card: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 14,
+    shadowColor: '#7C3AED',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.09,
+    shadowRadius: 8,
+    elevation: 3,
+    boxShadow: '0px 3px 8px rgba(139, 92, 246, 0.09)',
+    gap: 12,
+  } as any,
+  cardHighlighted: {
+    borderWidth: 1.5,
+    borderColor: 'rgba(232,72,122,0.25)',
+    backgroundColor: '#fffbfe',
+  },
+  forYouBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(232,72,122,0.08)',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginBottom: 2,
+  },
+  forYouText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#E8487A',
+  },
+  row: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'flex-start',
+  },
+  cover: {
+    width: 80,
+    height: 112,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    position: 'relative',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    elevation: 4,
+  } as any,
+  coverRealImg: {
+    width: 80,
+    height: 112,
+    borderRadius: 8,
+  },
+  coverBadge: {
+    position: 'absolute',
+    top: 6,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  coverBadgeText: {
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  coverIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  content: {
+    flex: 1,
+    gap: 4,
+  },
+  title: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1a1a2e',
+    lineHeight: 20,
+  },
+  author: {
+    fontSize: 12,
+    color: '#6b7280',
+    fontWeight: '500',
+  },
+  ratingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
+  stars: {
+    color: '#f59e0b',
+    fontSize: 11,
+    letterSpacing: -0.5,
+  },
+  ratingNum: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1a1a2e',
+  },
+  reviews: {
+    fontSize: 11,
+    color: '#9ca3af',
+  },
+  topicPill: {
+    alignSelf: 'flex-start',
+    marginTop: 4,
+  },
+  brief: {
+    fontSize: 13,
+    color: '#6b7280',
+    lineHeight: 19,
+  },
+  briefMore: {
+    fontSize: 12,
+    color: '#7C3AED',
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+  },
+  sampleBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingVertical: 9,
+    borderRadius: 10,
+    backgroundColor: 'rgba(124,58,237,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.2)',
+  },
+  sampleBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#7C3AED',
+  },
+  buyBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingVertical: 9,
+    borderRadius: 10,
+    backgroundColor: '#E8487A',
+  },
+  buyBtnFull: {
+    flex: 1,
+  },
+  buyBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
 });
 
 // ─── Product Card ──────────────────────────────────────────────────────────────
 
 function ProductCard({ product }: { product: Product }) {
   const discountPct = Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100);
+  const [imgError, setImgError] = useState(false);
+  const showRealImg = !!(product.imageUrl && !imgError);
   return (
     <View style={productCardStyles.card}>
       <View style={productCardStyles.emojiBox}>
-        <Text style={productCardStyles.emoji}>{product.emoji}</Text>
+        {showRealImg ? (
+          <Image
+            source={{ uri: product.imageUrl }}
+            style={productCardStyles.productImg}
+            resizeMode="cover"
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <Ionicons name="bag-handle-outline" size={32} color="#E8487A" />
+        )}
       </View>
       {product.badge ? (
         <View style={productCardStyles.badge}>
@@ -234,26 +942,28 @@ const productCardStyles = StyleSheet.create({
     borderRadius: 14,
     padding: 12,
     margin: 4,
-    shadowColor: '#ec4899',
+    shadowColor: '#E8487A',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.07,
     shadowRadius: 8,
     elevation: 2,
     borderWidth: 1,
-    borderColor: '#f3e8ff',
+    borderColor: '#EDE9F6',
     overflow: 'hidden',
     boxShadow: '0px 2px 8px rgba(236, 72, 153, 0.07)',
   },
   emojiBox: {
     width: '100%',
     aspectRatio: 1.4,
-    backgroundColor: '#fdf2f8',
+    backgroundColor: 'rgba(232,72,122,0.06)',
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
+    overflow: 'hidden',
   },
-  emoji: { fontSize: 40 },
+  emoji: { fontSize: 40 }, // kept for type compat, not rendered
+  productImg: { width: '100%', height: '100%' },
   badge: {
     backgroundColor: 'rgba(236,72,153,0.1)',
     borderRadius: 6,
@@ -262,7 +972,7 @@ const productCardStyles = StyleSheet.create({
     alignSelf: 'flex-start',
     marginBottom: 6,
   },
-  badgeText: { fontSize: 10, color: '#ec4899', fontWeight: '700' },
+  badgeText: { fontSize: 10, color: '#E8487A', fontWeight: '700' },
   name: { fontSize: 12, fontWeight: '600', color: '#1a1a2e', marginBottom: 6, lineHeight: 17 },
   priceRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
   price: { fontSize: 14, fontWeight: '800', color: '#1a1a2e' },
@@ -270,150 +980,444 @@ const productCardStyles = StyleSheet.create({
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 8 },
   rating: { fontSize: 12, color: '#f59e0b', fontWeight: '600' },
   reviews: { fontSize: 11, color: '#9ca3af' },
-  buyBtn: { backgroundColor: '#fdf2f8', borderRadius: 8, paddingVertical: 6, paddingHorizontal: 10, borderWidth: 1, borderColor: '#f9a8d4', alignItems: 'center' },
-  buyBtnText: { fontSize: 12, fontWeight: '700', color: '#ec4899' },
+  buyBtn: { backgroundColor: 'rgba(232,72,122,0.06)', borderRadius: 8, paddingVertical: 6, paddingHorizontal: 10, borderWidth: 1, borderColor: '#f9a8d4', alignItems: 'center' },
+  buyBtnText: { fontSize: 12, fontWeight: '700', color: '#E8487A' },
 });
 
 // ─── Journey Item ──────────────────────────────────────────────────────────────
 
-function JourneyItem({ event, isLast }: { event: { date: Date; title: string; emoji: string; detail: string }; isLast: boolean }) {
+type JourneyEvent = { date: Date; title: string; emoji: string; detail: string; type: 'birth' | 'milestone' | 'vaccine' | 'pregnancy'; vaccineId?: string };
+
+const JOURNEY_ICONS: Record<JourneyEvent['type'], string> = {
+  birth:      'heart',
+  milestone:  'star',
+  vaccine:    'shield-checkmark-outline',
+  pregnancy:  'flower-outline',
+};
+
+function JourneyItem({ event, isLast }: { event: JourneyEvent; isLast: boolean }) {
+  const today = new Date();
   const dateStr = event.date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-  const isPast = event.date < new Date();
+  const isPast = event.date < today && event.date.toDateString() !== today.toDateString();
+  const isToday = event.date.toDateString() === today.toDateString();
+
+  const { completedVaccines: completedVaccinesAll } = useProfileStore();
+  const { activeKid } = useActiveKid();
+
+  // For vaccine events, check if actually administered
+  let dotColor: string;
+  let statusLabel: string;
+  let statusColor: string;
+  let statusBg: string;
+
+  if (event.type === 'vaccine' && event.vaccineId) {
+    const kidVaccines = completedVaccinesAll[activeKid?.id ?? ''] ?? {};
+    const isDone = !!kidVaccines[event.vaccineId]?.done;
+    if (isDone) {
+      dotColor = '#22c55e';
+      statusLabel = 'Given ✓';
+      statusColor = '#16a34a';
+      statusBg = '#dcfce7';
+    } else if (isToday) {
+      dotColor = '#E8487A';
+      statusLabel = 'Due Today 🔔';
+      statusColor = '#E8487A';
+      statusBg = 'rgba(236,72,153,0.1)';
+    } else if (isPast) {
+      dotColor = '#f97316';
+      statusLabel = 'Overdue ⚠️';
+      statusColor = '#ea580c';
+      statusBg = '#fff7ed';
+    } else {
+      dotColor = '#e5e7eb';
+      statusLabel = 'Upcoming';
+      statusColor = '#9ca3af';
+      statusBg = '#f3f4f6';
+    }
+  } else {
+    // Birth / milestone / pregnancy events — date-based status
+    const isCompleted = isPast || isToday;
+    dotColor = isCompleted ? '#22c55e' : isToday ? '#E8487A' : '#e5e7eb';
+    statusLabel = isPast ? 'Done ✓' : isToday ? 'Today 🎉' : 'Upcoming';
+    statusColor = isPast ? '#16a34a' : isToday ? '#E8487A' : '#9ca3af';
+    statusBg = isPast ? '#dcfce7' : isToday ? 'rgba(236,72,153,0.1)' : '#f3f4f6';
+  }
+
+  const borderColor = dotColor === '#e5e7eb' ? '#d1d5db' : dotColor;
 
   return (
     <View style={journeyStyles.row}>
       <View style={journeyStyles.timelineCol}>
-        <View style={[journeyStyles.dot, isPast ? journeyStyles.dotPast : journeyStyles.dotFuture]} />
+        <View style={[journeyStyles.dot, { backgroundColor: dotColor, borderColor }]} />
         {!isLast && <View style={journeyStyles.line} />}
       </View>
-      <View style={journeyStyles.content}>
-        <Text style={journeyStyles.emoji}>{event.emoji}</Text>
-        <View style={journeyStyles.info}>
-          <Text style={journeyStyles.title}>{event.title}</Text>
-          <Text style={journeyStyles.date}>{dateStr}</Text>
-          <Text style={journeyStyles.detail}>{event.detail}</Text>
+      <View style={journeyStyles.card}>
+        <View style={journeyStyles.cardHeader}>
+          <View style={[journeyStyles.iconBox, { backgroundColor: dotColor === '#22c55e' ? 'rgba(34,197,94,0.1)' : dotColor === '#e5e7eb' ? 'rgba(232,72,122,0.07)' : `${dotColor}18` }]}>
+            <Ionicons name={JOURNEY_ICONS[event.type] as any} size={16} color={dotColor === '#e5e7eb' ? '#E8487A' : dotColor} />
+          </View>
+          <View style={journeyStyles.headerText}>
+            <Text style={journeyStyles.title}>{event.title}</Text>
+            <Text style={journeyStyles.date}>{dateStr}</Text>
+          </View>
+          <View style={[journeyStyles.statusBadge, { backgroundColor: statusBg }]}>
+            <Text style={[journeyStyles.statusText, { color: statusColor }]}>{statusLabel}</Text>
+          </View>
         </View>
+        {event.detail ? <Text style={journeyStyles.detail}>{event.detail}</Text> : null}
       </View>
     </View>
   );
 }
 
 const journeyStyles = StyleSheet.create({
-  row: { flexDirection: 'row', gap: 12, marginBottom: 4 },
-  timelineCol: { alignItems: 'center', width: 20 },
-  dot: { width: 14, height: 14, borderRadius: 7, marginTop: 6 },
-  dotPast: { backgroundColor: '#22c55e' },
-  dotFuture: { backgroundColor: '#e5e7eb', borderWidth: 2, borderColor: '#d1d5db' },
+  row: { flexDirection: 'row', gap: 10, marginBottom: 4 },
+  timelineCol: { alignItems: 'center', width: 18, paddingTop: 16 },
+  dot: { width: 14, height: 14, borderRadius: 7, borderWidth: 2 },
   line: { width: 2, flex: 1, backgroundColor: '#f3e8ff', marginVertical: 2 },
-  content: { flex: 1, flexDirection: 'row', gap: 10, paddingBottom: 20 },
-  emoji: { fontSize: 22, marginTop: 2 },
-  info: { flex: 1 },
-  title: { fontSize: 15, fontWeight: '700', color: '#1a1a2e', marginBottom: 2 },
-  date: { fontSize: 12, color: '#ec4899', fontWeight: '600', marginBottom: 4 },
-  detail: { fontSize: 13, color: '#6b7280', lineHeight: 18 },
+  card: {
+    flex: 1,
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#EDE9F6',
+    shadowColor: '#7C3AED',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 1,
+    boxShadow: '0px 1px 6px rgba(139, 92, 246, 0.06)',
+  } as any,
+  cardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 6 },
+  iconBox: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  headerText: { flex: 1 },
+  title: { fontSize: 14, fontWeight: '700', color: '#1a1a2e', marginBottom: 2 },
+  date: { fontSize: 12, color: '#E8487A', fontWeight: '600' },
+  statusBadge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start' },
+  statusText: { fontSize: 11, fontWeight: '700' },
+  detail: { fontSize: 13, color: '#6b7280', lineHeight: 19 },
+  legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 16, alignItems: 'center' },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  legendDot: { width: 10, height: 10, borderRadius: 5 },
+  legendText: { fontSize: 12, color: '#9ca3af', fontWeight: '500' },
 });
 
 // ─── Article Modal ─────────────────────────────────────────────────────────────
+
+// ─── Admin access control ──────────────────────────────────────────────────────
+// Add your admin email(s) here. 'demo@maamitra.app' allows preview testing.
+const ADMIN_EMAILS = new Set([
+  'admin@maamitra.app',
+  'vijay@maamitra.app',
+  process.env.EXPO_PUBLIC_ADMIN_EMAIL ?? '',
+  'demo@maamitra.app', // preview / demo mode
+].filter(Boolean));
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function LibraryScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const [subTab, setSubTab] = useState<SubTab>('read');
   const [productCategory, setProductCategory] = useState('All');
   const [sortMode, setSortMode] = useState<SortMode>('Featured');
   const [showSortModal, setShowSortModal] = useState(false);
+  const [articleSearch, setArticleSearch] = useState('');
+  const [articleTopicFilter, setArticleTopicFilter] = useState('All');
 
-  const articles = useFilteredArticles();
+  const user = useAuthStore((s) => s.user);
+  const isAdmin = !!(user?.email && ADMIN_EMAILS.has(user.email));
+
+  const { books: dynamicBooks } = useBookStore();
+  const { articles: dynamicArticles } = useArticleStore();
+  const { products: dynamicProducts } = useProductStore();
+
+  const allStaticArticles = useFilteredArticles();
+
   const { activeKid, ageLabel } = useActiveKid();
-  const vaccines = useVaccineSchedule();
+
+  // Merge dynamic articles (age-filtered) with static ones
+  const allArticles = useMemo((): Article[] => {
+    const ageMonths = activeKid?.isExpecting ? -9 : activeKid?.ageInMonths ?? null;
+    const filtered = dynamicArticles
+      .filter((d) => ageMonths === null || (ageMonths >= d.ageMin && ageMonths <= d.ageMax))
+      .map(dynamicToArticle);
+    return [...filtered, ...allStaticArticles];
+  }, [dynamicArticles, allStaticArticles, activeKid]);
+
+  // Apply search + topic filter on top of age-filtered articles
+  const articles = useMemo(() => {
+    let list = allArticles;
+    if (articleTopicFilter !== 'All') {
+      list = list.filter((a) => a.topic === articleTopicFilter || a.tag === articleTopicFilter);
+    }
+    if (articleSearch.trim()) {
+      const q = articleSearch.toLowerCase();
+      list = list.filter(
+        (a) => a.title.toLowerCase().includes(q) || a.preview.toLowerCase().includes(q) || a.tag.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [allArticles, articleSearch, articleTopicFilter]);
+
+  // Unique topics from all age-filtered articles for filter chips
+  const articleTopics = useMemo(() => {
+    const topics = Array.from(new Set(allArticles.map((a) => a.topic)));
+    return ['All', ...topics];
+  }, [allArticles]);
   const { savedAnswers, unsaveAnswer } = useChatStore();
 
-  // Filter & sort products
-  const filteredProducts = useMemo(() => {
-    let list = productCategory === 'All' ? PRODUCTS : PRODUCTS.filter((p) => p.category === productCategory);
-    if (sortMode === 'Price ↑') list = [...list].sort((a, b) => a.price - b.price);
-    else if (sortMode === 'Price ↓') list = [...list].sort((a, b) => b.price - a.price);
-    else if (sortMode === 'Top Rated') list = [...list].sort((a, b) => b.rating - a.rating);
-    return list;
-  }, [productCategory, sortMode]);
+  // Merge static + dynamic books, personalise by age relevance
+  const { personalizedBooks, topBookIds } = useMemo(() => {
+    const dynAsBooks = dynamicBooks.map(dynamicToBook);
+    const allBooks = [...dynAsBooks, ...BOOKS]; // dynamic books appear first
 
-  // Curated milestone vaccine IDs: Birth, 6wk, 10wk, 14wk, 9mo, 15mo, 16-18mo, 4-6yr
-  const MILESTONE_IDS = ['v01', 'v02', 'v03', 'v04', 'v06', 'v08', 'v09', 'v11'];
+    const ageMonths = activeKid?.isExpecting
+      ? -9
+      : activeKid?.ageInMonths ?? null;
+
+    if (ageMonths === null) {
+      return { personalizedBooks: allBooks, topBookIds: new Set<string>() };
+    }
+
+    const scored = allBooks.map((b) => {
+      const inRange = ageMonths >= b.ageMin && ageMonths <= b.ageMax;
+      const distMin = Math.max(0, b.ageMin - ageMonths);
+      const distMax = Math.max(0, ageMonths - b.ageMax);
+      const dist = inRange ? 0 : Math.min(distMin, distMax);
+      return { book: b, inRange, dist };
+    });
+
+    scored.sort((a, b) => {
+      if (a.inRange && !b.inRange) return -1;
+      if (!a.inRange && b.inRange) return 1;
+      return a.dist - b.dist;
+    });
+
+    const top = new Set(scored.slice(0, 3).map((s) => s.book.id));
+    return { personalizedBooks: scored.map((s) => s.book), topBookIds: top };
+  }, [activeKid, dynamicBooks]);
+
+  // Filter & sort products with age-based personalisation
+  const { filteredProducts, recommendedCount } = useMemo(() => {
+    const allProducts: Product[] = [...dynamicProducts.map(dynamicToProduct), ...PRODUCTS];
+    let list = productCategory === 'All' ? allProducts : allProducts.filter((p) => p.category === productCategory);
+
+    if (sortMode === 'Price ↑') {
+      list = [...list].sort((a, b) => a.price - b.price);
+      return { filteredProducts: list, recommendedCount: 0 };
+    }
+    if (sortMode === 'Price ↓') {
+      list = [...list].sort((a, b) => b.price - a.price);
+      return { filteredProducts: list, recommendedCount: 0 };
+    }
+    if (sortMode === 'Top Rated') {
+      list = [...list].sort((a, b) => b.rating - a.rating);
+      return { filteredProducts: list, recommendedCount: 0 };
+    }
+
+    // Featured: sort age-relevant products first
+    const ageMonths = activeKid?.isExpecting ? -9 : activeKid?.ageInMonths ?? null;
+    if (ageMonths === null) {
+      return { filteredProducts: list, recommendedCount: 0 };
+    }
+    const recommended = list.filter((p) => ageMonths >= p.ageMinMonths && ageMonths <= p.ageMaxMonths);
+    const others = list.filter((p) => !(ageMonths >= p.ageMinMonths && ageMonths <= p.ageMaxMonths));
+    recommended.sort((a, b) => b.rating - a.rating);
+    others.sort((a, b) => b.rating - a.rating);
+    return { filteredProducts: [...recommended, ...others], recommendedCount: recommended.length };
+  }, [productCategory, sortMode, dynamicProducts, activeKid]);
+
+  // Key vaccine milestones to show in journey (curated, with friendly labels)
+  const JOURNEY_VACCINES: { id: string; label: string; detail: string }[] = [
+    { id: 'v01', label: 'Birth Vaccines', detail: 'BCG, OPV & Hepatitis B — first protection right from the start' },
+    { id: 'v02', label: '6 Weeks Vaccines', detail: 'OPV, Pentavalent, Rotavirus & PCV — primary series begins' },
+    { id: 'v03', label: '10 Weeks Vaccines', detail: 'Second round of OPV, Pentavalent, Rotavirus & PCV' },
+    { id: 'v04', label: '14 Weeks Vaccines', detail: 'Completing the primary series with OPV, Pentavalent & IPV' },
+    { id: 'v06', label: '9 Month Vaccines', detail: 'Measles-Rubella & Japanese Encephalitis protection' },
+    { id: 'v07', label: '15 Month Vaccines', detail: 'Varicella (chickenpox) — first dose' },
+  ];
+
+  // Pregnancy timeline milestones (relative to EDD)
+  const PREGNANCY_EVENTS: { daysBeforeEDD: number; emoji: string; title: string; detail: string }[] = [
+    { daysBeforeEDD: 224, emoji: '💓', title: '8 Weeks — Heartbeat!', detail: "Baby's heartbeat is now detectable by ultrasound — a moment you'll never forget" },
+    { daysBeforeEDD: 196, emoji: '🌟', title: '12 Weeks — First Trimester Done', detail: 'Major organs are formed and the risk reduces significantly. Time for a little celebration!' },
+    { daysBeforeEDD: 140, emoji: '🩺', title: '20 Weeks — Halfway There', detail: 'Anatomy scan week! Baby is about the size of a banana and kicks are getting stronger' },
+    { daysBeforeEDD: 84,  emoji: '👂', title: '28 Weeks — Third Trimester', detail: "Baby can now hear your voice, respond to light, and has a good sleep cycle. Talk to them!" },
+    { daysBeforeEDD: 28,  emoji: '🧘', title: '36 Weeks — Almost There', detail: "Baby is likely head-down and lungs are nearly ready. Start your hospital bag if you haven't!" },
+    { daysBeforeEDD: 0,   emoji: '🤰', title: 'Expected Due Date', detail: "The big day! Every birth is unique and beautiful. You've grown a whole human — you're amazing 💕" },
+  ];
 
   // Build journey events
-  const journeyEvents = useMemo(() => {
+  const journeyEvents = useMemo((): JourneyEvent[] => {
     if (!activeKid || !activeKid.dob) return [];
     const dob = new Date(activeKid.dob);
-    const events: { date: Date; title: string; emoji: string; detail: string }[] = [
-      {
-        date: dob,
-        title: activeKid.isExpecting ? 'Expected Due Date' : `${activeKid.name}'s Birthday`,
-        emoji: activeKid.isExpecting ? '🤰' : '👶',
-        detail: activeKid.isExpecting
-          ? 'The big day is almost here!'
-          : `Welcome to the world, ${activeKid.name}!`,
-      },
-    ];
+    const events: JourneyEvent[] = [];
 
-    const seenDates = new Set<string>();
-    vaccines
-      .filter((v) => MILESTONE_IDS.includes(v.id) && v.dueDate)
-      .forEach((v) => {
-        const key = v.dueDate!.toISOString().split('T')[0];
-        if (seenDates.has(key)) return;
-        seenDates.add(key);
-        events.push({
-          date: v.dueDate!,
-          title: v.ageLabel,
-          emoji: '💉',
-          detail: v.name,
-        });
+    if (activeKid.isExpecting) {
+      // Pregnancy journey — dob IS the expected due date
+      PREGNANCY_EVENTS.forEach(({ daysBeforeEDD, emoji, title, detail }) => {
+        const date = new Date(dob.getTime() - daysBeforeEDD * 24 * 60 * 60 * 1000);
+        events.push({ date, title, emoji, detail, type: 'pregnancy' });
+      });
+    } else {
+      // Postnatal journey — dob is the real birth date
+
+      // 1. Birthday
+      events.push({
+        date: dob,
+        title: `${activeKid.name}'s Birthday 🎂`,
+        emoji: '👶',
+        detail: `Welcome to the world, ${activeKid.name}! Your incredible journey together begins.`,
+        type: 'birth',
       });
 
+      // 2. Developmental milestones from data
+      MILESTONES.forEach((m) => {
+        const date = new Date(dob.getTime() + m.ageMonths * 30.44 * 24 * 60 * 60 * 1000);
+        // First sentence of description only — keep it light
+        const shortDesc = m.description.split('.')[0] + '.';
+        events.push({ date, title: m.title, emoji: m.emoji, detail: shortDesc, type: 'milestone' });
+      });
+
+      // 3. Key vaccine milestones — compute dates directly from VACCINE_SCHEDULE
+      const vaccineMap = Object.fromEntries(VACCINE_SCHEDULE.map((v) => [v.id, v]));
+      JOURNEY_VACCINES.forEach(({ id, label, detail }) => {
+        const v = vaccineMap[id];
+        if (!v) return;
+        const date = new Date(dob.getTime() + v.daysFromBirth * 24 * 60 * 60 * 1000);
+        events.push({ date, title: label, emoji: '💉', detail, type: 'vaccine', vaccineId: id });
+      });
+    }
+
     return events.sort((a, b) => a.date.getTime() - b.date.getTime());
-  }, [activeKid, vaccines]);
+  }, [activeKid]);
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <Text style={styles.headerTitle}>Library 📚</Text>
-      </View>
+      {/* ── Dark Gradient Header ── */}
+      <LinearGradient
+        colors={['#1C1033', '#3b1060', '#6d1a7a']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.header, { paddingTop: insets.top + 14 }]}
+      >
+        <View style={styles.glowTopRight} pointerEvents="none" />
+        <View style={styles.glowBottomLeft} pointerEvents="none" />
+        <View style={styles.headerInner}>
+          <Text style={styles.headerTitle}>Library</Text>
+          {isAdmin && (
+            <TouchableOpacity
+              onPress={() => router.push('/admin')}
+              style={styles.adminBtn}
+              activeOpacity={0.75}
+            >
+              <Ionicons name="shield-checkmark-outline" size={20} color="rgba(255,255,255,0.7)" />
+            </TouchableOpacity>
+          )}
+        </View>
+      </LinearGradient>
 
       <SubTabSelector active={subTab} onChange={setSubTab} />
 
       {/* ── READ ── */}
       {subTab === 'read' && (
+        <View style={styles.flex}>
+          {/* Search bar */}
+          <View style={styles.searchWrap}>
+            <Ionicons name="search" size={16} color="#9ca3af" style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              value={articleSearch}
+              onChangeText={setArticleSearch}
+              placeholder="Search articles…"
+              placeholderTextColor="#9ca3af"
+            />
+            {articleSearch.length > 0 && (
+              <TouchableOpacity onPress={() => setArticleSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name="close-circle" size={16} color="#9ca3af" />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Topic filter chips */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.topicFilterScroll}
+            contentContainerStyle={styles.topicFilterRow}
+          >
+            {articleTopics.map((topic) => (
+              <TouchableOpacity
+                key={topic}
+                onPress={() => setArticleTopicFilter(topic)}
+                activeOpacity={0.75}
+                style={[styles.topicChip, topic === articleTopicFilter && styles.topicChipActive]}
+              >
+                <Text style={[styles.topicChipText, topic === articleTopicFilter && styles.topicChipTextActive]}>
+                  {topic}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          <ScrollView
+            contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Personalisation banner */}
+            <LinearGradient
+              colors={['rgba(232,72,122,0.1)', 'rgba(124,58,237,0.06)']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.personalisationBanner}
+            >
+              <Ionicons name="sparkles" size={16} color="#E8487A" />
+              <Text style={styles.personalisationText}>
+                {activeKid && !activeKid.isExpecting
+                  ? `Showing content for ${activeKid.name} · ${ageLabel}`
+                  : 'Showing content for all ages'}
+              </Text>
+            </LinearGradient>
+
+            {/* Articles */}
+            <Text style={styles.sectionTitle}>
+              Articles {articles.length !== allArticles.length ? `(${articles.length})` : ''}
+            </Text>
+            {articles.length === 0 ? (
+              <View style={styles.emptySearch}>
+                <Text style={styles.emptySearchEmoji}>🔍</Text>
+                <Text style={styles.emptySearchText}>No articles found for "{articleSearch}"</Text>
+                <TouchableOpacity onPress={() => { setArticleSearch(''); setArticleTopicFilter('All'); }}>
+                  <Text style={styles.emptySearchReset}>Clear filters</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              articles.map((a) => <ArticleCard key={a.id} article={a} />)
+            )}
+
+          </ScrollView>
+        </View>
+      )}
+
+      {/* ── BOOKS ── */}
+      {subTab === 'books' && (
         <ScrollView
           contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}
           showsVerticalScrollIndicator={false}
         >
-          {/* Personalisation banner */}
-          <LinearGradient
-            colors={['rgba(236,72,153,0.12)', 'rgba(139,92,246,0.08)']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.personalisationBanner}
-          >
-            <Ionicons name="sparkles" size={16} color="#ec4899" />
-            <Text style={styles.personalisationText}>
-              {activeKid && !activeKid.isExpecting
-                ? `Showing content for ${activeKid.name} · ${ageLabel}`
-                : 'Showing content for all ages'}
-            </Text>
-          </LinearGradient>
-
-          {/* Articles */}
-          <Text style={styles.sectionTitle}>Articles</Text>
-          {articles.map((a) => (
-            <ArticleCard key={a.id} article={a} />
-          ))}
-
-          {/* Books */}
-          <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Recommended Books</Text>
-          {BOOKS.map((b) => (
-            <BookCard key={b.title} book={b} />
+          {activeKid && (
+            <View style={styles.bookSectionHeader}>
+              <Ionicons name="sparkles" size={13} color="#7C3AED" />
+              <Text style={styles.bookPersonalBadgeText}>
+                {activeKid.isExpecting ? 'Curated for your pregnancy' : `Curated for ${activeKid.name} · ${ageLabel}`}
+              </Text>
+            </View>
+          )}
+          {personalizedBooks.map((b) => (
+            <BookCard key={b.id} book={b} highlighted={topBookIds.has(b.id)} />
           ))}
         </ScrollView>
       )}
@@ -421,10 +1425,11 @@ export default function LibraryScreen() {
       {/* ── PRODUCTS ── */}
       {subTab === 'products' && (
         <View style={styles.flex}>
-          {/* Category filter */}
+          {/* Category filter — fixed at top, outside FlatList */}
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
+            style={styles.categoriesScrollView}
             contentContainerStyle={styles.categoriesRow}
           >
             {PRODUCT_CATEGORIES.map((cat) => (
@@ -434,24 +1439,14 @@ export default function LibraryScreen() {
                 onPress={() => setProductCategory(cat)}
                 activeOpacity={0.75}
               >
-                <Text
-                  style={[
-                    styles.catChipText,
-                    cat === productCategory && styles.catChipTextActive,
-                  ]}
-                >
+                <Text style={[styles.catChipText, cat === productCategory && styles.catChipTextActive]}>
                   {cat}
                 </Text>
               </TouchableOpacity>
             ))}
-
             {/* Sort button */}
-            <TouchableOpacity
-              style={styles.sortBtn}
-              onPress={() => setShowSortModal(true)}
-              activeOpacity={0.75}
-            >
-              <Ionicons name="funnel-outline" size={14} color="#8b5cf6" />
+            <TouchableOpacity style={styles.sortBtn} onPress={() => setShowSortModal(true)} activeOpacity={0.75}>
+              <Ionicons name="funnel-outline" size={14} color="#7C3AED" />
               <Text style={styles.sortBtnText}>{sortMode}</Text>
             </TouchableOpacity>
           </ScrollView>
@@ -460,9 +1455,47 @@ export default function LibraryScreen() {
             data={filteredProducts}
             keyExtractor={(item) => item.id}
             numColumns={2}
+            columnWrapperStyle={styles.productRow}
             contentContainerStyle={[styles.productsGrid, { paddingBottom: insets.bottom + 24 }]}
-            renderItem={({ item }) => <ProductCard product={item} />}
             showsVerticalScrollIndicator={false}
+            ListHeaderComponent={
+              activeKid ? (
+                <LinearGradient
+                  colors={['rgba(232,72,122,0.1)', 'rgba(124,58,237,0.06)']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.personalisationBanner}
+                >
+                  <Ionicons name="sparkles" size={16} color="#E8487A" />
+                  <Text style={styles.personalisationText}>
+                    {activeKid.isExpecting
+                      ? `${recommendedCount} picks for your pregnancy`
+                      : sortMode === 'Featured' && recommendedCount > 0
+                        ? `${recommendedCount} picks for ${activeKid.name} · ${ageLabel}`
+                        : `Showing products for ${activeKid.name} · ${ageLabel}`}
+                  </Text>
+                </LinearGradient>
+              ) : null
+            }
+            renderItem={({ item, index }) => {
+              const showDivider =
+                recommendedCount > 0 &&
+                sortMode === 'Featured' &&
+                index === recommendedCount &&
+                index % 2 === 0;
+              return (
+                <View style={{ flex: 1 }}>
+                  {showDivider && (
+                    <View style={styles.productSectionDivider}>
+                      <View style={styles.productSectionDividerLine} />
+                      <Text style={styles.productSectionDividerText}>More Products</Text>
+                      <View style={styles.productSectionDividerLine} />
+                    </View>
+                  )}
+                  <ProductCard product={item} />
+                </View>
+              );
+            }}
           />
 
           {/* Sort modal */}
@@ -486,7 +1519,7 @@ export default function LibraryScreen() {
                       {opt}
                     </Text>
                     {opt === sortMode && (
-                      <Ionicons name="checkmark" size={18} color="#ec4899" />
+                      <Ionicons name="checkmark" size={18} color="#E8487A" />
                     )}
                   </TouchableOpacity>
                 ))}
@@ -560,8 +1593,28 @@ export default function LibraryScreen() {
           ) : (
             <>
               <Text style={styles.sectionTitle}>
-                {activeKid?.name ? `${activeKid.name}'s Journey` : 'Your Journey'}
+                {activeKid?.isExpecting
+                  ? 'Your Pregnancy Journey'
+                  : activeKid?.name
+                  ? `${activeKid.name}'s Journey`
+                  : 'Your Journey'}
               </Text>
+              {/* Legend */}
+              {!activeKid?.isExpecting && (
+                <View style={journeyStyles.legend}>
+                  <View style={journeyStyles.legendItem}>
+                    <View style={[journeyStyles.legendDot, { backgroundColor: '#22c55e' }]} />
+                    <Text style={journeyStyles.legendText}>Achieved</Text>
+                  </View>
+                  <View style={journeyStyles.legendItem}>
+                    <View style={[journeyStyles.legendDot, { backgroundColor: '#e5e7eb', borderWidth: 1.5, borderColor: '#d1d5db' }]} />
+                    <Text style={journeyStyles.legendText}>Upcoming</Text>
+                  </View>
+                  <View style={journeyStyles.legendItem}>
+                    <Text style={journeyStyles.legendText}>👶 Birth  🌱 Dev  💉 Vaccine</Text>
+                  </View>
+                </View>
+              )}
               {journeyEvents.map((event, i) => (
                 <JourneyItem
                   key={`${event.title}-${i}`}
@@ -578,23 +1631,87 @@ export default function LibraryScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fdf6ff' },
+  container: { flex: 1, backgroundColor: '#FFF8FC' },
   flex: { flex: 1 },
+  // Dark header
   header: {
     paddingHorizontal: 16,
-    paddingBottom: 14,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3e8ff',
-    shadowColor: '#8b5cf6',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
-    boxShadow: '0px 2px 8px rgba(139, 92, 246, 0.06)',
+    paddingBottom: 16,
+    position: 'relative',
+    overflow: 'hidden',
   },
-  headerTitle: { fontSize: 22, fontWeight: '800', color: '#1a1a2e' },
+  glowTopRight: {
+    position: 'absolute', width: 180, height: 180, borderRadius: 90,
+    backgroundColor: 'rgba(232,72,122,0.22)', top: -60, right: -40,
+  },
+  glowBottomLeft: {
+    position: 'absolute', width: 120, height: 120, borderRadius: 60,
+    backgroundColor: 'rgba(124,58,237,0.18)', bottom: -40, left: -20,
+  },
+  headerInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerTitle: { fontFamily: Fonts.serif, fontSize: 26, color: '#ffffff', letterSpacing: -0.3 },
+  adminBtn: {
+    width: 34, height: 34, borderRadius: 17,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center', justifyContent: 'center',
+  },
   content: { paddingHorizontal: 16, paddingTop: 16 },
+
+  // Article search + filter
+  searchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1.5,
+    borderColor: '#EDE9F6',
+  },
+  searchIcon: { marginRight: 8 },
+  searchInput: { fontFamily: Fonts.sansRegular, flex: 1, fontSize: 14, color: '#1C1033' },
+  topicFilterScroll: {
+    flexShrink: 0,
+    flexGrow: 0,
+  },
+  topicFilterRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 6,
+    alignItems: 'center',
+  },
+  topicChip: {
+    borderRadius: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: '#ffffff',
+    borderWidth: 1.5,
+    borderColor: '#EDE9F6',
+  },
+  topicChipActive: {
+    backgroundColor: 'rgba(124,58,237,0.08)',
+    borderColor: '#7C3AED',
+  },
+  topicChipText: { fontFamily: Fonts.sansMedium, fontSize: 12, color: '#9CA3AF' },
+  topicChipTextActive: { fontFamily: Fonts.sansBold, color: '#7C3AED' },
+  emptySearch: {
+    alignItems: 'center',
+    paddingVertical: 40,
+    gap: 8,
+  },
+  emptySearchEmoji: { fontSize: 36 },
+  emptySearchText: { fontFamily: Fonts.sansRegular, fontSize: 14, color: '#9CA3AF', textAlign: 'center' },
+  emptySearchReset: { fontFamily: Fonts.sansBold, fontSize: 13, color: '#7C3AED', marginTop: 4 },
+
   personalisationBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -604,27 +1721,35 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     marginBottom: 18,
   },
-  personalisationText: { fontSize: 13, color: '#ec4899', fontWeight: '600', flex: 1 },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: '#1a1a2e', marginBottom: 12 },
+  personalisationText: { fontFamily: Fonts.sansSemiBold, fontSize: 13, color: '#E8487A', flex: 1 },
+  sectionTitle: { fontFamily: Fonts.sansBold, fontSize: 18, color: '#1C1033', marginBottom: 12 },
+  bookSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(124,58,237,0.06)', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 14 },
+  bookPersonalBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  bookPersonalBadgeText: { fontFamily: Fonts.sansSemiBold, fontSize: 12, color: '#7C3AED', flex: 1 },
+  categoriesScrollView: {
+    flexGrow: 0,
+    flexShrink: 0,
+    backgroundColor: '#FFF8FC',
+    borderBottomWidth: 1,
+    borderBottomColor: '#EDE9F6',
+  },
   categoriesRow: {
     paddingHorizontal: 16,
     paddingVertical: 10,
     gap: 6,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3e8ff',
+    alignItems: 'center',
   },
   catChip: {
     borderRadius: 20,
     paddingVertical: 7,
     paddingHorizontal: 14,
-    backgroundColor: '#f9fafb',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
+    backgroundColor: '#ffffff',
+    borderWidth: 1.5,
+    borderColor: '#EDE9F6',
   },
-  catChipActive: { backgroundColor: 'rgba(236,72,153,0.1)', borderColor: '#ec4899' },
-  catChipText: { fontSize: 13, color: '#6b7280', fontWeight: '500' },
-  catChipTextActive: { color: '#ec4899', fontWeight: '700' },
+  catChipActive: { backgroundColor: 'rgba(232,72,122,0.08)', borderColor: '#E8487A' },
+  catChipText: { fontFamily: Fonts.sansMedium, fontSize: 13, color: '#9CA3AF' },
+  catChipTextActive: { fontFamily: Fonts.sansBold, color: '#E8487A' },
   sortBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -632,12 +1757,23 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingVertical: 7,
     paddingHorizontal: 12,
-    backgroundColor: 'rgba(139,92,246,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(139,92,246,0.2)',
+    backgroundColor: 'rgba(124,58,237,0.06)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(124,58,237,0.15)',
   },
-  sortBtnText: { fontSize: 12, color: '#8b5cf6', fontWeight: '700' },
-  productsGrid: { paddingHorizontal: 12, paddingTop: 12 },
+  sortBtnText: { fontFamily: Fonts.sansBold, fontSize: 12, color: '#7C3AED' },
+  productsGrid: { paddingHorizontal: 8, paddingTop: 8 },
+  productRow: { gap: 8, paddingHorizontal: 8, marginBottom: 8 },
+  productSectionDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+    marginTop: 4,
+    paddingHorizontal: 4,
+  },
+  productSectionDividerLine: { flex: 1, height: 1, backgroundColor: '#EDE9F6' },
+  productSectionDividerText: { fontFamily: Fonts.sansSemiBold, fontSize: 11, color: '#C4B5D4', letterSpacing: 0.5 },
   sortModalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.35)',
@@ -645,7 +1781,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sortSheet: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#FFF8FC',
     borderRadius: 20,
     padding: 20,
     width: 220,
@@ -655,23 +1791,23 @@ const styles = StyleSheet.create({
     shadowRadius: 24,
     elevation: 10,
     boxShadow: '0px 8px 24px rgba(0, 0, 0, 0.15)',
-  },
-  sortTitle: { fontSize: 15, fontWeight: '700', color: '#1a1a2e', marginBottom: 14 },
+  } as any,
+  sortTitle: { fontFamily: Fonts.sansBold, fontSize: 15, color: '#1C1033', marginBottom: 14 },
   sortOption: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3e8ff',
+    borderBottomColor: '#EDE9F6',
   },
-  sortOptionText: { fontSize: 14, color: '#6b7280' },
-  sortOptionTextActive: { color: '#ec4899', fontWeight: '700' },
+  sortOptionText: { fontFamily: Fonts.sansRegular, fontSize: 14, color: '#9CA3AF' },
+  sortOptionTextActive: { fontFamily: Fonts.sansBold, color: '#E8487A' },
   emptyState: { flex: 1, alignItems: 'center', paddingTop: 80, paddingHorizontal: 32 },
   emptyEmoji: { fontSize: 56, marginBottom: 16 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#1a1a2e', marginBottom: 8 },
-  emptyText: { fontSize: 14, color: '#6b7280', textAlign: 'center', lineHeight: 22 },
-  emptyHighlight: { color: '#ec4899', fontWeight: '700' },
+  emptyTitle: { fontFamily: Fonts.sansBold, fontSize: 18, color: '#1C1033', marginBottom: 8 },
+  emptyText: { fontFamily: Fonts.sansRegular, fontSize: 14, color: '#9CA3AF', textAlign: 'center', lineHeight: 22 },
+  emptyHighlight: { fontFamily: Fonts.sansBold, color: '#E8487A' },
   savedCard: { marginBottom: 12 },
   savedCardHeader: {
     flexDirection: 'row',
@@ -680,6 +1816,6 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   savedCardRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  savedDate: { fontSize: 11, color: '#9ca3af' },
-  savedContent: { fontSize: 14, color: '#374151', lineHeight: 22 },
+  savedDate: { fontFamily: Fonts.sansRegular, fontSize: 11, color: '#C4B5D4' },
+  savedContent: { fontFamily: Fonts.sansRegular, fontSize: 14, color: '#374151', lineHeight: 22 },
 });
