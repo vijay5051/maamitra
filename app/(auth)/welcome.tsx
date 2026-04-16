@@ -8,19 +8,56 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import GradientButton from '../../components/ui/GradientButton';
 import { Fonts } from '../../constants/theme';
 
 const LOGO = require('../../assets/logo.png');
 
-const FEATURES = [
-  { emoji: '💬', title: 'AI Companion', text: 'Chat like texting a knowledgeable friend' },
-  { emoji: '🇮🇳', title: 'India-First', text: 'India-specific foods, schemes & languages' },
-  { emoji: '🧠', title: 'Remembers You', text: 'Remembers every detail about you & baby' },
-  { emoji: '🏥', title: 'Trusted Info', text: 'IAP & FOGSI aligned medical content' },
-  { emoji: '👨‍👩‍👧', title: 'Multi-Child', text: 'Profiles for all your children' },
-  { emoji: '👥', title: 'Community', text: 'Connect with Indian mothers' },
+const FEATURES: { icon: keyof typeof Ionicons.glyphMap; color: string; bg: string; title: string; text: string }[] = [
+  {
+    icon: 'chatbubble-ellipses',
+    color: '#E8487A',
+    bg: 'rgba(232,72,122,0.18)',
+    title: 'AI Companion',
+    text: 'Chat like texting a knowledgeable friend',
+  },
+  {
+    icon: 'flag',
+    color: '#F59E0B',
+    bg: 'rgba(245,158,11,0.18)',
+    title: 'India-First',
+    text: 'India-specific foods, schemes & languages',
+  },
+  {
+    icon: 'sparkles',
+    color: '#A78BFA',
+    bg: 'rgba(167,139,250,0.18)',
+    title: 'Remembers You',
+    text: 'Remembers every detail about you & baby',
+  },
+  {
+    icon: 'shield-checkmark',
+    color: '#34D399',
+    bg: 'rgba(52,211,153,0.18)',
+    title: 'Trusted Info',
+    text: 'IAP & FOGSI aligned medical content',
+  },
+  {
+    icon: 'people',
+    color: '#60A5FA',
+    bg: 'rgba(96,165,250,0.18)',
+    title: 'Multi-Child',
+    text: 'Profiles for all your children',
+  },
+  {
+    icon: 'heart-circle',
+    color: '#E8487A',
+    bg: 'rgba(232,72,122,0.18)',
+    title: 'Community',
+    text: 'Connect with Indian mothers',
+  },
 ];
 
 export default function WelcomeScreen() {
@@ -54,7 +91,9 @@ export default function WelcomeScreen() {
         <View style={styles.featuresGrid}>
           {FEATURES.map((f, i) => (
             <View key={i} style={styles.featureCard}>
-              <Text style={styles.featureEmoji}>{f.emoji}</Text>
+              <View style={[styles.iconBox, { backgroundColor: f.bg }]}>
+                <Ionicons name={f.icon} size={18} color={f.color} />
+              </View>
               <View style={styles.featureTextWrap}>
                 <Text style={styles.featureTitle}>{f.title}</Text>
                 <Text style={styles.featureText}>{f.text}</Text>
@@ -66,7 +105,7 @@ export default function WelcomeScreen() {
         {/* ── CTA buttons ── */}
         <View style={styles.buttonsContainer}>
           <GradientButton
-            title="Get Started — It's Free ✨"
+            title="Get Started — It's Free"
             onPress={() => router.push('/(auth)/sign-up')}
             style={styles.primaryButton}
           />
@@ -91,7 +130,6 @@ export default function WelcomeScreen() {
 const styles = StyleSheet.create({
   gradient: { flex: 1 },
 
-  // Glow blobs
   glowTopRight: {
     position: 'absolute', width: 300, height: 300, borderRadius: 150,
     backgroundColor: 'rgba(232,72,122,0.2)', top: -80, right: -80,
@@ -113,16 +151,16 @@ const styles = StyleSheet.create({
 
   // Hero
   hero: { alignItems: 'center' },
-  logoImage: { width: 100, height: 100, marginBottom: 4 },
+  logoImage: { width: 96, height: 96, marginBottom: 4 },
   wordmark: {
-    fontFamily: Fonts.serif,
-    fontSize: 38,
+    fontFamily: 'DMSerifDisplay_400Regular',
+    fontSize: 42,
     color: '#ffffff',
-    letterSpacing: -1,
-    textShadowColor: 'rgba(232,72,122,0.5)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 16,
-    marginBottom: 8,
+    letterSpacing: -0.5,
+    textShadowColor: 'rgba(232,72,122,0.6)',
+    textShadowOffset: { width: 0, height: 4 },
+    textShadowRadius: 20,
+    marginBottom: 10,
   },
   tagline: {
     fontFamily: Fonts.sansRegular,
@@ -151,7 +189,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
   } as any,
-  featureEmoji: { fontSize: 20, width: 24, textAlign: 'center', marginTop: 1 },
+  iconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+    flexShrink: 0,
+  },
   featureTextWrap: { flex: 1 },
   featureTitle: {
     fontFamily: Fonts.sansSemiBold,

@@ -52,9 +52,8 @@ export default function RootLayout() {
     if (fontsLoaded || fontError) SplashScreen.hideAsync();
   }, [fontsLoaded, fontError]);
 
-  // On web there is no native splash screen — always render immediately.
-  // On native, wait until fonts are loaded (or failed) so icons don't flash as empty boxes.
-  if (Platform.OS !== 'web' && !fontsLoaded && !fontError) return null;
+  // Wait for fonts on ALL platforms so DM Serif Display renders on first paint.
+  if (!fontsLoaded && !fontError) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
