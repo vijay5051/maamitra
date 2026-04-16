@@ -21,6 +21,10 @@ import { useProfileStore } from './useProfileStore';
 import { useWellnessStore } from './useWellnessStore';
 import { useChatStore } from './useChatStore';
 
+// Lazy-accessed to avoid circular dependency (useSocialStore imports useAuthStore)
+const getSocialStore = () => require('./useSocialStore').useSocialStore;
+const getCommunityStore = () => require('./useCommunityStore').useCommunityStore;
+
 // Tracks UIDs currently being hydrated to prevent duplicate concurrent calls
 const _hydratingUids = new Set<string>();
 
@@ -192,9 +196,12 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   signOut: async () => {
-    // Always wipe local profile data immediately on sign-out — before any async calls
+    // Always wipe ALL local data immediately on sign-out — before any async calls
     useProfileStore.getState().resetProfile();
     useWellnessStore.getState().resetWellness();
+    useChatStore.getState().clearChat();
+    getSocialStore().getState().reset();
+    getCommunityStore().getState().resetCommunity();
     if (!isFirebaseConfigured() || !auth) {
       set({ user: null, isAuthenticated: false });
       return;
@@ -216,9 +223,12 @@ export const useAuthStore = create<AuthState>((set) => ({
       return;
     }
     if (!user) throw new Error('Not logged in');
-    // Wipe local data first so it never leaks to a subsequent user
+    // Wipe ALL local data first so it never leaks to a subsequent user
     useProfileStore.getState().resetProfile();
     useWellnessStore.getState().resetWellness();
+    useChatStore.getState().clearChat();
+    getSocialStore().getState().reset();
+    getCommunityStore().getState().resetCommunity();
     await deleteUserAccount(user.uid);
     set({ user: null, isAuthenticated: false });
   },

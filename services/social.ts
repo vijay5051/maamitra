@@ -123,7 +123,7 @@ export function firestoreDate(val: any): Date {
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
-async function incrementPublicProfilePostCount(uid: string, delta: number): Promise<void> {
+export async function incrementPublicProfilePostCount(uid: string, delta: number): Promise<void> {
   if (!db) return;
   try {
     const ref = doc(db, 'publicProfiles', uid);
@@ -224,6 +224,7 @@ export async function fetchRecentPosts(limitN = 40): Promise<CommunityPost[]> {
         authorUid: data.authorUid ?? '',
         authorName: data.authorName ?? '',
         authorInitial: data.authorInitial ?? '',
+        authorPhotoUrl: data.authorPhotoUrl ?? undefined,
         badge: data.badge ?? '',
         topic: data.topic ?? '',
         text: data.text ?? '',
@@ -261,6 +262,7 @@ export async function fetchUserPosts(uid: string): Promise<CommunityPost[]> {
         authorUid: data.authorUid ?? '',
         authorName: data.authorName ?? '',
         authorInitial: data.authorInitial ?? '',
+        authorPhotoUrl: data.authorPhotoUrl ?? undefined,
         badge: data.badge ?? '',
         topic: data.topic ?? '',
         text: data.text ?? '',
@@ -380,6 +382,7 @@ export async function addPostComment(
       authorUid: data.authorUid,
       authorName: data.authorName,
       authorInitial: data.authorInitial,
+      authorPhotoUrl: data.authorPhotoUrl,
       text: data.text,
       createdAt: new Date(),
     };
@@ -390,6 +393,7 @@ export async function addPostComment(
       authorUid: data.authorUid,
       authorName: data.authorName,
       authorInitial: data.authorInitial,
+      authorPhotoUrl: data.authorPhotoUrl,
       text: data.text,
       createdAt: new Date(),
     };

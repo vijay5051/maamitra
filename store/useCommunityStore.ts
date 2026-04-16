@@ -8,6 +8,7 @@ import {
   togglePostReaction,
   addPostComment,
   fetchPostComments,
+  incrementPublicProfilePostCount,
 } from '../services/social';
 
 export interface Comment {
@@ -127,6 +128,7 @@ interface CommunityState {
   loadCommentsForPost: (postId: string) => Promise<void>;
   deletePostFirestore: (postId: string, authorUid: string) => Promise<void>;
   deleteCommentFirestore: (postId: string, commentId: string) => Promise<void>;
+  resetCommunity: () => void;
 }
 
 export const useCommunityStore = create<CommunityState>((set, get) => ({
@@ -240,14 +242,17 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
         authorName: fsPost.authorName ?? '',
         authorInitial: (fsPost.authorName ?? '?').charAt(0).toUpperCase(),
         authorUid: fsPost.authorUid ?? '',
+        authorPhotoUrl: (fsPost as any).authorPhotoUrl ?? undefined,
         badge: fsPost.badge ?? 'Community Member',
         topic: fsPost.topic ?? 'General',
         text: fsPost.text ?? '',
         imageUri: fsPost.imageUri,
         imageAspectRatio: fsPost.imageAspectRatio,
+        imageEmoji: (fsPost as any).imageEmoji,
+        imageCaption: (fsPost as any).imageCaption,
         reactions: fsPost.reactions ?? {},
         userReactions: [],
-        reactionsByUser: fsPost.reactionsByUser,
+        reactionsByUser: fsPost.reactionsByUser ?? {},
         comments: [],
         commentList: [],
         commentCount: fsPost.commentCount ?? 0,
@@ -421,9 +426,11 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
     const post = get().posts.find((p) => p.id === postId);
     if (!post || post.authorUid !== authorUid) return;
     try {
+      // Await Firestore delete FIRST — only remove from local state on success
       await deletePost(postId);
-      // Decrement publicProfile post count
       set((state) => ({ posts: state.posts.filter((p) => p.id !== postId) }));
+      // Fire-and-forget: decrement public profile postsCount
+      incrementPublicProfilePostCount(authorUid, -1);
     } catch (error) {
       console.error('deletePostFirestore error:', error);
       throw error;
@@ -452,4 +459,11 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
       throw error;
     }
   },
+
+  resetCommunity: () => set({
+    posts: SEED_POSTS,
+    activeFilter: 'All',
+    motherName: '',
+    isLoadingPosts: false,
+  }),
 }));

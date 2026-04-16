@@ -153,6 +153,7 @@ export const useSocialStore = create<SocialState>((set, get) => ({
         incomingRequests: state.incomingRequests.filter((r) => r.id !== requestId),
         followers: [...state.followers, newFollower],
         followersCount: state.followersCount + 1,
+        followStatusCache: { ...state.followStatusCache, [fromUid]: 'following' },
         notifications: state.notifications.map((n) =>
           n.fromUid === fromUid && n.type === 'follow_request'
             ? { ...n, read: true }
