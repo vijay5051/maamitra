@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   FlatList,
   Image,
@@ -980,7 +980,7 @@ function MyProfileCard({ onEdit }: { onEdit: () => void }) {
   const kidsLabel = kids.length === 0 ? 'No kids added' : kids.length === 1 ? `${genderLabel} of 1` : `${genderLabel} of ${kids.length}`;
 
   const hasPhoto = photoUrl && !imgErr;
-  const isProfileComplete = !!(bio && expertise.length > 0);
+  const isProfileComplete = !!(profile?.state && profile?.diet && bio && expertise.length > 0);
 
   // Stat 3: city or streak placeholder
   const cityOrStreak = profile?.state || 'India';
@@ -1225,6 +1225,25 @@ export default function CommunityScreen() {
     getFilteredPosts,
   } = useCommunityStore();
   const { motherName } = useProfileStore();
+  const profile = useProfileStore((s) => s.profile);
+  const activeKid = useProfileStore((s) => s.getActiveKid());
+
+  const orderedFilters = useMemo((): CommunityFilter[] => {
+    const all: CommunityFilter[] = ['All', 'Newborn', 'Pregnancy', 'Nutrition', 'Mental Health', 'Milestones', 'Products'];
+    if (!profile) return all;
+    const stage = profile.stage;
+    const ageMonths = activeKid && !activeKid.isExpecting ? activeKid.ageInMonths : null;
+    if (stage === 'pregnant' || activeKid?.isExpecting) {
+      return ['All', 'Pregnancy', 'Nutrition', 'Mental Health', 'Newborn', 'Milestones', 'Products'];
+    }
+    if (ageMonths !== null && ageMonths < 6) {
+      return ['All', 'Newborn', 'Nutrition', 'Mental Health', 'Milestones', 'Pregnancy', 'Products'];
+    }
+    if (ageMonths !== null && ageMonths < 24) {
+      return ['All', 'Milestones', 'Nutrition', 'Newborn', 'Mental Health', 'Products', 'Pregnancy'];
+    }
+    return all;
+  }, [profile, activeKid]);
 
   const [showNewPost, setShowNewPost] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -1275,7 +1294,7 @@ export default function CommunityScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filtersRow}
         >
-          {FILTERS.map((f) => (
+          {orderedFilters.map((f) => (
             <TouchableOpacity
               key={f}
               onPress={() => setFilter(f)}

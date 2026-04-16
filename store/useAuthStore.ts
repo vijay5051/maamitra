@@ -17,6 +17,7 @@ import {
   sendVerificationEmail,
 } from '../services/firebase';
 import { useProfileStore } from './useProfileStore';
+import { useWellnessStore } from './useWellnessStore';
 
 // Tracks UIDs currently being hydrated to prevent duplicate concurrent calls
 const _hydratingUids = new Set<string>();
@@ -51,6 +52,12 @@ async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
       }
     });
     setOnboardingComplete(fullProfile.onboardingComplete);
+    const { setParentGender, setBio, setExpertise, setPhotoUrl, setVisibilitySettings } = useProfileStore.getState();
+    if (fullProfile.parentGender) setParentGender(fullProfile.parentGender as any);
+    if (fullProfile.bio) setBio(fullProfile.bio);
+    if (fullProfile.expertise?.length) setExpertise(fullProfile.expertise);
+    if (fullProfile.photoUrl) setPhotoUrl(fullProfile.photoUrl);
+    if (fullProfile.visibilitySettings) setVisibilitySettings(fullProfile.visibilitySettings);
     return fullProfile.onboardingComplete;
   } catch (error) {
     console.error('hydrateProfileFromFirestore error:', error);
@@ -164,6 +171,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   signOut: async () => {
     // Always wipe local profile data immediately on sign-out — before any async calls
     useProfileStore.getState().resetProfile();
+    useWellnessStore.getState().resetWellness();
     if (!isFirebaseConfigured() || !auth) {
       set({ user: null, isAuthenticated: false });
       return;
@@ -187,6 +195,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     if (!user) throw new Error('Not logged in');
     // Wipe local data first so it never leaks to a subsequent user
     useProfileStore.getState().resetProfile();
+    useWellnessStore.getState().resetWellness();
     await deleteUserAccount(user.uid);
     set({ user: null, isAuthenticated: false });
   },

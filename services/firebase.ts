@@ -111,6 +111,11 @@ export interface FullProfileData {
   kids: any[];
   completedVaccines: Record<string, any>;
   onboardingComplete: boolean;
+  parentGender?: string;
+  bio?: string;
+  expertise?: string[];
+  photoUrl?: string;
+  visibilitySettings?: any;
 }
 
 export async function saveFullProfile(uid: string, data: FullProfileData): Promise<void> {
@@ -122,6 +127,11 @@ export async function saveFullProfile(uid: string, data: FullProfileData): Promi
       kids: data.kids,
       completedVaccines: data.completedVaccines,
       onboardingComplete: data.onboardingComplete,
+      parentGender: data.parentGender ?? '',
+      bio: data.bio ?? '',
+      expertise: data.expertise ?? [],
+      photoUrl: data.photoUrl ?? '',
+      visibilitySettings: data.visibilitySettings ?? null,
       updatedAt: serverTimestamp(),
     }, { merge: true });
   } catch (error) {
@@ -140,7 +150,12 @@ export async function loadFullProfile(uid: string): Promise<FullProfileData | nu
       profile: d.profile ?? null,
       kids: d.kids ?? [],
       completedVaccines: d.completedVaccines ?? {},
-      onboardingComplete: d.onboardingComplete === true, // return actual value, not null
+      onboardingComplete: d.onboardingComplete === true,
+      parentGender: d.parentGender ?? '',
+      bio: d.bio ?? '',
+      expertise: d.expertise ?? [],
+      photoUrl: d.photoUrl ?? '',
+      visibilitySettings: d.visibilitySettings ?? null,
     };
   } catch (error) {
     console.error('loadFullProfile error:', error);

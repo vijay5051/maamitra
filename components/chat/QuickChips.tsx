@@ -7,7 +7,7 @@ import {
   View,
 } from 'react-native';
 import { useActiveKid } from '../../hooks/useActiveKid';
-import { useProfileStore } from '../../store/useProfileStore';
+import { useProfileStore, calculateAgeInMonths } from '../../store/useProfileStore';
 import { Fonts } from '../../constants/theme';
 
 interface QuickChipsProps {
@@ -81,6 +81,28 @@ const CHIPS_TODDLER = (name: string) => [
   "Toddler sleep schedule tips",
 ];
 
+const CHIPS_PRESCHOOLER = (name: string) => [
+  `${name} is starting school — how to prepare?`,
+  "Healthy tiffin box ideas for preschoolers",
+  `${name} is having trouble sharing`,
+  "Screen time rules for 3-4 year olds",
+  "Speech development milestones now",
+  `${name} has tantrums in public`,
+  "Building confidence in my child",
+  "Activities for cognitive development at home",
+];
+
+const CHIPS_SCHOOLAGE = (name: string) => [
+  `${name} is struggling at school — tips?`,
+  "Nutritious after-school snack ideas",
+  `${name} is having friendship issues`,
+  "How much screen time is okay?",
+  "Boosting immunity naturally for school kids",
+  "Handling exam anxiety in children",
+  `${name} is a fussy eater now`,
+  "Building good study habits early",
+];
+
 const CHIPS_FALLBACK = [
   "When is the next vaccination?",
   "Baby won't sleep at night",
@@ -106,7 +128,8 @@ function getChips(
   if (ageMonths < 9) return CHIPS_6TO9(kidName);
   if (ageMonths < 12) return CHIPS_9TO12(kidName);
   if (ageMonths < 36) return CHIPS_TODDLER(kidName);
-  return CHIPS_FALLBACK;
+  if (ageMonths < 60) return CHIPS_PRESCHOOLER(kidName);   // 3-5 years
+  return CHIPS_SCHOOLAGE(kidName);                          // 5+ years
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -117,14 +140,14 @@ export default function QuickChips({ onSelect }: QuickChipsProps) {
 
   const chips = useMemo(() => {
     if (!activeKid) return CHIPS_FALLBACK;
-    const months = activeKid.ageInMonths ?? null;
+    const months = activeKid.isExpecting ? null : calculateAgeInMonths(activeKid.dob);
     return getChips(activeKid.name, months, activeKid.isExpecting ?? false);
   }, [activeKid]);
 
   const greeting = useMemo(() => {
     if (!activeKid) return 'SUGGESTIONS';
     if (activeKid.isExpecting) return 'FOR YOUR PREGNANCY';
-    if (activeKid.ageInMonths !== undefined) {
+    if (!activeKid.isExpecting) {
       return `FOR ${activeKid.name.toUpperCase()} · ${ageLabel.toUpperCase()}`;
     }
     return `FOR ${activeKid.name.toUpperCase()}`;

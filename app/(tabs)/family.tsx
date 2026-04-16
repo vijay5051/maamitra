@@ -74,10 +74,33 @@ function ChildCard({
       />
       <View style={[childCardStyles.inner, isActive && childCardStyles.innerActive]}>
         <View style={[childCardStyles.iconBox, { backgroundColor: `${accent[0]}18` }]}>
-          <Ionicons name={isActuallyExpecting ? 'flower-outline' : 'happy-outline'} size={22} color={accent[0]} />
+          <Ionicons
+            name={
+              isActuallyExpecting
+                ? 'flower-outline'
+                : kid.gender === 'boy'
+                ? 'male-outline'
+                : kid.gender === 'girl'
+                ? 'female-outline'
+                : 'help-circle-outline'
+            }
+            size={22}
+            color={
+              isActuallyExpecting
+                ? accent[0]
+                : kid.gender === 'boy'
+                ? '#60A5FA'
+                : kid.gender === 'girl'
+                ? '#E8487A'
+                : '#A78BFA'
+            }
+          />
         </View>
         <Text style={[childCardStyles.name, isActive && childCardStyles.nameActive]}>
           {kid.name}
+        </Text>
+        <Text style={{ fontSize: 12 }}>
+          {kid.gender === 'boy' ? '👦' : kid.gender === 'girl' ? '👧' : '🎁'}
         </Text>
         <Text style={[childCardStyles.age, isActive && { color: accent[0] }]}>
           {ageText}
@@ -370,7 +393,7 @@ const addChildStyles = StyleSheet.create({
 export default function FamilyScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { kids, activeKidId, setActiveKidId, addKid, motherName, profile, completedVaccines } = useProfileStore();
+  const { kids, activeKidId, setActiveKidId, addKid, motherName, profile, completedVaccines, parentGender } = useProfileStore();
   const { activeKid } = useActiveKid();
   const { user } = useAuthStore();
   const [showAddModal, setShowAddModal] = useState(false);
@@ -533,7 +556,7 @@ export default function FamilyScreen() {
               <Text style={styles.momStatLabel}>Family</Text>
             </View>
           </View>
-          {(!profile?.diet || !profile?.state || !profile?.familyType) && (
+          {(!profile?.diet || !profile?.state || !profile?.familyType || !parentGender) && (
             <TouchableOpacity style={styles.completeNudge} onPress={() => router.push('/(tabs)/community')} activeOpacity={0.8}>
               <Ionicons name="sparkles-outline" size={12} color="#F59E0B" />
               <Text style={styles.completeNudgeText}>Complete your profile</Text>

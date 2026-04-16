@@ -24,6 +24,7 @@ import Svg, {
   Circle,
 } from 'react-native-svg';
 import { useWellnessStore, MOOD_DATA, MOOD_RESPONSES } from '../../store/useWellnessStore';
+import { useProfileStore } from '../../store/useProfileStore';
 import Card from '../../components/ui/Card';
 import GradientButton from '../../components/ui/GradientButton';
 import { YOGA_SESSIONS, YogaSession } from '../../data/yogaSessions';
@@ -734,6 +735,7 @@ export default function WellnessScreen() {
     healthConditions,
     setHealthConditions,
   } = useWellnessStore();
+  const profile = useProfileStore((s) => s.profile);
 
   const [selectedMoodScore, setSelectedMoodScore] = useState<number | null>(() => {
     const todayMood = getTodayMood();
@@ -776,7 +778,7 @@ export default function WellnessScreen() {
         <View style={styles.glowTopRight} pointerEvents="none" />
         <View style={styles.glowBottomLeft} pointerEvents="none" />
         <Text style={styles.headerTitle}>Wellness</Text>
-        <Text style={styles.headerSub}>Your mind &amp; body, every day</Text>
+        <Text style={styles.headerSub}>{profile?.stage === 'pregnant' ? 'Pregnancy wellness for you' : 'Postpartum care & recovery'}</Text>
       </LinearGradient>
 
       <ScrollView

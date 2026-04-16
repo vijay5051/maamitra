@@ -317,7 +317,7 @@ export default function OnboardingScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
-  const { setMotherName, setProfile, addKid, setOnboardingComplete } = useProfileStore();
+  const { setMotherName, setProfile, addKid, setOnboardingComplete, onboardingComplete } = useProfileStore();
 
   const motherName = user?.name ?? 'Mom';
 
@@ -364,6 +364,13 @@ export default function OnboardingScreen() {
     },
     [addMsg]
   );
+
+  // Prevent re-entry: if already onboarded, redirect to chat
+  useEffect(() => {
+    if (onboardingComplete) {
+      router.replace('/(tabs)/chat');
+    }
+  }, [onboardingComplete]);
 
   // Keep answersRef in sync with answers state
   useEffect(() => { answersRef.current = answers; }, [answers]);
@@ -649,8 +656,19 @@ export default function OnboardingScreen() {
           // Sync full profile to Firestore for cross-device persistence
           const { user: authUser } = useAuthStore.getState();
           if (authUser?.uid) {
-            const { motherName: mn, profile: pr, kids: k, completedVaccines: cv } = useProfileStore.getState();
-            saveFullProfile(authUser.uid, { motherName: mn, profile: pr, kids: k, completedVaccines: cv, onboardingComplete: true }).catch(console.error);
+            const { motherName: mn, profile: pr, kids: k, completedVaccines: cv, parentGender: pg, bio: b, expertise: ex, photoUrl: ph, visibilitySettings: vs } = useProfileStore.getState();
+            saveFullProfile(authUser.uid, {
+              motherName: mn,
+              profile: pr,
+              kids: k,
+              completedVaccines: cv,
+              onboardingComplete: true,
+              parentGender: pg,
+              bio: b,
+              expertise: ex,
+              photoUrl: ph,
+              visibilitySettings: vs,
+            }).catch(console.error);
           }
 
           router.replace('/(tabs)/chat');

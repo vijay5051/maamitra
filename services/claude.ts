@@ -9,22 +9,39 @@ export interface ChatContext {
   stage: string;
   state: string;
   diet: string;
+  familyType?: string;       // nuclear/joint/in-laws/single-parent
   kidName?: string;
   kidAgeMonths?: number;
   kidDOB?: string;
+  kidGender?: string;        // boy/girl/surprise
+  isExpecting?: boolean;     // explicit expecting flag
   allergies?: string[] | null;
   healthConditions?: string[] | null;
 }
 
 export function buildSystemPrompt(ctx: ChatContext): string {
+  const stageDesc = ctx.isExpecting
+    ? 'currently pregnant'
+    : ctx.stage === 'pregnant' ? 'currently pregnant'
+    : ctx.stage === 'planning' ? 'planning to conceive'
+    : ctx.kidAgeMonths !== undefined && ctx.kidAgeMonths < 6 ? 'in the newborn phase'
+    : 'a mother';
+
+  const familyDesc = ctx.familyType === 'joint' ? 'a joint family'
+    : ctx.familyType === 'in-laws' ? 'a home with in-laws'
+    : ctx.familyType === 'single-parent' ? 'a single-parent household'
+    : 'a nuclear family';
+
+  const kidGenderWord = ctx.kidGender === 'boy' ? 'son' : ctx.kidGender === 'girl' ? 'daughter' : 'baby';
+
   const kidLine = ctx.kidName
-    ? `${ctx.kidName}${ctx.kidAgeMonths !== undefined ? `, who is ${ctx.kidAgeMonths} months old` : ''}`
+    ? `Her ${kidGenderWord} is ${ctx.kidName}${ctx.kidAgeMonths !== undefined ? `, who is ${ctx.kidAgeMonths} months old` : ctx.isExpecting ? ' (on the way)' : ''}.`
     : null;
 
   return `You are MaaMitra — a warm, knowledgeable companion for Indian mothers. Think of yourself as that one close friend who happens to know everything about babies, pregnancy, and health, and always responds with love and zero judgment.
 
 WHO YOU'RE TALKING TO:
-${ctx.motherName} lives in ${ctx.state}, India. She follows a ${ctx.diet} diet.${kidLine ? ` Her baby is ${kidLine}.` : ''}${ctx.allergies && ctx.allergies.length > 0 ? ` Known allergies: ${ctx.allergies.join(', ')}.` : ''}${ctx.healthConditions && ctx.healthConditions.length > 0 ? ` Health conditions: ${ctx.healthConditions.join(', ')}.` : ''}
+${ctx.motherName} is ${stageDesc}. She lives in ${ctx.state}, India, in ${familyDesc}. She follows a ${ctx.diet} diet.${kidLine ? ` ${kidLine}` : ''}${ctx.allergies?.length ? ` Known allergies: ${ctx.allergies.join(', ')}.` : ''}${ctx.healthConditions?.length ? ` Health conditions: ${ctx.healthConditions.join(', ')}.` : ''}
 
 HOW TO WRITE — READ THIS CAREFULLY:
 Plain conversational text only. Write exactly like a caring friend sending a message — warm, natural sentences that flow together.

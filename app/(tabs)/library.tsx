@@ -1127,6 +1127,8 @@ export default function LibraryScreen() {
   const user = useAuthStore((s) => s.user);
   const isAdmin = !!(user?.email && ADMIN_EMAILS.has(user.email));
 
+  const profile = useProfileStore((s) => s.profile);
+
   const { books: dynamicBooks } = useBookStore();
   const { articles: dynamicArticles } = useArticleStore();
   const { products: dynamicProducts } = useProductStore();
@@ -1168,6 +1170,12 @@ export default function LibraryScreen() {
     const topics = Array.from(new Set(allArticles.map((a) => a.topic)));
     return ['All', ...topics];
   }, [allArticles]);
+
+  // When no active kid, limit chips to neutral topics only
+  const displayTopics = useMemo(() => {
+    if (!activeKid) return ['All', 'General', 'Mental Health'];
+    return articleTopics;
+  }, [activeKid, articleTopics]);
   const { savedAnswers, unsaveAnswer } = useChatStore();
 
   // Merge static + dynamic books, personalise by age relevance
@@ -1185,6 +1193,18 @@ export default function LibraryScreen() {
       return { personalizedBooks: allBooks, topBookIds: new Set<string>() };
     }
 
+    const stageBoost = (b: Book): number => {
+      if (!profile) return 0;
+      const stage = profile.stage;
+      const title = b.title?.toLowerCase() ?? '';
+      const desc = b.brief?.toLowerCase() ?? '';
+      const text = title + ' ' + desc;
+      if (stage === 'pregnant' && (text.includes('pregnan') || text.includes('birth') || text.includes('labour'))) return -5;
+      if (stage === 'newborn' && (text.includes('newborn') || text.includes('infant') || text.includes('breastfeed'))) return -5;
+      if (stage !== 'pregnant' && ageMonths >= 12 && (text.includes('toddler') || text.includes('1 year'))) return -5;
+      return 0;
+    };
+
     const scored = allBooks.map((b) => {
       const inRange = ageMonths >= b.ageMin && ageMonths <= b.ageMax;
       const dist = inRange
@@ -1194,6 +1214,8 @@ export default function LibraryScreen() {
     });
 
     scored.sort((a, b) => {
+      const stageDiff = stageBoost(a.book) - stageBoost(b.book);
+      if (stageDiff !== 0) return stageDiff;
       if (a.inRange && !b.inRange) return -1;
       if (!a.inRange && b.inRange) return 1;
       return a.dist - b.dist;
@@ -1201,7 +1223,7 @@ export default function LibraryScreen() {
 
     const top = new Set(scored.slice(0, 3).map((s) => s.book.id));
     return { personalizedBooks: scored.map((s) => s.book), topBookIds: top };
-  }, [activeKid, dynamicBooks]);
+  }, [activeKid, dynamicBooks, profile]);
 
   // Filter & sort products with age-based personalisation
   const { filteredProducts, recommendedCount } = useMemo(() => {
@@ -1314,7 +1336,14 @@ export default function LibraryScreen() {
         <View style={styles.glowTopRight} pointerEvents="none" />
         <View style={styles.glowBottomLeft} pointerEvents="none" />
         <View style={styles.headerInner}>
-          <Text style={styles.headerTitle}>Library</Text>
+          <View>
+            <Text style={styles.headerTitle}>Library</Text>
+            {activeKid ? (
+              <Text style={styles.headerSub}>Curated for {activeKid.name}</Text>
+            ) : (
+              <Text style={styles.headerSub}>Books, articles &amp; guides</Text>
+            )}
+          </View>
           {isAdmin && (
             <TouchableOpacity
               onPress={() => router.push('/admin')}
@@ -1356,7 +1385,7 @@ export default function LibraryScreen() {
             style={styles.topicFilterScroll}
             contentContainerStyle={styles.topicFilterRow}
           >
-            {articleTopics.map((topic) => (
+            {displayTopics.map((topic) => (
               <TouchableOpacity
                 key={topic}
                 onPress={() => setArticleTopicFilter(topic)}
@@ -1661,6 +1690,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   headerTitle: { fontFamily: Fonts.serif, fontSize: 26, color: '#ffffff', letterSpacing: -0.3 },
+  headerSub: { fontFamily: Fonts.sansRegular, fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 3 },
   adminBtn: {
     width: 34, height: 34, borderRadius: 17,
     backgroundColor: 'rgba(255,255,255,0.1)',

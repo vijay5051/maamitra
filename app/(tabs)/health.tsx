@@ -27,6 +27,7 @@ import { useVaccineSchedule } from '../../hooks/useVaccineSchedule';
 import { GOVERNMENT_SCHEMES } from '../../data/schemes';
 import { useActiveKid } from '../../hooks/useActiveKid';
 import { useProfileStore } from '../../store/useProfileStore';
+import { useAuthStore } from '../../store/useAuthStore';
 import Card from '../../components/ui/Card';
 import VaccineCardComponent from '../../components/health/VaccineCard';
 import { TabIcon } from '../../components/ui/AppIcon';
@@ -354,10 +355,14 @@ function SchemeCard({
   scheme,
   kid,
   motherName,
+  userState,
+  isLowPerformingState,
 }: {
   scheme: (typeof GOVERNMENT_SCHEMES)[0];
   kid: any;
   motherName: string;
+  userState: string;
+  isLowPerformingState: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [bodyHeight, setBodyHeight] = useState(0);
@@ -420,6 +425,18 @@ function SchemeCard({
           <Text style={scStyles.personalText}>{personalMsg}</Text>
         </View>
       )}
+
+      {/* State relevance notes */}
+      {scheme.id === 'gs01' && isLowPerformingState && userState ? (
+        <Text style={{ fontSize: 11, color: '#16a34a', marginTop: 4, marginBottom: 2, fontFamily: Fonts.sansRegular }}>
+          ✓ {userState} residents: All pregnant women qualify regardless of BPL status
+        </Text>
+      ) : null}
+      {userState ? (
+        <Text style={{ fontSize: 11, color: '#6b7280', marginTop: 2, marginBottom: 6, fontFamily: Fonts.sansRegular }}>
+          Available in {userState} · Confirm at your nearest Anganwadi
+        </Text>
+      ) : null}
 
       {/* Accordion body — animated height */}
       <Animated.View style={[{ overflow: 'hidden' }, bodyAnimStyle]}>
@@ -704,8 +721,6 @@ const HEALTH_ITEMS = [
   { id: 'h10', label: 'Eye screening',        icon: 'eye-outline',      freqDays: 365, freqLabel: 'Annually' },
 ];
 
-const HEALTH_STORAGE_KEY = 'maamitra-health-tracker';
-
 function getStatus(lastDone: string | null, freqDays: number): HealthStatus {
   if (!lastDone) return 'overdue';
   const nextDue = new Date(new Date(lastDone).getTime() + freqDays * 864e5);
@@ -955,25 +970,34 @@ export default function HealthScreen() {
   const vaccines   = useVaccineSchedule();
   const { activeKid } = useActiveKid();
   const motherName = useProfileStore((s) => s.motherName);
+  const profile    = useProfileStore((s) => s.profile);
+  const { user }   = useAuthStore();
   const [lastDone, setLastDone] = useState<Record<string, string>>({});
 
+  const healthKey = `maamitra-health-${user?.uid ?? 'local'}`;
+
+  const userState = profile?.state ?? '';
+  const isLowPerformingState = ['Uttar Pradesh', 'Bihar', 'Madhya Pradesh', 'Rajasthan', 'Jharkhand', 'Uttarakhand', 'Orissa', 'Jammu & Kashmir', 'Chhattisgarh', 'Assam'].some(
+    (s) => userState.toLowerCase().includes(s.toLowerCase())
+  );
+
   useEffect(() => {
-    AsyncStorage.getItem(HEALTH_STORAGE_KEY).then((val) => {
+    AsyncStorage.getItem(healthKey).then((val) => {
       if (val) { try { setLastDone(JSON.parse(val)); } catch {} }
     });
-  }, []);
+  }, [healthKey]);
 
   const markDone = (id: string) => {
     const updated = { ...lastDone, [id]: new Date().toISOString() };
     setLastDone(updated);
-    AsyncStorage.setItem(HEALTH_STORAGE_KEY, JSON.stringify(updated));
+    AsyncStorage.setItem(healthKey, JSON.stringify(updated));
   };
 
   const undoDone = (id: string) => {
     const updated = { ...lastDone };
     delete updated[id];
     setLastDone(updated);
-    AsyncStorage.setItem(HEALTH_STORAGE_KEY, JSON.stringify(updated));
+    AsyncStorage.setItem(healthKey, JSON.stringify(updated));
   };
 
   const upToDateCount = HEALTH_ITEMS.filter(
@@ -981,20 +1005,23 @@ export default function HealthScreen() {
   ).length;
   const progressPct = (upToDateCount / HEALTH_ITEMS.length) * 100;
 
+  const ageLabel = (() => {
+    if (!activeKid || activeKid.isExpecting) return '';
+    const m = Math.max(
+      0,
+      Math.floor(
+        (Date.now() - new Date(activeKid.dob ?? '').getTime()) /
+          (1000 * 60 * 60 * 24 * 30.44),
+      ),
+    );
+    return m < 24 ? `${m}mo` : `${Math.floor(m / 12)}y`;
+  })();
+
   const kidSubtitle = activeKid
     ? activeKid.isExpecting
       ? `${activeKid.name} · Due soon`
-      : `${activeKid.name} · ${(() => {
-          const m = Math.max(
-            0,
-            Math.floor(
-              (Date.now() - new Date(activeKid.dob ?? '').getTime()) /
-                (1000 * 60 * 60 * 24 * 30.44),
-            ),
-          );
-          return m < 24 ? `${m}mo` : `${Math.floor(m / 12)}y`;
-        })()} · ${vaccines.filter((v) => v.status === 'due-soon' || v.status === 'overdue').length} vaccines due`
-    : 'IAP & FOGSI guidelines';
+      : `${activeKid.name} · ${ageLabel}`
+    : 'Personalised for your family';
 
   return (
     <View style={styles.container}>
@@ -1027,7 +1054,7 @@ export default function HealthScreen() {
               </Text>
             </View>
 
-            {!activeKid || activeKid.isExpecting ? (
+            {!activeKid ? (
               <Card style={styles.noKidCard} shadow="sm">
                 <Ionicons name="heart-outline" size={40} color="#E8487A" style={{ marginBottom: 12, opacity: 0.8 }} />
                 <Text style={styles.noKidText}>
@@ -1048,6 +1075,26 @@ export default function HealthScreen() {
                   </LinearGradient>
                 </TouchableOpacity>
               </Card>
+            ) : activeKid.isExpecting ? (
+              <View style={{ marginTop: 8 }}>
+                <Text style={{ fontFamily: Fonts.sansSemiBold, fontSize: 14, color: '#1C1033', marginBottom: 12 }}>
+                  Recommended Vaccines During Pregnancy
+                </Text>
+                {[
+                  { name: 'Tdap (Tetanus, Diphtheria, Pertussis)', timing: 'Between 27–36 weeks', note: 'Protects your baby from whooping cough after birth' },
+                  { name: 'Influenza (Flu) Vaccine', timing: 'Any trimester', note: 'Reduces risk of flu-related complications in pregnancy' },
+                  { name: 'COVID-19 Booster', timing: 'Consult your doctor', note: 'Recommended if due for booster — safe in all trimesters' },
+                ].map((v) => (
+                  <View key={v.name} style={{ backgroundColor: '#fff', borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: '#EDE9F6' }}>
+                    <Text style={{ fontFamily: Fonts.sansSemiBold, fontSize: 13, color: '#1C1033' }}>{v.name}</Text>
+                    <Text style={{ fontFamily: Fonts.sansRegular, fontSize: 12, color: '#E8487A', marginTop: 2 }}>When: {v.timing}</Text>
+                    <Text style={{ fontFamily: Fonts.sansRegular, fontSize: 12, color: '#6b7280', marginTop: 2 }}>{v.note}</Text>
+                  </View>
+                ))}
+                <Text style={{ fontFamily: Fonts.sansRegular, fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
+                  As per FOGSI 2024 guidelines · Always confirm with your OB-GYN
+                </Text>
+              </View>
             ) : (
               vaccines.map((v, i) => (
                 <PremiumVaccineWrapper
@@ -1070,6 +1117,8 @@ export default function HealthScreen() {
                 scheme={s}
                 kid={activeKid}
                 motherName={motherName}
+                userState={userState}
+                isLowPerformingState={isLowPerformingState}
               />
             ))}
           </>

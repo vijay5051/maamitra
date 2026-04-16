@@ -14,6 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useChatStore } from '../../store/useChatStore';
 import { useProfileStore, calculateAgeInMonths } from '../../store/useProfileStore';
+import { useWellnessStore } from '../../store/useWellnessStore';
 import { useActiveKid } from '../../hooks/useActiveKid';
 import { detectIsFood } from '../../services/claude';
 import ChatBubble from '../../components/chat/ChatBubble';
@@ -197,6 +198,8 @@ export default function ChatScreen() {
   const { motherName, profile } = useProfileStore();
   const { activeKid, ageLabel } = useActiveKid();
 
+  const healthConditions = useWellnessStore((s) => s.healthConditions);
+
   const [allergyModalVisible, setAllergyModalVisible] = useState(false);
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const [settingsVisible, setSettingsVisible] = useState(false);
@@ -209,11 +212,15 @@ export default function ChatScreen() {
     stage: profile?.stage ?? 'newborn',
     state: profile?.state ?? 'India',
     diet: profile?.diet ?? 'vegetarian',
+    familyType: profile?.familyType ?? 'nuclear',
     kidName: activeKid?.name ?? 'your baby',
     kidAgeMonths: activeKid && !activeKid.isExpecting ? calculateAgeInMonths(activeKid.dob) : 0,
     kidDOB: activeKid?.dob,
+    kidGender: activeKid?.gender,
+    isExpecting: activeKid?.isExpecting ?? false,
     allergies,
-  }), [motherName, profile, activeKid, allergies]);
+    healthConditions,
+  }), [motherName, profile, activeKid, allergies, healthConditions]);
 
   const handleSend = useCallback(
     async (text: string) => {

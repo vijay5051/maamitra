@@ -59,6 +59,7 @@ interface WellnessState {
   setHealthConditions: (conditions: string[]) => void;
   getTodayMood: () => MoodEntry | null;
   getWeekHistory: () => Array<MoodEntry | null>;
+  resetWellness: () => void;
 }
 
 export const useWellnessStore = create<WellnessState>()(
@@ -98,6 +99,8 @@ export const useWellnessStore = create<WellnessState>()(
         const weekDates = getWeekDates();
         return weekDates.map((date) => moodHistory.find((m) => m.date === date) ?? null);
       },
+
+      resetWellness: () => set({ moodHistory: [], healthConditions: null, todayMood: null }),
     }),
     {
       name: 'maamitra-wellness',
