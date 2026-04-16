@@ -25,6 +25,8 @@ import Svg, {
 } from 'react-native-svg';
 import { useWellnessStore, MOOD_DATA, MOOD_RESPONSES } from '../../store/useWellnessStore';
 import { useProfileStore } from '../../store/useProfileStore';
+import { useAuthStore } from '../../store/useAuthStore';
+import { syncWellnessData } from '../../services/firebase';
 import Card from '../../components/ui/Card';
 import GradientButton from '../../components/ui/GradientButton';
 import { YOGA_SESSIONS, YogaSession } from '../../data/yogaSessions';
@@ -730,6 +732,7 @@ export default function WellnessScreen() {
     setHealthConditions,
   } = useWellnessStore();
   const profile = useProfileStore((s) => s.profile);
+  const { user } = useAuthStore();
 
   const [selectedMoodScore, setSelectedMoodScore] = useState<number | null>(() => {
     const todayMood = getTodayMood();
@@ -750,6 +753,11 @@ export default function WellnessScreen() {
     logMood(score);
     setSelectedMoodScore(score);
     setMoodResponse(MOOD_RESPONSES[score]);
+    // Persist to Firestore immediately after store update
+    if (user?.uid) {
+      const { moodHistory } = useWellnessStore.getState();
+      syncWellnessData(user.uid, moodHistory, healthConditions);
+    }
   };
 
   const filteredSessions = healthConditions !== null
@@ -838,6 +846,10 @@ export default function WellnessScreen() {
         onDone={(conditions) => {
           setHealthConditions(conditions);
           setShowCondModal(false);
+          if (user?.uid) {
+            const { moodHistory } = useWellnessStore.getState();
+            syncWellnessData(user.uid, moodHistory, conditions);
+          }
         }}
       />
 

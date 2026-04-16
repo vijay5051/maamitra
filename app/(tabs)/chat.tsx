@@ -14,7 +14,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useChatStore } from '../../store/useChatStore';
 import { useProfileStore, calculateAgeInMonths } from '../../store/useProfileStore';
+import { useAuthStore } from '../../store/useAuthStore';
 import { useWellnessStore } from '../../store/useWellnessStore';
+import { syncAllergies } from '../../services/firebase';
 import { useActiveKid } from '../../hooks/useActiveKid';
 import { detectIsFood } from '../../services/claude';
 import ChatBubble from '../../components/chat/ChatBubble';
@@ -196,6 +198,7 @@ export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const { messages, isTyping, allergies, sendMessage, saveAnswer, setAllergies } = useChatStore();
   const { motherName, profile } = useProfileStore();
+  const { user } = useAuthStore();
   const { activeKid, ageLabel } = useActiveKid();
 
   const healthConditions = useWellnessStore((s) => s.healthConditions);
@@ -241,13 +244,14 @@ export default function ChatScreen() {
   const handleAllergyDone = useCallback(
     async (selected: string[]) => {
       setAllergies(selected);
+      if (user?.uid) syncAllergies(user.uid, selected);
       setAllergyModalVisible(false);
       if (pendingMessage) {
         await sendMessage(pendingMessage, { ...buildContext(), allergies: selected });
         setPendingMessage(null);
       }
     },
-    [pendingMessage, sendMessage, buildContext, setAllergies]
+    [pendingMessage, sendMessage, buildContext, setAllergies, user]
   );
 
   const handleSave = useCallback(

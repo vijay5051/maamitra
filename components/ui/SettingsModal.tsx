@@ -412,6 +412,7 @@ function EditProfileView({ onBack }: { onBack: () => void }) {
 
 function EditKidView({ kid, onBack, onRemove }: { kid: Kid; onBack: () => void; onRemove: (kidId: string) => void }) {
   const { updateKid } = useProfileStore();
+  const { user } = useAuthStore();
   const [name, setName] = useState(kid.name || '');
   const [dob, setDob] = useState(kid.dob ? kid.dob.split('T')[0] : '');
   const [gender, setGender] = useState<'boy' | 'girl' | 'surprise'>(kid.gender || 'surprise');
@@ -448,6 +449,22 @@ function EditKidView({ kid, onBack, onRemove }: { kid: Kid; onBack: () => void; 
     updates.gender = gender;
     updates.relation = relation || undefined;
     updateKid(kid.id, updates);
+    // Persist to Firestore immediately — get the post-update state
+    if (user?.uid) {
+      const st = useProfileStore.getState();
+      saveFullProfile(user.uid, {
+        motherName: st.motherName,
+        profile: st.profile,
+        kids: st.kids,
+        completedVaccines: st.completedVaccines,
+        onboardingComplete: st.onboardingComplete,
+        photoUrl: st.photoUrl || '',
+        parentGender: st.parentGender || '',
+        bio: st.bio || '',
+        expertise: st.expertise || [],
+        visibilitySettings: st.visibilitySettings,
+      }).catch(console.error);
+    }
     setSaving(false);
     onBack();
   };

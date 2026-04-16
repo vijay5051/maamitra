@@ -16,8 +16,10 @@ import {
   signInWithGoogle as firebaseSignInWithGoogle,
   sendVerificationEmail,
 } from '../services/firebase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useProfileStore } from './useProfileStore';
 import { useWellnessStore } from './useWellnessStore';
+import { useChatStore } from './useChatStore';
 
 // Tracks UIDs currently being hydrated to prevent duplicate concurrent calls
 const _hydratingUids = new Set<string>();
@@ -58,6 +60,27 @@ async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
     if (fullProfile.expertise?.length) setExpertise(fullProfile.expertise);
     if (fullProfile.photoUrl) setPhotoUrl(fullProfile.photoUrl);
     if (fullProfile.visibilitySettings) setVisibilitySettings(fullProfile.visibilitySettings);
+
+    // Restore My Health checklist into AsyncStorage so health.tsx picks it up on mount
+    if (fullProfile.healthTracking && Object.keys(fullProfile.healthTracking).length > 0) {
+      const healthKey = `maamitra-health-${uid}`;
+      AsyncStorage.setItem(healthKey, JSON.stringify(fullProfile.healthTracking)).catch(() => {});
+    }
+
+    // Restore mood history + health conditions into wellness store
+    const { moodHistory: firestoreMoods, healthConditions: firestoreConds } = fullProfile as any;
+    if (firestoreMoods?.length) {
+      useWellnessStore.setState({ moodHistory: firestoreMoods });
+    }
+    if (firestoreConds !== null && firestoreConds !== undefined) {
+      useWellnessStore.setState({ healthConditions: firestoreConds });
+    }
+
+    // Restore allergies into chat store
+    if ((fullProfile as any).allergies !== null && (fullProfile as any).allergies !== undefined) {
+      useChatStore.setState({ allergies: (fullProfile as any).allergies });
+    }
+
     return fullProfile.onboardingComplete;
   } catch (error) {
     console.error('hydrateProfileFromFirestore error:', error);

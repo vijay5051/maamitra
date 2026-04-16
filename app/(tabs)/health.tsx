@@ -28,6 +28,7 @@ import { GOVERNMENT_SCHEMES } from '../../data/schemes';
 import { useActiveKid } from '../../hooks/useActiveKid';
 import { useProfileStore } from '../../store/useProfileStore';
 import { useAuthStore } from '../../store/useAuthStore';
+import { syncHealthTracking } from '../../services/firebase';
 import Card from '../../components/ui/Card';
 import VaccineCardComponent from '../../components/health/VaccineCard';
 import { TabIcon } from '../../components/ui/AppIcon';
@@ -1006,6 +1007,7 @@ export default function HealthScreen() {
     const updated = { ...lastDone, [id]: new Date().toISOString() };
     setLastDone(updated);
     AsyncStorage.setItem(healthKey, JSON.stringify(updated));
+    if (user?.uid) syncHealthTracking(user.uid, updated);
   };
 
   const undoDone = (id: string) => {
@@ -1013,6 +1015,7 @@ export default function HealthScreen() {
     delete updated[id];
     setLastDone(updated);
     AsyncStorage.setItem(healthKey, JSON.stringify(updated));
+    if (user?.uid) syncHealthTracking(user.uid, updated);
   };
 
   const upToDateCount = HEALTH_ITEMS.filter(

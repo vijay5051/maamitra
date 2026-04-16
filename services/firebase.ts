@@ -116,6 +116,11 @@ export interface FullProfileData {
   expertise?: string[];
   photoUrl?: string;
   visibilitySettings?: any;
+  // Extended real-time fields
+  healthTracking?: Record<string, string>;  // My Health checklist: { itemId: isoDate }
+  moodHistory?: any[];                      // Wellness mood log (capped at 30)
+  healthConditions?: string[] | null;       // Wellness health conditions
+  allergies?: string[] | null;              // Chat allergy selections
 }
 
 export async function saveFullProfile(uid: string, data: FullProfileData): Promise<void> {
@@ -156,6 +161,10 @@ export async function loadFullProfile(uid: string): Promise<FullProfileData | nu
       expertise: d.expertise ?? [],
       photoUrl: d.photoUrl ?? '',
       visibilitySettings: d.visibilitySettings ?? null,
+      healthTracking: d.healthTracking ?? {},
+      moodHistory: d.moodHistory ?? [],
+      healthConditions: Array.isArray(d.healthConditions) && d.healthConditions.length > 0 ? d.healthConditions : null,
+      allergies: d.allergies ?? null,
     };
   } catch (error) {
     console.error('loadFullProfile error:', error);
@@ -169,6 +178,40 @@ export async function syncCompletedVaccines(uid: string, completedVaccines: Reco
     await setDoc(doc(db, 'users', uid), { completedVaccines, updatedAt: serverTimestamp() }, { merge: true });
   } catch (error) {
     console.error('syncCompletedVaccines error:', error);
+  }
+}
+
+/** Persist My Health checklist completions (health tab) */
+export async function syncHealthTracking(uid: string, data: Record<string, string>): Promise<void> {
+  if (!db) return;
+  try {
+    await setDoc(doc(db, 'users', uid), { healthTracking: data, updatedAt: serverTimestamp() }, { merge: true });
+  } catch (error) {
+    console.error('syncHealthTracking error:', error);
+  }
+}
+
+/** Persist mood history + health conditions (wellness tab) */
+export async function syncWellnessData(uid: string, moodHistory: any[], healthConditions: string[] | null): Promise<void> {
+  if (!db) return;
+  try {
+    await setDoc(doc(db, 'users', uid), {
+      moodHistory,
+      healthConditions: healthConditions ?? [],
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+  } catch (error) {
+    console.error('syncWellnessData error:', error);
+  }
+}
+
+/** Persist allergy selections (chat tab) */
+export async function syncAllergies(uid: string, allergies: string[]): Promise<void> {
+  if (!db) return;
+  try {
+    await setDoc(doc(db, 'users', uid), { allergies, updatedAt: serverTimestamp() }, { merge: true });
+  } catch (error) {
+    console.error('syncAllergies error:', error);
   }
 }
 
