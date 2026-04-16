@@ -816,7 +816,7 @@ function HealthCheckItem({
           activeOpacity={0.85}
         >
           <LinearGradient
-            colors={status === 'overdue' ? ['#ef4444', '#dc2626'] : [ROSE, PLUM]}
+            colors={[ROSE, PLUM]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={hStyles.markBtnGrad}

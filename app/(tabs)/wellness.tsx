@@ -789,40 +789,23 @@ export default function WellnessScreen() {
         {/* Yoga section */}
         <Text style={styles.sectionTitle}>Yoga &amp; Movement</Text>
 
-        {healthConditions === null ? (
-          <Card style={styles.condCard} shadow="sm">
-            <View style={styles.condIconBox}>
-              <Ionicons name="body-outline" size={28} color="#E8487A" />
-            </View>
-            <Text style={styles.condTitle}>Before we start...</Text>
-            <Text style={styles.condSubtitle}>
-              Tell us about any health conditions so we can suggest the safest sessions for you.
-            </Text>
-            <GradientButton
-              title="Set Health Conditions"
-              onPress={() => setShowCondModal(true)}
-              style={{ marginTop: 12 }}
-            />
-          </Card>
-        ) : (
-          <>
-            <TouchableOpacity
-              style={styles.changeCondBtn}
-              onPress={() => setShowCondModal(true)}
-              activeOpacity={0.75}
-            >
-              <Ionicons name="settings-outline" size={14} color="#8b5cf6" />
-              <Text style={styles.changeCondText}>Update health conditions</Text>
-            </TouchableOpacity>
-            <YogaGallery
-              sessions={filteredSessions}
-              onPress={(session) => {
-                setSelectedYogaSession(session);
-                setShowYogaModal(true);
-              }}
-            />
-          </>
-        )}
+        <YogaGallery
+          sessions={filteredSessions}
+          onPress={(session) => {
+            setSelectedYogaSession(session);
+            setShowYogaModal(true);
+          }}
+        />
+        <TouchableOpacity
+          style={styles.changeCondBtn}
+          onPress={() => setShowCondModal(true)}
+          activeOpacity={0.75}
+        >
+          <Ionicons name="options-outline" size={14} color="#8b5cf6" />
+          <Text style={styles.changeCondText}>
+            {healthConditions === null ? 'Set health conditions to personalise sessions' : 'Update health conditions'}
+          </Text>
+        </TouchableOpacity>
 
         {/* Mental Wellness tips */}
         <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Mental Wellness</Text>
