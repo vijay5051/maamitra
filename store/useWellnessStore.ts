@@ -80,7 +80,7 @@ export const useWellnessStore = create<WellnessState>()(
         set((state) => {
           // Replace today's entry if it already exists, then keep last 7 days
           const filtered = state.moodHistory.filter((m) => m.date !== entry.date);
-          const updated = [...filtered, entry].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 7);
+          const updated = [...filtered, entry].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 30);
           return { moodHistory: updated, todayMood: entry };
         });
       },

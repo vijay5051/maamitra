@@ -104,7 +104,7 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
   addPost: (text: string, topic: string, authorName: string, imageUri?: string, imageAspectRatio?: number) => {
     const initial = authorName.charAt(0).toUpperCase();
     const newPost: Post = {
-      id: Date.now().toString(),
+      id: `post-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       authorName,
       authorInitial: initial,
       badge: 'Community Member',
@@ -151,7 +151,7 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
 
   addComment: (postId: string, authorName: string, text: string) => {
     const comment: Comment = {
-      id: Date.now().toString(),
+      id: `cmt-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       authorName,
       authorInitial: authorName.charAt(0).toUpperCase(),
       text,
@@ -179,7 +179,7 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
   getFilteredPosts: () => {
     const { posts, activeFilter } = get();
     if (activeFilter === 'All') return posts;
-    return posts.filter((p) => p.topic === activeFilter);
+    return posts.filter((p) => p.topic.toLowerCase() === activeFilter.toLowerCase());
   },
 
   getUserPostCount: (authorName: string) => {

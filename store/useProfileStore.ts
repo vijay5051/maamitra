@@ -45,7 +45,8 @@ export interface Profile {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 export function calculateAgeInMonths(dob: string): number {
-  const birth = new Date(dob);
+  // Append T00:00:00 only if no time component — prevents UTC-midnight day-shift in IST
+  const birth = new Date(dob.includes('T') ? dob : dob + 'T00:00:00');
   const today = new Date();
   const years = today.getFullYear() - birth.getFullYear();
   const months = today.getMonth() - birth.getMonth();
@@ -56,7 +57,7 @@ export function calculateAgeInMonths(dob: string): number {
 }
 
 export function calculateAgeInWeeks(dob: string): number {
-  const birth = new Date(dob);
+  const birth = new Date(dob.includes('T') ? dob : dob + 'T00:00:00');
   const today = new Date();
   const diffMs = today.getTime() - birth.getTime();
   return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24 * 7)));
@@ -159,10 +160,12 @@ export const useProfileStore = create<ProfileState>()(
       removeKid: (id) => {
         set((state) => {
           const remaining = state.kids.filter((k) => k.id !== id);
-          const newActiveId = state.activeKidId === id
+          // If the active kid was deleted, use first remaining
+          // Also validate that a non-deleted activeKidId still exists (guards against pre-existing stale IDs)
+          const currentActiveValid = remaining.some((k) => k.id === state.activeKidId);
+          const newActiveId = !currentActiveValid
             ? (remaining[0]?.id ?? null)
             : state.activeKidId;
-          // Also remove the kid's completedVaccines entry
           const completedVaccines = { ...state.completedVaccines };
           delete completedVaccines[id];
           return { kids: remaining, activeKidId: newActiveId, completedVaccines };

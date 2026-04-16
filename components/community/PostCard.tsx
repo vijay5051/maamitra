@@ -93,7 +93,7 @@ export default function PostCard({
             >
               <Text style={styles.reactionEmoji}>{emoji}</Text>
               <Text style={[styles.reactionCount, userReacted && styles.reactionCountActive]}>
-                {count as number}
+                {Math.max(0, count as number)}
               </Text>
             </TouchableOpacity>
           );

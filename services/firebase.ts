@@ -133,15 +133,14 @@ export async function loadFullProfile(uid: string): Promise<FullProfileData | nu
   if (!db) return null;
   try {
     const snap = await getDoc(doc(db, 'users', uid));
-    if (!snap.exists()) return null;
+    if (!snap.exists()) return null; // truly no account
     const d = snap.data();
-    if (!d.onboardingComplete) return null;
     return {
       motherName: d.motherName ?? '',
       profile: d.profile ?? null,
       kids: d.kids ?? [],
       completedVaccines: d.completedVaccines ?? {},
-      onboardingComplete: true,
+      onboardingComplete: d.onboardingComplete === true, // return actual value, not null
     };
   } catch (error) {
     console.error('loadFullProfile error:', error);

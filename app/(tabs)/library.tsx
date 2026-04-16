@@ -17,7 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useFilteredArticles } from '../../hooks/useFilteredContent';
 import { useActiveKid } from '../../hooks/useActiveKid';
-import { useProfileStore } from '../../store/useProfileStore';
+import { useProfileStore, calculateAgeInMonths } from '../../store/useProfileStore';
 import { useChatStore } from '../../store/useChatStore';
 import { useBookStore, DynamicBook } from '../../store/useBookStore';
 import { useArticleStore, DynamicArticle } from '../../store/useArticleStore';
@@ -888,7 +888,7 @@ const bookStyles = StyleSheet.create({
 // ─── Product Card ──────────────────────────────────────────────────────────────
 
 function ProductCard({ product }: { product: Product }) {
-  const discountPct = Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100);
+  const discountPct = Math.max(0, Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100));
   const [imgError, setImgError] = useState(false);
   const showRealImg = !!(product.imageUrl && !imgError);
   return (
@@ -1137,7 +1137,11 @@ export default function LibraryScreen() {
 
   // Merge dynamic articles (age-filtered) with static ones
   const allArticles = useMemo((): Article[] => {
-    const ageMonths = activeKid?.isExpecting ? -9 : activeKid?.ageInMonths ?? null;
+    const ageMonths = activeKid?.isExpecting
+      ? -9
+      : activeKid
+        ? calculateAgeInMonths(activeKid.dob)
+        : null;
     const filtered = dynamicArticles
       .filter((d) => ageMonths === null || (ageMonths >= d.ageMin && ageMonths <= d.ageMax))
       .map(dynamicToArticle);
@@ -1173,7 +1177,9 @@ export default function LibraryScreen() {
 
     const ageMonths = activeKid?.isExpecting
       ? -9
-      : activeKid?.ageInMonths ?? null;
+      : activeKid
+        ? calculateAgeInMonths(activeKid.dob)
+        : null;
 
     if (ageMonths === null) {
       return { personalizedBooks: allBooks, topBookIds: new Set<string>() };
@@ -1181,9 +1187,9 @@ export default function LibraryScreen() {
 
     const scored = allBooks.map((b) => {
       const inRange = ageMonths >= b.ageMin && ageMonths <= b.ageMax;
-      const distMin = Math.max(0, b.ageMin - ageMonths);
-      const distMax = Math.max(0, ageMonths - b.ageMax);
-      const dist = inRange ? 0 : Math.min(distMin, distMax);
+      const dist = inRange
+        ? 0
+        : Math.min(Math.abs(ageMonths - b.ageMin), Math.abs(ageMonths - b.ageMax));
       return { book: b, inRange, dist };
     });
 
@@ -1216,7 +1222,11 @@ export default function LibraryScreen() {
     }
 
     // Featured: sort age-relevant products first
-    const ageMonths = activeKid?.isExpecting ? -9 : activeKid?.ageInMonths ?? null;
+    const ageMonths = activeKid?.isExpecting
+      ? -9
+      : activeKid
+        ? calculateAgeInMonths(activeKid.dob)
+        : null;
     if (ageMonths === null) {
       return { filteredProducts: list, recommendedCount: 0 };
     }

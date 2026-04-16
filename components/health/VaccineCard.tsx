@@ -55,6 +55,7 @@ export default function VaccineCard({ vaccine, isLast }: VaccineCardProps) {
 
   const handleConfirmDate = () => {
     if (!pendingDate) return;
+    if (isDone) return; // already marked done — do not silently overwrite the original doneDate
     const chosen = new Date(pendingDate + 'T00:00:00');
     if (chosen > new Date()) return; // reject future dates
     markVaccineDone(vaccine.id, kidId, chosen.toISOString());

@@ -244,10 +244,19 @@ export default function SignInScreen() {
     setApiError('');
     setLoading(true);
     try {
-      await signIn(email.trim(), password);
+      await signIn(email.trim(), password.trim());
       router.replace('/(tabs)/chat');
     } catch (e: any) {
-      setApiError('Invalid email or password. Please try again.');
+      const code = e?.code ?? '';
+      if (code === 'auth/user-not-found' || code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
+        setApiError('Incorrect email or password. Please try again.');
+      } else if (code === 'auth/too-many-requests') {
+        setApiError('Too many attempts. Please wait a moment and try again.');
+      } else if (code === 'auth/network-request-failed') {
+        setApiError('No internet connection. Please try again.');
+      } else {
+        setApiError(e?.message ?? 'Sign in failed. Please try again.');
+      }
       triggerShake();
     } finally {
       setLoading(false);

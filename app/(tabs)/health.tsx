@@ -631,10 +631,11 @@ function ringColor(status: HealthStatus): string {
 
 function progressRatio(lastDone: string | null, freqDays: number): number {
   if (!lastDone) return 0;
-  const elapsed = (Date.now() - new Date(lastDone).getTime()) / 864e5;
-  // 0 = just done (full ring), 1 = fully elapsed (empty ring)
+  const parsed = new Date(lastDone);
+  if (isNaN(parsed.getTime())) return 0; // corrupted date string — treat as never done
+  const elapsed = (Date.now() - parsed.getTime()) / 864e5;
   const ratio = Math.max(0, Math.min(1, elapsed / freqDays));
-  return 1 - ratio; // invert: 1 = full green, 0 = overdue empty
+  return 1 - ratio;
 }
 
 function CircularRing({

@@ -50,7 +50,7 @@ export const useChatStore = create<ChatState>()(
 
       sendMessage: async (text: string, context: ChatContext) => {
         const userMessage: ChatMessage = {
-          id: Date.now().toString(),
+          id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
           role: 'user',
           content: text,
           timestamp: new Date(),
@@ -75,7 +75,7 @@ export const useChatStore = create<ChatState>()(
         const isEmergency = detectIsEmergency(text) || detectIsEmergency(responseText);
 
         const assistantMessage: ChatMessage = {
-          id: (Date.now() + 1).toString(),
+          id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
           role: 'assistant',
           content: responseText,
           timestamp: new Date(),

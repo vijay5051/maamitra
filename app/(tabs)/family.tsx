@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   ScrollView,
@@ -199,6 +199,10 @@ function AddChildModal({
 
   const todayStr = new Date().toISOString().split('T')[0];
 
+  useEffect(() => {
+    if (!visible) reset();
+  }, [visible]);
+
   const reset = () => {
     setName(''); setDob(''); setDueDate(''); setIsExpecting(false);
     setGender('surprise'); setError('');
@@ -393,7 +397,7 @@ export default function FamilyScreen() {
     return inWindow;
   })();
 
-  const milestonesReached = nearestMilestones.filter(m => activeKid && activeKid.ageInMonths >= m.ageMonths).length;
+  const milestonesReached = nearestMilestones.filter(m => activeKid && currentAgeMonths >= m.ageMonths).length;
   const milestoneProgress = nearestMilestones.length > 0 ? milestonesReached / nearestMilestones.length : 0;
 
   const handleAddKid = ({
@@ -609,7 +613,7 @@ export default function FamilyScreen() {
                 <MilestoneRow
                   key={m.id}
                   milestone={m}
-                  reached={activeKid.ageInMonths >= m.ageMonths}
+                  reached={currentAgeMonths >= m.ageMonths}
                 />
               ))}
             </Card>

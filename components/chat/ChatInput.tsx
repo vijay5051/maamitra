@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   StyleSheet,
   TextInput,
@@ -16,12 +16,16 @@ interface ChatInputProps {
 
 export default function ChatInput({ onSend, disabled = false }: ChatInputProps) {
   const [text, setText] = useState('');
+  const isSendingRef = useRef(false);
 
   const handleSend = () => {
     const trimmed = text.trim();
-    if (!trimmed || disabled) return;
+    if (isSendingRef.current || disabled || !trimmed) return;
+    isSendingRef.current = true;
     onSend(trimmed);
     setText('');
+    // Reset after a short window — parent will set disabled=true before this fires
+    setTimeout(() => { isSendingRef.current = false; }, 300);
   };
 
   const canSend = text.trim().length > 0 && !disabled;

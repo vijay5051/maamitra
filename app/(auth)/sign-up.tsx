@@ -290,7 +290,6 @@ export default function SignUpScreen() {
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<{ name?: string; email?: string; password?: string }>({});
@@ -325,10 +324,15 @@ export default function SignUpScreen() {
     setApiError('');
     setLoading(true);
     try {
-      await signUp(email.trim(), password, name.trim());
+      await signUp(email.trim(), password.trim(), name.trim());
       router.replace('/(auth)/verify-email');
     } catch (e: any) {
-      setApiError(e?.message ?? 'Something went wrong. Please try again.');
+      const code = e?.code ?? '';
+      if (code === 'auth/email-already-in-use') setApiError('This email is already registered. Try signing in instead.');
+      else if (code === 'auth/invalid-email') setApiError('Please enter a valid email address.');
+      else if (code === 'auth/weak-password') setApiError('Password must be at least 6 characters.');
+      else if (code === 'auth/network-request-failed') setApiError('No internet connection. Please try again.');
+      else setApiError(e?.message ?? 'Something went wrong. Please try again.');
       triggerShake();
     } finally {
       setLoading(false);
@@ -428,18 +432,6 @@ export default function SignUpScreen() {
               hasError={!!errors.name}
             />
             {errors.name ? <Text style={styles.errorText}>{errors.name}</Text> : null}
-
-            {/* Phone */}
-            <AnimatedField
-              label="Mobile Number"
-              value={phone}
-              onChangeText={setPhone}
-              iconName="phone-portrait-outline"
-              placeholder="+91 98765 43210"
-              keyboardType="phone-pad"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
 
             {/* Email */}
             <AnimatedField

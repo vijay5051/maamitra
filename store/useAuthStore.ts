@@ -18,27 +18,31 @@ import {
 } from '../services/firebase';
 import { useProfileStore } from './useProfileStore';
 
+// Tracks UIDs currently being hydrated to prevent duplicate concurrent calls
+const _hydratingUids = new Set<string>();
+
 // Helper — populate profile store from Firestore after any successful login.
 // IMPORTANT: always call resetProfile() before this so no previous user's data leaks.
 // Returns true if Firestore had data, false if not.
 async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
+  if (_hydratingUids.has(uid)) {
+    // Another call is already hydrating this UID — wait for it then return current state
+    await new Promise<void>((resolve) => setTimeout(resolve, 1500));
+    return useProfileStore.getState().onboardingComplete;
+  }
+  _hydratingUids.add(uid);
   try {
     const fullProfile = await loadFullProfile(uid);
     if (!fullProfile) {
       return false;
     }
-    // Reset before populating — makes this function idempotent even if called twice
-    // (prevents duplicate kids when both signIn and onAuthStateChanged call this)
     useProfileStore.getState().resetProfile();
     const { setMotherName, setProfile, addKid, setOnboardingComplete, markVaccineDone } = useProfileStore.getState();
     setMotherName(fullProfile.motherName);
     if (fullProfile.profile) setProfile(fullProfile.profile as any);
-    // Restore kids with their saved IDs so completedVaccines mapping stays intact
     fullProfile.kids.forEach((kid: any) =>
       addKid({ id: kid.id, name: kid.name, dob: kid.dob, stage: kid.stage, gender: kid.gender, isExpecting: kid.isExpecting })
     );
-    // Per-kid vaccine structure: { kidId: { vaccineId: { done, doneDate } } }
-    // Old flat format (vaccineId → { done, doneDate }) is silently ignored
     Object.entries(fullProfile.completedVaccines).forEach(([kidId, vaccines]: [string, any]) => {
       if (typeof vaccines === 'object' && vaccines !== null && !('done' in vaccines)) {
         Object.entries(vaccines).forEach(([vaccineId, val]: [string, any]) => {
@@ -46,11 +50,13 @@ async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
         });
       }
     });
-    setOnboardingComplete(true);
-    return true;
+    setOnboardingComplete(fullProfile.onboardingComplete);
+    return fullProfile.onboardingComplete;
   } catch (error) {
     console.error('hydrateProfileFromFirestore error:', error);
     return false;
+  } finally {
+    _hydratingUids.delete(uid);
   }
 }
 
@@ -174,11 +180,13 @@ export const useAuthStore = create<AuthState>((set) => ({
   deleteAccount: async () => {
     const { user } = useAuthStore.getState();
     if (!isFirebaseConfigured() || !auth) {
-      // Mock mode — just sign out
+      useProfileStore.getState().resetProfile();
       set({ user: null, isAuthenticated: false });
       return;
     }
     if (!user) throw new Error('Not logged in');
+    // Wipe local data first so it never leaks to a subsequent user
+    useProfileStore.getState().resetProfile();
     await deleteUserAccount(user.uid);
     set({ user: null, isAuthenticated: false });
   },
