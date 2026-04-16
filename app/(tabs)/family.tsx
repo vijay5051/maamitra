@@ -374,13 +374,22 @@ export default function FamilyScreen() {
     ? Math.max(0, Math.floor((Date.now() - new Date(activeKid.dob).getTime()) / (1000 * 60 * 60 * 24 * 30.44)))
     : 0;
 
-  const nearestMilestones = activeKid && !activeKid.isExpecting
-    ? MILESTONES.filter(
-        (m) =>
-          m.ageMonths >= currentAgeMonths - 2 &&
-          m.ageMonths <= currentAgeMonths + 8
-      ).slice(0, 6)
-    : [];
+  const nearestMilestones = (() => {
+    if (!activeKid || activeKid.isExpecting) return [];
+    // Show milestones near current age (window: -3m to +12m)
+    const inWindow = MILESTONES.filter(
+      (m) => m.ageMonths >= currentAgeMonths - 3 && m.ageMonths <= currentAgeMonths + 12
+    ).slice(0, 6);
+    // Fallback: if no milestones in window (e.g. older child beyond data range),
+    // show the 3 most recent milestones from the dataset
+    if (inWindow.length === 0) {
+      return [...MILESTONES]
+        .filter((m) => m.ageMonths <= currentAgeMonths)
+        .sort((a, b) => b.ageMonths - a.ageMonths)
+        .slice(0, 3);
+    }
+    return inWindow;
+  })();
 
   const milestonesReached = nearestMilestones.filter(m => activeKid && activeKid.ageInMonths >= m.ageMonths).length;
   const milestoneProgress = nearestMilestones.length > 0 ? milestonesReached / nearestMilestones.length : 0;

@@ -129,4 +129,64 @@ export const MILESTONES: Milestone[] = [
       'Your child runs with confidence, jumps with both feet, kicks a ball, and climbs with ease. Gross motor skills are well-developed, allowing them to participate in active play, dancing, and outdoor activities.',
     category: 'Motor',
   },
+  {
+    id: 'm13',
+    ageMonths: 42,
+    ageLabel: '42 Months',
+    emoji: '✂️',
+    title: 'Uses Scissors',
+    description:
+      'Your child can hold and use child-safe scissors to cut along a line. Fine motor control is improving rapidly — they can draw simple shapes, copy letters, and dress themselves with minimal help.',
+    category: 'Fine Motor',
+  },
+  {
+    id: 'm14',
+    ageMonths: 48,
+    ageLabel: '4 Years',
+    emoji: '🖌️',
+    title: 'Draws a Person',
+    description:
+      'Your child draws a recognisable figure with a head, body, arms, and legs. They can tell detailed stories, understand the difference between real and make-believe, and follow 3-step instructions with ease.',
+    category: 'Cognitive',
+  },
+  {
+    id: 'm15',
+    ageMonths: 54,
+    ageLabel: '4.5 Years',
+    emoji: '🔤',
+    title: 'Recognises Letters',
+    description:
+      'Your child recognises most letters of the alphabet, writes their own name, and may begin sounding out simple words. Vocabulary exceeds 1,500 words and they love asking "why" and "how" questions.',
+    category: 'Language',
+  },
+  {
+    id: 'm16',
+    ageMonths: 60,
+    ageLabel: '5 Years',
+    emoji: '⭐',
+    title: 'School Readiness',
+    description:
+      'Your child can count to 10, recognise basic shapes and colours, follow multi-step instructions, and take turns in games. They show strong social skills, dress independently, and are ready to thrive in a structured school environment.',
+    category: 'Cognitive',
+  },
+  {
+    id: 'm17',
+    ageMonths: 66,
+    ageLabel: '5.5 Years',
+    emoji: '📖',
+    title: 'Begins Reading',
+    description:
+      'Your child starts reading simple words and short sentences. They understand story structure, can retell a story in sequence, and show a love for books. Writing skills improve — they can copy sentences and begin writing independently.',
+    category: 'Language',
+  },
+  {
+    id: 'm18',
+    ageMonths: 72,
+    ageLabel: '6 Years',
+    emoji: '🧠',
+    title: 'Logical Thinking',
+    description:
+      'Your child understands cause and effect, can solve simple problems independently, and begins to grasp concepts like time (yesterday, today, tomorrow). Friendships deepen and they show empathy and conflict-resolution skills.',
+    category: 'Cognitive',
+  },
 ];
