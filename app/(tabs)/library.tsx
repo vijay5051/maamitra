@@ -281,19 +281,15 @@ function SubTabSelector({ active, onChange }: { active: SubTab; onChange: (t: Su
 
   return (
     <View style={subTabStyles.wrapper}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={subTabStyles.row}
-      >
-        {tabs.map((t, i) => {
+      <View style={subTabStyles.row}>
+        {tabs.map((t) => {
           const isActive = t.key === active;
           return (
             <TouchableOpacity
               key={t.key}
               onPress={() => onChange(t.key)}
               activeOpacity={0.8}
-              style={[subTabStyles.btn, i < tabs.length - 1 && { marginRight: 8 }]}
+              style={[subTabStyles.btn, isActive ? subTabStyles.btnActive : subTabStyles.btnInactive]}
             >
               {isActive && (
                 <LinearGradient
@@ -304,11 +300,13 @@ function SubTabSelector({ active, onChange }: { active: SubTab; onChange: (t: Su
                 />
               )}
               <TabIcon name={t.icon} active={isActive} />
-              <Text style={isActive ? subTabStyles.activeBtnText : subTabStyles.inactiveBtnText}>{t.label}</Text>
+              {isActive && (
+                <Text style={subTabStyles.activeBtnText}>{t.label}</Text>
+              )}
             </TouchableOpacity>
           );
         })}
-      </ScrollView>
+      </View>
     </View>
   );
 }
@@ -319,26 +317,31 @@ const subTabStyles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#F0EBF8',
     paddingVertical: 10,
+    paddingHorizontal: 16,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
     gap: 8,
   },
   btn: {
     height: 36,
     borderRadius: 20,
-    paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 5,
     overflow: 'hidden',
+  },
+  btnActive: {
+    paddingHorizontal: 14,
+    flex: 1,          // active tab stretches to fill remaining space
+  },
+  btnInactive: {
+    width: 36,        // icon-only: fixed square pill
     backgroundColor: '#EDE9F6',
   },
   activeBtnText: { fontFamily: Fonts.sansBold, color: '#ffffff', fontSize: 12.5 },
-  inactiveBtnText: { fontFamily: Fonts.sansMedium, color: '#7C3AED', fontSize: 12.5 },
 });
 
 // ─── Article topic → Ionicons icon ───────────────────────────────────────────
