@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Alert,
   Image,
   StyleSheet,
   Text,
@@ -22,6 +23,8 @@ interface PostCardProps {
   onToggleComments: (postId: string) => void;
   onAddComment: (postId: string, text: string) => void;
   onViewProfile: (uid: string, name: string) => void;    // open UserProfileModal
+  onDeletePost?: (postId: string) => void;               // only provided for own posts
+  onDeleteComment?: (postId: string, commentId: string) => void; // own comment or own post's comment
 }
 
 const REACTION_OPTIONS = ['❤️', '🤱', '😊', '💪', '🙏', '💜'];
@@ -47,10 +50,42 @@ export default function PostCard({
   onToggleComments,
   onAddComment,
   onViewProfile,
+  onDeletePost,
+  onDeleteComment,
 }: PostCardProps) {
   const [commentText, setCommentText] = useState('');
   const [showReactionPicker, setShowReactionPicker] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const confirmDeletePost = () => {
+    Alert.alert(
+      'Delete post',
+      'This will permanently remove your post and all its comments.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => onDeletePost?.(post.id),
+        },
+      ],
+    );
+  };
+
+  const confirmDeleteComment = (commentId: string) => {
+    Alert.alert(
+      'Delete comment',
+      'Remove this comment permanently?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => onDeleteComment?.(post.id, commentId),
+        },
+      ],
+    );
+  };
 
   const handleSendComment = () => {
     const trimmed = commentText.trim();
@@ -118,9 +153,21 @@ export default function PostCard({
             <Text style={styles.timeAgo}>{timeAgo(post.createdAt)}</Text>
           </View>
         </View>
-        {post.topic ? (
-          <TagPill label={post.topic} color="#8b5cf6" style={styles.topicPill} />
-        ) : null}
+        <View style={styles.postHeaderRight}>
+          {post.topic ? (
+            <TagPill label={post.topic} color="#8b5cf6" />
+          ) : null}
+          {/* 3-dot menu — own posts only */}
+          {isOwnPost && onDeletePost && (
+            <TouchableOpacity
+              onPress={confirmDeletePost}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.moreBtn}
+            >
+              <Ionicons name="ellipsis-horizontal" size={18} color="#9ca3af" />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {/* Post text */}
@@ -195,25 +242,13 @@ export default function PostCard({
       {/* Expanded comments */}
       {post.showComments && (
         <View style={styles.commentsSection}>
-          {displayedComments?.map((comment) => (
-            <View key={comment.id} style={styles.commentRow}>
-              <TouchableOpacity
-                onPress={() => onViewProfile(
-                  (comment as any).authorUid ?? '',
-                  comment.authorName
-                )}
-                activeOpacity={0.75}
-              >
-                {(comment as any).authorPhotoUrl ? (
-                  <Image
-                    source={{ uri: (comment as any).authorPhotoUrl }}
-                    style={styles.commentPhoto}
-                  />
-                ) : (
-                  <GradientAvatar name={comment.authorName} size={28} />
-                )}
-              </TouchableOpacity>
-              <View style={styles.commentBubble}>
+          {displayedComments?.map((comment) => {
+            const canDeleteComment = onDeleteComment && comment.id && (
+              (comment as any).authorUid === currentUserUid || // own comment
+              isOwnPost                                         // post owner can remove any comment
+            );
+            return (
+              <View key={comment.id} style={styles.commentRow}>
                 <TouchableOpacity
                   onPress={() => onViewProfile(
                     (comment as any).authorUid ?? '',
@@ -221,13 +256,40 @@ export default function PostCard({
                   )}
                   activeOpacity={0.75}
                 >
-                  <Text style={styles.commentAuthor}>{comment.authorName}</Text>
+                  {(comment as any).authorPhotoUrl ? (
+                    <Image
+                      source={{ uri: (comment as any).authorPhotoUrl }}
+                      style={styles.commentPhoto}
+                    />
+                  ) : (
+                    <GradientAvatar name={comment.authorName} size={28} />
+                  )}
                 </TouchableOpacity>
-                <Text style={styles.commentText}>{comment.text}</Text>
-                <Text style={styles.commentTime}>{timeAgo(comment.createdAt)}</Text>
+                <View style={styles.commentBubble}>
+                  <TouchableOpacity
+                    onPress={() => onViewProfile(
+                      (comment as any).authorUid ?? '',
+                      comment.authorName
+                    )}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={styles.commentAuthor}>{comment.authorName}</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.commentText}>{comment.text}</Text>
+                  <Text style={styles.commentTime}>{timeAgo(comment.createdAt)}</Text>
+                </View>
+                {canDeleteComment && (
+                  <TouchableOpacity
+                    onPress={() => confirmDeleteComment(comment.id)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    style={styles.commentDeleteBtn}
+                  >
+                    <Ionicons name="trash-outline" size={14} color="#d1d5db" />
+                  </TouchableOpacity>
+                )}
               </View>
-            </View>
-          ))}
+            );
+          })}
 
           {/* Comment input */}
           <View style={styles.commentInputRow}>
@@ -325,6 +387,20 @@ const styles = StyleSheet.create({
   },
   topicPill: {
     alignSelf: 'flex-start',
+  },
+  postHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginLeft: 4,
+  },
+  moreBtn: {
+    padding: 2,
+  },
+  commentDeleteBtn: {
+    padding: 4,
+    marginLeft: 4,
+    alignSelf: 'center',
   },
   postText: {
     fontSize: 15,

@@ -3,6 +3,8 @@ import type { PostComment } from '../services/social';
 import {
   fetchRecentPosts,
   createPost,
+  deletePost,
+  deleteComment,
   togglePostReaction,
   addPostComment,
   fetchPostComments,
@@ -123,6 +125,8 @@ interface CommunityState {
   toggleReactionFirestore: (postId: string, myUid: string, myName: string, emoji: string) => Promise<void>;
   addCommentFirestore: (postId: string, authorUid: string, authorName: string, text: string, authorPhotoUrl?: string) => Promise<void>;
   loadCommentsForPost: (postId: string) => Promise<void>;
+  deletePostFirestore: (postId: string, authorUid: string) => Promise<void>;
+  deleteCommentFirestore: (postId: string, commentId: string) => Promise<void>;
 }
 
 export const useCommunityStore = create<CommunityState>((set, get) => ({
@@ -409,6 +413,43 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
       }));
     } catch (error) {
       console.error('loadCommentsForPost error:', error);
+    }
+  },
+
+  deletePostFirestore: async (postId: string, authorUid: string) => {
+    // Guard: only allow if the post belongs to this user
+    const post = get().posts.find((p) => p.id === postId);
+    if (!post || post.authorUid !== authorUid) return;
+    try {
+      await deletePost(postId);
+      // Decrement publicProfile post count
+      set((state) => ({ posts: state.posts.filter((p) => p.id !== postId) }));
+    } catch (error) {
+      console.error('deletePostFirestore error:', error);
+      throw error;
+    }
+  },
+
+  deleteCommentFirestore: async (postId: string, commentId: string) => {
+    if (!commentId) return;
+    try {
+      await deleteComment(postId, commentId);
+      set((state) => ({
+        posts: state.posts.map((p) => {
+          if (p.id !== postId) return p;
+          const newCommentList = (p.commentList ?? []).filter((c) => c.id !== commentId);
+          const newComments = p.comments.filter((c) => c.id !== commentId);
+          return {
+            ...p,
+            commentList: newCommentList,
+            comments: newComments,
+            commentCount: Math.max(0, (p.commentCount ?? p.comments.length) - 1),
+          };
+        }),
+      }));
+    } catch (error) {
+      console.error('deleteCommentFirestore error:', error);
+      throw error;
     }
   },
 }));

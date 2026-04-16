@@ -140,6 +140,38 @@ async function incrementPublicProfilePostCount(uid: string, delta: number): Prom
 
 // ─── Posts ────────────────────────────────────────────────────────────────────
 
+export async function deletePost(postId: string): Promise<void> {
+  if (!db) return;
+  try {
+    // Delete all comments in the subcollection first
+    const commentsSnap = await getDocs(collection(db, 'communityPosts', postId, 'comments'));
+    const batch = writeBatch(db);
+    commentsSnap.docs.forEach((d) => batch.delete(d.ref));
+    batch.delete(doc(db, 'communityPosts', postId));
+    await batch.commit();
+  } catch (error) {
+    console.error('deletePost error:', error);
+    throw error;
+  }
+}
+
+export async function deleteComment(postId: string, commentId: string): Promise<void> {
+  if (!db) return;
+  try {
+    await deleteDoc(doc(db, 'communityPosts', postId, 'comments', commentId));
+    // Decrement commentCount on the parent post (floor at 0)
+    const postRef = doc(db, 'communityPosts', postId);
+    const postSnap = await getDoc(postRef);
+    if (postSnap.exists()) {
+      const current = postSnap.data().commentCount ?? 0;
+      await updateDoc(postRef, { commentCount: Math.max(0, current - 1) });
+    }
+  } catch (error) {
+    console.error('deleteComment error:', error);
+    throw error;
+  }
+}
+
 export async function createPost(data: {
   authorUid: string;
   authorName: string;
@@ -245,16 +277,6 @@ export async function fetchUserPosts(uid: string): Promise<CommunityPost[]> {
   } catch (error) {
     console.error('fetchUserPosts error:', error);
     return [];
-  }
-}
-
-export async function deletePost(postId: string, authorUid: string): Promise<void> {
-  if (!db) return;
-  try {
-    await deleteDoc(doc(db, 'communityPosts', postId));
-    incrementPublicProfilePostCount(authorUid, -1);
-  } catch (error) {
-    console.error('deletePost error:', error);
   }
 }
 
@@ -389,6 +411,7 @@ export async function fetchPostComments(postId: string): Promise<PostComment[]> 
         authorUid: data.authorUid ?? '',
         authorName: data.authorName ?? '',
         authorInitial: data.authorInitial ?? '',
+        authorPhotoUrl: data.authorPhotoUrl ?? undefined,
         text: data.text ?? '',
         createdAt: firestoreDate(data.createdAt),
       } as PostComment;

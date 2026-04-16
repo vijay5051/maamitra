@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   FlatList,
   Image,
   Modal,
@@ -846,6 +847,8 @@ export default function CommunityScreen() {
     toggleReactionFirestore,
     addCommentFirestore,
     loadCommentsForPost,
+    deletePostFirestore,
+    deleteCommentFirestore,
   } = useCommunityStore();
   const { motherName, photoUrl: myPhotoUrl } = useProfileStore();
   const profile = useProfileStore((s) => s.profile);
@@ -1041,6 +1044,16 @@ export default function CommunityScreen() {
             onViewProfile={(uid, _name) => {
               if (uid) setViewingUid(uid);
             }}
+            onDeletePost={myUid && item.authorUid === myUid ? (postId) => {
+              deletePostFirestore(postId, myUid).catch(() => {
+                Alert.alert('Error', 'Could not delete the post. Please try again.');
+              });
+            } : undefined}
+            onDeleteComment={myUid ? (postId, commentId) => {
+              deleteCommentFirestore(postId, commentId).catch(() => {
+                Alert.alert('Error', 'Could not delete the comment. Please try again.');
+              });
+            } : undefined}
           />
         )}
         ListEmptyComponent={
