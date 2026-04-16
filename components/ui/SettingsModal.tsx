@@ -140,8 +140,12 @@ function EditProfileView({ onBack }: { onBack: () => void }) {
 
   const [name, setName] = useState(motherName || '');
   const [state, setState] = useState(profile?.state || '');
-  const [diet, setDiet] = useState(profile?.diet || 'vegetarian');
-  const [familyType, setFamilyType] = useState(profile?.familyType || 'nuclear');
+  const [diet, setDiet] = useState<'vegetarian' | 'eggetarian' | 'non-vegetarian' | 'vegan'>(
+    (profile?.diet as 'vegetarian' | 'eggetarian' | 'non-vegetarian' | 'vegan') || 'vegetarian'
+  );
+  const [familyType, setFamilyType] = useState<'nuclear' | 'joint' | 'in-laws' | 'single-parent'>(
+    (profile?.familyType as 'nuclear' | 'joint' | 'in-laws' | 'single-parent') || 'nuclear'
+  );
   const [photo, setPhoto] = useState(photoUrl || '');
   const [gender, setGender] = useState<ParentGender>(parentGender || '');
   const [bioText, setBioText] = useState(bio || '');
@@ -255,10 +259,10 @@ function EditProfileView({ onBack }: { onBack: () => void }) {
       <TextInput style={s.textInput} value={state} onChangeText={setState} placeholder="e.g. Maharashtra" placeholderTextColor="#9ca3af" />
 
       <Text style={s.editSectionTitle}>Diet</Text>
-      <ChipSelect options={DIET_OPTIONS} selected={diet} onSelect={(v) => setDiet(v)} />
+      <ChipSelect options={DIET_OPTIONS} selected={diet} onSelect={(v) => setDiet(v as 'vegetarian' | 'eggetarian' | 'non-vegetarian' | 'vegan')} />
 
       <Text style={s.editSectionTitle}>Family Setup</Text>
-      <ChipSelect options={FAMILY_OPTIONS} selected={familyType} onSelect={(v) => setFamilyType(v)} />
+      <ChipSelect options={FAMILY_OPTIONS} selected={familyType} onSelect={(v) => setFamilyType(v as 'nuclear' | 'joint' | 'in-laws' | 'single-parent')} />
 
       {/* ── Bio ── */}
       <Text style={s.editSectionTitle}>Bio <Text style={s.optional}>(shown on your profile)</Text></Text>

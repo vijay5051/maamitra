@@ -1275,24 +1275,27 @@ export default function CommunityScreen() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filtersRow}
         >
-          {FILTERS.map((filter) => (
+          {FILTERS.map((f) => (
             <TouchableOpacity
-              key={filter}
-              style={[
-                styles.filterChip,
-                activeFilter === filter && styles.filterChipActive,
-              ]}
-              onPress={() => setFilter(filter)}
+              key={f}
+              onPress={() => setFilter(f)}
               activeOpacity={0.75}
+              style={{ height: 32, borderRadius: 16, overflow: 'hidden' }}
             >
-              <Text
-                style={[
-                  styles.filterChipText,
-                  activeFilter === filter && styles.filterChipTextActive,
-                ]}
-              >
-                {filter}
-              </Text>
+              {activeFilter === f ? (
+                <LinearGradient
+                  colors={['#E8487A', '#7C3AED']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={{ height: 32, borderRadius: 16, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <Text style={{ fontFamily: Fonts.sansBold, fontSize: 12, color: '#ffffff' }}>{f}</Text>
+                </LinearGradient>
+              ) : (
+                <View style={{ height: 32, borderRadius: 16, paddingHorizontal: 14, backgroundColor: '#EDE9F6', alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontFamily: Fonts.sansMedium, fontSize: 12, color: '#7C3AED' }}>{f}</Text>
+                </View>
+              )}
             </TouchableOpacity>
           ))}
         </ScrollView>

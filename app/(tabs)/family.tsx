@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useProfileStore, Kid } from '../../store/useProfileStore';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -187,13 +188,13 @@ function AddChildModal({
 }: {
   visible: boolean;
   onClose: () => void;
-  onAdd: (data: { name: string; dob: string; isExpecting: boolean; gender: string }) => void;
+  onAdd: (data: { name: string; dob: string; isExpecting: boolean; gender: 'girl' | 'boy' | 'surprise' }) => void;
 }) {
   const [name, setName] = useState('');
   const [dob, setDob] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [isExpecting, setIsExpecting] = useState(false);
-  const [gender, setGender] = useState('surprise');
+  const [gender, setGender] = useState<'girl' | 'boy' | 'surprise'>('surprise');
   const [error, setError] = useState('');
 
   const todayStr = new Date().toISOString().split('T')[0];
@@ -222,7 +223,7 @@ function AddChildModal({
     onClose();
   };
 
-  const GENDERS = [
+  const GENDERS: { key: 'boy' | 'girl' | 'surprise'; label: string }[] = [
     { key: 'boy', label: 'Boy 👦' },
     { key: 'girl', label: 'Girl 👧' },
     { key: 'surprise', label: 'Surprise 🎁' },
@@ -364,6 +365,7 @@ const addChildStyles = StyleSheet.create({
 
 export default function FamilyScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const { kids, activeKidId, setActiveKidId, addKid, motherName, profile, completedVaccines } = useProfileStore();
   const { activeKid } = useActiveKid();
   const { user } = useAuthStore();
@@ -403,7 +405,7 @@ export default function FamilyScreen() {
     name: string;
     dob: string;
     isExpecting: boolean;
-    gender: string;
+    gender: 'girl' | 'boy' | 'surprise';
   }) => {
     addKid({
       name,
@@ -431,7 +433,7 @@ export default function FamilyScreen() {
       'non-vegetarian': 'Non-Veg 🍗',
       vegan: 'Vegan 🌱',
     };
-    return d ? (map[d] ?? d) : 'Not set';
+    return d ? (map[d] ?? d) : '—';
   };
 
   const familyLabel = (f?: string) => {
@@ -441,7 +443,7 @@ export default function FamilyScreen() {
       'in-laws': 'With In-Laws',
       'single-parent': 'Single Parent',
     };
-    return f ? (map[f] ?? f) : 'Not set';
+    return f ? (map[f] ?? f) : '—';
   };
 
   return (
@@ -505,7 +507,10 @@ export default function FamilyScreen() {
             </View>
             <View style={styles.momInfo}>
               <Text style={styles.momName}>{motherName || 'Mom'}</Text>
-              <Text style={styles.momDetail}>📍 {profile?.state || 'Location not set'}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Ionicons name="location-outline" size={12} color="rgba(255,255,255,0.5)" />
+                <Text style={styles.momDetail}>{profile?.state || 'India'}</Text>
+              </View>
             </View>
           </View>
           <View style={styles.momStatsRow}>
@@ -524,6 +529,13 @@ export default function FamilyScreen() {
               <Text style={styles.momStatLabel}>Family</Text>
             </View>
           </View>
+          {(!profile?.diet || !profile?.state || !profile?.familyType) && (
+            <TouchableOpacity style={styles.completeNudge} onPress={() => router.push('/(tabs)/community')} activeOpacity={0.8}>
+              <Ionicons name="sparkles-outline" size={12} color="#F59E0B" />
+              <Text style={styles.completeNudgeText}>Complete your profile</Text>
+              <Ionicons name="chevron-forward" size={12} color="rgba(255,255,255,0.5)" />
+            </TouchableOpacity>
+          )}
         </LinearGradient>
 
         {/* ── Children Section ── */}
@@ -761,6 +773,10 @@ const styles = StyleSheet.create({
   expectingEmoji: { fontSize: 40, marginBottom: 12 },
   expectingTitle: { fontFamily: Fonts.sansBold, fontSize: 16, color: '#1C1033', marginBottom: 8 },
   expectingText: { fontFamily: Fonts.sansRegular, fontSize: 14, color: '#9CA3AF', textAlign: 'center', lineHeight: 22 },
+
+  // ── Profile completeness nudge ──
+  completeNudge: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' },
+  completeNudgeText: { fontFamily: Fonts.sansMedium, fontSize: 12, color: 'rgba(255,255,255,0.7)', flex: 1 },
 
   // ── Action card ──
   actionCard: { marginBottom: 20, borderRadius: 16, overflow: 'hidden' },

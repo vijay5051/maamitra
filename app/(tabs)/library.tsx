@@ -345,7 +345,7 @@ const subTabStyles = StyleSheet.create({
 
 function getTopicIcon(topic: string): string {
   const map: Record<string, string> = {
-    Feeding:        'restaurant-outline',
+    Feeding:        'cafe-outline',
     Sleep:          'moon-outline',
     Development:    'trending-up-outline',
     Postpartum:     'heart-outline',
@@ -353,8 +353,10 @@ function getTopicIcon(topic: string): string {
     Nutrition:      'leaf-outline',
     'Mental Health':'happy-outline',
     Yoga:           'body-outline',
-    'Baby Care':    'flower-outline',
-    Pregnancy:      'ellipse-outline',
+    'Baby Care':    'happy-outline',
+    Pregnancy:      'heart-circle-outline',
+    Weaning:        'ice-cream-outline',
+    General:        'chatbubble-ellipses-outline',
   };
   return map[topic] ?? 'document-text-outline';
 }

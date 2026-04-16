@@ -40,6 +40,9 @@ function TabIcon({
         />
       </Animated.View>
       {focused && <View style={styles.activeDot} />}
+      {focused && (
+        <Text style={styles.tabLabel}>{label}</Text>
+      )}
     </View>
   );
 }
@@ -64,12 +67,7 @@ export default function TabLayout() {
         },
         tabBarActiveTintColor: '#E8487A',
         tabBarInactiveTintColor: '#C4B5D4',
-        tabBarLabelStyle: {
-          fontFamily: Fonts.sansMedium,
-          fontSize: 10,
-          marginTop: 1,
-          letterSpacing: 0.2,
-        },
+        tabBarShowLabel: false,
       }}
     >
       <Tabs.Screen
@@ -165,5 +163,12 @@ const styles = StyleSheet.create({
     height: 3,
     borderRadius: 2,
     backgroundColor: '#E8487A',
+  },
+  tabLabel: {
+    fontFamily: Fonts.sansMedium,
+    fontSize: 10,
+    color: '#E8487A',
+    marginTop: 1,
+    letterSpacing: 0.2,
   },
 });

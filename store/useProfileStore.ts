@@ -86,7 +86,7 @@ interface ProfileState {
 
   setMotherName: (name: string) => void;
   setProfile: (profile: Profile) => void;
-  addKid: (kid: Omit<Kid, 'ageInMonths' | 'ageInWeeks'> & { id?: string }) => void;
+  addKid: (kid: Omit<Kid, 'ageInMonths' | 'ageInWeeks' | 'id'> & { id?: string }) => void;
   updateKid: (id: string, data: Partial<Omit<Kid, 'id'>>) => void;
   removeKid: (id: string) => void;
   setActiveKidId: (id: string) => void;

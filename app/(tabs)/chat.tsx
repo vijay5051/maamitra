@@ -200,6 +200,7 @@ export default function ChatScreen() {
   const [allergyModalVisible, setAllergyModalVisible] = useState(false);
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const [settingsVisible, setSettingsVisible] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   const flatListRef = useRef<FlatList>(null);
 
@@ -216,6 +217,7 @@ export default function ChatScreen() {
 
   const handleSend = useCallback(
     async (text: string) => {
+      setShowSuggestions(false);
       const isFood = detectIsFood(text);
 
       if (isFood && allergies === null) {
@@ -305,60 +307,72 @@ export default function ChatScreen() {
         {/* Radial glow bloom behind message list */}
         <View style={styles.radialGlow} pointerEvents="none" />
 
-        <FlatList
-          ref={flatListRef}
-          data={data}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.chatContent}
-          renderItem={({ item, index }) => {
-            const prevMessage = index > 0 ? data[index - 1] : null;
-            const isFirstInGroup =
-              !prevMessage || prevMessage.role !== item.role;
-            return (
-              <ChatBubble
-                message={item}
-                isFirstInGroup={isFirstInGroup}
-                onSave={item.role === 'assistant' && !item.saved ? handleSave : undefined}
-              />
-            );
-          }}
-          ListHeaderComponent={
-            messages.length === 0 && !isTyping ? (
-              <View style={styles.welcomeSection}>
-                <View style={styles.welcomeAvatarWrap}>
-                  <GradientAvatar emoji="🤱" size={72} style={styles.welcomeAvatar} />
-                  <View style={styles.welcomeOnlineDot} />
+        {messages.length === 0 && !isTyping ? (
+          <View style={styles.emptyState}>
+            <GradientAvatar emoji="🤱" size={64} style={styles.emptyAvatar} />
+            <Text style={styles.emptyGreet}>Namaste{motherName ? `, ${motherName.split(' ')[0]}` : ''}! 🙏</Text>
+            <Text style={styles.emptyDesc}>I'm MaaMitra, your personal companion.{'\n'}Ask me anything about your pregnancy, baby, health, or wellbeing.</Text>
+            <View style={styles.emptySeparator}>
+              <View style={styles.separatorLine} />
+              <Text style={styles.separatorText}>TODAY</Text>
+              <View style={styles.separatorLine} />
+            </View>
+            <QuickChips onSelect={handleSend} />
+          </View>
+        ) : (
+          <FlatList
+            ref={flatListRef}
+            data={data}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.chatContent}
+            renderItem={({ item, index }) => {
+              const prevMessage = index > 0 ? data[index - 1] : null;
+              const isFirstInGroup =
+                !prevMessage || prevMessage.role !== item.role;
+              return (
+                <ChatBubble
+                  message={item}
+                  isFirstInGroup={isFirstInGroup}
+                  onSave={item.role === 'assistant' && !item.saved ? handleSave : undefined}
+                />
+              );
+            }}
+            ListFooterComponent={
+              isTyping ? (
+                <View style={styles.typingWrap}>
+                  <GradientAvatar emoji="🤱" size={32} style={styles.typingAvatar} />
+                  <TypingIndicator />
                 </View>
-                <Text style={styles.welcomeHeading}>
-                  Namaste{motherName ? `, ${motherName}` : ''}! 🙏
-                </Text>
-                <Text style={styles.welcomeText}>
-                  I'm MaaMitra, your personal companion. Ask me anything about your pregnancy,
-                  baby, health, or wellbeing.
-                </Text>
-                {/* Today separator with gradient lines */}
-                <TodaySeparator />
-              </View>
-            ) : null
-          }
-          ListFooterComponent={
-            isTyping ? (
-              <View style={styles.typingWrap}>
-                <GradientAvatar emoji="🤱" size={32} style={styles.typingAvatar} />
-                <TypingIndicator />
-              </View>
-            ) : null
-          }
-          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-          showsVerticalScrollIndicator={false}
-        />
+              ) : null
+            }
+            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+            showsVerticalScrollIndicator={false}
+          />
+        )}
 
-        {/* Quick chips when empty */}
-        {messages.length === 0 && !isTyping && (
+        {/* Suggestions chips above input when conversation is active */}
+        {messages.length > 0 && showSuggestions && (
           <QuickChips onSelect={handleSend} />
         )}
 
-        <ChatInput onSend={handleSend} disabled={isTyping} />
+        <View style={styles.inputRow}>
+          {messages.length > 0 && (
+            <TouchableOpacity
+              style={styles.suggestBtn}
+              onPress={() => setShowSuggestions((v) => !v)}
+              activeOpacity={0.75}
+            >
+              <Ionicons
+                name="bulb-outline"
+                size={18}
+                color={showSuggestions ? '#E8487A' : '#A78BCA'}
+              />
+            </TouchableOpacity>
+          )}
+          <View style={styles.inputFlex}>
+            <ChatInput onSend={handleSend} disabled={isTyping} />
+          </View>
+        </View>
       </KeyboardAvoidingView>
 
       {/* Allergy modal */}
@@ -461,35 +475,23 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
 
-  // ── Welcome section ──
-  welcomeSection: {
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingBottom: 24,
-    paddingTop: 20,
-  },
-  welcomeAvatarWrap: { position: 'relative', marginBottom: 16 },
-  welcomeAvatar: {},
-  welcomeOnlineDot: {
-    position: 'absolute', bottom: 2, right: 2,
-    width: 14, height: 14, borderRadius: 7,
-    backgroundColor: '#22c55e',
-    borderWidth: 2, borderColor: '#FFF8FC',
-  },
-  welcomeHeading: {
-    fontFamily: Fonts.serif,
-    fontSize: 22,
-    color: '#1C1033',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  welcomeText: {
-    fontFamily: Fonts.sansRegular,
-    fontSize: 14,
-    color: '#9CA3AF',
-    textAlign: 'center',
-    lineHeight: 22,
-    maxWidth: 280,
+  // ── Empty state ──
+  emptyState: { flex: 1, paddingTop: 32, paddingBottom: 8 },
+  emptyAvatar: { alignSelf: 'center', marginBottom: 12 },
+  emptyGreet: { fontFamily: Fonts.sansBold, fontSize: 18, color: '#1C1033', textAlign: 'center', marginBottom: 6 },
+  emptyDesc: { fontFamily: Fonts.sansRegular, fontSize: 13, color: '#9ca3af', textAlign: 'center', lineHeight: 20, paddingHorizontal: 32, marginBottom: 20 },
+  emptySeparator: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 20, marginBottom: 16, gap: 10 },
+  separatorLine: { flex: 1, height: 1, backgroundColor: 'rgba(232,72,122,0.12)' },
+  separatorText: { fontFamily: Fonts.sansSemiBold, fontSize: 10, color: '#C4B5D4', letterSpacing: 1 },
+
+  // ── Input row with suggestions toggle ──
+  inputRow: { flexDirection: 'row', alignItems: 'flex-end' },
+  inputFlex: { flex: 1 },
+  suggestBtn: {
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: 'rgba(232,72,122,0.08)',
+    alignItems: 'center', justifyContent: 'center',
+    marginLeft: 8, marginBottom: 10,
   },
 
   // ── Typing indicator ──

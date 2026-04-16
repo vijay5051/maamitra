@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Animated, {
@@ -948,6 +949,7 @@ const hStyles = StyleSheet.create({
 
 export default function HealthScreen() {
   const insets     = useSafeAreaInsets();
+  const router     = useRouter();
   const [subTab, setSubTab] = useState<SubTab>('vaccines');
   const vaccines   = useVaccineSchedule();
   const { activeKid } = useActiveKid();
@@ -1026,10 +1028,24 @@ export default function HealthScreen() {
 
             {!activeKid || activeKid.isExpecting ? (
               <Card style={styles.noKidCard} shadow="sm">
-                <Text style={styles.noKidEmoji}>🤱</Text>
+                <Ionicons name="heart-outline" size={40} color="#E8487A" style={{ marginBottom: 12, opacity: 0.8 }} />
                 <Text style={styles.noKidText}>
-                  Your vaccine schedule will appear here after your baby arrives.
+                  Add your baby to see their personalised vaccine schedule.
                 </Text>
+                <TouchableOpacity
+                  style={styles.noKidBtn}
+                  onPress={() => router.push('/(tabs)/family')}
+                  activeOpacity={0.85}
+                >
+                  <LinearGradient
+                    colors={['#E8487A', '#7C3AED']}
+                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                    style={styles.noKidBtnGrad}
+                  >
+                    <Ionicons name="add-circle-outline" size={16} color="#fff" />
+                    <Text style={styles.noKidBtnText}>Add your baby</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
               </Card>
             ) : (
               vaccines.map((v, i) => (
@@ -1169,7 +1185,6 @@ const styles = StyleSheet.create({
     color: PLUM,
   },
   noKidCard: { alignItems: 'center', paddingVertical: 32 },
-  noKidEmoji: { fontSize: 40, marginBottom: 12 },
   noKidText: {
     fontFamily: Fonts.sansRegular,
     fontSize: 14,
@@ -1178,6 +1193,9 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     maxWidth: 240,
   },
+  noKidBtn: { borderRadius: 12, overflow: 'hidden', marginTop: 16 },
+  noKidBtnGrad: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, paddingHorizontal: 20 },
+  noKidBtnText: { fontFamily: Fonts.sansBold, color: '#fff', fontSize: 14 },
   schemesHeader: {
     fontFamily: Fonts.sansBold,
     fontSize: 18,

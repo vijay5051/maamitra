@@ -230,6 +230,23 @@ function MoodChart({
     summaryText = `You felt ${bestMoodData?.label.toLowerCase() ?? 'well'} ${count} out of 7 days`;
   }
 
+  const hasData = weekHistory.some(Boolean);
+
+  if (!hasData) {
+    return (
+      <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
+        <Text style={{ fontFamily: Fonts.sansSemiBold, fontSize: 10, color: '#C4B5D4', letterSpacing: 1, marginBottom: 12 }}>
+          7-DAY MOOD TREND
+        </Text>
+        <View style={{ height: 72, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(232,72,122,0.04)', borderRadius: 12, borderWidth: 1.5, borderColor: 'rgba(232,72,122,0.1)', borderStyle: 'dashed' }}>
+          <Text style={{ fontFamily: Fonts.sansRegular, fontSize: 13, color: '#C4B5D4' }}>
+            Tap a mood above to start tracking ✨
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
   const linePath = buildLinePath(points);
   const areaPath = buildAreaPath(points);
 
@@ -789,6 +806,22 @@ export default function WellnessScreen() {
         {/* Yoga section */}
         <Text style={styles.sectionTitle}>Yoga &amp; Movement</Text>
 
+        <TouchableOpacity
+          style={styles.condBanner}
+          onPress={() => setShowCondModal(true)}
+          activeOpacity={0.8}
+        >
+          <View style={styles.condBannerLeft}>
+            <Ionicons name="options-outline" size={14} color="#7C3AED" />
+            <Text style={styles.condBannerText}>
+              {healthConditions === null
+                ? 'Personalise sessions for your health conditions'
+                : 'Update health conditions'}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={14} color="#A78BCA" />
+        </TouchableOpacity>
+
         <YogaGallery
           sessions={filteredSessions}
           onPress={(session) => {
@@ -796,16 +829,6 @@ export default function WellnessScreen() {
             setShowYogaModal(true);
           }}
         />
-        <TouchableOpacity
-          style={styles.changeCondBtn}
-          onPress={() => setShowCondModal(true)}
-          activeOpacity={0.75}
-        >
-          <Ionicons name="options-outline" size={14} color="#8b5cf6" />
-          <Text style={styles.changeCondText}>
-            {healthConditions === null ? 'Set health conditions to personalise sessions' : 'Update health conditions'}
-          </Text>
-        </TouchableOpacity>
 
         {/* Mental Wellness tips */}
         <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Mental Wellness</Text>
@@ -924,12 +947,16 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     maxWidth: 260,
   },
-  changeCondBtn: {
+  condBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    alignSelf: 'flex-end',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(124,58,237,0.06)',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
     marginBottom: 10,
   },
-  changeCondText: { fontFamily: Fonts.sansSemiBold, fontSize: 12, color: '#7C3AED' },
+  condBannerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
+  condBannerText: { fontFamily: Fonts.sansRegular, fontSize: 12, color: '#7C3AED', flex: 1 },
 });

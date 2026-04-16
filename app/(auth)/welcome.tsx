@@ -201,15 +201,15 @@ const styles = StyleSheet.create({
   featureTextWrap: { flex: 1 },
   featureTitle: {
     fontFamily: Fonts.sansSemiBold,
-    fontSize: 12,
+    fontSize: 13,
     color: 'rgba(255,255,255,0.9)',
     marginBottom: 2,
   },
   featureText: {
     fontFamily: Fonts.sansRegular,
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.45)',
-    lineHeight: 16,
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.55)',
+    lineHeight: 17,
   },
 
   // Buttons

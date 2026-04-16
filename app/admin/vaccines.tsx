@@ -232,7 +232,7 @@ export default function VaccinesScreen() {
         text: 'Delete', style: 'destructive',
         onPress: async () => {
           await deleteContent('vaccines', vaccine.id);
-          setCustomVaccines((prev) => prev.filter((v) => v.id !== vaccine.id));
+          setFirestoreVaccines((prev) => prev.filter((v: VaccineItem) => v.id !== vaccine.id));
         },
       },
     ]);

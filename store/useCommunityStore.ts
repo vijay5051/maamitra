@@ -17,6 +17,8 @@ export interface Post {
   text: string;
   imageUri?: string;
   imageAspectRatio?: number; // width/height ratio after cropping
+  imageEmoji?: string;
+  imageCaption?: string;
   reactions: Record<string, number>;
   userReactions: string[];
   comments: Comment[];
