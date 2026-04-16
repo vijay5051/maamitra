@@ -26,6 +26,7 @@ import {
   serverTimestamp,
   Timestamp,
 } from 'firebase/firestore';
+import { getStorage, FirebaseStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -43,14 +44,16 @@ export const isFirebaseConfigured = (): boolean => {
 let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
 let db: Firestore | null = null;
+let storage: FirebaseStorage | null = null;
 
 if (isFirebaseConfigured()) {
   app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
   auth = getAuth(app);
   db = getFirestore(app);
+  storage = getStorage(app);
 }
 
-export { app, auth, db };
+export { app, auth, db, storage };
 
 // ─── Default App Settings ─────────────────────────────────────────────────────
 

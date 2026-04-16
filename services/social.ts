@@ -25,11 +25,14 @@ import {
   where,
   orderBy,
   limit,
+  startAfter,
   serverTimestamp,
   increment,
   writeBatch,
+  runTransaction,
   arrayUnion,
   arrayRemove,
+  type DocumentSnapshot,
 } from 'firebase/firestore';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -159,13 +162,8 @@ export async function deleteComment(postId: string, commentId: string): Promise<
   if (!db) return;
   try {
     await deleteDoc(doc(db, 'communityPosts', postId, 'comments', commentId));
-    // Decrement commentCount on the parent post (floor at 0)
-    const postRef = doc(db, 'communityPosts', postId);
-    const postSnap = await getDoc(postRef);
-    if (postSnap.exists()) {
-      const current = postSnap.data().commentCount ?? 0;
-      await updateDoc(postRef, { commentCount: Math.max(0, current - 1) });
-    }
+    // Atomic decrement — no read needed
+    await updateDoc(doc(db, 'communityPosts', postId), { commentCount: increment(-1) });
   } catch (error) {
     console.error('deleteComment error:', error);
     throw error;
@@ -204,20 +202,28 @@ export async function createPost(data: {
   }
 }
 
-export async function fetchRecentPosts(limitN = 40): Promise<CommunityPost[]> {
-  if (!db) return [];
+/** Page size used by the community feed for infinite scroll */
+export const POSTS_PAGE_SIZE = 15;
+
+export interface FetchPostsResult {
+  posts: CommunityPost[];
+  lastDoc: DocumentSnapshot | null;
+}
+
+export async function fetchRecentPosts(
+  limitN = POSTS_PAGE_SIZE,
+  afterDoc?: DocumentSnapshot | null,
+): Promise<FetchPostsResult> {
+  if (!db) return { posts: [], lastDoc: null };
   try {
-    // NOTE: Avoid combining where('approved','==',true) + orderBy('createdAt')
-    // on different fields — that requires a Firestore composite index.
-    // All posts are written with approved:true so the filter is redundant;
-    // a simple orderBy query works without any extra index.
-    const q = query(
-      collection(db, 'communityPosts'),
-      orderBy('createdAt', 'desc'),
-      limit(limitN),
-    );
+    const col = collection(db, 'communityPosts');
+    const q = afterDoc
+      ? query(col, orderBy('createdAt', 'desc'), startAfter(afterDoc), limit(limitN))
+      : query(col, orderBy('createdAt', 'desc'), limit(limitN));
     const snap = await getDocs(q);
-    return snap.docs.map((d) => {
+    const lastDoc = snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] : null;
+
+    const posts = snap.docs.map((d) => {
       const data = d.data();
       return {
         id: d.id,
@@ -238,9 +244,11 @@ export async function fetchRecentPosts(limitN = 40): Promise<CommunityPost[]> {
         createdAt: firestoreDate(data.createdAt),
       } as CommunityPost;
     });
+
+    return { posts, lastDoc };
   } catch (error) {
     console.error('fetchRecentPosts error:', error);
-    return [];
+    return { posts: [], lastDoc: null };
   }
 }
 
@@ -291,37 +299,50 @@ export async function togglePostReaction(
   if (!db) return { reactions: {}, myReactions: [] };
   try {
     const postRef = doc(db, 'communityPosts', postId);
-    const snap = await getDoc(postRef);
-    if (!snap.exists()) return { reactions: {}, myReactions: [] };
 
-    const data = snap.data();
-    const reactions: Record<string, number> = { ...(data.reactions ?? {}) };
-    const reactionsByUser: Record<string, string[]> = { ...(data.reactionsByUser ?? {}) };
-    const myReactionsList: string[] = reactionsByUser[myUid] ? [...reactionsByUser[myUid]] : [];
+    // Use a transaction so concurrent reactions don't overwrite each other
+    const result = await runTransaction(db, async (tx) => {
+      const snap = await tx.get(postRef);
+      if (!snap.exists()) return { reactions: {} as Record<string, number>, myReactions: [] as string[], authorUid: '', text: '' };
 
-    const alreadyReacted = myReactionsList.includes(emoji);
+      const data = snap.data();
+      const reactions: Record<string, number> = { ...(data.reactions ?? {}) };
+      const reactionsByUser: Record<string, string[]> = { ...(data.reactionsByUser ?? {}) };
+      const myReactionsList: string[] = reactionsByUser[myUid] ? [...reactionsByUser[myUid]] : [];
 
-    if (alreadyReacted) {
-      reactions[emoji] = Math.max(0, (reactions[emoji] ?? 1) - 1);
-      reactionsByUser[myUid] = myReactionsList.filter((e) => e !== emoji);
-    } else {
-      reactions[emoji] = (reactions[emoji] ?? 0) + 1;
-      reactionsByUser[myUid] = [...myReactionsList, emoji];
-      // notify post author (fire and forget)
-      if (myUid !== data.authorUid) {
-        createNotification(data.authorUid, {
-          type: 'reaction',
-          fromUid: myUid,
-          fromName: myName,
-          postId,
-          postText: (data.text ?? '').slice(0, 60),
-          emoji,
-        });
+      const alreadyReacted = myReactionsList.includes(emoji);
+
+      if (alreadyReacted) {
+        reactions[emoji] = Math.max(0, (reactions[emoji] ?? 1) - 1);
+        if (reactions[emoji] === 0) delete reactions[emoji];
+        reactionsByUser[myUid] = myReactionsList.filter((e) => e !== emoji);
+      } else {
+        reactions[emoji] = (reactions[emoji] ?? 0) + 1;
+        reactionsByUser[myUid] = [...myReactionsList, emoji];
       }
+
+      tx.update(postRef, { reactions, reactionsByUser });
+      return {
+        reactions,
+        myReactions: reactionsByUser[myUid] ?? [],
+        authorUid: data.authorUid ?? '',
+        text: data.text ?? '',
+      };
+    });
+
+    // Notification stays outside the transaction (fire-and-forget)
+    if (result.authorUid && myUid !== result.authorUid && result.myReactions.includes(emoji)) {
+      createNotification(result.authorUid, {
+        type: 'reaction',
+        fromUid: myUid,
+        fromName: myName,
+        postId,
+        postText: result.text.slice(0, 60),
+        emoji,
+      });
     }
 
-    await updateDoc(postRef, { reactions, reactionsByUser });
-    return { reactions, myReactions: reactionsByUser[myUid] ?? [] };
+    return { reactions: result.reactions, myReactions: result.myReactions };
   } catch (error) {
     console.error('togglePostReaction error:', error);
     return { reactions: {}, myReactions: [] };
@@ -487,34 +508,21 @@ export async function acceptFollowRequest(
 ): Promise<void> {
   if (!db) return;
   try {
-    await updateDoc(doc(db, 'followRequests', requestId), { status: 'accepted' });
-
-    await setDoc(doc(db, 'follows', `${fromUid}_${toUid}`), {
-      fromUid,
-      toUid,
-      fromName,
-      toName,
-      fromPhotoUrl,
-      toPhotoUrl,
-      createdAt: serverTimestamp(),
-    });
-
-    // increment follower/following counts
+    // Atomic batch: accept request + create follow + update counts
+    const batch = writeBatch(db);
     const toRef = doc(db, 'publicProfiles', toUid);
     const fromRef = doc(db, 'publicProfiles', fromUid);
-    const [toSnap, fromSnap] = await Promise.all([getDoc(toRef), getDoc(fromRef)]);
 
-    if (toSnap.exists()) {
-      await updateDoc(toRef, { followersCount: increment(1) });
-    } else {
-      await setDoc(toRef, { uid: toUid, followersCount: 1, followingCount: 0, postsCount: 0 }, { merge: true });
-    }
+    batch.update(doc(db, 'followRequests', requestId), { status: 'accepted' });
+    batch.set(doc(db, 'follows', `${fromUid}_${toUid}`), {
+      fromUid, toUid, fromName, toName, fromPhotoUrl, toPhotoUrl,
+      createdAt: serverTimestamp(),
+    });
+    // Use set-merge so profiles are created if missing, incremented if existing
+    batch.set(toRef, { uid: toUid, followersCount: increment(1) }, { merge: true });
+    batch.set(fromRef, { uid: fromUid, followingCount: increment(1) }, { merge: true });
 
-    if (fromSnap.exists()) {
-      await updateDoc(fromRef, { followingCount: increment(1) });
-    } else {
-      await setDoc(fromRef, { uid: fromUid, followersCount: 0, followingCount: 1, postsCount: 0 }, { merge: true });
-    }
+    await batch.commit();
 
     // notify fromUid that request was accepted
     createNotification(fromUid, {
@@ -554,19 +562,12 @@ export async function cancelFollowRequest(
 export async function unfollowUser(myUid: string, targetUid: string): Promise<void> {
   if (!db) return;
   try {
-    await deleteDoc(doc(db, 'follows', `${myUid}_${targetUid}`));
-
-    // decrement counts
-    const targetRef = doc(db, 'publicProfiles', targetUid);
-    const myRef = doc(db, 'publicProfiles', myUid);
-    const [targetSnap, mySnap] = await Promise.all([getDoc(targetRef), getDoc(myRef)]);
-
-    if (targetSnap.exists()) {
-      await updateDoc(targetRef, { followersCount: increment(-1) });
-    }
-    if (mySnap.exists()) {
-      await updateDoc(myRef, { followingCount: increment(-1) });
-    }
+    // Atomic batch: delete follow + decrement both profiles' counts
+    const batch = writeBatch(db);
+    batch.delete(doc(db, 'follows', `${myUid}_${targetUid}`));
+    batch.set(doc(db, 'publicProfiles', targetUid), { followersCount: increment(-1) }, { merge: true });
+    batch.set(doc(db, 'publicProfiles', myUid), { followingCount: increment(-1) }, { merge: true });
+    await batch.commit();
   } catch (error) {
     console.error('unfollowUser error:', error);
   }
@@ -706,9 +707,23 @@ export async function blockUser(myUid: string, targetUid: string): Promise<void>
     // also update blockedUids array in publicProfile
     await setDoc(doc(db, 'publicProfiles', myUid), { blockedUids: arrayUnion(targetUid) }, { merge: true });
 
-    // silently try to remove both follow directions
-    try { await deleteDoc(doc(db, 'follows', `${myUid}_${targetUid}`)); } catch (_) {}
-    try { await deleteDoc(doc(db, 'follows', `${targetUid}_${myUid}`)); } catch (_) {}
+    // Remove both follow directions and decrement publicProfile counts
+    const myFollowsTarget = await getDoc(doc(db, 'follows', `${myUid}_${targetUid}`));
+    const targetFollowsMe = await getDoc(doc(db, 'follows', `${targetUid}_${myUid}`));
+
+    if (myFollowsTarget.exists()) {
+      await deleteDoc(doc(db, 'follows', `${myUid}_${targetUid}`));
+      // I was following them: decrement my followingCount, their followersCount
+      try { await updateDoc(doc(db, 'publicProfiles', myUid), { followingCount: increment(-1) }); } catch (_) {}
+      try { await updateDoc(doc(db, 'publicProfiles', targetUid), { followersCount: increment(-1) }); } catch (_) {}
+    }
+
+    if (targetFollowsMe.exists()) {
+      await deleteDoc(doc(db, 'follows', `${targetUid}_${myUid}`));
+      // They were following me: decrement their followingCount, my followersCount
+      try { await updateDoc(doc(db, 'publicProfiles', targetUid), { followingCount: increment(-1) }); } catch (_) {}
+      try { await updateDoc(doc(db, 'publicProfiles', myUid), { followersCount: increment(-1) }); } catch (_) {}
+    }
   } catch (error) {
     console.error('blockUser error:', error);
   }

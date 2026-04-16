@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { PostComment } from '../services/social';
 import {
   fetchRecentPosts,
+  POSTS_PAGE_SIZE,
   createPost,
   deletePost,
   deleteComment,
@@ -10,6 +11,7 @@ import {
   fetchPostComments,
   incrementPublicProfilePostCount,
 } from '../services/social';
+import type { DocumentSnapshot } from 'firebase/firestore';
 
 export interface Comment {
   id: string;
@@ -111,6 +113,9 @@ interface CommunityState {
   activeFilter: CommunityFilter;
   motherName: string;
   isLoadingPosts: boolean;
+  isLoadingMore: boolean;
+  hasMorePosts: boolean;
+  lastPostDoc: DocumentSnapshot | null;
 
   addPost: (text: string, topic: string, authorName: string, imageUri?: string, imageAspectRatio?: number) => void;
   toggleReaction: (postId: string, emoji: string) => void;
@@ -122,6 +127,7 @@ interface CommunityState {
 
   // Firestore-backed actions
   loadPostsFromFirestore: () => Promise<void>;
+  loadMorePosts: () => Promise<void>;
   addPostFirestore: (text: string, topic: string, authorUid: string, imageUri?: string, imageAspectRatio?: number, authorPhotoUrl?: string) => Promise<void>;
   toggleReactionFirestore: (postId: string, myUid: string, myName: string, emoji: string) => Promise<void>;
   addCommentFirestore: (postId: string, authorUid: string, authorName: string, text: string, authorPhotoUrl?: string) => Promise<void>;
@@ -136,6 +142,9 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
   activeFilter: 'All',
   motherName: '',
   isLoadingPosts: false,
+  isLoadingMore: false,
+  hasMorePosts: true,
+  lastPostDoc: null,
 
   addPost: (text: string, topic: string, authorName: string, imageUri?: string, imageAspectRatio?: number) => {
     const initial = authorName.charAt(0).toUpperCase();
@@ -227,13 +236,12 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
   // ─── Firestore-backed actions ────────────────────────────────────────────────
 
   loadPostsFromFirestore: async () => {
-    set({ isLoadingPosts: true });
+    set({ isLoadingPosts: true, hasMorePosts: true, lastPostDoc: null });
     try {
-      const fsPosts = await fetchRecentPosts();
+      const { posts: fsPosts, lastDoc } = await fetchRecentPosts();
 
       if (fsPosts.length === 0) {
-        // No Firestore posts yet — keep seed posts as fallback
-        set({ isLoadingPosts: false });
+        set({ isLoadingPosts: false, hasMorePosts: false });
         return;
       }
 
@@ -260,16 +268,65 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
         showComments: false,
       }));
 
-      // Sort by createdAt descending
       mappedPosts.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
-      // Seed posts are replaced entirely by Firestore posts when Firestore has data
-      set({ posts: mappedPosts });
+      set({
+        posts: mappedPosts,
+        lastPostDoc: lastDoc,
+        hasMorePosts: fsPosts.length >= POSTS_PAGE_SIZE,
+      });
     } catch (error) {
       console.error('loadPostsFromFirestore error:', error);
-      // On error, keep whatever posts are already in state
     } finally {
       set({ isLoadingPosts: false });
+    }
+  },
+
+  loadMorePosts: async () => {
+    const { isLoadingMore, hasMorePosts, lastPostDoc } = get();
+    if (isLoadingMore || !hasMorePosts || !lastPostDoc) return;
+
+    set({ isLoadingMore: true });
+    try {
+      const { posts: fsPosts, lastDoc } = await fetchRecentPosts(POSTS_PAGE_SIZE, lastPostDoc);
+
+      if (fsPosts.length === 0) {
+        set({ isLoadingMore: false, hasMorePosts: false });
+        return;
+      }
+
+      const newPosts: Post[] = fsPosts.map((fsPost) => ({
+        id: fsPost.id,
+        authorName: fsPost.authorName ?? '',
+        authorInitial: (fsPost.authorName ?? '?').charAt(0).toUpperCase(),
+        authorUid: fsPost.authorUid ?? '',
+        authorPhotoUrl: (fsPost as any).authorPhotoUrl ?? undefined,
+        badge: fsPost.badge ?? 'Community Member',
+        topic: fsPost.topic ?? 'General',
+        text: fsPost.text ?? '',
+        imageUri: fsPost.imageUri,
+        imageAspectRatio: fsPost.imageAspectRatio,
+        imageEmoji: (fsPost as any).imageEmoji,
+        imageCaption: (fsPost as any).imageCaption,
+        reactions: fsPost.reactions ?? {},
+        userReactions: [],
+        reactionsByUser: fsPost.reactionsByUser ?? {},
+        comments: [],
+        commentList: [],
+        commentCount: fsPost.commentCount ?? 0,
+        createdAt: fsPost.createdAt instanceof Date ? fsPost.createdAt : new Date(fsPost.createdAt),
+        showComments: false,
+      }));
+
+      set((state) => ({
+        posts: [...state.posts, ...newPosts],
+        lastPostDoc: lastDoc,
+        hasMorePosts: fsPosts.length >= POSTS_PAGE_SIZE,
+        isLoadingMore: false,
+      }));
+    } catch (error) {
+      console.error('loadMorePosts error:', error);
+      set({ isLoadingMore: false });
     }
   },
 
@@ -465,5 +522,8 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
     activeFilter: 'All',
     motherName: '',
     isLoadingPosts: false,
+    isLoadingMore: false,
+    hasMorePosts: true,
+    lastPostDoc: null,
   }),
 }));

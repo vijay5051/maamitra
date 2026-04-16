@@ -254,9 +254,18 @@ export default function AdminCommunity() {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
     try {
-      const { getAllCommunityPosts } = await import('../../services/firebase');
-      const data = await getAllCommunityPosts();
-      setPosts(data as CommunityPost[]);
+      // Use the ACTIVE communityPosts collection (social.ts), NOT the legacy community_posts
+      const { fetchRecentPosts } = await import('../../services/social');
+      const { posts: data } = await fetchRecentPosts(100);
+      setPosts(data.map((p: any) => ({
+        id: p.id,
+        author: p.authorName ?? '',
+        authorEmail: '',
+        text: p.text ?? '',
+        topic: p.topic ?? '',
+        createdAt: p.createdAt instanceof Date ? p.createdAt.toISOString() : String(p.createdAt ?? ''),
+        approved: true, // All posts in communityPosts are approved at write time
+      })));
     } catch {
       setPosts([]);
     } finally {
@@ -278,8 +287,9 @@ export default function AdminCommunity() {
   async function handleEditSave(updated: Partial<CommunityPost>) {
     if (!editingPost) return;
     try {
+      // Use the ACTIVE communityPosts collection
       const { updateContent } = await import('../../services/firebase');
-      await updateContent('community_posts', editingPost.id, updated);
+      await updateContent('communityPosts', editingPost.id, updated);
       setPosts((prev) => prev.map((p) => p.id === editingPost.id ? { ...p, ...updated } : p));
       setEditModalVisible(false);
       setEditingPost(null);
@@ -299,8 +309,9 @@ export default function AdminCommunity() {
           style: 'destructive',
           onPress: async () => {
             try {
-              const { deleteCommunityPost } = await import('../../services/firebase');
-              await deleteCommunityPost(post.id);
+              // Use the ACTIVE communityPosts collection (social.ts)
+              const { deletePost } = await import('../../services/social');
+              await deletePost(post.id);
               setPosts((prev) => prev.filter((p) => p.id !== post.id));
             } catch {
               Alert.alert('Error', 'Failed to delete post.');

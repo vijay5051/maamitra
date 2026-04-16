@@ -153,7 +153,9 @@ export const useSocialStore = create<SocialState>((set, get) => ({
         incomingRequests: state.incomingRequests.filter((r) => r.id !== requestId),
         followers: [...state.followers, newFollower],
         followersCount: state.followersCount + 1,
-        followStatusCache: { ...state.followStatusCache, [fromUid]: 'following' },
+        // Do NOT set fromUid to 'following' — accepting their request means
+        // THEY follow US, not that we follow them. Leave their outgoing status
+        // as whatever it already is (none or pending_outgoing from our side).
         notifications: state.notifications.map((n) =>
           n.fromUid === fromUid && n.type === 'follow_request'
             ? { ...n, read: true }

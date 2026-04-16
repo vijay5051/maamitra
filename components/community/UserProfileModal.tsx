@@ -33,6 +33,7 @@ interface Props {
   uid: string;
   visible: boolean;
   onClose: () => void;
+  onEditProfile?: () => void;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -169,7 +170,7 @@ const innerStyles = StyleSheet.create({
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function UserProfileModal({ uid, visible, onClose }: Props) {
+export default function UserProfileModal({ uid, visible, onClose, onEditProfile }: Props) {
   const { user } = useAuthStore();
   const myUid = user?.uid ?? '';
 
@@ -423,7 +424,14 @@ export default function UserProfileModal({ uid, visible, onClose }: Props) {
 
         {isOwnProfile && (
           <View style={styles.actionsRow}>
-            <View style={{ flex: 1 }}>
+            <TouchableOpacity
+              style={{ flex: 1 }}
+              onPress={() => {
+                onClose();
+                onEditProfile?.();
+              }}
+              activeOpacity={0.85}
+            >
               <LinearGradient
                 colors={['#E8487A', '#7C3AED']}
                 start={{ x: 0, y: 0 }}
@@ -432,7 +440,7 @@ export default function UserProfileModal({ uid, visible, onClose }: Props) {
               >
                 <Text style={styles.followButtonGradientText}>Edit Profile</Text>
               </LinearGradient>
-            </View>
+            </TouchableOpacity>
           </View>
         )}
 

@@ -12,11 +12,7 @@ service cloud.firestore {
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email == 'admin@maamitra.app' ||
-        request.auth.token.email == 'vijay@maamitra.app' ||
-        request.auth.token.email == (
-          // Allow env-configured admin email
-          'admin@maamitra.app'
-        )
+        request.auth.token.email == 'vijay@maamitra.app'
       );
     }
 
@@ -39,22 +35,82 @@ service cloud.firestore {
       allow read, write: if isOwner(uid);
     }
 
-    // ── Community posts ───────────────────────────────────────────────────────
-    // Anyone signed in can read approved posts.
-    // Users can create posts (set approved: false).
-    // Only admins can approve or delete any post.
-    // Authors can delete their own post.
-    match /community_posts/{postId} {
+    // ── Community Posts (active collection used by the app) ──────────────────
+    // Anyone signed in can read. Authors can create/delete their own.
+    // Any signed-in user can update reactions/comments.
+    match /communityPosts/{postId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn() &&
-        request.resource.data.approved == false &&
         request.resource.data.authorUid == request.auth.uid;
+      allow update: if isSignedIn();
+      allow delete: if isAdmin() ||
+        (isSignedIn() && resource.data.authorUid == request.auth.uid);
+
+      // Comments subcollection
+      match /comments/{commentId} {
+        allow read: if isSignedIn();
+        allow create: if isSignedIn() &&
+          request.resource.data.authorUid == request.auth.uid;
+        allow delete: if isAdmin() ||
+          // Comment author can delete their own comment
+          (isSignedIn() && resource.data.authorUid == request.auth.uid) ||
+          // Post owner can delete any comment on their post
+          (isSignedIn() && get(/databases/$(database)/documents/communityPosts/$(postId)).data.authorUid == request.auth.uid);
+      }
+    }
+
+    // ── Community posts (legacy collection used by admin panel) ──────────────
+    match /community_posts/{postId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
       allow update: if isAdmin() ||
-        // Allow reaction/comment updates from any signed-in user
         (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['reactions', 'userReactions', 'comments']));
       allow delete: if isAdmin() ||
         (isSignedIn() && resource.data.authorUid == request.auth.uid);
+    }
+
+    // ── Public Profiles ──────────────────────────────────────────────────────
+    // Anyone signed in can read. Users can write their own.
+    match /publicProfiles/{uid} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(uid);
+      allow update: if isOwner(uid) || isSignedIn();
+      allow delete: if isOwner(uid) || isAdmin();
+    }
+
+    // ── Follow Relationships ─────────────────────────────────────────────────
+    // Anyone signed in can read follows. Users can create/delete their own.
+    match /follows/{followId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+
+    // ── Follow Requests ──────────────────────────────────────────────────────
+    match /followRequests/{requestId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() &&
+        request.resource.data.fromUid == request.auth.uid;
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+
+    // ── Blocks ───────────────────────────────────────────────────────────────
+    match /blocks/{blockId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+
+    // ── Notifications ────────────────────────────────────────────────────────
+    // Users can read/write their own notifications. Any signed-in user can
+    // create notifications for others (e.g., reaction/comment/follow notifs).
+    match /notifications/{uid}/items/{notifId} {
+      allow read: if isOwner(uid);
+      allow create: if isSignedIn();
+      allow update: if isOwner(uid);
+      allow delete: if isOwner(uid) || isAdmin();
     }
 
     // ── App settings (admin only write, anyone signed-in can read) ────────────

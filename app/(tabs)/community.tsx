@@ -1,9 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
   Image,
   Modal,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -30,6 +32,7 @@ import PostCardComponent from '../../components/community/PostCard';
 import UserProfileModalComponent from '../../components/community/UserProfileModal';
 import NotificationsSheet from '../../components/community/NotificationsSheet';
 import { Fonts } from '../../constants/theme';
+import { uploadPostImage } from '../../services/storage';
 
 const FILTERS: CommunityFilter[] = ['All', 'Newborn', 'Pregnancy', 'Nutrition', 'Mental Health', 'Milestones', 'Products'];
 const TOPICS = ['Newborn', 'Pregnancy', 'Nutrition', 'Mental Health', 'Milestones', 'Products', 'General'];
@@ -239,10 +242,12 @@ function NewPostModal({
   visible,
   onClose,
   onPost,
+  authorUid,
 }: {
   visible: boolean;
   onClose: () => void;
   onPost: (text: string, topic: string, authorName: string, imageUri?: string, imageAspectRatio?: number) => void;
+  authorUid: string;
 }) {
   const { motherName } = useProfileStore();
   const [text, setText] = useState('');
@@ -253,6 +258,7 @@ function NewPostModal({
   const [imageAspectRatio, setImageAspectRatio] = useState<number>(4 / 3);
   const [cropRatio, setCropRatio] = useState<CropRatio>('Original');
   const [cropLoading, setCropLoading] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   const handlePickImage = () => {
     const input = document.createElement('input');
@@ -261,6 +267,10 @@ function NewPostModal({
     input.onchange = async (e: any) => {
       const file = e.target?.files?.[0];
       if (file) {
+        // Revoke previous blob URL to prevent memory leak
+        if (rawImageUri && rawImageUri.startsWith('blob:')) {
+          URL.revokeObjectURL(rawImageUri);
+        }
         const uri = URL.createObjectURL(file);
         setRawImageUri(uri);
         setCropRatio('Original');
@@ -284,24 +294,44 @@ function NewPostModal({
   };
 
   const handleRemoveImage = () => {
+    // Revoke blob URL to free memory
+    if (rawImageUri && rawImageUri.startsWith('blob:')) {
+      URL.revokeObjectURL(rawImageUri);
+    }
     setImageUri(null);
     setRawImageUri(null);
     setCropRatio('Original');
   };
 
-  const handlePost = () => {
+  const handlePost = async () => {
     if (!text.trim() || text.trim().length < 10) {
       setError('Please write at least 10 characters');
       return;
     }
-    onPost(text.trim(), topic, motherName || 'Anonymous Mom', imageUri ?? undefined, imageUri ? imageAspectRatio : undefined);
-    setText('');
-    setTopic('General');
-    setError('');
-    setImageUri(null);
-    setRawImageUri(null);
-    setCropRatio('Original');
-    onClose();
+    setIsUploading(true);
+    try {
+      let finalImageUri: string | undefined;
+      // Upload image to Firebase Storage if present
+      if (imageUri && authorUid) {
+        try {
+          finalImageUri = await uploadPostImage(authorUid, imageUri);
+        } catch (uploadErr) {
+          console.error('Image upload failed:', uploadErr);
+          // Fall back to dataURL if storage upload fails
+          finalImageUri = imageUri;
+        }
+      }
+      onPost(text.trim(), topic, motherName || 'Anonymous Mom', finalImageUri, finalImageUri ? imageAspectRatio : undefined);
+      setText('');
+      setTopic('General');
+      setError('');
+      setImageUri(null);
+      setRawImageUri(null);
+      setCropRatio('Original');
+      onClose();
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   return (
@@ -395,9 +425,10 @@ function NewPostModal({
           )}
 
           <TouchableOpacity
-            style={newPostStyles.postBtn}
+            style={[newPostStyles.postBtn, isUploading && { opacity: 0.6 }]}
             onPress={handlePost}
             activeOpacity={0.85}
+            disabled={isUploading}
           >
             <LinearGradient
               colors={['#E8487A', '#7C3AED']}
@@ -405,7 +436,7 @@ function NewPostModal({
               end={{ x: 1, y: 0 }}
               style={newPostStyles.postBtnGrad}
             >
-              <Text style={newPostStyles.postBtnText}>Post to Connect</Text>
+              <Text style={newPostStyles.postBtnText}>{isUploading ? 'Uploading…' : 'Post to Connect'}</Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>
@@ -843,6 +874,9 @@ export default function CommunityScreen() {
     setFilter,
     getFilteredPosts,
     loadPostsFromFirestore,
+    loadMorePosts,
+    isLoadingMore,
+    hasMorePosts,
     addPostFirestore,
     toggleReactionFirestore,
     addCommentFirestore,
@@ -899,7 +933,19 @@ export default function CommunityScreen() {
   const [showSettings, setShowSettings] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [viewingUid, setViewingUid] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const posts = getFilteredPosts();
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await loadPostsFromFirestore();
+      if (myUid) {
+        await loadSocialData();
+      }
+    } catch (_) {}
+    setRefreshing(false);
+  }, [myUid]);
 
   return (
     <View style={styles.container}>
@@ -959,6 +1005,7 @@ export default function CommunityScreen() {
           uid={viewingUid}
           visible={viewingUid !== null}
           onClose={() => setViewingUid(null)}
+          onEditProfile={() => setShowSettings(true)}
         />
       )}
 
@@ -1010,6 +1057,14 @@ export default function CommunityScreen() {
         data={posts}
         keyExtractor={(item) => item.id}
         contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 16 }]}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor="#E8487A"
+            colors={['#E8487A', '#7C3AED']}
+          />
+        }
         ListHeaderComponent={
           <MyProfileCard onEdit={() => setShowSettings(true)} />
         }
@@ -1062,12 +1117,22 @@ export default function CommunityScreen() {
             <Text style={styles.emptyText}>No posts in this category yet.{'\n'}Be the first to share!</Text>
           </View>
         }
+        onEndReached={() => {
+          if (hasMorePosts && !isLoadingMore) loadMorePosts();
+        }}
+        onEndReachedThreshold={0.4}
+        ListFooterComponent={isLoadingMore ? (
+          <View style={styles.footerLoader}>
+            <ActivityIndicator size="small" color="#E8487A" />
+          </View>
+        ) : null}
         showsVerticalScrollIndicator={false}
       />
 
       <NewPostModal
         visible={showNewPost}
         onClose={() => setShowNewPost(false)}
+        authorUid={myUid}
         onPost={(text, topic, _authorName, imageUri, imageAspectRatio) => {
           if (myUid) {
             addPostFirestore(text, topic, myUid, imageUri, imageAspectRatio, myPhotoUrl || undefined).catch(() => {
@@ -1189,4 +1254,5 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', paddingTop: 60 },
   emptyEmoji: { fontSize: 48, marginBottom: 12 },
   emptyText: { fontFamily: Fonts.sansRegular, fontSize: 15, color: '#9CA3AF', textAlign: 'center', lineHeight: 22 },
+  footerLoader: { paddingVertical: 20, alignItems: 'center' },
 });

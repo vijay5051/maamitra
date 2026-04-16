@@ -48,7 +48,7 @@ async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
     setMotherName(fullProfile.motherName);
     if (fullProfile.profile) setProfile(fullProfile.profile as any);
     fullProfile.kids.forEach((kid: any) =>
-      addKid({ id: kid.id, name: kid.name, dob: kid.dob, stage: kid.stage, gender: kid.gender, isExpecting: kid.isExpecting })
+      addKid({ id: kid.id, name: kid.name, dob: kid.dob, stage: kid.stage, gender: kid.gender, isExpecting: kid.isExpecting, relation: kid.relation || '' })
     );
     Object.entries(fullProfile.completedVaccines).forEach(([kidId, vaccines]: [string, any]) => {
       if (typeof vaccines === 'object' && vaccines !== null && !('done' in vaccines)) {
