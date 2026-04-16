@@ -148,6 +148,8 @@ export default function NotificationsSheet({ visible, onClose, onViewProfile }: 
       return;
     }
 
+    // Reset handled state so old Accept/Decline badges don't persist
+    setHandledRequests({});
     loadNotifications();
     // Mark all read after 1.5s so user briefly sees unread state
     markReadTimerRef.current = setTimeout(() => {
@@ -226,7 +228,7 @@ export default function NotificationsSheet({ visible, onClose, onViewProfile }: 
                 onAccept={() => handleAccept(item)}
                 onDecline={() => handleDecline(item)}
                 onPress={() => {
-                  if (item.fromUid) {
+                  if (item.fromUid && item.fromUid.trim().length > 0) {
                     onViewProfile(item.fromUid);
                   }
                 }}

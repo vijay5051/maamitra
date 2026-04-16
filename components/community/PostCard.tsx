@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Image,
   StyleSheet,
   Text,
   TextInput,
@@ -10,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import GradientAvatar from '../ui/GradientAvatar';
 import TagPill from '../ui/TagPill';
 import { Post } from '../../store/useCommunityStore';
+import { useSocialStore } from '../../store/useSocialStore';
 
 interface PostCardProps {
   post: Post;                                             // Post from useCommunityStore — now has authorUid field
@@ -46,12 +48,15 @@ export default function PostCard({
 }: PostCardProps) {
   const [commentText, setCommentText] = useState('');
   const [showReactionPicker, setShowReactionPicker] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSendComment = () => {
     const trimmed = commentText.trim();
-    if (!trimmed) return;
+    if (!trimmed || isSubmitting) return;
+    setIsSubmitting(true);
     onAddComment(post.id, trimmed);
     setCommentText('');
+    setIsSubmitting(false);
   };
 
   // Support both old `userReactions` array and new `reactionsByUser` map
@@ -66,6 +71,8 @@ export default function PostCard({
   const displayedComments = post.commentList ?? post.comments;
 
   const isOwnPost = post.authorUid === currentUserUid;
+  const followStatus = useSocialStore((s) => s.followStatusCache[post.authorUid ?? ''] ?? 'none');
+  const showFollowBtn = !isOwnPost && !!post.authorUid && followStatus !== 'following';
 
   return (
     <View style={styles.card}>
@@ -85,8 +92,8 @@ export default function PostCard({
             >
               <Text style={styles.authorName}>{post.authorName}</Text>
             </TouchableOpacity>
-            {/* Quick follow shortcut — shown only for other users' posts */}
-            {!isOwnPost && (
+            {/* Quick follow shortcut — shown only for other users' posts not yet followed */}
+            {showFollowBtn && (
               <TouchableOpacity
                 onPress={() => onViewProfile(post.authorUid ?? '', post.authorName)}
                 hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
@@ -111,7 +118,11 @@ export default function PostCard({
       <Text style={styles.postText}>{post.text}</Text>
 
       {/* Optional image area */}
-      {post.imageEmoji ? (
+      {post.imageUri ? (
+        <View style={[styles.imageWrap, post.imageAspectRatio ? { aspectRatio: post.imageAspectRatio } : {}]}>
+          <Image source={{ uri: post.imageUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        </View>
+      ) : post.imageEmoji ? (
         <View style={styles.imageArea}>
           <Text style={styles.imageEmoji}>{post.imageEmoji}</Text>
           {post.imageCaption ? (
@@ -150,7 +161,7 @@ export default function PostCard({
         <View style={styles.flex1} />
         <TouchableOpacity onPress={() => onToggleComments(post.id)} style={styles.commentCountRow}>
           <Ionicons name="chatbubble-outline" size={16} color="#9ca3af" />
-          <Text style={styles.commentCount}>{displayedComments?.length ?? 0}</Text>
+          <Text style={styles.commentCount}>{post.commentCount ?? displayedComments?.length ?? 0}</Text>
         </TouchableOpacity>
       </View>
 
@@ -216,7 +227,8 @@ export default function PostCard({
             />
             <TouchableOpacity
               onPress={handleSendComment}
-              disabled={!commentText.trim()}
+              disabled={!commentText.trim() || isSubmitting}
+              style={{ opacity: (!commentText.trim() || isSubmitting) ? 0.4 : 1 }}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <Ionicons
@@ -299,6 +311,14 @@ const styles = StyleSheet.create({
     color: '#1a1a2e',
     lineHeight: 22,
     marginBottom: 12,
+  },
+  imageWrap: {
+    width: '100%',
+    aspectRatio: 4 / 3,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 12,
+    backgroundColor: '#f3f4f6',
   },
   imageArea: {
     backgroundColor: '#fdf2f8',

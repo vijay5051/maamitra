@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { useAuthStore } from './useAuthStore';
 import { useProfileStore } from './useProfileStore';
+import { useCommunityStore } from './useCommunityStore';
 import * as SocialService from '../services/social';
 import type { FollowEntry, FollowRequest, AppNotification } from '../services/social';
 
@@ -98,7 +99,7 @@ export const useSocialStore = create<SocialState>((set, get) => ({
 
   sendFollowRequest: async (toUid: string, toName: string) => {
     const uid = useAuthStore.getState().user?.uid;
-    const name = useAuthStore.getState().user?.name ?? '';
+    const name = useProfileStore.getState().motherName || useAuthStore.getState().user?.name || '';
     if (!uid) return;
 
     const photoUrl = useProfileStore.getState().photoUrl;
@@ -126,7 +127,7 @@ export const useSocialStore = create<SocialState>((set, get) => ({
 
   acceptRequest: async (requestId: string, fromUid: string, fromName: string, fromPhotoUrl?: string) => {
     const uid = useAuthStore.getState().user?.uid;
-    const myName = useAuthStore.getState().user?.name ?? '';
+    const myName = useProfileStore.getState().motherName || useAuthStore.getState().user?.name || '';
     if (!uid) return;
 
     const photoUrl = useProfileStore.getState().photoUrl;
@@ -153,7 +154,7 @@ export const useSocialStore = create<SocialState>((set, get) => ({
         followers: [...state.followers, newFollower],
         followersCount: state.followersCount + 1,
         notifications: state.notifications.map((n) =>
-          (n as any).relatedUid === fromUid && (n as any).type === 'follow_request'
+          n.fromUid === fromUid && n.type === 'follow_request'
             ? { ...n, read: true }
             : n
         ),
@@ -332,7 +333,14 @@ export const useSocialStore = create<SocialState>((set, get) => ({
       useProfileStore.getState();
     const { followersCount, followingCount } = get();
 
-    const badge = profile?.state ? profile.state : 'Community Member';
+    const roleLabel = parentGender === 'mother' ? 'Maa' : parentGender === 'father' ? 'Dad' : 'Parent';
+    const badge = profile?.state
+      ? `${roleLabel} · ${profile.state}`
+      : roleLabel !== 'Parent' ? roleLabel : 'Community Member';
+
+    const postsCount = useCommunityStore.getState().posts.filter(
+      (p) => p.authorUid === uid
+    ).length;
 
     try {
       await SocialService.upsertPublicProfile(uid, {
@@ -346,7 +354,7 @@ export const useSocialStore = create<SocialState>((set, get) => ({
         badge,
         followersCount,
         followingCount,
-        postsCount: 0,
+        postsCount,
       });
     } catch (error) {
       console.error('syncPublicProfile error:', error);

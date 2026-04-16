@@ -534,7 +534,7 @@ export default function UserProfileModal({ uid, visible, onClose }: Props) {
                 }}
                 disabled={!isOwnProfile}
               >
-                <Text style={styles.statNumber}>{posts.length}</Text>
+                <Text style={styles.statNumber}>{profile?.postsCount != null && profile.postsCount > 0 ? profile.postsCount : posts.length}</Text>
                 <Text style={styles.statLabel}>posts</Text>
               </TouchableOpacity>
               <View style={styles.statSeparator} />
@@ -596,7 +596,10 @@ export default function UserProfileModal({ uid, visible, onClose }: Props) {
         <UserProfileModal
           uid={nestedUid}
           visible={nestedVisible}
-          onClose={() => setNestedVisible(false)}
+          onClose={() => {
+            setNestedVisible(false);
+            setNestedUid(null);
+          }}
         />
       )}
     </>

@@ -845,6 +845,7 @@ export default function CommunityScreen() {
     addPostFirestore,
     toggleReactionFirestore,
     addCommentFirestore,
+    loadCommentsForPost,
   } = useCommunityStore();
   const { motherName } = useProfileStore();
   const profile = useProfileStore((s) => s.profile);
@@ -868,6 +869,11 @@ export default function CommunityScreen() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [myUid]);
+
+  // Keep community store's motherName in sync whenever profile name changes
+  useEffect(() => {
+    useCommunityStore.setState({ motherName: motherName || '' });
+  }, [motherName]);
 
   const orderedFilters = useMemo((): CommunityFilter[] => {
     const all: CommunityFilter[] = ['All', 'Newborn', 'Pregnancy', 'Nutrition', 'Mental Health', 'Milestones', 'Products'];
@@ -1016,7 +1022,14 @@ export default function CommunityScreen() {
                 toggleReaction(postId, emoji);
               }
             }}
-            onToggleComments={toggleComments}
+            onToggleComments={(postId) => {
+              const post = useCommunityStore.getState().posts.find((p) => p.id === postId);
+              // Only fetch from Firestore when opening (not closing), and skip seed posts
+              if (post && !post.showComments && post.authorUid) {
+                loadCommentsForPost(postId);
+              }
+              toggleComments(postId);
+            }}
             onAddComment={(postId, text) => {
               if (myUid) {
                 addCommentFirestore(postId, myUid, motherName || 'Anonymous', text);
@@ -1043,7 +1056,11 @@ export default function CommunityScreen() {
         onClose={() => setShowNewPost(false)}
         onPost={(text, topic, _authorName, imageUri, imageAspectRatio) => {
           if (myUid) {
-            addPostFirestore(text, topic, myUid, imageUri, imageAspectRatio);
+            addPostFirestore(text, topic, myUid, imageUri, imageAspectRatio).catch(() => {
+              if (typeof window !== 'undefined') {
+                window.alert('Failed to publish your post. Please check your connection and try again.');
+              }
+            });
           } else {
             addPost(text, topic, motherName || 'Anonymous', imageUri, imageAspectRatio);
           }
