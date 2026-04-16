@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   Image,
@@ -18,11 +18,16 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useCommunityStore, Post, CommunityFilter } from '../../store/useCommunityStore';
+import { useCommunityStore, CommunityFilter } from '../../store/useCommunityStore';
 import { useProfileStore } from '../../store/useProfileStore';
+import { useAuthStore } from '../../store/useAuthStore';
+import { useSocialStore } from '../../store/useSocialStore';
 import GradientAvatar from '../../components/ui/GradientAvatar';
 import TagPill from '../../components/ui/TagPill';
 import SettingsModal from '../../components/ui/SettingsModal';
+import PostCardComponent from '../../components/community/PostCard';
+import UserProfileModalComponent from '../../components/community/UserProfileModal';
+import NotificationsSheet from '../../components/community/NotificationsSheet';
 import { Fonts } from '../../constants/theme';
 
 const FILTERS: CommunityFilter[] = ['All', 'Newborn', 'Pregnancy', 'Nutrition', 'Mental Health', 'Milestones', 'Products'];
@@ -95,165 +100,7 @@ async function cropImageToRatio(uri: string, ratio: number | null): Promise<{ ur
   });
 }
 
-// ─── User Profile Modal ───────────────────────────────────────────────────────
-
-function UserProfileModal({
-  author,
-  onClose,
-  allPosts,
-}: {
-  author: { name: string; initial: string; badge: string } | null;
-  onClose: () => void;
-  allPosts: Post[];
-}) {
-  if (!author) return null;
-  const authorPosts = allPosts.filter((p) => p.authorName === author.name);
-  const topTopics = [...new Set(authorPosts.map((p) => p.topic))];
-  const totalReactions = authorPosts.reduce(
-    (sum, p) => sum + Object.values(p.reactions).reduce((a, b) => a + b, 0),
-    0
-  );
-
-  return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <TouchableOpacity style={uStyles.overlay} onPress={onClose} activeOpacity={1}>
-        <View style={uStyles.sheet}>
-          <View style={uStyles.handle} />
-
-          {/* Avatar + name */}
-          <View style={uStyles.profileHeader}>
-            <GradientAvatar name={author.initial} size={68} />
-            <Text style={uStyles.name}>{author.name}</Text>
-            <Text style={uStyles.badge}>{author.badge}</Text>
-          </View>
-
-          {/* Stats */}
-          <View style={uStyles.statsRow}>
-            <View style={uStyles.stat}>
-              <Text style={uStyles.statNum}>{authorPosts.length}</Text>
-              <Text style={uStyles.statLabel}>Posts</Text>
-            </View>
-            <View style={uStyles.statDivider} />
-            <View style={uStyles.stat}>
-              <Text style={uStyles.statNum}>{totalReactions}</Text>
-              <Text style={uStyles.statLabel}>Reactions</Text>
-            </View>
-            {topTopics.length > 0 && (
-              <>
-                <View style={uStyles.statDivider} />
-                <View style={uStyles.stat}>
-                  <Text style={uStyles.statNum}>{topTopics.length}</Text>
-                  <Text style={uStyles.statLabel}>Topics</Text>
-                </View>
-              </>
-            )}
-          </View>
-
-          {/* Topics chips */}
-          {topTopics.length > 0 && (
-            <View style={uStyles.topicsWrap}>
-              <Text style={uStyles.topicsLabel}>Talks about</Text>
-              <View style={uStyles.topicsRow}>
-                {topTopics.map((t) => (
-                  <View key={t} style={uStyles.topicChip}>
-                    <Text style={uStyles.topicChipText}>{t}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          )}
-
-          {/* Most recent post preview */}
-          {authorPosts[0] && (
-            <View style={uStyles.recentPost}>
-              <Text style={uStyles.recentLabel}>Recent post</Text>
-              <Text style={uStyles.recentText} numberOfLines={3}>
-                {authorPosts[0].text}
-              </Text>
-            </View>
-          )}
-
-          <TouchableOpacity style={uStyles.closeBtn} onPress={onClose} activeOpacity={0.85}>
-            <Text style={uStyles.closeBtnText}>Close</Text>
-          </TouchableOpacity>
-        </View>
-      </TouchableOpacity>
-    </Modal>
-  );
-}
-
-const uStyles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    backgroundColor: '#FFF8FC',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    paddingHorizontal: 24,
-    paddingTop: 12,
-    paddingBottom: 40,
-  },
-  handle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#EDE9F6',
-    alignSelf: 'center',
-    marginBottom: 20,
-  },
-  profileHeader: { alignItems: 'center', marginBottom: 20 },
-  name: { fontFamily: Fonts.serif, fontSize: 20, color: '#1C1033', marginTop: 12, marginBottom: 4 },
-  badge: { fontFamily: Fonts.sansRegular, fontSize: 13, color: '#9CA3AF' },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    marginBottom: 16,
-    gap: 0,
-    borderWidth: 1,
-    borderColor: '#EDE9F6',
-  },
-  stat: { alignItems: 'center', flex: 1 },
-  statNum: { fontFamily: Fonts.sansBold, fontSize: 22, color: '#1C1033' },
-  statLabel: { fontFamily: Fonts.sansRegular, fontSize: 11, color: '#9CA3AF', marginTop: 2 },
-  statDivider: { width: 1, height: 32, backgroundColor: '#EDE9F6' },
-  topicsWrap: { marginBottom: 16 },
-  topicsLabel: { fontFamily: Fonts.sansBold, fontSize: 11, color: '#C4B5D4', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 },
-  topicsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  topicChip: {
-    backgroundColor: 'rgba(124,58,237,0.06)',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(124,58,237,0.15)',
-  },
-  topicChipText: { fontFamily: Fonts.sansSemiBold, fontSize: 13, color: '#7C3AED' },
-  recentPost: {
-    backgroundColor: '#ffffff',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#EDE9F6',
-  },
-  recentLabel: { fontFamily: Fonts.sansBold, fontSize: 10, color: '#C4B5D4', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 6 },
-  recentText: { fontFamily: Fonts.sansRegular, fontSize: 13, color: '#374151', lineHeight: 19 },
-  closeBtn: {
-    backgroundColor: 'rgba(124,58,237,0.08)',
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  closeBtnText: { fontFamily: Fonts.sansBold, fontSize: 15, color: '#7C3AED' },
-});
+// (UserProfileModal is now imported from components/community/UserProfileModal)
 
 // ─── Animated Heart React Button ──────────────────────────────────────────────
 
@@ -382,291 +229,6 @@ const stackStyles = StyleSheet.create({
     fontFamily: Fonts.sansSemiBold,
     fontSize: 13,
     color: '#6B7280',
-  },
-});
-
-// ─── Post Card ────────────────────────────────────────────────────────────────
-
-const REACTION_EMOJIS = ['❤️', '💜', '😊', '💪', '🙏', '🤱'];
-
-function PostCard({
-  post,
-  currentUserName,
-  onReact,
-  onToggleComments,
-  onAddComment,
-  onViewProfile,
-}: {
-  post: Post;
-  currentUserName: string;
-  onReact: (postId: string, emoji: string) => void;
-  onToggleComments: (postId: string) => void;
-  onAddComment: (postId: string, authorName: string, text: string) => void;
-  onViewProfile: (author: { name: string; initial: string; badge: string }) => void;
-}) {
-  const [commentText, setCommentText] = useState('');
-  const [showReactPicker, setShowReactPicker] = useState(false);
-
-  function timeAgo(date: Date) {
-    const d = typeof date === 'string' ? new Date(date) : date;
-    const mins = Math.floor((Date.now() - d.getTime()) / 60000);
-    if (mins < 1) return 'just now';
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    return `${Math.floor(hrs / 24)}d ago`;
-  }
-
-  const handleSendComment = () => {
-    const trimmed = commentText.trim();
-    if (!trimmed) return;
-    onAddComment(post.id, currentUserName || 'Anonymous', trimmed);
-    setCommentText('');
-  };
-
-  // Compiled reaction summary
-  const totalReactions = Object.values(post.reactions).reduce((a, b) => a + b, 0);
-
-  // Has the current user reacted with any emoji?
-  const hasReacted = post.userReactions.length > 0;
-
-  // Topic color for left border
-  const topicColor = getTopicColor(post.topic);
-
-  return (
-    <View style={[postStyles.card, { borderLeftColor: topicColor }]}>
-      {/* Author row */}
-      <View style={postStyles.authorRow}>
-        <TouchableOpacity
-          style={postStyles.authorLeft}
-          onPress={() => onViewProfile({ name: post.authorName, initial: post.authorInitial, badge: post.badge })}
-          activeOpacity={0.75}
-        >
-          <GradientAvatar name={post.authorInitial} size={40} />
-          <View style={postStyles.authorInfo}>
-            <Text style={postStyles.authorName}>{post.authorName}</Text>
-            <Text style={postStyles.authorBadge}>{post.badge}</Text>
-          </View>
-        </TouchableOpacity>
-        <View style={postStyles.rightMeta}>
-          <TagPill label={post.topic} color="#8b5cf6" />
-          <Text style={postStyles.time}>{timeAgo(post.createdAt)}</Text>
-        </View>
-      </View>
-
-      {/* Post text */}
-      <Text style={postStyles.text}>{post.text}</Text>
-
-      {/* Post image — uses stored aspect ratio so no forced cropping in feed */}
-      {post.imageUri ? (
-        <View style={[postStyles.postImageWrap, post.imageAspectRatio ? { aspectRatio: post.imageAspectRatio } : {}]}>
-          <Image
-            source={{ uri: post.imageUri }}
-            style={StyleSheet.absoluteFill}
-            resizeMode="cover"
-          />
-        </View>
-      ) : null}
-
-      {/* Reactions bar */}
-      <View style={postStyles.reactionsBar}>
-        {/* Left: stacked avatars + count + animated heart */}
-        <View style={postStyles.reactionLeft}>
-          <TouchableOpacity
-            onPress={() => setShowReactPicker((v) => !v)}
-            activeOpacity={0.75}
-            style={postStyles.reactionSummaryTap}
-          >
-            <StackedReactorAvatars count={totalReactions} />
-          </TouchableOpacity>
-          <AnimatedHeartButton
-            hasReacted={hasReacted}
-            onPress={() => setShowReactPicker((v) => !v)}
-          />
-        </View>
-
-        {/* Right: comment count */}
-        <TouchableOpacity
-          style={postStyles.commentsBtn}
-          onPress={() => onToggleComments(post.id)}
-          activeOpacity={0.75}
-        >
-          <Ionicons name="chatbubble-outline" size={14} color="#9ca3af" />
-          <Text style={postStyles.commentsBtnText}>{post.comments.length}</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Emoji picker (expands on tap React) */}
-      {showReactPicker && (
-        <View style={postStyles.emojiPicker}>
-          {REACTION_EMOJIS.map((emoji) => {
-            const count = post.reactions[emoji] ?? 0;
-            const reacted = post.userReactions.includes(emoji);
-            return (
-              <TouchableOpacity
-                key={emoji}
-                style={[postStyles.emojiPickerBtn, reacted && postStyles.emojiPickerBtnActive]}
-                onPress={() => { onReact(post.id, emoji); }}
-                activeOpacity={0.7}
-              >
-                <Text style={postStyles.emojiPickerIcon}>{emoji}</Text>
-                {count > 0 && (
-                  <Text style={[postStyles.emojiPickerCount, reacted && postStyles.emojiPickerCountActive]}>
-                    {count}
-                  </Text>
-                )}
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      )}
-
-      {/* Comments */}
-      {post.showComments && (
-        <View style={postStyles.commentsSection}>
-          {post.comments.map((c) => (
-            <View key={c.id} style={postStyles.commentRow}>
-              <GradientAvatar name={c.authorInitial} size={28} />
-              <View style={postStyles.commentBubble}>
-                <Text style={postStyles.commentAuthor}>{c.authorName}</Text>
-                <Text style={postStyles.commentText}>{c.text}</Text>
-              </View>
-            </View>
-          ))}
-
-          {/* Comment input */}
-          <View style={postStyles.commentInput}>
-            <TextInput
-              style={postStyles.commentTextInput}
-              value={commentText}
-              onChangeText={setCommentText}
-              placeholder="Add a comment..."
-              placeholderTextColor="#9ca3af"
-              returnKeyType="send"
-              onSubmitEditing={handleSendComment}
-            />
-            <TouchableOpacity onPress={handleSendComment} disabled={!commentText.trim()}>
-              <Ionicons
-                name="paper-plane"
-                size={18}
-                color={commentText.trim() ? '#ec4899' : '#d1d5db'}
-              />
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
-    </View>
-  );
-}
-
-const postStyles = StyleSheet.create({
-  card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#E8487A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: '#EDE9F6',
-    borderLeftWidth: 3,
-    boxShadow: '0px 2px 10px rgba(232, 72, 122, 0.06)',
-  } as any,
-  authorRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 12, justifyContent: 'space-between' },
-  authorLeft: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, flex: 1 },
-  authorInfo: { flex: 1 },
-  authorName: { fontFamily: Fonts.sansBold, fontSize: 15, color: '#1C1033' },
-  authorBadge: { fontFamily: Fonts.sansRegular, fontSize: 11, color: '#9CA3AF', marginTop: 2 },
-  rightMeta: { alignItems: 'flex-end', gap: 4 },
-  time: { fontFamily: Fonts.sansRegular, fontSize: 11, color: '#9CA3AF' },
-  text: { fontFamily: Fonts.sansRegular, fontSize: 14, color: '#374151', lineHeight: 22, marginBottom: 14 },
-  postImageWrap: {
-    width: '100%',
-    aspectRatio: 4 / 3,
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginBottom: 12,
-    backgroundColor: '#EDE9F6',
-    position: 'relative',
-  },
-  reactionsBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  reactionLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  reactionSummaryTap: {
-    // just a touch wrapper
-  },
-  commentsBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-  },
-  commentsBtnText: { fontFamily: Fonts.sansRegular, fontSize: 12, color: '#9CA3AF' },
-  emojiPicker: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    backgroundColor: '#FFF8FC',
-    borderRadius: 14,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: '#EDE9F6',
-  },
-  emojiPickerBtn: {
-    alignItems: 'center',
-    gap: 2,
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-    borderRadius: 10,
-  },
-  emojiPickerBtnActive: { backgroundColor: 'rgba(232,72,122,0.08)' },
-  emojiPickerIcon: { fontSize: 22 },
-  emojiPickerCount: { fontFamily: Fonts.sansSemiBold, fontSize: 11, color: '#9CA3AF' },
-  emojiPickerCountActive: { color: '#E8487A' },
-  commentsSection: { marginTop: 12, borderTopWidth: 1, borderTopColor: '#EDE9F6', paddingTop: 12 },
-  commentRow: { flexDirection: 'row', gap: 8, marginBottom: 10, alignItems: 'flex-start' },
-  commentBubble: {
-    flex: 1,
-    backgroundColor: '#FFF8FC',
-    borderRadius: 12,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#EDE9F6',
-  },
-  commentAuthor: { fontFamily: Fonts.sansBold, fontSize: 12, color: '#1C1033', marginBottom: 2 },
-  commentText: { fontFamily: Fonts.sansRegular, fontSize: 13, color: '#374151', lineHeight: 19 },
-  commentInput: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#EDE9F6',
-    paddingTop: 10,
-    marginTop: 4,
-  },
-  commentTextInput: {
-    flex: 1,
-    backgroundColor: '#FFF8FC',
-    borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    fontFamily: Fonts.sansRegular,
-    fontSize: 13,
-    color: '#1C1033',
-    borderWidth: 1,
-    borderColor: '#EDE9F6',
   },
 });
 
@@ -972,6 +534,7 @@ function MyProfileCard({ onEdit }: { onEdit: () => void }) {
     kids, visibilitySettings, profile,
   } = useProfileStore();
   const { getUserPostCount } = useCommunityStore();
+  const { followersCount, followingCount } = useSocialStore();
   const [imgErr, setImgErr] = useState(false);
 
   const postCount = getUserPostCount(motherName);
@@ -982,8 +545,8 @@ function MyProfileCard({ onEdit }: { onEdit: () => void }) {
   const hasPhoto = photoUrl && !imgErr;
   const isProfileComplete = !!(profile?.state && profile?.diet && bio && expertise.length > 0);
 
-  // Stat 3: city or streak placeholder
-  const cityOrStreak = profile?.state || 'India';
+  // Stat 3: state / location
+  const stateLabel = profile?.state || 'India';
 
   return (
     <View style={heroStyles.card}>
@@ -1048,19 +611,25 @@ function MyProfileCard({ onEdit }: { onEdit: () => void }) {
           </View>
         )}
 
-        {/* Children — gated by showKids */}
-        {visibilitySettings.showKids && (
+        {/* Followers */}
+        <View style={heroStyles.statBox}>
+          <Text style={heroStyles.statNum}>{followersCount}</Text>
+          <Text style={heroStyles.statLabel}>Followers</Text>
+        </View>
+
+        {/* Following */}
+        <View style={heroStyles.statBox}>
+          <Text style={heroStyles.statNum}>{followingCount}</Text>
+          <Text style={heroStyles.statLabel}>Following</Text>
+        </View>
+
+        {/* State — gated by showState */}
+        {visibilitySettings.showState && (
           <View style={heroStyles.statBox}>
-            <Text style={heroStyles.statNum}>{kids.length}</Text>
-            <Text style={heroStyles.statLabel}>{kids.length === 1 ? 'Child' : 'Children'}</Text>
+            <Text style={heroStyles.statNumSmall} numberOfLines={1}>{stateLabel}</Text>
+            <Text style={heroStyles.statLabel}>State</Text>
           </View>
         )}
-
-        {/* City / streak */}
-        <View style={heroStyles.statBox}>
-          <Text style={heroStyles.statNumSmall} numberOfLines={1}>{cityOrStreak}</Text>
-          <Text style={heroStyles.statLabel}>City</Text>
-        </View>
       </View>
 
       {/* Bio — gated by showBio */}
@@ -1272,10 +841,33 @@ export default function CommunityScreen() {
     toggleComments,
     setFilter,
     getFilteredPosts,
+    loadPostsFromFirestore,
+    addPostFirestore,
+    toggleReactionFirestore,
+    addCommentFirestore,
   } = useCommunityStore();
   const { motherName } = useProfileStore();
   const profile = useProfileStore((s) => s.profile);
   const activeKid = useProfileStore((s) => s.getActiveKid());
+  const { user } = useAuthStore();
+  const myUid = user?.uid ?? '';
+  const {
+    loadSocialData,
+    syncPublicProfile,
+    unreadCount,
+  } = useSocialStore();
+
+  // ── Load data on mount ──────────────────────────────────────────────────────
+  useEffect(() => {
+    loadPostsFromFirestore();
+    if (myUid) {
+      // Sync motherName into community store so addPostFirestore can use it
+      useCommunityStore.setState({ motherName: motherName || '' });
+      loadSocialData();
+      syncPublicProfile();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myUid]);
 
   const orderedFilters = useMemo((): CommunityFilter[] => {
     const all: CommunityFilter[] = ['All', 'Newborn', 'Pregnancy', 'Nutrition', 'Mental Health', 'Milestones', 'Products'];
@@ -1296,8 +888,8 @@ export default function CommunityScreen() {
 
   const [showNewPost, setShowNewPost] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [viewingAuthor, setViewingAuthor] = useState<{ name: string; initial: string; badge: string } | null>(null);
-  const allPosts = useCommunityStore((s) => s.posts);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [viewingUid, setViewingUid] = useState<string | null>(null);
   const posts = getFilteredPosts();
 
   return (
@@ -1313,26 +905,51 @@ export default function CommunityScreen() {
         <View style={styles.glowBottomLeft} pointerEvents="none" />
         <View style={styles.headerInner}>
           <Text style={styles.headerTitle}>Connect</Text>
-          <TouchableOpacity onPress={() => setShowNewPost(true)} activeOpacity={0.85}>
-            <LinearGradient
-              colors={['#E8487A', '#7C3AED']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.postBtn}
+          <View style={styles.headerRight}>
+            {/* Notifications bell */}
+            <TouchableOpacity
+              style={styles.notifBtn}
+              onPress={() => setShowNotifications(true)}
+              activeOpacity={0.75}
             >
-              <Text style={styles.postBtnText}>Post +</Text>
-            </LinearGradient>
-          </TouchableOpacity>
+              <Ionicons name="notifications-outline" size={22} color="rgba(255,255,255,0.9)" />
+              {unreadCount > 0 && (
+                <View style={styles.notifBadge}>
+                  <Text style={styles.notifBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+
+            {/* New post button */}
+            <TouchableOpacity onPress={() => setShowNewPost(true)} activeOpacity={0.85}>
+              <LinearGradient
+                colors={['#E8487A', '#7C3AED']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.postBtn}
+              >
+                <Text style={styles.postBtnText}>Post +</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
         </View>
       </LinearGradient>
 
       <SettingsModal visible={showSettings} onClose={() => setShowSettings(false)} />
 
-      {viewingAuthor && (
-        <UserProfileModal
-          author={viewingAuthor}
-          onClose={() => setViewingAuthor(null)}
-          allPosts={allPosts}
+      {/* Notifications sheet */}
+      <NotificationsSheet
+        visible={showNotifications}
+        onClose={() => setShowNotifications(false)}
+        onViewProfile={(uid) => { setShowNotifications(false); setViewingUid(uid); }}
+      />
+
+      {/* User profile modal (uid-based, loads from Firestore) */}
+      {viewingUid !== null && (
+        <UserProfileModalComponent
+          uid={viewingUid}
+          visible={viewingUid !== null}
+          onClose={() => setViewingUid(null)}
         />
       )}
 
@@ -1388,13 +1005,28 @@ export default function CommunityScreen() {
           <MyProfileCard onEdit={() => setShowSettings(true)} />
         }
         renderItem={({ item }) => (
-          <PostCard
+          <PostCardComponent
             post={item}
+            currentUserUid={myUid}
             currentUserName={motherName}
-            onReact={toggleReaction}
+            onReact={(postId, emoji) => {
+              if (myUid) {
+                toggleReactionFirestore(postId, myUid, motherName || 'Anonymous', emoji);
+              } else {
+                toggleReaction(postId, emoji);
+              }
+            }}
             onToggleComments={toggleComments}
-            onAddComment={addComment}
-            onViewProfile={(author) => setViewingAuthor(author)}
+            onAddComment={(postId, text) => {
+              if (myUid) {
+                addCommentFirestore(postId, myUid, motherName || 'Anonymous', text);
+              } else {
+                addComment(postId, motherName || 'Anonymous', text);
+              }
+            }}
+            onViewProfile={(uid, _name) => {
+              if (uid) setViewingUid(uid);
+            }}
           />
         )}
         ListEmptyComponent={
@@ -1409,7 +1041,13 @@ export default function CommunityScreen() {
       <NewPostModal
         visible={showNewPost}
         onClose={() => setShowNewPost(false)}
-        onPost={(text, topic, authorName, imageUri, imageAspectRatio) => addPost(text, topic, authorName, imageUri, imageAspectRatio)}
+        onPost={(text, topic, _authorName, imageUri, imageAspectRatio) => {
+          if (myUid) {
+            addPostFirestore(text, topic, myUid, imageUri, imageAspectRatio);
+          } else {
+            addPost(text, topic, motherName || 'Anonymous', imageUri, imageAspectRatio);
+          }
+        }}
       />
     </View>
   );
@@ -1437,6 +1075,42 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   headerTitle: { fontFamily: Fonts.serif, fontSize: 26, color: '#ffffff', letterSpacing: -0.3 },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  notifBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    position: 'relative',
+  },
+  notifBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#E8487A',
+    borderRadius: 9,
+    minWidth: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+    borderWidth: 1.5,
+    borderColor: '#1C1033',
+  },
+  notifBadgeText: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 10,
+    color: '#ffffff',
+    lineHeight: 12,
+  },
   postBtn: {
     borderRadius: 20,
     paddingVertical: 8,

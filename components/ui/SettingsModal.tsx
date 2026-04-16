@@ -8,6 +8,8 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +19,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useProfileStore, Kid, Profile, ParentGender, ParentRelation, calculateAgeInMonths, calculateAgeInWeeks, DEFAULT_VISIBILITY } from '../../store/useProfileStore';
 import { saveFullProfile } from '../../services/firebase';
 import DatePickerField from './DatePickerField';
+import StateSelectorComponent from '../onboarding/StateSelector';
 
 interface SettingsModalProps {
   visible: boolean;
@@ -125,6 +128,84 @@ function MultiChipSelect({ options, selected, onToggle }: { options: string[]; s
   );
 }
 
+// ─── State Picker Modal ───────────────────────────────────────────────────────
+
+function StatePickerModal({
+  visible,
+  selected,
+  onSelect,
+  onClose,
+}: {
+  visible: boolean;
+  selected: string;
+  onSelect: (state: string) => void;
+  onClose: () => void;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <KeyboardAvoidingView
+        style={spStyles.overlay}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <View style={spStyles.sheet}>
+          {/* Handle + header */}
+          <View style={spStyles.handleBar} />
+          <View style={spStyles.header}>
+            <Text style={spStyles.title}>Select State</Text>
+            <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="close" size={22} color="#6b7280" />
+            </TouchableOpacity>
+          </View>
+
+          <StateSelectorComponent
+            selected={selected}
+            onSelect={(state) => {
+              onSelect(state);
+              onClose();
+            }}
+          />
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+const spStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    backgroundColor: '#fdf6ff',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 36,
+    maxHeight: '75%',
+  },
+  handleBar: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#e5e7eb',
+    alignSelf: 'center',
+    marginBottom: 14,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  title: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#1a1a2e',
+  },
+});
+
 // ─── Edit Profile View ────────────────────────────────────────────────────────
 
 const EXPERTISE_OPTIONS = [
@@ -137,9 +218,11 @@ function EditProfileView({ onBack }: { onBack: () => void }) {
     motherName, profile, photoUrl, parentGender, bio, expertise,
     setMotherName, setProfile, setPhotoUrl, setParentGender, setBio, setExpertise,
   } = useProfileStore();
+  const { user } = useAuthStore();
 
   const [name, setName] = useState(motherName || '');
   const [state, setState] = useState(profile?.state || '');
+  const [showStatePicker, setShowStatePicker] = useState(false);
   const [diet, setDiet] = useState<'vegetarian' | 'eggetarian' | 'non-vegetarian' | 'vegan'>(
     (profile?.diet as 'vegetarian' | 'eggetarian' | 'non-vegetarian' | 'vegan') || 'vegetarian'
   );
@@ -207,6 +290,18 @@ function EditProfileView({ onBack }: { onBack: () => void }) {
     setParentGender(gender);
     setBio(bioText.trim());
     setExpertise(expertiseTags);
+    // Persist to Firestore so changes survive reload
+    if (user?.uid) {
+      const st = useProfileStore.getState();
+      saveFullProfile(user.uid, {
+        motherName: name.trim() || st.motherName,
+        profile: st.profile ? { ...st.profile, state: state.trim() || st.profile.state, diet: diet as any, familyType: familyType as any } : st.profile,
+        kids: st.kids,
+        completedVaccines: st.completedVaccines,
+        onboardingComplete: st.onboardingComplete,
+        visibilitySettings: st.visibilitySettings,
+      }).catch(console.error);
+    }
     setSaving(false);
     onBack();
   };
@@ -256,7 +351,23 @@ function EditProfileView({ onBack }: { onBack: () => void }) {
       />
 
       <Text style={s.editSectionTitle}>State</Text>
-      <TextInput style={s.textInput} value={state} onChangeText={setState} placeholder="e.g. Maharashtra" placeholderTextColor="#9ca3af" />
+      <TouchableOpacity
+        style={s.statePickerBtn}
+        onPress={() => setShowStatePicker(true)}
+        activeOpacity={0.75}
+      >
+        <Ionicons name="location-outline" size={18} color="#8b5cf6" style={{ marginRight: 8 }} />
+        <Text style={[s.statePickerText, !state && s.statePickerPlaceholder]}>
+          {state || 'Select your state'}
+        </Text>
+        <Ionicons name="chevron-down" size={16} color="#9ca3af" />
+      </TouchableOpacity>
+      <StatePickerModal
+        visible={showStatePicker}
+        selected={state}
+        onSelect={(val) => setState(val)}
+        onClose={() => setShowStatePicker(false)}
+      />
 
       <Text style={s.editSectionTitle}>Diet</Text>
       <ChipSelect options={DIET_OPTIONS} selected={diet} onSelect={(v) => setDiet(v as 'vegetarian' | 'eggetarian' | 'non-vegetarian' | 'vegan')} />
@@ -897,6 +1008,25 @@ const s = StyleSheet.create({
   deleteKidBtnText: { color: '#ef4444', fontWeight: '600', fontSize: 14 },
 
   optional: { color: '#9ca3af', fontWeight: '400', textTransform: 'none' },
+
+  statePickerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderWidth: 1.5,
+    borderColor: '#e5e7eb',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  statePickerText: {
+    flex: 1,
+    fontSize: 15,
+    color: '#1a1a2e',
+  },
+  statePickerPlaceholder: {
+    color: '#9ca3af',
+  },
 
   textArea: { minHeight: 80, textAlignVertical: 'top', paddingTop: 12 },
 

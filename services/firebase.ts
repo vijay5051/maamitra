@@ -259,6 +259,7 @@ export async function getMoodHistory(uid: string): Promise<Array<{ date: string;
 // ─── Community Posts ──────────────────────────────────────────────────────────
 
 export interface CommunityPostPayload {
+  authorUid?: string;
   authorName: string;
   authorInitial: string;
   badge: string;
@@ -275,7 +276,7 @@ export async function saveCommunityPost(post: CommunityPostPayload): Promise<voi
       ...post,
       reactions: {},
       comments: [],
-      approved: false,
+      approved: true,
       createdAt: serverTimestamp(),
     });
   } catch (error) {

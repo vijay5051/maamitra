@@ -12,11 +12,13 @@ import TagPill from '../ui/TagPill';
 import { Post } from '../../store/useCommunityStore';
 
 interface PostCardProps {
-  post: Post;
-  onReact: (emoji: string) => void;
-  onComment: (text: string) => void;
-  onToggleComments: () => void;
+  post: Post;                                             // Post from useCommunityStore — now has authorUid field
+  currentUserUid: string;
   currentUserName: string;
+  onReact: (postId: string, emoji: string) => void;
+  onToggleComments: (postId: string) => void;
+  onAddComment: (postId: string, text: string) => void;
+  onViewProfile: (uid: string, name: string) => void;    // open UserProfileModal
 }
 
 const REACTION_OPTIONS = ['❤️', '🤱', '😊', '💪', '🙏', '💜'];
@@ -35,10 +37,12 @@ function timeAgo(date: Date | string): string {
 
 export default function PostCard({
   post,
-  onReact,
-  onComment,
-  onToggleComments,
+  currentUserUid,
   currentUserName,
+  onReact,
+  onToggleComments,
+  onAddComment,
+  onViewProfile,
 }: PostCardProps) {
   const [commentText, setCommentText] = useState('');
   const [showReactionPicker, setShowReactionPicker] = useState(false);
@@ -46,17 +50,52 @@ export default function PostCard({
   const handleSendComment = () => {
     const trimmed = commentText.trim();
     if (!trimmed) return;
-    onComment(trimmed);
+    onAddComment(post.id, trimmed);
     setCommentText('');
   };
+
+  // Support both old `userReactions` array and new `reactionsByUser` map
+  const isUserReacted = (emoji: string): boolean => {
+    if (post.reactionsByUser?.[currentUserUid]) {
+      return post.reactionsByUser[currentUserUid].includes(emoji);
+    }
+    return post.userReactions?.includes(emoji) ?? false;
+  };
+
+  // Support both old embedded `comments` array and new loaded `commentList`
+  const displayedComments = post.commentList ?? post.comments;
+
+  const isOwnPost = post.authorUid === currentUserUid;
 
   return (
     <View style={styles.card}>
       {/* Author row */}
       <View style={styles.authorRow}>
-        <GradientAvatar name={post.authorName} size={40} />
+        <TouchableOpacity
+          onPress={() => onViewProfile(post.authorUid ?? '', post.authorName)}
+          activeOpacity={0.75}
+        >
+          <GradientAvatar name={post.authorName} size={40} />
+        </TouchableOpacity>
         <View style={styles.authorInfo}>
-          <Text style={styles.authorName}>{post.authorName}</Text>
+          <View style={styles.authorNameRow}>
+            <TouchableOpacity
+              onPress={() => onViewProfile(post.authorUid ?? '', post.authorName)}
+              activeOpacity={0.75}
+            >
+              <Text style={styles.authorName}>{post.authorName}</Text>
+            </TouchableOpacity>
+            {/* Quick follow shortcut — shown only for other users' posts */}
+            {!isOwnPost && (
+              <TouchableOpacity
+                onPress={() => onViewProfile(post.authorUid ?? '', post.authorName)}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                style={styles.quickFollowBtn}
+              >
+                <Text style={styles.quickFollowText}>+ Follow</Text>
+              </TouchableOpacity>
+            )}
+          </View>
           <View style={styles.authorMeta}>
             <Text style={styles.badge}>{post.badge}</Text>
             <Text style={styles.dot}>·</Text>
@@ -84,11 +123,11 @@ export default function PostCard({
       {/* Reactions row */}
       <View style={styles.reactionsRow}>
         {post.reactions && Object.entries(post.reactions).map(([emoji, count]) => {
-          const userReacted = post.userReactions?.includes(emoji);
+          const userReacted = isUserReacted(emoji);
           return (
             <TouchableOpacity
               key={emoji}
-              onPress={() => onReact(emoji)}
+              onPress={() => onReact(post.id, emoji)}
               style={[styles.reactionPill, userReacted && styles.reactionPillActive]}
             >
               <Text style={styles.reactionEmoji}>{emoji}</Text>
@@ -109,9 +148,9 @@ export default function PostCard({
 
         {/* Spacer + comment count */}
         <View style={styles.flex1} />
-        <TouchableOpacity onPress={onToggleComments} style={styles.commentCountRow}>
+        <TouchableOpacity onPress={() => onToggleComments(post.id)} style={styles.commentCountRow}>
           <Ionicons name="chatbubble-outline" size={16} color="#9ca3af" />
-          <Text style={styles.commentCount}>{post.comments?.length ?? 0}</Text>
+          <Text style={styles.commentCount}>{displayedComments?.length ?? 0}</Text>
         </TouchableOpacity>
       </View>
 
@@ -122,7 +161,7 @@ export default function PostCard({
             <TouchableOpacity
               key={emoji}
               onPress={() => {
-                onReact(emoji);
+                onReact(post.id, emoji);
                 setShowReactionPicker(false);
               }}
               style={styles.reactionPickerItem}
@@ -136,11 +175,27 @@ export default function PostCard({
       {/* Expanded comments */}
       {post.showComments && (
         <View style={styles.commentsSection}>
-          {post.comments?.map((comment) => (
+          {displayedComments?.map((comment) => (
             <View key={comment.id} style={styles.commentRow}>
-              <GradientAvatar name={comment.authorName} size={28} />
+              <TouchableOpacity
+                onPress={() => onViewProfile(
+                  (comment as any).authorUid ?? '',
+                  comment.authorName
+                )}
+                activeOpacity={0.75}
+              >
+                <GradientAvatar name={comment.authorName} size={28} />
+              </TouchableOpacity>
               <View style={styles.commentBubble}>
-                <Text style={styles.commentAuthor}>{comment.authorName}</Text>
+                <TouchableOpacity
+                  onPress={() => onViewProfile(
+                    (comment as any).authorUid ?? '',
+                    comment.authorName
+                  )}
+                  activeOpacity={0.75}
+                >
+                  <Text style={styles.commentAuthor}>{comment.authorName}</Text>
+                </TouchableOpacity>
                 <Text style={styles.commentText}>{comment.text}</Text>
                 <Text style={styles.commentTime}>{timeAgo(comment.createdAt)}</Text>
               </View>
@@ -199,10 +254,24 @@ const styles = StyleSheet.create({
   authorInfo: {
     flex: 1,
   },
+  authorNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   authorName: {
     fontSize: 15,
     fontWeight: '700',
     color: '#1a1a2e',
+  },
+  quickFollowBtn: {
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+  },
+  quickFollowText: {
+    fontSize: 12,
+    color: '#E8487A',
+    fontWeight: '600',
   },
   authorMeta: {
     flexDirection: 'row',
