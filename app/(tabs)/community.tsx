@@ -560,6 +560,116 @@ const newPostStyles = StyleSheet.create({
   postBtnText: { fontFamily: Fonts.sansBold, color: '#ffffff', fontSize: 16 },
 });
 
+// ─── Compose Card — LinkedIn-style prompt to open NewPostModal ────────────────
+
+function ComposeCard({ onPress }: { onPress: () => void }) {
+  const { motherName, photoUrl } = useProfileStore();
+  const firstName = (motherName || 'You').split(' ')[0];
+
+  return (
+    <TouchableOpacity
+      style={composeStyles.card}
+      onPress={onPress}
+      activeOpacity={0.85}
+    >
+      <View style={composeStyles.topRow}>
+        {photoUrl ? (
+          <Image source={{ uri: photoUrl }} style={composeStyles.avatar} />
+        ) : (
+          <GradientAvatar name={motherName || 'M'} size={40} />
+        )}
+        <View style={composeStyles.promptPill}>
+          <Text style={composeStyles.promptText}>
+            Share something, {firstName}…
+          </Text>
+        </View>
+      </View>
+
+      <View style={composeStyles.divider} />
+
+      <View style={composeStyles.actionRow}>
+        <View style={composeStyles.actionItem}>
+          <Ionicons name="image-outline" size={18} color="#34D399" />
+          <Text style={composeStyles.actionLabel}>Photo</Text>
+        </View>
+        <View style={composeStyles.actionItem}>
+          <Ionicons name="pricetag-outline" size={18} color="#7C3AED" />
+          <Text style={composeStyles.actionLabel}>Topic</Text>
+        </View>
+        <View style={composeStyles.actionItem}>
+          <Ionicons name="heart-outline" size={18} color="#E8487A" />
+          <Text style={composeStyles.actionLabel}>Share</Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+const composeStyles = StyleSheet.create({
+  card: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#EDE9F6',
+    shadowColor: '#E8487A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  promptPill: {
+    flex: 1,
+    backgroundColor: '#F8F4FF',
+    borderRadius: 24,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: '#EDE9F6',
+  },
+  promptText: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: 14,
+    color: '#9ca3af',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#F3F0FA',
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingTop: 6,
+  },
+  actionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  actionLabel: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 13,
+    color: '#6B7280',
+  },
+});
+
 // ─── My Profile Card — Premium Dark Hero ──────────────────────────────────────
 
 function MyProfileCard({ onEdit }: { onEdit: () => void }) {
@@ -994,17 +1104,6 @@ export default function CommunityScreen() {
               )}
             </TouchableOpacity>
 
-            {/* New post button */}
-            <TouchableOpacity onPress={() => setShowNewPost(true)} activeOpacity={0.85}>
-              <LinearGradient
-                colors={['#E8487A', '#7C3AED']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.postBtn}
-              >
-                <Text style={styles.postBtnText}>Post +</Text>
-              </LinearGradient>
-            </TouchableOpacity>
           </View>
         </View>
       </LinearGradient>
@@ -1091,7 +1190,10 @@ export default function CommunityScreen() {
           />
         }
         ListHeaderComponent={
-          <MyProfileCard onEdit={() => setShowSettings(true)} />
+          <>
+            <MyProfileCard onEdit={() => setShowSettings(true)} />
+            <ComposeCard onPress={() => setShowNewPost(true)} />
+          </>
         }
         renderItem={({ item }) => (
           <PostCardComponent
