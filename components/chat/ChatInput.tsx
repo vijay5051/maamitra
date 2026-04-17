@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   StyleSheet,
   TextInput,
@@ -12,11 +12,19 @@ import { Fonts } from '../../constants/theme';
 interface ChatInputProps {
   onSend: (text: string) => void;
   disabled?: boolean;
+  /** When set, prefills the input so the user just has to review + hit send. */
+  prefill?: string;
 }
 
-export default function ChatInput({ onSend, disabled = false }: ChatInputProps) {
+export default function ChatInput({ onSend, disabled = false, prefill }: ChatInputProps) {
   const [text, setText] = useState('');
   const isSendingRef = useRef(false);
+
+  // Adopt a new prefill whenever it changes (e.g. user taps a contextual Ask
+  // chip on another screen and arrives here).
+  useEffect(() => {
+    if (prefill && prefill.trim()) setText(prefill);
+  }, [prefill]);
 
   const handleSend = () => {
     const trimmed = text.trim();

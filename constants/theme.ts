@@ -1,26 +1,38 @@
 import { TextStyle, ViewStyle } from 'react-native';
 
 // ─── Colors ────────────────────────────────────────────────────────────────────
+// Design rule (2026 simplification):
+//   - Use `primary` (rose) as the ONLY accent color for interactive elements,
+//     active states, badges, and highlights.
+//   - Neutrals (bgLight, bgPink, white, textDark, textMuted, border) handle
+//     everything else. Whitespace > color for hierarchy.
+//   - Colors marked DEPRECATED should not be used in new code. Status/semantic
+//     colors (success/warning/error) remain — reserve them for their meaning.
 export const Colors = {
-  primary: '#E8487A',           // rose (was #ec4899)
-  secondary: '#7C3AED',         // plum (was #8b5cf6)
-  bgLight: '#FFF8FC',           // warm cream (was #fdf6ff)
-  bgPink: '#FFF0F5',            // warm pink-white (was #fdf2f8)
+  primary: '#E8487A',           // rose — sole accent
+  bgLight: '#FFF8FC',           // page background
+  bgPink: '#FFF0F5',            // soft highlight / pill bg
   white: '#ffffff',
-  textDark: '#1C1033',          // ink-plum (was #1a1a2e)
+  textDark: '#1C1033',          // ink-plum
   textMuted: '#9ca3af',
   textLight: '#6b7280',
-  success: '#22c55e',
-  warning: '#f59e0b',
-  error: '#ef4444',
-  border: '#EDE9F6',            // (was #f3e8ff)
+  success: '#22c55e',           // reserved for positive confirmation
+  warning: '#f59e0b',           // reserved for caution states
+  error: '#ef4444',             // reserved for destructive / errors
+  border: '#EDE9F6',
   cardBg: '#ffffff',
   overlay: 'rgba(0,0,0,0.5)',
-  gold: '#F59E0B',              // premium badges, streaks
-  sage: '#34D399',              // health success
-  sky: '#60A5FA',               // info / accent blue
-  stone: '#6B7280',             // secondary muted text
-  cloud: '#F8F4FF',             // soft purple-white background
+
+  // ─── DEPRECATED — do not use in new code ─────────────────────────
+  // Kept only for backward compatibility with existing screens. When touching
+  // a file, replace these with primary/neutrals. They will be removed once
+  // every screen is migrated.
+  secondary: '#7C3AED',
+  gold: '#F59E0B',
+  sage: '#34D399',
+  sky: '#60A5FA',
+  stone: '#6B7280',
+  cloud: '#F8F4FF',
 } as const;
 
 // ─── Gradients ─────────────────────────────────────────────────────────────────
@@ -95,6 +107,12 @@ export const Shadow = {
 } as const;
 
 // ─── Font Families ─────────────────────────────────────────────────────────────
+// Typography rule:
+//   - Use `serif` ONLY for hero/display moments — the app name, a landing
+//     greeting ("Good morning, Vijay"), or the single biggest title on a
+//     screen. Never for section headers or repeated titles.
+//   - Use `sansSemiBold` for section titles and card headings.
+//   - Use `sansRegular` for body copy, `sansMedium` for captions / metadata.
 export const Fonts = {
   serif: 'DMSerifDisplay_400Regular',
   sansRegular: 'DMSans_400Regular',

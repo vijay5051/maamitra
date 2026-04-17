@@ -31,6 +31,7 @@ import Card from '../../components/ui/Card';
 import GradientButton from '../../components/ui/GradientButton';
 import { YOGA_SESSIONS, YogaSession } from '../../data/yogaSessions';
 import YogaModalComponent from '../../components/wellness/YogaModal';
+import ContextualAskChip from '../../components/ui/ContextualAskChip';
 import { Fonts } from '../../constants/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -787,6 +788,14 @@ export default function WellnessScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}
         showsVerticalScrollIndicator={false}
       >
+        <ContextualAskChip
+          prompt={
+            profile?.stage === 'pregnant'
+              ? 'Ask about my energy and mood during pregnancy'
+              : 'Ask about postpartum recovery and self-care'
+          }
+        />
+
         {/* Mood check-in */}
         <Card
           style={{ ...styles.moodCard, backgroundColor: moodCardTint || '#ffffff' }}

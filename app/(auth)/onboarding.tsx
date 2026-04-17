@@ -368,7 +368,7 @@ export default function OnboardingScreen() {
   // Prevent re-entry: if already onboarded, redirect to chat
   useEffect(() => {
     if (onboardingComplete) {
-      router.replace('/(tabs)/chat');
+      router.replace('/(tabs)/home');
     }
   }, [onboardingComplete]);
 
@@ -671,7 +671,7 @@ export default function OnboardingScreen() {
             }).catch(console.error);
           }
 
-          router.replace('/(tabs)/chat');
+          router.replace('/(tabs)/home');
         }, 1500);
       }, 800);
     },

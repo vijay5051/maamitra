@@ -34,6 +34,7 @@ import UserPostsSheet from '../../components/community/UserPostsSheet';
 import EditPostModal from '../../components/community/EditPostModal';
 import NotificationsSheet from '../../components/community/NotificationsSheet';
 import ConversationsSheet from '../../components/community/ConversationsSheet';
+import ContextualAskChip from '../../components/ui/ContextualAskChip';
 import { Fonts } from '../../constants/theme';
 import { uploadPostImage } from '../../services/storage';
 import { useDMStore } from '../../store/useDMStore';
@@ -1191,6 +1192,7 @@ export default function CommunityScreen() {
         }
         ListHeaderComponent={
           <>
+            <ContextualAskChip prompt="Ask Maamitra about what other moms are discussing" />
             <MyProfileCard
               onEdit={() => setShowSettings(true)}
               onPostsPress={() => setShowOwnPosts(true)}

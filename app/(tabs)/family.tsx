@@ -24,6 +24,7 @@ import DatePickerField from '../../components/ui/DatePickerField';
 import Card from '../../components/ui/Card';
 import TagPill from '../../components/ui/TagPill';
 import SettingsModal from '../../components/ui/SettingsModal';
+import ContextualAskChip from '../../components/ui/ContextualAskChip';
 import { Fonts } from '../../constants/theme';
 
 // ─── ChildCard ─────────────────────────────────────────────────────────────────
@@ -526,6 +527,18 @@ export default function FamilyScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]}
         showsVerticalScrollIndicator={false}
       >
+        {/* Contextual AI — lets the user ask about the active child directly
+            without leaving the screen. Prefill mirrors what they're looking at. */}
+        <ContextualAskChip
+          prompt={
+            activeKid
+              ? activeKid.isExpecting
+                ? `Ask about my pregnancy — what should I do this week?`
+                : `Ask about ${activeKid.name} — what milestones are next?`
+              : `Ask Maamitra anything about your family`
+          }
+        />
+
         {/* ── Mom Profile Card (dark gradient) ── */}
         <LinearGradient
           colors={['#1C1033', '#3b1060']}

@@ -245,7 +245,7 @@ export default function SignInScreen() {
     setLoading(true);
     try {
       await signIn(email.trim(), password.trim());
-      router.replace('/(tabs)/chat');
+      router.replace('/(tabs)/home');
     } catch (e: any) {
       const code = e?.code ?? '';
       if (code === 'auth/user-not-found' || code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
@@ -268,7 +268,7 @@ export default function SignInScreen() {
     setApiError('');
     try {
       const destination = await signInWithGoogle();
-      if (destination === 'tabs') router.replace('/(tabs)/chat');
+      if (destination === 'tabs') router.replace('/(tabs)/home');
       else if (destination === 'onboarding') router.replace('/(auth)/onboarding');
     } catch (e: any) {
       setApiError(e?.message ?? 'Google sign-in failed. Please try again.');

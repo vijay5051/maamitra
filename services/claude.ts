@@ -4,6 +4,8 @@ const WORKER_URL = process.env.EXPO_PUBLIC_CLAUDE_WORKER_URL ?? '';
 
 export const isAnthropicConfigured = (): boolean => !!WORKER_URL;
 
+export type ParentGenderCtx = 'mother' | 'father' | 'other' | '';
+
 export interface ChatContext {
   motherName: string;
   stage: string;
@@ -17,15 +19,57 @@ export interface ChatContext {
   isExpecting?: boolean;     // explicit expecting flag
   allergies?: string[] | null;
   healthConditions?: string[] | null;
+  parentGender?: ParentGenderCtx;
+}
+
+// Role-aware labels so the AI can address fathers + other caregivers correctly.
+type RoleLabels = {
+  audience: string;     // "Indian mothers" / "Indian fathers" / "Indian parents"
+  roleNoun: string;     // "a mother" / "a new dad" / "a parent"
+  parentNoun: string;   // "mother" / "father" / "parent" — used in the talking-to header
+  pronounSubj: string;  // "She" / "He" / "They"
+  pronounPoss: string;  // "Her" / "His" / "Their"
+};
+
+function getRoleLabels(pg: ParentGenderCtx | undefined): RoleLabels {
+  if (pg === 'father') {
+    return {
+      audience: 'Indian fathers',
+      roleNoun: 'a new dad',
+      parentNoun: 'father',
+      pronounSubj: 'He',
+      pronounPoss: 'His',
+    };
+  }
+  if (pg === 'other') {
+    return {
+      audience: 'Indian parents and caregivers',
+      roleNoun: 'a caregiver',
+      parentNoun: 'parent',
+      pronounSubj: 'They',
+      pronounPoss: 'Their',
+    };
+  }
+  // Default: mother (covers '' and 'mother')
+  return {
+    audience: 'Indian mothers',
+    roleNoun: 'a mother',
+    parentNoun: 'mother',
+    pronounSubj: 'She',
+    pronounPoss: 'Her',
+  };
 }
 
 export function buildSystemPrompt(ctx: ChatContext): string {
+  const labels = getRoleLabels(ctx.parentGender);
+
   const stageDesc = ctx.isExpecting
-    ? 'currently pregnant'
-    : ctx.stage === 'pregnant' ? 'currently pregnant'
-    : ctx.stage === 'planning' ? 'planning to conceive'
-    : ctx.kidAgeMonths !== undefined && ctx.kidAgeMonths < 6 ? 'in the newborn phase'
-    : 'a mother';
+    ? (ctx.parentGender === 'father' ? 'expecting a baby' : 'currently pregnant')
+    : ctx.stage === 'pregnant'
+      ? (ctx.parentGender === 'father' ? 'expecting a baby' : 'currently pregnant')
+      : ctx.stage === 'planning' ? 'planning to conceive'
+      : ctx.kidAgeMonths !== undefined && ctx.kidAgeMonths < 6 ? 'in the newborn phase'
+      : labels.roleNoun;
 
   const familyDesc = ctx.familyType === 'joint' ? 'a joint family'
     : ctx.familyType === 'in-laws' ? 'a home with in-laws'
@@ -35,13 +79,15 @@ export function buildSystemPrompt(ctx: ChatContext): string {
   const kidGenderWord = ctx.kidGender === 'boy' ? 'son' : ctx.kidGender === 'girl' ? 'daughter' : 'baby';
 
   const kidLine = ctx.kidName
-    ? `Her ${kidGenderWord} is ${ctx.kidName}${ctx.kidAgeMonths !== undefined ? `, who is ${ctx.kidAgeMonths} months old` : ctx.isExpecting ? ' (on the way)' : ''}.`
+    ? `${labels.pronounPoss} ${kidGenderWord} is ${ctx.kidName}${ctx.kidAgeMonths !== undefined ? `, who is ${ctx.kidAgeMonths} months old` : ctx.isExpecting ? ' (on the way)' : ''}.`
     : null;
 
-  return `You are MaaMitra — a warm, knowledgeable companion for Indian mothers. Think of yourself as that one close friend who happens to know everything about babies, pregnancy, and health, and always responds with love and zero judgment.
+  return `You are MaaMitra — a warm, knowledgeable companion for ${labels.audience}. Think of yourself as that one close friend who happens to know everything about babies, pregnancy, and health, and always responds with love and zero judgment.
 
 WHO YOU'RE TALKING TO:
-${ctx.motherName} is ${stageDesc}. She lives in ${ctx.state}, India, in ${familyDesc}. She follows a ${ctx.diet} diet.${kidLine ? ` ${kidLine}` : ''}${ctx.allergies?.length ? ` Known allergies: ${ctx.allergies.join(', ')}.` : ''}${ctx.healthConditions?.length ? ` Health conditions: ${ctx.healthConditions.join(', ')}.` : ''}
+${ctx.motherName} is ${stageDesc}. ${labels.pronounSubj} ${labels.pronounSubj === 'They' ? 'live' : 'lives'} in ${ctx.state}, India, in ${familyDesc}. ${labels.pronounSubj} ${labels.pronounSubj === 'They' ? 'follow' : 'follows'} a ${ctx.diet} diet.${kidLine ? ` ${kidLine}` : ''}${ctx.allergies?.length ? ` Known allergies: ${ctx.allergies.join(', ')}.` : ''}${ctx.healthConditions?.length ? ` Health conditions: ${ctx.healthConditions.join(', ')}.` : ''}
+
+This user is ${labels.parentNoun === 'mother' ? 'a mother' : labels.parentNoun === 'father' ? 'a father' : 'a parent/caregiver'} — address them accordingly. Never assume they are a mother if they are not. Do not use "mama" / "mother" language if the user is a father; use "papa" / "dad" / or simply their name. Use their name warmly and naturally.
 
 HOW TO WRITE — READ THIS CAREFULLY:
 Plain conversational text only. Write exactly like a caring friend sending a message — warm, natural sentences that flow together.

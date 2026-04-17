@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -197,6 +198,10 @@ const sepStyles = StyleSheet.create({
 
 export default function ChatScreen() {
   const insets = useSafeAreaInsets();
+  // Prefill arrives when the user tapped a contextual "Ask Maamitra" chip on
+  // another tab. We just stage it in the input; we don't auto-send so the user
+  // stays in control.
+  const { prefill } = useLocalSearchParams<{ prefill?: string }>();
   const {
     isTyping,
     allergies,
@@ -211,7 +216,7 @@ export default function ChatScreen() {
   const messages = React.useMemo(() => {
     return threads.find((t) => t.id === activeThreadId)?.messages ?? [];
   }, [threads, activeThreadId]);
-  const { motherName, profile } = useProfileStore();
+  const { motherName, profile, parentGender } = useProfileStore();
   const { user } = useAuthStore();
   const { activeKid, ageLabel } = useActiveKid();
 
@@ -232,7 +237,7 @@ export default function ChatScreen() {
   const flatListRef = useRef<FlatList>(null);
 
   const buildContext = useCallback(() => ({
-    motherName: motherName || 'Mom',
+    motherName: motherName || (parentGender === 'father' ? 'Dad' : 'Mom'),
     stage: profile?.stage ?? 'newborn',
     state: profile?.state ?? 'India',
     diet: profile?.diet ?? 'vegetarian',
@@ -244,7 +249,8 @@ export default function ChatScreen() {
     isExpecting: activeKid?.isExpecting ?? false,
     allergies,
     healthConditions,
-  }), [motherName, profile, activeKid, allergies, healthConditions]);
+    parentGender,
+  }), [motherName, profile, activeKid, allergies, healthConditions, parentGender]);
 
   const handleSend = useCallback(
     async (text: string) => {
@@ -409,7 +415,11 @@ export default function ChatScreen() {
             </TouchableOpacity>
           )}
           <View style={styles.inputFlex}>
-            <ChatInput onSend={handleSend} disabled={isTyping} />
+            <ChatInput
+              onSend={handleSend}
+              disabled={isTyping}
+              prefill={typeof prefill === 'string' ? prefill : undefined}
+            />
           </View>
         </View>
       </KeyboardAvoidingView>

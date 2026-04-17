@@ -344,7 +344,7 @@ export default function SignUpScreen() {
     setApiError('');
     try {
       const destination = await signInWithGoogle();
-      if (destination === 'tabs') router.replace('/(tabs)/chat');
+      if (destination === 'tabs') router.replace('/(tabs)/home');
       else if (destination === 'onboarding') router.replace('/(auth)/onboarding');
     } catch (e: any) {
       setApiError(e?.message ?? 'Google sign-in failed. Please try again.');
