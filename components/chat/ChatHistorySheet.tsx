@@ -50,11 +50,13 @@ function ThreadRow({
   thread,
   isActive,
   onPress,
+  onRename,
   onDelete,
 }: {
   thread: ChatThread;
   isActive: boolean;
   onPress: () => void;
+  onRename: (newTitle: string) => void;
   onDelete: () => void;
 }) {
   const confirmDelete = () => {
@@ -70,6 +72,25 @@ function ThreadRow({
           { text: 'Cancel', style: 'cancel' },
           { text: 'Delete', style: 'destructive', onPress: onDelete },
         ]
+      );
+    }
+  };
+
+  const promptRename = () => {
+    if (typeof window !== 'undefined') {
+      const next = window.prompt('Rename chat', thread.title);
+      if (next !== null && next.trim().length > 0) {
+        onRename(next.trim());
+      }
+    } else {
+      Alert.prompt?.(
+        'Rename chat',
+        'Enter a new title',
+        (next?: string) => {
+          if (next && next.trim().length > 0) onRename(next.trim());
+        },
+        'plain-text',
+        thread.title,
       );
     }
   };
@@ -101,9 +122,16 @@ function ThreadRow({
       </View>
 
       <TouchableOpacity
+        onPress={promptRename}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        style={styles.iconBtn}
+      >
+        <Ionicons name="pencil-outline" size={15} color="#9ca3af" />
+      </TouchableOpacity>
+      <TouchableOpacity
         onPress={confirmDelete}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        style={styles.deleteBtn}
+        style={styles.iconBtn}
       >
         <Ionicons name="trash-outline" size={16} color="#d1d5db" />
       </TouchableOpacity>
@@ -120,6 +148,7 @@ export default function ChatHistorySheet({ visible, onClose }: Props) {
     createThread,
     switchThread,
     deleteThread,
+    renameThread,
   } = useChatStore();
 
   const handleNewChat = () => {
@@ -175,6 +204,7 @@ export default function ChatHistorySheet({ visible, onClose }: Props) {
               thread={item}
               isActive={item.id === activeThreadId}
               onPress={() => handleOpenThread(item.id)}
+              onRename={(newTitle) => renameThread(item.id, newTitle)}
               onDelete={() => deleteThread(item.id)}
             />
           )}
@@ -298,6 +328,10 @@ const styles = StyleSheet.create({
   deleteBtn: {
     padding: 6,
     marginLeft: 4,
+  },
+  iconBtn: {
+    padding: 6,
+    marginLeft: 2,
   },
 
   empty: {
