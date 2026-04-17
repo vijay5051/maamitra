@@ -25,7 +25,14 @@ import {
 } from '../../constants/theme';
 import { useProfileStore } from '../../store/useProfileStore';
 import { useWellnessStore } from '../../store/useWellnessStore';
+import { useSocialStore } from '../../store/useSocialStore';
+import { useAuthStore } from '../../store/useAuthStore';
 import { useActiveKid } from '../../hooks/useActiveKid';
+import { useVaccineSchedule } from '../../hooks/useVaccineSchedule';
+import { type AppNotification } from '../../services/social';
+import SettingsModal from '../../components/ui/SettingsModal';
+import NotificationsSheet from '../../components/community/NotificationsSheet';
+import HelpSupportSheet from '../../components/ui/HelpSupportSheet';
 
 // ─── Home (landing) tab ───────────────────────────────────────────────
 // Replaces Chat as the post-login landing. AI Chat is the hero (top bar
@@ -43,9 +50,34 @@ export default function HomeTab() {
   const [inboxOpen, setInboxOpen] = useState(false);
   const [firstRunOpen, setFirstRunOpen] = useState(false);
 
+  // Profile-sheet destinations. These open the existing SettingsModal
+  // pre-positioned on the right sub-view, plus the community
+  // NotificationsSheet and the new HelpSupportSheet.
+  const [notifsOpen, setNotifsOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [settingsView, setSettingsView] = useState<
+    null | 'edit-profile' | 'privacy'
+  >(null);
+
   const { motherName, parentGender } = useProfileStore();
   const { activeKid, ageLabel } = useActiveKid();
   const { todayMood, moodHistory } = useWellnessStore();
+  const { user } = useAuthStore();
+
+  // Real notifications from Firestore (reactions, comments, follow
+  // requests, messages). Drives both the Home inbox and the unread
+  // badge on the mail icon.
+  const notifications = useSocialStore((s) => s.notifications);
+  const socialUnread = useSocialStore((s) => s.unreadCount);
+  const loadNotifications = useSocialStore((s) => s.loadNotifications);
+  const markNotifRead = useSocialStore((s) => s.markRead);
+
+  // Vaccine reminders computed from the active kid's DOB + completed map.
+  const vaccineSchedule = useVaccineSchedule();
+
+  useEffect(() => {
+    if (user?.uid) loadNotifications();
+  }, [user?.uid, loadNotifications]);
 
   const firstName = (motherName || 'there').split(' ')[0];
   const greetingTitle = firstName === 'there' ? 'Hello' : firstName;
@@ -53,51 +85,45 @@ export default function HomeTab() {
     parentGender === 'father' ? 'dad' : parentGender === 'other' ? 'parent' : 'mama';
 
   const todayCards = useMemo(
-    () => buildTodayCards({ activeKid, ageLabel, todayMood, moodHistory }),
-    [activeKid, ageLabel, todayMood, moodHistory]
+    () => buildTodayCards({ activeKid, ageLabel, todayMood, moodHistory, vaccineSchedule }),
+    [activeKid, ageLabel, todayMood, moodHistory, vaccineSchedule]
   );
 
-  // Placeholder inbox items — in production these merge from notifications,
-  // community replies, vaccine reminders, and AI follow-ups.
+  // Merged inbox — real community notifications + computed vaccine
+  // reminders. No mocks, no dead clicks; every item has a navigation
+  // target resolved in `openInboxItem` below.
   const inboxItems = useMemo<InboxItem[]>(
-    () => [
-      {
-        id: '1',
-        kind: 'community',
-        title: 'Priya replied to your post',
-        body: '"Thanks! We tried ragi porridge and it worked wonders."',
-        time: '12m',
-        unread: true,
-      },
-      {
-        id: '2',
-        kind: 'vaccine',
-        title: activeKid?.name
-          ? `${activeKid.name}'s 9-month vaccine is due in 12 days`
-          : '9-month vaccine reminder',
-        body: 'Book a slot when you\'re ready.',
-        time: '2h',
-        unread: true,
-      },
-      {
-        id: '3',
-        kind: 'ai',
-        title: 'Maamitra followed up on last chat',
-        body: 'Did the teething tips help? Tap to continue.',
-        time: '1d',
-      },
-      {
-        id: '4',
-        kind: 'system',
-        title: 'New article in Library',
-        body: 'Introducing solids: a gentle 6-week roadmap',
-        time: '2d',
-      },
-    ],
-    [activeKid?.name]
+    () => buildInbox({ notifications, vaccineSchedule, kidName: activeKid?.name }),
+    [notifications, vaccineSchedule, activeKid?.name]
   );
 
-  const unreadCount = inboxItems.filter((i) => i.unread).length;
+  const unreadCount = socialUnread + inboxItems.filter(
+    (i) => i.kind === 'vaccine' && i.severity === 'overdue'
+  ).length;
+
+  // Route per inbox item. Community notifications navigate to the post
+  // (community feed) or conversation; vaccine reminders open Health.
+  const openInboxItem = async (item: InboxItem) => {
+    setInboxOpen(false);
+    if (item.kind === 'vaccine') {
+      router.push('/(tabs)/health');
+      return;
+    }
+    if (item.sourceNotif) {
+      if (!item.sourceNotif.read && user?.uid) {
+        await markNotifRead(item.sourceNotif.id);
+      }
+      const n = item.sourceNotif;
+      if (n.type === 'message' && n.fromUid) {
+        router.push({ pathname: '/conversation/[uid]', params: { uid: n.fromUid } });
+        return;
+      }
+      // Reactions/comments/follow — land on the community feed. Opening a
+      // specific post would require deeper plumbing; this is better than
+      // a dead tap and matches NotificationsSheet's default behavior.
+      router.push('/(tabs)/community');
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -342,7 +368,9 @@ export default function HomeTab() {
               label="Edit profile"
               onPress={() => {
                 setProfileOpen(false);
-                router.push('/(tabs)/family');
+                // Small delay so the profile sheet's dismiss animation
+                // doesn't interrupt the next modal's open animation.
+                setTimeout(() => setSettingsView('edit-profile'), 120);
               }}
             />
             <ProfileRow
@@ -363,9 +391,37 @@ export default function HomeTab() {
                 router.push('/(tabs)/health');
               }}
             />
-            <ProfileRow icon="notifications-outline" label="Notifications" />
-            <ProfileRow icon="lock-closed-outline" label="Privacy" />
-            <ProfileRow icon="help-circle-outline" label="Help & support" />
+            <ProfileRow
+              icon="notifications-outline"
+              label="Notifications"
+              sub={
+                socialUnread > 0
+                  ? `${socialUnread} new notification${socialUnread === 1 ? '' : 's'}`
+                  : undefined
+              }
+              onPress={() => {
+                setProfileOpen(false);
+                setTimeout(() => setNotifsOpen(true), 120);
+              }}
+            />
+            <ProfileRow
+              icon="lock-closed-outline"
+              label="Privacy"
+              sub="Control what others can see"
+              onPress={() => {
+                setProfileOpen(false);
+                setTimeout(() => setSettingsView('privacy'), 120);
+              }}
+            />
+            <ProfileRow
+              icon="help-circle-outline"
+              label="Help & support"
+              sub="FAQ, email us, send a message"
+              onPress={() => {
+                setProfileOpen(false);
+                setTimeout(() => setHelpOpen(true), 120);
+              }}
+            />
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
@@ -393,39 +449,55 @@ export default function HomeTab() {
               )}
             </View>
             <ScrollView>
-              {inboxItems.map((item) => (
-                <TouchableOpacity
-                  key={item.id}
-                  style={styles.inboxRow}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.inboxIconWrap}>
-                    <Ionicons
-                      name={inboxIcon(item.kind) as any}
-                      size={18}
-                      color={Colors.primary}
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <View style={styles.inboxTitleRow}>
-                      <Text
-                        style={[
-                          styles.inboxItemTitle,
-                          item.unread && { color: Colors.textDark },
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {item.title}
-                      </Text>
-                      <Text style={styles.inboxTime}>{item.time}</Text>
+              {inboxItems.length === 0 ? (
+                <View style={styles.inboxEmpty}>
+                  <Ionicons
+                    name="mail-open-outline"
+                    size={36}
+                    color={Colors.textMuted}
+                  />
+                  <Text style={styles.inboxEmptyTitle}>You're all caught up</Text>
+                  <Text style={styles.inboxEmptyBody}>
+                    We'll put reactions, replies, and vaccine reminders here as
+                    they come in.
+                  </Text>
+                </View>
+              ) : (
+                inboxItems.map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={styles.inboxRow}
+                    activeOpacity={0.7}
+                    onPress={() => openInboxItem(item)}
+                  >
+                    <View style={styles.inboxIconWrap}>
+                      <Ionicons
+                        name={inboxIcon(item.kind) as any}
+                        size={18}
+                        color={Colors.primary}
+                      />
                     </View>
-                    <Text style={styles.inboxBody} numberOfLines={2}>
-                      {item.body}
-                    </Text>
-                  </View>
-                  {item.unread && <View style={styles.inboxDot} />}
-                </TouchableOpacity>
-              ))}
+                    <View style={{ flex: 1 }}>
+                      <View style={styles.inboxTitleRow}>
+                        <Text
+                          style={[
+                            styles.inboxItemTitle,
+                            item.unread && { color: Colors.textDark },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {item.title}
+                        </Text>
+                        <Text style={styles.inboxTime}>{item.time}</Text>
+                      </View>
+                      <Text style={styles.inboxBody} numberOfLines={2}>
+                        {item.body}
+                      </Text>
+                    </View>
+                    {item.unread && <View style={styles.inboxDot} />}
+                  </TouchableOpacity>
+                ))
+              )}
             </ScrollView>
           </TouchableOpacity>
         </TouchableOpacity>
@@ -438,8 +510,158 @@ export default function HomeTab() {
         parentSalutation={parentSalutation}
         firstName={firstName === 'there' ? '' : firstName}
       />
+
+      {/* Settings (used for both Edit profile and Privacy). Single source
+          of truth for profile editing + privacy toggles — no duplication. */}
+      <SettingsModal
+        visible={settingsView !== null}
+        onClose={() => setSettingsView(null)}
+        initialView={settingsView === 'edit-profile' ? 'edit-profile' : 'main'}
+        scrollToPrivacy={settingsView === 'privacy'}
+      />
+
+      {/* Community notifications — same sheet used in the Connect tab. */}
+      <NotificationsSheet
+        visible={notifsOpen}
+        onClose={() => setNotifsOpen(false)}
+        onViewProfile={(uid) => {
+          setNotifsOpen(false);
+          if (uid) router.push({ pathname: '/conversation/[uid]', params: { uid } });
+        }}
+      />
+
+      {/* Help & Support — FAQ + contact form writing to Firestore. */}
+      <HelpSupportSheet visible={helpOpen} onClose={() => setHelpOpen(false)} />
     </View>
   );
+}
+
+// ─── Inbox builder ───────────────────────────────────────────────────
+// Merges social notifications (Firestore) with vaccine reminders
+// (computed from IAP schedule + kid DOB) into a single feed sorted by
+// recency. Called from the memo in HomeTab.
+
+function buildInbox({
+  notifications,
+  vaccineSchedule,
+  kidName,
+}: {
+  notifications: AppNotification[];
+  vaccineSchedule: ReturnType<typeof useVaccineSchedule>;
+  kidName: string | undefined;
+}): InboxItem[] {
+  const items: InboxItem[] = [];
+
+  for (const n of notifications.slice(0, 20)) {
+    items.push({
+      id: `notif-${n.id}`,
+      kind: notifTypeToKind(n.type),
+      title: notifTitle(n),
+      body: notifBody(n),
+      time: relativeShort(n.createdAt),
+      sortAt: new Date(n.createdAt).getTime(),
+      unread: !n.read,
+      sourceNotif: n,
+    });
+  }
+
+  // Surface up to 3 most-relevant vaccine reminders: overdue + due-soon
+  // + the next upcoming (for forward planning).
+  const overdue = vaccineSchedule.filter((v) => v.status === 'overdue');
+  const dueSoon = vaccineSchedule.filter((v) => v.status === 'due-soon');
+  const upcomingNext = vaccineSchedule.find((v) => v.status === 'upcoming');
+
+  const vaccinePicks = [...overdue, ...dueSoon, ...(upcomingNext ? [upcomingNext] : [])]
+    .slice(0, 3);
+
+  for (const v of vaccinePicks) {
+    const now = new Date();
+    const due = v.dueDate ? v.dueDate.getTime() : now.getTime();
+    const diffDays = Math.round((due - now.getTime()) / (1000 * 60 * 60 * 24));
+    let title = '';
+    let body = '';
+    if (v.status === 'overdue') {
+      title = kidName
+        ? `${kidName}'s ${v.name} is overdue`
+        : `${v.name} is overdue`;
+      body = `Was due ${Math.abs(diffDays)} day${Math.abs(diffDays) === 1 ? '' : 's'} ago. Tap to book.`;
+    } else if (v.status === 'due-soon') {
+      title = kidName
+        ? `${kidName}'s ${v.name} is due soon`
+        : `${v.name} is due soon`;
+      body = `Due in ${diffDays} day${diffDays === 1 ? '' : 's'} (${v.ageLabel}).`;
+    } else {
+      title = kidName
+        ? `Upcoming: ${kidName}'s ${v.name}`
+        : `Upcoming: ${v.name}`;
+      body = `Around ${v.formattedDate} (${v.ageLabel}).`;
+    }
+    items.push({
+      id: `vaccine-${v.id}`,
+      kind: 'vaccine',
+      title,
+      body,
+      time: v.status === 'overdue' ? 'Overdue' : v.formattedDate,
+      sortAt: due,
+      unread: v.status !== 'upcoming',
+      severity: v.status === 'overdue' ? 'overdue' : undefined,
+    });
+  }
+
+  // Sort by recency for social (descending time) but keep overdue vaccines
+  // near the top by using their relative offset.
+  return items.sort((a, b) => b.sortAt - a.sortAt);
+}
+
+function notifTypeToKind(t: AppNotification['type']): InboxItem['kind'] {
+  if (t === 'message') return 'message';
+  if (t === 'follow_request' || t === 'follow_accepted') return 'follow';
+  return 'community';
+}
+
+function notifTitle(n: AppNotification): string {
+  const name = n.fromName || 'Someone';
+  switch (n.type) {
+    case 'reaction':
+      return `${name} reacted ${n.emoji ?? '❤️'} to your post`;
+    case 'comment':
+      return `${name} commented on your post`;
+    case 'follow_request':
+      return `${name} wants to follow you`;
+    case 'follow_accepted':
+      return `${name} accepted your follow request`;
+    case 'message':
+      return `${name} sent you a message`;
+    default:
+      return `${name} interacted with you`;
+  }
+}
+
+function notifBody(n: AppNotification): string {
+  if (n.type === 'reaction' || n.type === 'comment') {
+    return n.postText ? `"${truncate(n.postText, 80)}"` : 'Open the post';
+  }
+  if (n.type === 'follow_request') return 'Tap to review in Notifications.';
+  if (n.type === 'follow_accepted') return 'Say hi or check their profile.';
+  if (n.type === 'message') return 'Open the conversation.';
+  return '';
+}
+
+function truncate(t: string, max: number): string {
+  return t.length > max ? t.slice(0, max).trim() + '…' : t;
+}
+
+function relativeShort(d: Date | string): string {
+  const date = typeof d === 'string' ? new Date(d) : d;
+  const diff = Date.now() - date.getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'now';
+  if (mins < 60) return `${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}d`;
+  return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 }
 
 // ─── Today cards ─────────────────────────────────────────────────────
@@ -458,11 +680,13 @@ function buildTodayCards({
   ageLabel,
   todayMood,
   moodHistory,
+  vaccineSchedule,
 }: {
   activeKid: ReturnType<typeof useActiveKid>['activeKid'];
   ageLabel: string;
   todayMood: any;
   moodHistory: any[];
+  vaccineSchedule: ReturnType<typeof useVaccineSchedule>;
 }): TodayCard[] {
   const cards: TodayCard[] = [];
 
@@ -542,14 +766,32 @@ function buildTodayCards({
     }
   }
 
-  cards.push({
-    id: 'vaccine',
-    icon: 'calendar-outline',
-    tint: Colors.textDark,
-    bg: Colors.border,
-    value: '9mo vaccine',
-    label: 'Due in 12 days',
-  });
+  // Next vaccine reminder — uses real IAP schedule + kid DOB. Shows
+  // overdue first, then due-soon, then the next upcoming one. Skipped
+  // entirely when the kid is expecting or nothing is pending.
+  const nextVaccine =
+    vaccineSchedule.find((v) => v.status === 'overdue') ??
+    vaccineSchedule.find((v) => v.status === 'due-soon') ??
+    vaccineSchedule.find((v) => v.status === 'upcoming');
+  if (nextVaccine && !activeKid?.isExpecting) {
+    const now = Date.now();
+    const due = nextVaccine.dueDate ? nextVaccine.dueDate.getTime() : now;
+    const days = Math.round((due - now) / (1000 * 60 * 60 * 24));
+    const label =
+      nextVaccine.status === 'overdue'
+        ? `Overdue by ${Math.abs(days)}d`
+        : days <= 0
+        ? 'Due today'
+        : `Due in ${days}d`;
+    cards.push({
+      id: 'vaccine',
+      icon: 'calendar-outline',
+      tint: nextVaccine.status === 'overdue' ? Colors.error : Colors.textDark,
+      bg: nextVaccine.status === 'overdue' ? '#FEE2E2' : Colors.border,
+      value: nextVaccine.name,
+      label,
+    });
+  }
 
   const recent = (moodHistory || []).slice(-3);
   if (recent.length >= 2) {
@@ -570,21 +812,27 @@ function buildTodayCards({
 }
 
 // ─── Inbox types ─────────────────────────────────────────────────────
-type InboxKind = 'community' | 'vaccine' | 'ai' | 'system';
+type InboxKind = 'community' | 'vaccine' | 'message' | 'follow' | 'system';
 type InboxItem = {
   id: string;
   kind: InboxKind;
   title: string;
   body: string;
   time: string;
+  /** Sort key (ms). Vaccine items use dueDate, notifications use createdAt. */
+  sortAt: number;
   unread?: boolean;
+  /** Present for items derived from a Firestore notification. */
+  sourceNotif?: AppNotification;
+  severity?: 'overdue';
 };
 
 function inboxIcon(kind: InboxKind): string {
   switch (kind) {
     case 'community': return 'chatbubbles-outline';
     case 'vaccine': return 'medkit-outline';
-    case 'ai': return 'sparkles';
+    case 'message': return 'mail-open-outline';
+    case 'follow': return 'person-add-outline';
     case 'system': return 'newspaper-outline';
   }
 }
@@ -1149,6 +1397,26 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: Colors.primary,
     marginTop: 8,
+  },
+  inboxEmpty: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Spacing.xxxl,
+    paddingHorizontal: Spacing.xl,
+    gap: Spacing.sm,
+  },
+  inboxEmptyTitle: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: FontSize.md,
+    color: Colors.textDark,
+    marginTop: Spacing.sm,
+  },
+  inboxEmptyBody: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: FontSize.sm,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 
   // ─── First-run ───────────────────────────────────────────────────

@@ -174,5 +174,14 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // ── Support tickets ───────────────────────────────────────────────────────
+    // Signed-in users can submit tickets; only admins read / manage them.
+    match /supportTickets/{ticketId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn() &&
+        request.resource.data.uid == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
   }
 }

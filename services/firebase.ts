@@ -315,6 +315,31 @@ export interface CommunityPostPayload {
   imageCaption?: string;
 }
 
+// ─── Support tickets ────────────────────────────────────────────────
+// Writes user-submitted contact-form messages to Firestore so the team
+// can triage them. Also used as the sole backing store for Help &
+// Support (no third-party helpdesk yet). maamitra@gmail.com is the
+// fallback for users who prefer direct email.
+
+export interface SupportTicketPayload {
+  uid: string | null;
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+  appVersion?: string;
+  platform?: string;
+}
+
+export async function submitSupportTicket(ticket: SupportTicketPayload): Promise<void> {
+  if (!db) throw new Error('Firebase not configured');
+  await addDoc(collection(db, 'supportTickets'), {
+    ...ticket,
+    status: 'open',
+    createdAt: serverTimestamp(),
+  });
+}
+
 export async function saveCommunityPost(post: CommunityPostPayload): Promise<void> {
   if (!db) return;
   try {

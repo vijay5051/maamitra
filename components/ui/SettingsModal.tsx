@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Alert,
   Image as RNImage,
@@ -23,12 +23,16 @@ import { uploadAvatar } from '../../services/storage';
 import DatePickerField from './DatePickerField';
 import StateSelectorComponent from '../onboarding/StateSelector';
 
+type ViewMode = 'main' | 'edit-profile' | 'edit-kid';
+
 interface SettingsModalProps {
   visible: boolean;
   onClose: () => void;
+  /** Pre-select a sub-view when the modal opens. */
+  initialView?: ViewMode;
+  /** When true, auto-scroll the main view to the Privacy section on open. */
+  scrollToPrivacy?: boolean;
 }
-
-type ViewMode = 'main' | 'edit-profile' | 'edit-kid';
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -526,16 +530,42 @@ function EditKidView({ kid, onBack, onRemove }: { kid: Kid; onBack: () => void; 
 
 // ─── Main Modal ───────────────────────────────────────────────────────────────
 
-export default function SettingsModal({ visible, onClose }: SettingsModalProps) {
+export default function SettingsModal({
+  visible,
+  onClose,
+  initialView,
+  scrollToPrivacy,
+}: SettingsModalProps) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, signOut, deleteAccount } = useAuthStore();
   const { motherName, profile, kids, visibilitySettings, setVisibilitySettings, removeKid, photoUrl } = useProfileStore();
   const [loading, setLoading] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>('main');
+  const [viewMode, setViewMode] = useState<ViewMode>(initialView ?? 'main');
   const [editingKidId, setEditingKidId] = useState<string | null>(null);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [signedOutSuccess, setSignedOutSuccess] = useState(false);
+
+  // Refs for scrolling the main view to the Privacy section on demand.
+  const mainScrollRef = useRef<ScrollView>(null);
+  const privacyAnchorY = useRef(0);
+
+  // When parent opens the modal and requests a specific sub-view or a scroll
+  // target, honor that each time `visible` flips to true.
+  useEffect(() => {
+    if (!visible) return;
+    setViewMode(initialView ?? 'main');
+    if (scrollToPrivacy && (initialView === undefined || initialView === 'main')) {
+      // Give the ScrollView a moment to lay out before scrolling.
+      const t = setTimeout(() => {
+        mainScrollRef.current?.scrollTo({
+          y: Math.max(0, privacyAnchorY.current - 20),
+          animated: true,
+        });
+      }, 250);
+      return () => clearTimeout(t);
+    }
+  }, [visible, initialView, scrollToPrivacy]);
 
   const editingKid = editingKidId ? kids.find((k) => k.id === editingKidId) ?? null : null;
 
@@ -691,6 +721,7 @@ export default function SettingsModal({ visible, onClose }: SettingsModalProps) 
         {/* Main settings view */}
         {viewMode === 'main' && (
           <ScrollView
+            ref={mainScrollRef}
             contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 32 }]}
             showsVerticalScrollIndicator={false}
           >
@@ -780,7 +811,13 @@ export default function SettingsModal({ visible, onClose }: SettingsModalProps) 
             )}
 
             {/* Privacy */}
-            <SectionHeader title="Privacy — What Others Can See" />
+            <View
+              onLayout={(e) => {
+                privacyAnchorY.current = e.nativeEvent.layout.y;
+              }}
+            >
+              <SectionHeader title="Privacy — What Others Can See" />
+            </View>
             <View style={s.card}>
               <ToggleRow
                 label="Number of kids"
