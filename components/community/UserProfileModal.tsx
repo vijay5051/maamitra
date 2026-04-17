@@ -17,10 +17,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import GradientAvatar from '../ui/GradientAvatar';
-import UserPostsSheet from './UserPostsSheet';
+import PostCardComponent from './PostCard';
+import EditPostModal from './EditPostModal';
+// NOTE: UserPostsSheet is still used for the MyProfileCard posts count tap,
+// but not here — this modal shows posts inline below.
 import { Fonts } from '../../constants/theme';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useSocialStore } from '../../store/useSocialStore';
+import { useProfileStore } from '../../store/useProfileStore';
+import { useCommunityStore, type Post } from '../../store/useCommunityStore';
 import {
   type CommunityPost,
   type UserPublicProfile,
@@ -29,6 +34,33 @@ import {
   fetchUserPosts,
   isEitherBlocked,
 } from '../../services/social';
+
+/** Convert Firestore CommunityPost → store Post shape */
+function toStorePost(fs: CommunityPost): Post {
+  return {
+    id: fs.id,
+    authorName: fs.authorName ?? '',
+    authorInitial: (fs.authorName ?? '?').charAt(0).toUpperCase(),
+    authorUid: fs.authorUid ?? '',
+    authorPhotoUrl: (fs as any).authorPhotoUrl ?? undefined,
+    badge: fs.badge ?? 'Community Member',
+    topic: fs.topic ?? 'General',
+    text: fs.text ?? '',
+    imageUri: fs.imageUri,
+    imageAspectRatio: fs.imageAspectRatio,
+    imageEmoji: (fs as any).imageEmoji,
+    imageCaption: (fs as any).imageCaption,
+    reactions: fs.reactions ?? {},
+    userReactions: [],
+    reactionsByUser: fs.reactionsByUser ?? {},
+    comments: [],
+    commentList: [],
+    commentCount: fs.commentCount ?? 0,
+    authorFollowersOnly: (fs as any).authorFollowersOnly ?? false,
+    createdAt: fs.createdAt instanceof Date ? fs.createdAt : new Date(fs.createdAt),
+    showComments: false,
+  };
+}
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -177,6 +209,17 @@ export default function UserProfileModal({ uid, visible, onClose, onEditProfile 
   const { user } = useAuthStore();
   const myUid = user?.uid ?? '';
   const router = useRouter();
+  const { motherName, photoUrl: myPhotoUrl } = useProfileStore();
+  const {
+    toggleReactionFirestore,
+    addCommentFirestore,
+    loadCommentsForPost,
+    deletePostFirestore,
+    deleteCommentFirestore,
+    updatePostFirestore,
+  } = useCommunityStore();
+  const storePosts = useCommunityStore((s) => s.posts);
+  const blockedUids = useSocialStore((s) => s.blockedUids);
 
   const {
     followers,
@@ -196,12 +239,12 @@ export default function UserProfileModal({ uid, visible, onClose, onEditProfile 
   } = useSocialStore();
 
   const [profile, setProfile] = useState<UserPublicProfile | null>(null);
-  const [posts, setPosts] = useState<CommunityPost[]>([]);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [editingPost, setEditingPost] = useState<Post | null>(null);
   const [followStatus, setFollowStatus] = useState<'none' | 'pending_outgoing' | 'following'>('none');
   const [isLoading, setIsLoading] = useState(false);
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
   const [showFollowersList, setShowFollowersList] = useState(false);
-  const [showPostsSheet, setShowPostsSheet] = useState(false);
   const [showFollowingList, setShowFollowingList] = useState(false);
   const [followListTarget, setFollowListTarget] = useState<'followers' | 'following'>('followers');
 
@@ -241,7 +284,7 @@ export default function UserProfileModal({ uid, visible, onClose, onEditProfile 
         if (!p.authorFollowersOnly) return true;
         return status === 'following';
       });
-      setPosts(filteredPosts);
+      setPosts(filteredPosts.map(toStorePost));
       setFollowStatus(status);
       setIsLoading(false);
 
@@ -255,6 +298,33 @@ export default function UserProfileModal({ uid, visible, onClose, onEditProfile 
 
     return () => { cancelled = true; };
   }, [uid, visible]);
+
+  // Sync local posts with store updates (edits/deletes/reactions made in main feed)
+  useEffect(() => {
+    setPosts((prev) => {
+      const storeById = new Map(storePosts.map((p) => [p.id, p]));
+      return prev
+        .map((p) => {
+          const s = storeById.get(p.id);
+          if (!s) return p;
+          return {
+            ...p,
+            text: s.text,
+            topic: s.topic,
+            reactions: s.reactions,
+            reactionsByUser: s.reactionsByUser,
+            userReactions: s.userReactions,
+            commentCount: s.commentCount ?? p.commentCount,
+            commentList: s.commentList ?? p.commentList,
+          };
+        })
+        .filter((p) => {
+          if (p.authorUid !== myUid) return true;
+          if (storePosts.length === 0) return true;
+          return storeById.has(p.id);
+        });
+    });
+  }, [storePosts, myUid]);
 
   // Keep followStatus in sync when store changes
   useEffect(() => {
@@ -461,7 +531,7 @@ export default function UserProfileModal({ uid, visible, onClose, onEditProfile 
           </View>
         )}
 
-        {/* Posts */}
+        {/* Posts — full interactive cards */}
         {posts.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionDivider}>
@@ -469,34 +539,104 @@ export default function UserProfileModal({ uid, visible, onClose, onEditProfile 
               <Text style={styles.sectionLabel}>Posts ({posts.length})</Text>
               <View style={styles.dividerLine} />
             </View>
-            {posts.slice(0, 3).map((p) => (
-              <TouchableOpacity
+            {posts.map((p) => (
+              <PostCardComponent
                 key={p.id}
-                style={styles.miniPostCard}
-                activeOpacity={0.75}
-                onPress={() => setShowPostsSheet(true)}
-              >
-                <View style={styles.miniPostMeta}>
-                  {!!p.topic && (
-                    <View style={styles.miniTopicChip}>
-                      <Text style={styles.miniTopicText}>{p.topic}</Text>
-                    </View>
-                  )}
-                  <Text style={styles.miniPostTime}>{timeAgo(p.createdAt)}</Text>
-                </View>
-                <Text style={styles.miniPostText} numberOfLines={3}>{p.text}</Text>
-              </TouchableOpacity>
+                post={p}
+                currentUserUid={myUid}
+                currentUserName={motherName}
+                currentUserPhotoUrl={myPhotoUrl || undefined}
+                blockedUids={blockedUids}
+                onReact={(postId, emoji) => {
+                  if (!myUid) return;
+                  // Optimistic local update
+                  setPosts((prev) => prev.map((x) => {
+                    if (x.id !== postId) return x;
+                    const reactions = { ...x.reactions };
+                    const my = x.reactionsByUser?.[myUid] ?? [];
+                    const has = my.includes(emoji);
+                    const nextMy = has ? my.filter((e) => e !== emoji) : [...my, emoji];
+                    reactions[emoji] = Math.max(0, (reactions[emoji] ?? 0) + (has ? -1 : 1));
+                    if (reactions[emoji] === 0) delete reactions[emoji];
+                    return {
+                      ...x,
+                      reactions,
+                      reactionsByUser: { ...(x.reactionsByUser ?? {}), [myUid]: nextMy },
+                      userReactions: nextMy,
+                    };
+                  }));
+                  toggleReactionFirestore(postId, myUid, motherName || 'Anonymous', emoji);
+                }}
+                onToggleComments={(postId) => {
+                  setPosts((prev) => prev.map((x) =>
+                    x.id === postId ? { ...x, showComments: !x.showComments } : x
+                  ));
+                  const post = posts.find((x) => x.id === postId);
+                  if (post && !post.showComments && post.authorUid) {
+                    loadCommentsForPost(postId).then(() => {
+                      const fresh = useCommunityStore.getState().posts.find((x) => x.id === postId);
+                      if (fresh?.commentList) {
+                        setPosts((prev) => prev.map((x) =>
+                          x.id === postId ? { ...x, commentList: fresh.commentList } : x
+                        ));
+                      }
+                    });
+                  }
+                }}
+                onAddComment={(postId, text) => {
+                  if (!myUid) return;
+                  addCommentFirestore(postId, myUid, motherName || 'Anonymous', text, myPhotoUrl || undefined)
+                    .then(() => {
+                      const fresh = useCommunityStore.getState().posts.find((x) => x.id === postId);
+                      if (fresh) {
+                        setPosts((prev) => prev.map((x) => x.id === postId
+                          ? { ...x, comments: fresh.comments, commentList: fresh.commentList, commentCount: fresh.commentCount }
+                          : x));
+                      }
+                    })
+                    .catch(() => {
+                      if (typeof window !== 'undefined') window.alert('Failed to post comment');
+                    });
+                }}
+                onViewProfile={() => {}}
+                onDeletePost={myUid && p.authorUid === myUid ? (postId) => {
+                  deletePostFirestore(postId, myUid)
+                    .then(() => setPosts((prev) => prev.filter((x) => x.id !== postId)))
+                    .catch(() => Alert.alert('Error', 'Could not delete the post.'));
+                } : undefined}
+                onEditPost={myUid && p.authorUid === myUid ? (postId) => {
+                  const target = posts.find((x) => x.id === postId);
+                  if (target) setEditingPost(target);
+                } : undefined}
+                onDeleteComment={myUid ? (postId, commentId) => {
+                  deleteCommentFirestore(postId, commentId)
+                    .then(() => {
+                      setPosts((prev) => prev.map((x) => {
+                        if (x.id !== postId) return x;
+                        const newList = (x.commentList ?? []).filter((c) => c.id !== commentId);
+                        return { ...x, commentList: newList, commentCount: Math.max(0, (x.commentCount ?? 1) - 1) };
+                      }));
+                    })
+                    .catch(() => Alert.alert('Error', 'Could not delete the comment.'));
+                } : undefined}
+              />
             ))}
-            <TouchableOpacity
-              onPress={() => setShowPostsSheet(true)}
-              activeOpacity={0.75}
-              style={styles.seeAllBtn}
-            >
-              <Text style={styles.seeAllText}>
-                See all {posts.length} posts & react →
-              </Text>
-            </TouchableOpacity>
           </View>
+        )}
+
+        {/* Edit post modal */}
+        {editingPost && (
+          <EditPostModal
+            visible={!!editingPost}
+            initialText={editingPost.text}
+            initialTopic={editingPost.topic}
+            onClose={() => setEditingPost(null)}
+            onSave={async ({ text, topic }) => {
+              if (!myUid || !editingPost) return;
+              await updatePostFirestore(editingPost.id, myUid, { text, topic });
+              setEditingPost(null);
+            }}
+          />
         )}
 
         {/* Block/Unblock */}
@@ -563,13 +703,10 @@ export default function UserProfileModal({ uid, visible, onClose, onEditProfile 
 
             {/* Stats row */}
             <View style={styles.statsRow}>
-              <TouchableOpacity
-                style={styles.statBlock}
-                onPress={() => setShowPostsSheet(true)}
-              >
+              <View style={styles.statBlock}>
                 <Text style={styles.statNumber}>{profile?.postsCount != null && profile.postsCount > 0 ? profile.postsCount : posts.length}</Text>
                 <Text style={styles.statLabel}>posts</Text>
-              </TouchableOpacity>
+              </View>
               <View style={styles.statSeparator} />
               <TouchableOpacity
                 style={styles.statBlock}
@@ -605,14 +742,6 @@ export default function UserProfileModal({ uid, visible, onClose, onEditProfile 
           {renderContent()}
         </View>
       </Modal>
-
-      {/* Followers list sheet */}
-      <UserPostsSheet
-        uid={uid}
-        name={profile?.name}
-        visible={showPostsSheet}
-        onClose={() => setShowPostsSheet(false)}
-      />
 
       <FollowListModal
         visible={showFollowersList}
