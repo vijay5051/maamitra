@@ -1,5 +1,7 @@
 // API key is no longer used client-side — all calls go through the Cloudflare Worker proxy.
 // Set EXPO_PUBLIC_CLAUDE_WORKER_URL in .env to your Worker URL.
+import { auth } from './firebase';
+
 const WORKER_URL = process.env.EXPO_PUBLIC_CLAUDE_WORKER_URL ?? '';
 
 export const isAnthropicConfigured = (): boolean => !!WORKER_URL;
@@ -195,10 +197,21 @@ export async function sendMessage(
     return "⚙️ AI chat isn't configured yet. Set EXPO_PUBLIC_CLAUDE_WORKER_URL in .env.";
   }
 
+  // Worker requires a Firebase ID token on every request so unauthenticated
+  // traffic can't drain our Anthropic budget.
+  const user = auth?.currentUser;
+  if (!user) {
+    return "Please sign in to chat with MaaMitra. 💙";
+  }
+
   try {
+    const idToken = await user.getIdToken();
     const res = await fetch(WORKER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': `Bearer ${idToken}`,
+      },
       body: JSON.stringify({
         systemPrompt: buildSystemPrompt(context),
         messages: messages.map(m => ({ role: m.role, content: m.content })),
@@ -208,7 +221,7 @@ export async function sendMessage(
     if (!res.ok) {
       const status = res.status;
       if (status === 429) return "I'm getting a lot of requests right now. Please try again in a moment. 😊";
-      if (status === 401) return "⚙️ Worker configuration error — API key issue on the server.";
+      if (status === 401) return "⚠️ Your session expired — please sign out and sign in again.";
       throw new Error(`Worker returned ${status}`);
     }
 
