@@ -583,7 +583,6 @@ function MyProfileCard({ onEdit }: { onEdit: () => void }) {
   const isProfileComplete = !!(profile?.state && profile?.diet && bio && expertise.length > 0);
 
   // Stat 3: state / location
-  const stateLabel = profile?.state || 'India';
 
   return (
     <View style={heroStyles.card}>
@@ -660,13 +659,6 @@ function MyProfileCard({ onEdit }: { onEdit: () => void }) {
           <Text style={heroStyles.statLabel}>Following</Text>
         </View>
 
-        {/* State — gated by showState */}
-        {visibilitySettings.showState && (
-          <View style={heroStyles.statBox}>
-            <Text style={heroStyles.statNumSmall} numberOfLines={1}>{stateLabel}</Text>
-            <Text style={heroStyles.statLabel}>State</Text>
-          </View>
-        )}
       </View>
 
       {/* Bio — gated by showBio */}
