@@ -6,6 +6,12 @@ service cloud.firestore {
     function isSignedIn() {
       return request.auth != null;
     }
+    // Verified = signed in AND email_verified (true for Google sign-in automatically,
+    // requires explicit verification for email/password sign-ups). Use this for any
+    // write that touches other users: community posts, DMs, follows, blocks, etc.
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
     function isOwner(uid) {
       return isSignedIn() && request.auth.uid == uid;
     }
@@ -27,6 +33,10 @@ service cloud.firestore {
     // Restrict which fields an update may touch.
     function onlyFields(allowed) {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(allowed);
+    }
+    // Basic size guards to stop abusive payloads.
+    function shortText(s, max) {
+      return s is string && s.size() <= max;
     }
 
     // ── Users ─────────────────────────────────────────────────────────────────
@@ -58,23 +68,25 @@ service cloud.firestore {
     // else about the post (text, authorUid, images…) may be touched.
     match /communityPosts/{postId} {
       allow read:   if isSignedIn();
-      allow create: if isSignedIn() &&
-        request.resource.data.authorUid == request.auth.uid;
+      allow create: if isVerified() &&
+        request.resource.data.authorUid == request.auth.uid &&
+        shortText(request.resource.data.text, 5000);
       allow update: if isAdmin() ||
-        // Author can edit their own post text
-        (isSignedIn() && resource.data.authorUid == request.auth.uid) ||
-        // Anyone signed in can touch reactions / comment counters only
+        (isSignedIn() && resource.data.authorUid == request.auth.uid &&
+          shortText(request.resource.data.text, 5000)) ||
         (isSignedIn() && onlyFields(['reactions', 'userReactions', 'commentsCount', 'lastCommentAt']));
       allow delete: if isAdmin() ||
         (isSignedIn() && resource.data.authorUid == request.auth.uid);
 
       match /comments/{commentId} {
         allow read:   if isSignedIn();
-        allow create: if isSignedIn() &&
-          request.resource.data.authorUid == request.auth.uid;
+        allow create: if isVerified() &&
+          request.resource.data.authorUid == request.auth.uid &&
+          shortText(request.resource.data.text, 2000);
         allow update: if isSignedIn() &&
           resource.data.authorUid == request.auth.uid &&
-          onlyFields(['text', 'editedAt']);
+          onlyFields(['text', 'editedAt']) &&
+          shortText(request.resource.data.text, 2000);
         allow delete: if isAdmin() ||
           (isSignedIn() && resource.data.authorUid == request.auth.uid) ||
           (isSignedIn() && get(/databases/$(database)/documents/communityPosts/$(postId)).data.authorUid == request.auth.uid);
@@ -84,10 +96,12 @@ service cloud.firestore {
     // ── Community posts (legacy collection) ──────────────────────────────────
     match /community_posts/{postId} {
       allow read:   if isSignedIn();
-      allow create: if isSignedIn() &&
-        request.resource.data.authorUid == request.auth.uid;
+      allow create: if isVerified() &&
+        request.resource.data.authorUid == request.auth.uid &&
+        shortText(request.resource.data.text, 5000);
       allow update: if isAdmin() ||
-        (isSignedIn() && resource.data.authorUid == request.auth.uid) ||
+        (isSignedIn() && resource.data.authorUid == request.auth.uid &&
+          shortText(request.resource.data.text, 5000)) ||
         (isSignedIn() && onlyFields(['reactions', 'userReactions', 'comments', 'commentsCount']));
       allow delete: if isAdmin() ||
         (isSignedIn() && resource.data.authorUid == request.auth.uid);
@@ -110,7 +124,7 @@ service cloud.firestore {
     // or delete their own follow edge.
     match /follows/{followId} {
       allow read:   if isSignedIn();
-      allow create: if isSignedIn() &&
+      allow create: if isVerified() &&
         request.resource.data.fromUid == request.auth.uid &&
         followId == request.resource.data.fromUid + '_' + request.resource.data.toUid;
       allow delete: if isSignedIn() &&
@@ -125,7 +139,7 @@ service cloud.firestore {
         resource.data.fromUid == request.auth.uid ||
         resource.data.toUid == request.auth.uid
       );
-      allow create: if isSignedIn() &&
+      allow create: if isVerified() &&
         request.resource.data.fromUid == request.auth.uid;
       allow update: if isSignedIn() &&
         resource.data.toUid == request.auth.uid;
@@ -142,7 +156,7 @@ service cloud.firestore {
         resource.data.blockerUid == request.auth.uid ||
         resource.data.blockedUid == request.auth.uid
       );
-      allow create: if isSignedIn() &&
+      allow create: if isVerified() &&
         request.resource.data.blockerUid == request.auth.uid;
       allow delete: if isSignedIn() &&
         resource.data.blockerUid == request.auth.uid;
@@ -152,7 +166,7 @@ service cloud.firestore {
     // Only participants can read or modify a conversation and its messages.
     match /conversations/{convId} {
       allow read:   if isParticipant(resource.data.participants);
-      allow create: if isSignedIn() &&
+      allow create: if isVerified() &&
         request.auth.uid in request.resource.data.participants &&
         request.resource.data.participants.size() == 2;
       allow update: if isParticipant(resource.data.participants);
@@ -161,12 +175,14 @@ service cloud.firestore {
       match /messages/{msgId} {
         allow read: if isSignedIn() &&
           request.auth.uid in get(/databases/$(database)/documents/conversations/$(convId)).data.participants;
-        allow create: if isSignedIn() &&
+        allow create: if isVerified() &&
           request.resource.data.authorUid == request.auth.uid &&
-          request.auth.uid in get(/databases/$(database)/documents/conversations/$(convId)).data.participants;
+          request.auth.uid in get(/databases/$(database)/documents/conversations/$(convId)).data.participants &&
+          shortText(request.resource.data.text, 4000);
         allow update: if isSignedIn() &&
           resource.data.authorUid == request.auth.uid &&
-          onlyFields(['text', 'editedAt', 'readBy']);
+          onlyFields(['text', 'editedAt', 'readBy']) &&
+          (!('text' in request.resource.data) || shortText(request.resource.data.text, 4000));
         allow delete: if isAdmin() ||
           (isSignedIn() && resource.data.authorUid == request.auth.uid);
       }
@@ -177,7 +193,7 @@ service cloud.firestore {
     // for another user, but only with a capped payload (no arbitrary fields).
     match /notifications/{uid}/items/{notifId} {
       allow read:   if isOwner(uid);
-      allow create: if isSignedIn() &&
+      allow create: if isVerified() &&
         request.resource.data.fromUid == request.auth.uid &&
         request.resource.data.keys().hasOnly(
           ['type', 'fromUid', 'fromName', 'fromAvatar', 'postId', 'commentId',
@@ -218,7 +234,9 @@ service cloud.firestore {
       allow read: if isAdmin() ||
         (isSignedIn() && resource.data.uid == request.auth.uid);
       allow create: if isSignedIn() &&
-        request.resource.data.uid == request.auth.uid;
+        request.resource.data.uid == request.auth.uid &&
+        shortText(request.resource.data.subject, 200) &&
+        shortText(request.resource.data.message, 5000);
       allow update, delete: if isAdmin();
     }
   }

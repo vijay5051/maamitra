@@ -1,4 +1,10 @@
+import { Platform } from 'react-native';
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
+import {
+  initializeAppCheck,
+  ReCaptchaV3Provider,
+  AppCheck,
+} from 'firebase/app-check';
 import {
   getAuth,
   Auth,
@@ -45,15 +51,40 @@ let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
 let db: Firestore | null = null;
 let storage: FirebaseStorage | null = null;
+let appCheck: AppCheck | null = null;
 
 if (isFirebaseConfigured()) {
   app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+
+  // App Check (web only for now — native requires React Native Firebase).
+  // Blocks Firestore/Storage/Auth traffic from un-attested clients once
+  // "Enforce" is turned on in the Firebase Console.
+  //   1. Firebase Console → App Check → Web app → register with reCAPTCHA v3
+  //   2. Copy the site key → set EXPO_PUBLIC_RECAPTCHA_SITE_KEY in .env
+  //   3. (Dev only) set EXPO_PUBLIC_APP_CHECK_DEBUG_TOKEN=true to allow local
+  //      dev; paste the debug token the console prints into Firebase → App
+  //      Check → Apps → Debug tokens.
+  const siteKey = process.env.EXPO_PUBLIC_RECAPTCHA_SITE_KEY;
+  if (Platform.OS === 'web' && siteKey && typeof window !== 'undefined') {
+    if (process.env.EXPO_PUBLIC_APP_CHECK_DEBUG_TOKEN === 'true') {
+      (globalThis as any).FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+    }
+    try {
+      appCheck = initializeAppCheck(app, {
+        provider: new ReCaptchaV3Provider(siteKey),
+        isTokenAutoRefreshEnabled: true,
+      });
+    } catch (error) {
+      console.warn('App Check init failed:', error);
+    }
+  }
+
   auth = getAuth(app);
   db = getFirestore(app);
   storage = getStorage(app);
 }
 
-export { app, auth, db, storage };
+export { app, auth, db, storage, appCheck };
 
 // ─── Default App Settings ─────────────────────────────────────────────────────
 
