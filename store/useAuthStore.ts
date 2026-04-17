@@ -100,11 +100,12 @@ interface AuthUser {
   email: string;
 }
 
-const MOCK_USER: AuthUser = {
-  uid: 'demo-user',
-  name: 'Demo Mom',
-  email: 'demo@maamitra.app',
-};
+// Sign-in / sign-up / Google flows hit this when Firebase env vars are missing.
+// Rather than silently succeed with a mock identity (which masks a real config
+// problem and ships a fake account to production), throw a clear error.
+const NOT_CONFIGURED = new Error(
+  'Authentication is not configured. Please check your Firebase env vars.'
+);
 
 interface AuthState {
   user: AuthUser | null;
@@ -125,9 +126,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   signIn: async (email: string, password: string) => {
     if (!isFirebaseConfigured() || !auth) {
-      // Mock auth — demo mode
-      set({ user: MOCK_USER, isAuthenticated: true, isLoading: false });
-      return;
+      throw NOT_CONFIGURED;
     }
     set({ isLoading: true });
     // Always wipe local profile data before loading a new user's data
@@ -152,8 +151,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   signUp: async (email: string, password: string, name: string) => {
     if (!isFirebaseConfigured() || !auth) {
-      set({ user: MOCK_USER, isAuthenticated: true, isLoading: false });
-      return;
+      throw NOT_CONFIGURED;
     }
     // Wipe any stale data from a previous user before creating new account
     useProfileStore.getState().resetProfile();
@@ -177,9 +175,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   signInWithGoogle: async () => {
     if (!isFirebaseConfigured() || !auth) {
-      // Demo mode
-      set({ user: MOCK_USER, isAuthenticated: true, isLoading: false });
-      return 'tabs';
+      throw NOT_CONFIGURED;
     }
     // Wipe local data before loading new user
     useProfileStore.getState().resetProfile();
@@ -234,15 +230,10 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   initAuth: () => {
-    // Demo bypass: if maamitra-demo flag is set in localStorage, skip Firebase auth
-    if (typeof window !== 'undefined' && localStorage.getItem('maamitra-demo') === 'true') {
-      set({ user: MOCK_USER, isAuthenticated: true, isLoading: false });
-      return;
-    }
-
     if (!isFirebaseConfigured() || !auth) {
-      // No Firebase — use demo user so the app can be previewed
-      set({ user: MOCK_USER, isAuthenticated: true, isLoading: false });
+      // No Firebase config at build time (local dev without .env). Leave the
+      // user signed out — production must never fall back to a mock identity.
+      set({ user: null, isAuthenticated: false, isLoading: false });
       return;
     }
 
