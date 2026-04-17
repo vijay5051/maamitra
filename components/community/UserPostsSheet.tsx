@@ -80,6 +80,10 @@ export default function UserPostsSheet({ uid, name, visible, onClose, onEditPost
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Subscribe to the community store's posts so edits/deletes made elsewhere
+  // (e.g. from the main feed or the EditPostModal) propagate into this sheet
+  const storePosts = useCommunityStore((s) => s.posts);
+
   useEffect(() => {
     if (!visible || !uid) return;
     let cancelled = false;
@@ -95,6 +99,43 @@ export default function UserPostsSheet({ uid, name, visible, onClose, onEditPost
       });
     return () => { cancelled = true; };
   }, [uid, visible]);
+
+  // Keep local posts in sync with store updates (edit/delete/reactions)
+  useEffect(() => {
+    setPosts((prev) => {
+      const storeById = new Map(storePosts.map((p) => [p.id, p]));
+      // Remove posts that were deleted in the store
+      const filtered = prev.filter((p) => !storeById.has(p.id) || storeById.get(p.id));
+      // Merge updated fields from store where available
+      return filtered
+        .map((p) => {
+          const s = storeById.get(p.id);
+          if (!s) return p;
+          return {
+            ...p,
+            text: s.text,
+            topic: s.topic,
+            reactions: s.reactions,
+            reactionsByUser: s.reactionsByUser,
+            userReactions: s.userReactions,
+            commentCount: s.commentCount ?? p.commentCount,
+            commentList: s.commentList ?? p.commentList,
+          };
+        })
+        // Drop posts the store says are deleted (not present in storePosts anymore)
+        .filter((p) => {
+          // If the post was present in store earlier but now isn't, it was deleted.
+          // We detect this by seeing if it had a matching store entry previously.
+          // Simpler: only remove posts authored by currentUser that are no longer in store.
+          if (p.authorUid !== myUid) return true;
+          // Keep the post if it's still in the store OR if the store simply hasn't loaded it
+          // (when store is empty we keep all); but if store has posts and this one is missing,
+          // it was deleted.
+          if (storePosts.length === 0) return true;
+          return storeById.has(p.id);
+        });
+    });
+  }, [storePosts, myUid]);
 
   // Local state updates mirrored from the community store actions
   const handleReact = (postId: string, emoji: string) => {
