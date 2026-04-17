@@ -584,23 +584,6 @@ function ComposeCard({ onPress }: { onPress: () => void }) {
           </Text>
         </View>
       </View>
-
-      <View style={composeStyles.divider} />
-
-      <View style={composeStyles.actionRow}>
-        <View style={composeStyles.actionItem}>
-          <Ionicons name="image-outline" size={18} color="#34D399" />
-          <Text style={composeStyles.actionLabel}>Photo</Text>
-        </View>
-        <View style={composeStyles.actionItem}>
-          <Ionicons name="pricetag-outline" size={18} color="#7C3AED" />
-          <Text style={composeStyles.actionLabel}>Topic</Text>
-        </View>
-        <View style={composeStyles.actionItem}>
-          <Ionicons name="heart-outline" size={18} color="#E8487A" />
-          <Text style={composeStyles.actionLabel}>Share</Text>
-        </View>
-      </View>
     </TouchableOpacity>
   );
 }
@@ -643,30 +626,6 @@ const composeStyles = StyleSheet.create({
     fontFamily: Fonts.sansRegular,
     fontSize: 14,
     color: '#9ca3af',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#F3F0FA',
-    marginTop: 12,
-    marginBottom: 4,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    paddingTop: 6,
-  },
-  actionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-  },
-  actionLabel: {
-    fontFamily: Fonts.sansSemiBold,
-    fontSize: 13,
-    color: '#6B7280',
   },
 });
 
