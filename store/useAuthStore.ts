@@ -4,6 +4,7 @@ import {
   createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
   onAuthStateChanged,
+  reload as reloadFirebaseUser,
 } from 'firebase/auth';
 import {
   isFirebaseConfigured,
@@ -98,6 +99,8 @@ interface AuthUser {
   uid: string;
   name: string;
   email: string;
+  emailVerified: boolean;
+  isGoogleSignIn: boolean;
 }
 
 // Sign-in / sign-up / Google flows hit this when Firebase env vars are missing.
@@ -116,10 +119,12 @@ interface AuthState {
   signInWithGoogle: () => Promise<'onboarding' | 'tabs' | null>;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<void>;
+  resendVerificationEmail: () => Promise<void>;
+  refreshEmailVerified: () => Promise<boolean>;
   initAuth: () => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isLoading: true,
   isAuthenticated: false,
@@ -134,10 +139,13 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       const credential = await signInWithEmailAndPassword(auth, email, password);
       const profile = await getUserProfile(credential.user.uid);
+      const providerIds = credential.user.providerData.map((p) => p.providerId);
       const authUser: AuthUser = {
         uid: credential.user.uid,
         name: profile?.name ?? credential.user.displayName ?? 'Mom',
         email: credential.user.email ?? email,
+        emailVerified: credential.user.emailVerified,
+        isGoogleSignIn: providerIds.includes('google.com'),
       };
       // Hydrate profile BEFORE setting isAuthenticated — prevents index.tsx from
       // seeing the transient state: isAuthenticated:true + onboardingComplete:false
@@ -162,6 +170,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         uid: credential.user.uid,
         name,
         email: credential.user.email ?? email,
+        emailVerified: credential.user.emailVerified,
+        isGoogleSignIn: false,
       };
       await saveUserProfile(credential.user.uid, { name, email, createdAt: new Date().toISOString() });
       // Send email verification
@@ -186,7 +196,12 @@ export const useAuthStore = create<AuthState>((set) => ({
     // Hydrate profile BEFORE setting isAuthenticated to avoid the transient
     // state where isAuthenticated:true but onboardingComplete:false
     const hadProfile = await hydrateProfileFromFirestore(result.uid);
-    set({ user: result, isAuthenticated: true, isLoading: false });
+    const authUser: AuthUser = {
+      ...result,
+      emailVerified: auth.currentUser?.emailVerified ?? true,
+      isGoogleSignIn: true,
+    };
+    set({ user: authUser, isAuthenticated: true, isLoading: false });
     // If profile has onboardingComplete, go to tabs; otherwise onboarding
     return (profile?.onboardingComplete || hadProfile) ? 'tabs' : 'onboarding';
   },
@@ -229,6 +244,21 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ user: null, isAuthenticated: false });
   },
 
+  resendVerificationEmail: async () => {
+    await sendVerificationEmail();
+  },
+
+  refreshEmailVerified: async (): Promise<boolean> => {
+    if (!auth?.currentUser) return false;
+    await reloadFirebaseUser(auth.currentUser);
+    const verified = auth.currentUser.emailVerified;
+    const current = get().user;
+    if (current && current.emailVerified !== verified) {
+      set({ user: { ...current, emailVerified: verified } });
+    }
+    return verified;
+  },
+
   initAuth: () => {
     if (!isFirebaseConfigured() || !auth) {
       // No Firebase config at build time (local dev without .env). Leave the
@@ -239,6 +269,8 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
+        const providerIds = firebaseUser.providerData.map((p) => p.providerId);
+        const isGoogle = providerIds.includes('google.com');
         // Clear any stale profile data from a previous session/user
         useProfileStore.getState().resetProfile();
         try {
@@ -247,6 +279,8 @@ export const useAuthStore = create<AuthState>((set) => ({
             uid: firebaseUser.uid,
             name: profile?.name ?? firebaseUser.displayName ?? 'Mom',
             email: firebaseUser.email ?? '',
+            emailVerified: firebaseUser.emailVerified,
+            isGoogleSignIn: isGoogle,
           };
           // Hydrate profile BEFORE setting isAuthenticated so index.tsx never sees
           // the transient state: isAuthenticated:true + onboardingComplete:false
@@ -260,6 +294,8 @@ export const useAuthStore = create<AuthState>((set) => ({
               uid: firebaseUser.uid,
               name: firebaseUser.displayName ?? 'Mom',
               email: firebaseUser.email ?? '',
+              emailVerified: firebaseUser.emailVerified,
+              isGoogleSignIn: isGoogle,
             },
             isAuthenticated: true,
             isLoading: false,
