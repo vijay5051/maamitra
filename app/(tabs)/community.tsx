@@ -1010,10 +1010,20 @@ export default function CommunityScreen() {
   const { unreadTotal: unreadDMs, loadUnreadCount: loadDMCount } = useDMStore();
   const [refreshing, setRefreshing] = useState(false);
   const allPosts = getFilteredPosts();
-  // Filter out posts from blocked users
-  const posts = blockedUids.length > 0
-    ? allPosts.filter((p) => !blockedUids.includes(p.authorUid))
-    : allPosts;
+  // Build set of UIDs I follow (for followers-only post filtering)
+  const following = useSocialStore((s) => s.following);
+  const followingUids = React.useMemo(
+    () => new Set(following.map((f) => f.uid)),
+    [following],
+  );
+  // Filter: hide blocked authors + hide followers-only posts from authors I don't follow
+  const posts = allPosts.filter((p) => {
+    if (blockedUids.includes(p.authorUid)) return false;
+    if (p.authorFollowersOnly && p.authorUid && p.authorUid !== myUid && !followingUids.has(p.authorUid)) {
+      return false;
+    }
+    return true;
+  });
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -1260,7 +1270,8 @@ export default function CommunityScreen() {
         authorUid={myUid}
         onPost={(text, topic, _authorName, imageUri, imageAspectRatio) => {
           if (myUid) {
-            addPostFirestore(text, topic, myUid, imageUri, imageAspectRatio, myPhotoUrl || undefined).catch(() => {
+            const followersOnly = useProfileStore.getState().visibilitySettings?.postsFollowersOnly ?? false;
+            addPostFirestore(text, topic, myUid, imageUri, imageAspectRatio, myPhotoUrl || undefined, followersOnly).catch(() => {
               if (typeof window !== 'undefined') {
                 window.alert('Failed to publish your post. Please check your connection and try again.');
               }

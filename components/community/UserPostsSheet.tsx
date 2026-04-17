@@ -84,6 +84,10 @@ export default function UserPostsSheet({ uid, name, visible, onClose, onEditPost
   // (e.g. from the main feed or the EditPostModal) propagate into this sheet
   const storePosts = useCommunityStore((s) => s.posts);
 
+  // Check if current user follows this profile (for privacy gating)
+  const following = useSocialStore((s) => s.following);
+  const iFollowThisUser = following.some((f) => f.uid === uid);
+
   useEffect(() => {
     if (!visible || !uid) return;
     let cancelled = false;
@@ -91,14 +95,20 @@ export default function UserPostsSheet({ uid, name, visible, onClose, onEditPost
     fetchUserPosts(uid)
       .then((fsPosts) => {
         if (cancelled) return;
-        setPosts(fsPosts.map(toStorePost));
+        // Apply followers-only filter (skip for own profile)
+        const filtered = fsPosts.filter((p: any) => {
+          if (uid === myUid) return true;
+          if (!p.authorFollowersOnly) return true;
+          return iFollowThisUser;
+        });
+        setPosts(filtered.map(toStorePost));
         setIsLoading(false);
       })
       .catch(() => {
         if (!cancelled) setIsLoading(false);
       });
     return () => { cancelled = true; };
-  }, [uid, visible]);
+  }, [uid, visible, iFollowThisUser]);
 
   // Keep local posts in sync with store updates (edit/delete/reactions)
   useEffect(() => {

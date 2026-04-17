@@ -43,6 +43,7 @@ export interface Post {
   comments: Comment[];
   commentList?: PostComment[]; // Loaded comments from Firestore subcollection
   commentCount?: number;
+  authorFollowersOnly?: boolean;
   createdAt: Date;
   showComments: boolean;
 }
@@ -129,7 +130,7 @@ interface CommunityState {
   // Firestore-backed actions
   loadPostsFromFirestore: () => Promise<void>;
   loadMorePosts: () => Promise<void>;
-  addPostFirestore: (text: string, topic: string, authorUid: string, imageUri?: string, imageAspectRatio?: number, authorPhotoUrl?: string) => Promise<void>;
+  addPostFirestore: (text: string, topic: string, authorUid: string, imageUri?: string, imageAspectRatio?: number, authorPhotoUrl?: string, authorFollowersOnly?: boolean) => Promise<void>;
   toggleReactionFirestore: (postId: string, myUid: string, myName: string, emoji: string) => Promise<void>;
   addCommentFirestore: (postId: string, authorUid: string, authorName: string, text: string, authorPhotoUrl?: string) => Promise<void>;
   loadCommentsForPost: (postId: string) => Promise<void>;
@@ -266,6 +267,7 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
         comments: [],
         commentList: [],
         commentCount: fsPost.commentCount ?? 0,
+        authorFollowersOnly: (fsPost as any).authorFollowersOnly ?? false,
         createdAt: fsPost.createdAt instanceof Date ? fsPost.createdAt : new Date(fsPost.createdAt),
         showComments: false,
       }));
@@ -316,6 +318,7 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
         comments: [],
         commentList: [],
         commentCount: fsPost.commentCount ?? 0,
+        authorFollowersOnly: (fsPost as any).authorFollowersOnly ?? false,
         createdAt: fsPost.createdAt instanceof Date ? fsPost.createdAt : new Date(fsPost.createdAt),
         showComments: false,
       }));
@@ -338,7 +341,8 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
     authorUid: string,
     imageUri?: string,
     imageAspectRatio?: number,
-    authorPhotoUrl?: string
+    authorPhotoUrl?: string,
+    authorFollowersOnly?: boolean,
   ) => {
     const { motherName } = get();
     const authorName = motherName || 'Community Member';
@@ -355,6 +359,7 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
         text,
         ...(imageUri !== undefined && { imageUri }),
         ...(imageAspectRatio !== undefined && { imageAspectRatio }),
+        ...(authorFollowersOnly !== undefined && { authorFollowersOnly }),
       };
 
       const postId = await createPost(postData);
@@ -376,6 +381,7 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
         comments: [],
         commentList: [],
         commentCount: 0,
+        authorFollowersOnly,
         createdAt: new Date(),
         showComments: false,
       };

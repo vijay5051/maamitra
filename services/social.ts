@@ -53,6 +53,8 @@ export interface CommunityPost {
   reactions: Record<string, number>;          // { '❤️': 5 }
   reactionsByUser: Record<string, string[]>;  // { uid: ['❤️'] }
   commentCount: number;
+  /** Snapshot: was author's "followers-only" setting on at post time? */
+  authorFollowersOnly?: boolean;
   createdAt: Date;
 }
 
@@ -200,6 +202,8 @@ export async function createPost(data: {
   imageAspectRatio?: number;
   imageEmoji?: string;
   imageCaption?: string;
+  /** Snapshot of author's followers-only privacy setting at creation time */
+  authorFollowersOnly?: boolean;
 }): Promise<string> {
   if (!db) return '';
   try {
@@ -259,6 +263,7 @@ export async function fetchRecentPosts(
         reactions: data.reactions ?? {},
         reactionsByUser: data.reactionsByUser ?? {},
         commentCount: data.commentCount ?? 0,
+        authorFollowersOnly: data.authorFollowersOnly ?? false,
         createdAt: firestoreDate(data.createdAt),
       } as CommunityPost;
     });
@@ -306,6 +311,7 @@ export async function fetchUserPosts(uid: string): Promise<CommunityPost[]> {
         reactions: data.reactions ?? {},
         reactionsByUser: data.reactionsByUser ?? {},
         commentCount: data.commentCount ?? 0,
+        authorFollowersOnly: data.authorFollowersOnly ?? false,
         createdAt: firestoreDate(data.createdAt),
       } as CommunityPost;
     });

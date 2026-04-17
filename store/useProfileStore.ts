@@ -24,6 +24,8 @@ export interface VisibilitySettings {
   showExpertise: boolean;
   showBio: boolean;
   showPostCount: boolean;
+  /** If true, only my followers can see my posts. Defaults to false (public). */
+  postsFollowersOnly: boolean;
 }
 
 export const DEFAULT_VISIBILITY: VisibilitySettings = {
@@ -32,6 +34,7 @@ export const DEFAULT_VISIBILITY: VisibilitySettings = {
   showExpertise: true,
   showBio: true,
   showPostCount: true,
+  postsFollowersOnly: false,
 };
 
 export interface Profile {

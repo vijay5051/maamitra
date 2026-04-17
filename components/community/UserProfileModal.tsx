@@ -234,8 +234,15 @@ export default function UserProfileModal({ uid, visible, onClose, onEditProfile 
     ]).then(([prof, userPosts]) => {
       if (cancelled) return;
       setProfile(prof);
-      setPosts(userPosts ?? []);
-      setFollowStatus(getFollowStatus(uid));
+      // Filter followers-only posts if I don't follow this user (and it's not me)
+      const status = getFollowStatus(uid);
+      const filteredPosts = (userPosts ?? []).filter((p: any) => {
+        if (uid === myUid) return true;
+        if (!p.authorFollowersOnly) return true;
+        return status === 'following';
+      });
+      setPosts(filteredPosts);
+      setFollowStatus(status);
       setIsLoading(false);
 
       // Sync own public profile if viewing own page (uses store action)
@@ -462,8 +469,13 @@ export default function UserProfileModal({ uid, visible, onClose, onEditProfile 
               <Text style={styles.sectionLabel}>Posts ({posts.length})</Text>
               <View style={styles.dividerLine} />
             </View>
-            {posts.map((p) => (
-              <View key={p.id} style={styles.miniPostCard}>
+            {posts.slice(0, 3).map((p) => (
+              <TouchableOpacity
+                key={p.id}
+                style={styles.miniPostCard}
+                activeOpacity={0.75}
+                onPress={() => setShowPostsSheet(true)}
+              >
                 <View style={styles.miniPostMeta}>
                   {!!p.topic && (
                     <View style={styles.miniTopicChip}>
@@ -473,8 +485,17 @@ export default function UserProfileModal({ uid, visible, onClose, onEditProfile 
                   <Text style={styles.miniPostTime}>{timeAgo(p.createdAt)}</Text>
                 </View>
                 <Text style={styles.miniPostText} numberOfLines={3}>{p.text}</Text>
-              </View>
+              </TouchableOpacity>
             ))}
+            <TouchableOpacity
+              onPress={() => setShowPostsSheet(true)}
+              activeOpacity={0.75}
+              style={styles.seeAllBtn}
+            >
+              <Text style={styles.seeAllText}>
+                See all {posts.length} posts & react →
+              </Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -868,6 +889,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#1C1033',
     lineHeight: 20,
+  },
+  seeAllBtn: {
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  seeAllText: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 13,
+    color: '#E8487A',
   },
   blockSection: {
     alignItems: 'center',

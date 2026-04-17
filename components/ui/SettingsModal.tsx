@@ -811,6 +811,12 @@ export default function SettingsModal({ visible, onClose }: SettingsModalProps) 
                 value={visibilitySettings.showPostCount}
                 onToggle={() => handlePrivacyToggle('showPostCount')}
               />
+              <View style={s.divider} />
+              <ToggleRow
+                label="Posts visible only to followers"
+                value={visibilitySettings.postsFollowersOnly}
+                onToggle={() => handlePrivacyToggle('postsFollowersOnly')}
+              />
             </View>
 
             {/* Account */}
