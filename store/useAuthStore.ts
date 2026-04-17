@@ -199,7 +199,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     // Always wipe ALL local data immediately on sign-out — before any async calls
     useProfileStore.getState().resetProfile();
     useWellnessStore.getState().resetWellness();
-    useChatStore.getState().clearChat();
+    useChatStore.getState().resetAll();
     getSocialStore().getState().reset();
     getCommunityStore().getState().resetCommunity();
     if (!isFirebaseConfigured() || !auth) {
@@ -226,7 +226,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     // Wipe ALL local data first so it never leaks to a subsequent user
     useProfileStore.getState().resetProfile();
     useWellnessStore.getState().resetWellness();
-    useChatStore.getState().clearChat();
+    useChatStore.getState().resetAll();
     getSocialStore().getState().reset();
     getCommunityStore().getState().resetCommunity();
     await deleteUserAccount(user.uid);

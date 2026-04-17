@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   FlatList,
   KeyboardAvoidingView,
@@ -22,6 +22,7 @@ import { detectIsFood } from '../../services/claude';
 import ChatBubble from '../../components/chat/ChatBubble';
 import ChatInput from '../../components/chat/ChatInput';
 import QuickChips from '../../components/chat/QuickChips';
+import ChatHistorySheet from '../../components/chat/ChatHistorySheet';
 import TypingIndicator from '../../components/ui/TypingIndicator';
 import GradientAvatar from '../../components/ui/GradientAvatar';
 import SettingsModal from '../../components/ui/SettingsModal';
@@ -196,7 +197,20 @@ const sepStyles = StyleSheet.create({
 
 export default function ChatScreen() {
   const insets = useSafeAreaInsets();
-  const { messages, isTyping, allergies, sendMessage, saveAnswer, setAllergies } = useChatStore();
+  const {
+    isTyping,
+    allergies,
+    sendMessage,
+    saveAnswer,
+    setAllergies,
+    loadThreadsFromFirestore,
+  } = useChatStore();
+  // Subscribe to threads + activeThreadId so messages re-render on thread switch
+  const activeThreadId = useChatStore((s) => s.activeThreadId);
+  const threads = useChatStore((s) => s.threads);
+  const messages = React.useMemo(() => {
+    return threads.find((t) => t.id === activeThreadId)?.messages ?? [];
+  }, [threads, activeThreadId]);
   const { motherName, profile } = useProfileStore();
   const { user } = useAuthStore();
   const { activeKid, ageLabel } = useActiveKid();
@@ -207,6 +221,13 @@ export default function ChatScreen() {
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+
+  // Load chat threads from Firestore on login
+  useEffect(() => {
+    if (user?.uid) loadThreadsFromFirestore();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid]);
 
   const flatListRef = useRef<FlatList>(null);
 
@@ -289,7 +310,7 @@ export default function ChatScreen() {
             </View>
           </View>
 
-          {/* Right: Kid pill + settings */}
+          {/* Right: Kid pill + history + settings */}
           <View style={styles.headerRight}>
             {activeKid ? (
               <View style={styles.kidPill}>
@@ -298,6 +319,13 @@ export default function ChatScreen() {
                 </Text>
               </View>
             ) : null}
+            <TouchableOpacity
+              onPress={() => setShowHistory(true)}
+              style={styles.gearBtn}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="time-outline" size={20} color="rgba(255,255,255,0.7)" />
+            </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setSettingsVisible(true)}
               style={styles.gearBtn}
@@ -391,6 +419,7 @@ export default function ChatScreen() {
 
       {/* Settings modal */}
       <SettingsModal visible={settingsVisible} onClose={() => setSettingsVisible(false)} />
+      <ChatHistorySheet visible={showHistory} onClose={() => setShowHistory(false)} />
     </View>
   );
 }

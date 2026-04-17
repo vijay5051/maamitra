@@ -35,6 +35,11 @@ service cloud.firestore {
       allow read, write: if isOwner(uid);
     }
 
+    // ── AI Chat Threads (multi-thread history) ───────────────────────────────
+    match /chats/{uid}/threads/{threadId} {
+      allow read, write: if isOwner(uid);
+    }
+
     // ── Community Posts (active collection used by the app) ──────────────────
     // Anyone signed in can read. Authors can create/delete their own.
     // Any signed-in user can update reactions/comments.
