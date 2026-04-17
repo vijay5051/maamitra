@@ -9,7 +9,7 @@ export default function Index() {
 
   // DEMO BYPASS: if localStorage has demo flag, skip auth for UI testing
   if (typeof window !== 'undefined' && localStorage.getItem('maamitra-demo') === 'true') {
-    return <Redirect href="/(tabs)/home" />;
+    return <Redirect href="/(tabs)/" />;
   }
 
   // While auth + profile hydration is in flight, show nothing — never redirect
@@ -19,5 +19,5 @@ export default function Index() {
   if (!isAuthenticated) return <Redirect href="/(auth)/welcome" />;
   if (!onboardingComplete) return <Redirect href="/(auth)/onboarding" />;
   // Home is now the AI-hero landing. Chat remains available via the center FAB.
-  return <Redirect href="/(tabs)/home" />;
+  return <Redirect href="/(tabs)/" />;
 }

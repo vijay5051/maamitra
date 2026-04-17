@@ -114,7 +114,7 @@ export default function TabLayout() {
 
   return (
     <Tabs
-      initialRouteName="home"
+      initialRouteName="index"
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
@@ -138,7 +138,7 @@ export default function TabLayout() {
     >
       {/* ─── 4 visible tabs + center FAB (5 slots total) ─── */}
       <Tabs.Screen
-        name="home"
+        name="index"
         options={{
           title: 'Home',
           tabBarIcon: ({ focused }) => (
