@@ -273,15 +273,22 @@ export async function fetchRecentPosts(
 export async function fetchUserPosts(uid: string): Promise<CommunityPost[]> {
   if (!db) return [];
   try {
-    // where(authorUid) + orderBy(createdAt) requires a composite index;
-    // drop the approved filter — all posts are approved:true at write time.
-    const q = query(
-      collection(db, 'communityPosts'),
-      where('authorUid', '==', uid),
-      orderBy('createdAt', 'desc'),
-    );
-    const snap = await getDocs(q);
-    return snap.docs.map((d) => {
+    // Try with ordering first (requires composite index on authorUid + createdAt).
+    // Fall back to unordered query if index isn't ready, then sort client-side.
+    let snap;
+    try {
+      snap = await getDocs(query(
+        collection(db, 'communityPosts'),
+        where('authorUid', '==', uid),
+        orderBy('createdAt', 'desc'),
+      ));
+    } catch {
+      snap = await getDocs(query(
+        collection(db, 'communityPosts'),
+        where('authorUid', '==', uid),
+      ));
+    }
+    const results = snap.docs.map((d) => {
       const data = d.data();
       return {
         id: d.id,
@@ -302,6 +309,9 @@ export async function fetchUserPosts(uid: string): Promise<CommunityPost[]> {
         createdAt: firestoreDate(data.createdAt),
       } as CommunityPost;
     });
+    // Client-side sort (always correct, handles fallback path too)
+    results.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    return results;
   } catch (error) {
     console.error('fetchUserPosts error:', error);
     return [];
