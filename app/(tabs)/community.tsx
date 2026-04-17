@@ -30,6 +30,8 @@ import TagPill from '../../components/ui/TagPill';
 import SettingsModal from '../../components/ui/SettingsModal';
 import PostCardComponent from '../../components/community/PostCard';
 import UserProfileModalComponent from '../../components/community/UserProfileModal';
+import UserPostsSheet from '../../components/community/UserPostsSheet';
+import EditPostModal from '../../components/community/EditPostModal';
 import NotificationsSheet from '../../components/community/NotificationsSheet';
 import ConversationsSheet from '../../components/community/ConversationsSheet';
 import { Fonts } from '../../constants/theme';
@@ -631,7 +633,7 @@ const composeStyles = StyleSheet.create({
 
 // ─── My Profile Card — Premium Dark Hero ──────────────────────────────────────
 
-function MyProfileCard({ onEdit }: { onEdit: () => void }) {
+function MyProfileCard({ onEdit, onPostsPress }: { onEdit: () => void; onPostsPress: () => void }) {
   const {
     motherName, photoUrl, parentGender, bio, expertise,
     kids, visibilitySettings, profile,
@@ -710,10 +712,10 @@ function MyProfileCard({ onEdit }: { onEdit: () => void }) {
       <View style={heroStyles.statsRow}>
         {/* Posts */}
         {visibilitySettings.showPostCount && (
-          <View style={heroStyles.statBox}>
+          <TouchableOpacity style={heroStyles.statBox} onPress={onPostsPress} activeOpacity={0.75}>
             <Text style={heroStyles.statNum}>{postCount}</Text>
             <Text style={heroStyles.statLabel}>Posts</Text>
-          </View>
+          </TouchableOpacity>
         )}
 
         {/* Followers */}
@@ -948,6 +950,7 @@ export default function CommunityScreen() {
     addCommentFirestore,
     loadCommentsForPost,
     deletePostFirestore,
+    updatePostFirestore,
     deleteCommentFirestore,
   } = useCommunityStore();
   const { motherName, photoUrl: myPhotoUrl } = useProfileStore();
@@ -1002,6 +1005,8 @@ export default function CommunityScreen() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showMessages, setShowMessages] = useState(false);
   const [viewingUid, setViewingUid] = useState<string | null>(null);
+  const [showOwnPosts, setShowOwnPosts] = useState(false);
+  const [editingPost, setEditingPost] = useState<import('../../store/useCommunityStore').Post | null>(null);
   const { unreadTotal: unreadDMs, loadUnreadCount: loadDMCount } = useDMStore();
   const [refreshing, setRefreshing] = useState(false);
   const allPosts = getFilteredPosts();
@@ -1082,6 +1087,32 @@ export default function CommunityScreen() {
         onClose={() => setShowMessages(false)}
       />
 
+      {/* Own posts list */}
+      {myUid && (
+        <UserPostsSheet
+          uid={myUid}
+          name={motherName}
+          visible={showOwnPosts}
+          onClose={() => setShowOwnPosts(false)}
+          onEditPost={(p) => setEditingPost(p)}
+        />
+      )}
+
+      {/* Edit post modal */}
+      {editingPost && (
+        <EditPostModal
+          visible={!!editingPost}
+          initialText={editingPost.text}
+          initialTopic={editingPost.topic}
+          onClose={() => setEditingPost(null)}
+          onSave={async ({ text, topic }) => {
+            if (!myUid || !editingPost) return;
+            await updatePostFirestore(editingPost.id, myUid, { text, topic });
+            setEditingPost(null);
+          }}
+        />
+      )}
+
       {/* User profile modal (uid-based, loads from Firestore) */}
       {viewingUid !== null && (
         <UserProfileModalComponent
@@ -1150,7 +1181,10 @@ export default function CommunityScreen() {
         }
         ListHeaderComponent={
           <>
-            <MyProfileCard onEdit={() => setShowSettings(true)} />
+            <MyProfileCard
+              onEdit={() => setShowSettings(true)}
+              onPostsPress={() => setShowOwnPosts(true)}
+            />
             <ComposeCard onPress={() => setShowNewPost(true)} />
           </>
         }
@@ -1190,6 +1224,10 @@ export default function CommunityScreen() {
               deletePostFirestore(postId, myUid).catch(() => {
                 Alert.alert('Error', 'Could not delete the post. Please try again.');
               });
+            } : undefined}
+            onEditPost={myUid && item.authorUid === myUid ? (postId) => {
+              const p = posts.find((x) => x.id === postId);
+              if (p) setEditingPost(p);
             } : undefined}
             onDeleteComment={myUid ? (postId, commentId) => {
               deleteCommentFirestore(postId, commentId).catch(() => {

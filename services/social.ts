@@ -143,6 +143,24 @@ export async function incrementPublicProfilePostCount(uid: string, delta: number
 
 // ─── Posts ────────────────────────────────────────────────────────────────────
 
+export async function updatePost(
+  postId: string,
+  updates: { text?: string; topic?: string },
+): Promise<void> {
+  if (!db) return;
+  try {
+    const clean: Record<string, any> = {};
+    if (typeof updates.text === 'string') clean.text = updates.text;
+    if (typeof updates.topic === 'string') clean.topic = updates.topic;
+    if (Object.keys(clean).length === 0) return;
+    clean.editedAt = serverTimestamp();
+    await updateDoc(doc(db, 'communityPosts', postId), clean);
+  } catch (error) {
+    console.error('updatePost error:', error);
+    throw error;
+  }
+}
+
 export async function deletePost(postId: string): Promise<void> {
   if (!db) return;
   try {

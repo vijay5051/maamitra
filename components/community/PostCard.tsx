@@ -25,6 +25,7 @@ interface PostCardProps {
   onAddComment: (postId: string, text: string) => void;
   onViewProfile: (uid: string, name: string) => void;    // open UserProfileModal
   onDeletePost?: (postId: string) => void;               // only provided for own posts
+  onEditPost?: (postId: string) => void;                 // only provided for own posts
   onDeleteComment?: (postId: string, commentId: string) => void; // own comment or own post's comment
 }
 
@@ -53,8 +54,10 @@ export default function PostCard({
   onAddComment,
   onViewProfile,
   onDeletePost,
+  onEditPost,
   onDeleteComment,
 }: PostCardProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [showReactionPicker, setShowReactionPicker] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -164,14 +167,38 @@ export default function PostCard({
             <TagPill label={post.topic} color="#8b5cf6" />
           ) : null}
           {/* 3-dot menu — own posts only */}
-          {isOwnPost && onDeletePost && (
-            <TouchableOpacity
-              onPress={confirmDeletePost}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              style={styles.moreBtn}
-            >
-              <Ionicons name="ellipsis-horizontal" size={18} color="#9ca3af" />
-            </TouchableOpacity>
+          {isOwnPost && (onDeletePost || onEditPost) && (
+            <View style={{ position: 'relative' }}>
+              <TouchableOpacity
+                onPress={() => setMenuOpen((v) => !v)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={styles.moreBtn}
+              >
+                <Ionicons name="ellipsis-horizontal" size={18} color="#9ca3af" />
+              </TouchableOpacity>
+              {menuOpen && (
+                <View style={styles.menuDropdown}>
+                  {onEditPost && (
+                    <TouchableOpacity
+                      style={styles.menuItem}
+                      onPress={() => { setMenuOpen(false); onEditPost(post.id); }}
+                    >
+                      <Ionicons name="pencil-outline" size={15} color="#1a1a2e" />
+                      <Text style={styles.menuItemText}>Edit</Text>
+                    </TouchableOpacity>
+                  )}
+                  {onDeletePost && (
+                    <TouchableOpacity
+                      style={styles.menuItem}
+                      onPress={() => { setMenuOpen(false); confirmDeletePost(); }}
+                    >
+                      <Ionicons name="trash-outline" size={15} color="#ef4444" />
+                      <Text style={[styles.menuItemText, { color: '#ef4444' }]}>Delete</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
+            </View>
           )}
         </View>
       </View>
@@ -402,6 +429,35 @@ const styles = StyleSheet.create({
   },
   moreBtn: {
     padding: 2,
+  },
+  menuDropdown: {
+    position: 'absolute',
+    top: 24,
+    right: 0,
+    minWidth: 140,
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
+    paddingVertical: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+    zIndex: 100,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  menuItemText: {
+    fontSize: 14,
+    color: '#1a1a2e',
+    fontWeight: '500',
   },
   commentDeleteBtn: {
     padding: 4,

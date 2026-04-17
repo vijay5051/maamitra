@@ -4,6 +4,7 @@ import {
   fetchRecentPosts,
   POSTS_PAGE_SIZE,
   createPost,
+  updatePost,
   deletePost,
   deleteComment,
   togglePostReaction,
@@ -132,6 +133,7 @@ interface CommunityState {
   toggleReactionFirestore: (postId: string, myUid: string, myName: string, emoji: string) => Promise<void>;
   addCommentFirestore: (postId: string, authorUid: string, authorName: string, text: string, authorPhotoUrl?: string) => Promise<void>;
   loadCommentsForPost: (postId: string) => Promise<void>;
+  updatePostFirestore: (postId: string, authorUid: string, updates: { text?: string; topic?: string }) => Promise<void>;
   deletePostFirestore: (postId: string, authorUid: string) => Promise<void>;
   deleteCommentFirestore: (postId: string, commentId: string) => Promise<void>;
   resetCommunity: () => void;
@@ -475,6 +477,23 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
       }));
     } catch (error) {
       console.error('loadCommentsForPost error:', error);
+    }
+  },
+
+  updatePostFirestore: async (postId: string, authorUid: string, updates: { text?: string; topic?: string }) => {
+    // Guard: only own posts
+    const post = get().posts.find((p) => p.id === postId);
+    if (!post || post.authorUid !== authorUid) return;
+    try {
+      await updatePost(postId, updates);
+      set((state) => ({
+        posts: state.posts.map((p) =>
+          p.id === postId ? { ...p, ...updates } : p
+        ),
+      }));
+    } catch (error) {
+      console.error('updatePostFirestore error:', error);
+      throw error;
     }
   },
 

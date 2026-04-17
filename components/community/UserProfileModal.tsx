@@ -17,6 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import GradientAvatar from '../ui/GradientAvatar';
+import UserPostsSheet from './UserPostsSheet';
 import { Fonts } from '../../constants/theme';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useSocialStore } from '../../store/useSocialStore';
@@ -200,6 +201,7 @@ export default function UserProfileModal({ uid, visible, onClose, onEditProfile 
   const [isLoading, setIsLoading] = useState(false);
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
   const [showFollowersList, setShowFollowersList] = useState(false);
+  const [showPostsSheet, setShowPostsSheet] = useState(false);
   const [showFollowingList, setShowFollowingList] = useState(false);
   const [followListTarget, setFollowListTarget] = useState<'followers' | 'following'>('followers');
 
@@ -542,13 +544,7 @@ export default function UserProfileModal({ uid, visible, onClose, onEditProfile 
             <View style={styles.statsRow}>
               <TouchableOpacity
                 style={styles.statBlock}
-                onPress={() => {
-                  if (isOwnProfile) {
-                    setFollowListTarget('followers');
-                    setShowFollowersList(true);
-                  }
-                }}
-                disabled={!isOwnProfile}
+                onPress={() => setShowPostsSheet(true)}
               >
                 <Text style={styles.statNumber}>{profile?.postsCount != null && profile.postsCount > 0 ? profile.postsCount : posts.length}</Text>
                 <Text style={styles.statLabel}>posts</Text>
@@ -590,6 +586,13 @@ export default function UserProfileModal({ uid, visible, onClose, onEditProfile 
       </Modal>
 
       {/* Followers list sheet */}
+      <UserPostsSheet
+        uid={uid}
+        name={profile?.name}
+        visible={showPostsSheet}
+        onClose={() => setShowPostsSheet(false)}
+      />
+
       <FollowListModal
         visible={showFollowersList}
         title="Followers"
