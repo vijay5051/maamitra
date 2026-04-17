@@ -1,0 +1,31 @@
+# Cloudflare Workers config — lets us deploy claude-proxy.js from the repo
+# instead of pasting into the dashboard.
+#
+# First-time setup on a new machine (one of the two):
+#   1) Browser flow:  npx wrangler login
+#   2) Token flow:    export CLOUDFLARE_API_TOKEN=<token with "Edit Cloudflare Workers">
+#
+# Deploy:
+#   cd cloudflare-worker && npx wrangler deploy
+#
+# Secrets (kept out of this file — never commit secrets):
+#   npx wrangler secret put ANTHROPIC_API_KEY
+#
+# Optional: enable per-uid rate limit by uncommenting the kv_namespaces block
+# below and creating the namespace once:
+#   npx wrangler kv:namespace create RATE_LIMIT
+
+name               = "round-grass-a27c"
+main               = "claude-proxy.js"
+compatibility_date = "2026-04-17"
+
+# Plaintext env var — safe to commit. The Anthropic key stays a secret (set via
+# `wrangler secret put`) so it is NOT in this file.
+[vars]
+FIREBASE_PROJECT_ID = "maa-mitra-7kird8"
+
+# Uncomment after `wrangler kv:namespace create RATE_LIMIT` and paste the
+# returned id below to activate the per-uid throttle inside claude-proxy.js.
+# [[kv_namespaces]]
+# binding = "RATE_LIMIT"
+# id      = "<paste-namespace-id-here>"
