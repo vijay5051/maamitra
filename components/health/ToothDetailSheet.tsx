@@ -33,7 +33,25 @@ interface Props {
   onClose: () => void;
 }
 
-const today = () => new Date().toISOString().slice(0, 10);
+/**
+ * Local-calendar YYYY-MM-DD. Using toISOString() returns UTC, which is one
+ * day behind IST after 18:30 UTC — that lets the date picker allow what
+ * looks like "tomorrow" to the user.
+ */
+function todayLocal(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/** Clamp a YYYY-MM-DD string to ≤ today (local). Empty / invalid → today. */
+function clampToToday(date: string | undefined): string {
+  const t = todayLocal();
+  if (!date) return t;
+  return date > t ? t : date;
+}
 
 export default function ToothDetailSheet({
   visible,
@@ -71,11 +89,19 @@ export default function ToothDetailSheet({
       onClose();
       return;
     }
-    const safeErupt = eruptDate || today();
+    // Hard-clamp to today regardless of what the picker / native fallback
+    // returned — never persist a future date.
+    const safeErupt = clampToToday(eruptDate);
+    let safeShed: string | undefined;
+    if (state === 'shed') {
+      safeShed = clampToToday(shedDate);
+      // Shed cannot be before eruption.
+      if (safeShed < safeErupt) safeShed = safeErupt;
+    }
     const next: ToothEntry = {
       state,
       eruptDate: safeErupt,
-      ...(state === 'shed' ? { shedDate: shedDate || today() } : {}),
+      ...(safeShed ? { shedDate: safeShed } : {}),
     };
     onSave(next);
     onClose();
@@ -152,9 +178,9 @@ export default function ToothDetailSheet({
               <Text style={styles.dateLabel}>When did it erupt?</Text>
               <DatePickerField
                 value={eruptDate}
-                onChange={setEruptDate}
+                onChange={(d) => setEruptDate(clampToToday(d))}
                 placeholder="Tap to pick eruption date"
-                maxDate={today()}
+                maxDate={todayLocal()}
               />
             </View>
           )}
@@ -163,10 +189,14 @@ export default function ToothDetailSheet({
               <Text style={styles.dateLabel}>When did it shed?</Text>
               <DatePickerField
                 value={shedDate}
-                onChange={setShedDate}
+                onChange={(d) => {
+                  const clamped = clampToToday(d);
+                  // Don't let shed date precede eruption date.
+                  setShedDate(eruptDate && clamped < eruptDate ? eruptDate : clamped);
+                }}
                 placeholder="Tap to pick shed date"
                 minDate={eruptDate || undefined}
-                maxDate={today()}
+                maxDate={todayLocal()}
               />
             </View>
           )}
