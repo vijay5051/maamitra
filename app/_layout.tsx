@@ -1,5 +1,5 @@
 import 'react-native-reanimated';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import { Stack } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -9,6 +9,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { useAuthStore } from '../store/useAuthStore';
 import { useAppSettingsStore } from '../store/useAppSettingsStore';
+import AnimatedSplash from '../components/ui/AnimatedSplash';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -29,12 +30,18 @@ export default function RootLayout() {
     DMMono_500Medium:          require('../assets/fonts/DMMono_500Medium.ttf'),
   });
 
+  // Show the branded animated splash on every fresh app launch. The native
+  // splash (expo-splash-screen) hands off to this once fonts are ready —
+  // there's no white flash because AnimatedSplash mounts full-screen with
+  // the brand gradient, then fades itself out after ~2s.
+  const [splashDone, setSplashDone] = useState(false);
+
   useEffect(() => {
     initAuth();
     fetchSettings();
   }, []);
 
-  // Hide splash as soon as fonts are ready OR if there was an error (don't block forever)
+  // Hide native splash as soon as fonts are ready OR if there was an error
   useEffect(() => {
     if (fontsLoaded || fontError) SplashScreen.hideAsync();
   }, [fontsLoaded, fontError]);
@@ -47,6 +54,7 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <StatusBar style="light" />
         <Stack screenOptions={{ headerShown: false }} />
+        {!splashDone && <AnimatedSplash onDone={() => setSplashDone(true)} />}
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
