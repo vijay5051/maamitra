@@ -29,8 +29,9 @@ import { useSocialStore } from '../../store/useSocialStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useActiveKid } from '../../hooks/useActiveKid';
 import { useVaccineSchedule } from '../../hooks/useVaccineSchedule';
-import { type AppNotification } from '../../services/social';
+import { type AppNotification, fetchRecentPosts } from '../../services/social';
 import { getUserProfile, saveUserProfile } from '../../services/firebase';
+import { ARTICLES, type Article } from '../../data/articles';
 import SettingsModal from '../../components/ui/SettingsModal';
 import NotificationsSheet from '../../components/community/NotificationsSheet';
 import HelpSupportSheet from '../../components/ui/HelpSupportSheet';
@@ -85,9 +86,37 @@ export default function HomeTab() {
   const parentSalutation =
     parentGender === 'father' ? 'dad' : parentGender === 'other' ? 'parent' : 'mama';
 
+  // Latest real community post for the "From the community" card.
+  // Falls back to null if no posts exist — the card is hidden in that case.
+  const [latestPost, setLatestPost] = useState<any | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetchRecentPosts(1)
+      .then((res) => {
+        if (!cancelled) setLatestPost(res.posts[0] ?? null);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  // Age-personalized article for "Suggested for you". Uses the active kid's
+  // age in months (or 0 if expecting) to match against ARTICLES ageMin/ageMax.
+  const suggestedArticle = useMemo<Article | null>(() => {
+    const now = Date.now();
+    let ageMonths = 0;
+    if (activeKid && !activeKid.isExpecting && activeKid.dob) {
+      ageMonths = Math.max(
+        0,
+        Math.floor((now - new Date(activeKid.dob).getTime()) / (1000 * 60 * 60 * 24 * 30.44)),
+      );
+    }
+    const match = ARTICLES.find((a) => ageMonths >= a.ageMin && ageMonths <= a.ageMax);
+    return match ?? ARTICLES[0] ?? null;
+  }, [activeKid]);
+
   const todayCards = useMemo(
-    () => buildTodayCards({ activeKid, ageLabel, todayMood, moodHistory, vaccineSchedule }),
-    [activeKid, ageLabel, todayMood, moodHistory, vaccineSchedule]
+    () => buildTodayCards({ activeKid, ageLabel, todayMood, moodHistory, vaccineSchedule, router }),
+    [activeKid, ageLabel, todayMood, moodHistory, vaccineSchedule, router]
   );
 
   // Merged inbox — real community notifications + computed vaccine
@@ -160,7 +189,7 @@ export default function HomeTab() {
         style={{ flex: 1 }}
         contentContainerStyle={{
           paddingTop: insets.top + 12,
-          paddingBottom: 140,
+          paddingBottom: 80,
         }}
         showsVerticalScrollIndicator={false}
       >
@@ -228,8 +257,8 @@ export default function HomeTab() {
           </LinearGradient>
         </TouchableOpacity>
 
-        {/* Today strip */}
-        <Text style={styles.sectionLabel}>TODAY</Text>
+        {/* Quick actions strip */}
+        <Text style={styles.sectionLabel}>QUICK ACTIONS</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -243,8 +272,8 @@ export default function HomeTab() {
               style={[styles.todayCard, { backgroundColor: c.bg }]}
             >
               <Ionicons name={c.icon as any} size={20} color={c.tint} />
-              <Text style={styles.todayVal}>{c.value}</Text>
-              <Text style={styles.todaySub}>{c.label}</Text>
+              <Text style={styles.todayVal} numberOfLines={2}>{c.value}</Text>
+              <Text style={styles.todaySub} numberOfLines={2}>{c.label}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -283,65 +312,93 @@ export default function HomeTab() {
           </View>
         </TouchableOpacity>
 
-        {/* Community highlight */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>From the community</Text>
-          <TouchableOpacity onPress={() => router.push('/(tabs)/community')}>
-            <Text style={styles.sectionLink}>Open</Text>
-          </TouchableOpacity>
-        </View>
-        <TouchableOpacity
-          activeOpacity={0.9}
-          onPress={() => router.push('/(tabs)/community')}
-          style={styles.card}
-        >
-          <View style={styles.commRow}>
-            <View style={styles.commAvatar}>
-              <Text style={styles.commInitial}>P</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.commName}>Priya · 2h</Text>
-              <Text style={styles.commText} numberOfLines={2}>
-                First teeth finally showed up! Any tips for the night wakings that
-                came with it? 🦷
-              </Text>
-              <View style={styles.commMeta}>
-                <Ionicons name="heart-outline" size={14} color={Colors.textMuted} />
-                <Text style={styles.commMetaTxt}>24</Text>
-                <Ionicons
-                  name="chatbubble-outline"
-                  size={14}
-                  color={Colors.textMuted}
-                  style={{ marginLeft: 12 }}
-                />
-                <Text style={styles.commMetaTxt}>8 replies</Text>
+        {/* Community highlight — only shown when a real post exists */}
+        {latestPost && (() => {
+          const created = latestPost.createdAt instanceof Date
+            ? latestPost.createdAt
+            : new Date(latestPost.createdAt);
+          const mins = Math.max(1, Math.floor((Date.now() - created.getTime()) / 60000));
+          const ago = mins < 60
+            ? `${mins}m`
+            : mins < 1440
+            ? `${Math.floor(mins / 60)}h`
+            : `${Math.floor(mins / 1440)}d`;
+          const reactionCount = Object.values(
+            (latestPost.reactions ?? {}) as Record<string, number>,
+          ).reduce((sum, n) => sum + (n as number), 0);
+          const commentCount = latestPost.commentCount ?? 0;
+          return (
+            <>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>From the community</Text>
+                <TouchableOpacity onPress={() => router.push('/(tabs)/community')}>
+                  <Text style={styles.sectionLink}>Open</Text>
+                </TouchableOpacity>
               </View>
-            </View>
-          </View>
-        </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => router.push('/(tabs)/community')}
+                style={styles.card}
+              >
+                <View style={styles.commRow}>
+                  <View style={styles.commAvatar}>
+                    <Text style={styles.commInitial}>
+                      {(latestPost.authorName ?? '?').charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.commName}>
+                      {(latestPost.authorName ?? 'Community member')} · {ago}
+                    </Text>
+                    <Text style={styles.commText} numberOfLines={2}>
+                      {latestPost.text ?? ''}
+                    </Text>
+                    <View style={styles.commMeta}>
+                      <Ionicons name="heart-outline" size={14} color={Colors.textMuted} />
+                      <Text style={styles.commMetaTxt}>{reactionCount}</Text>
+                      <Ionicons
+                        name="chatbubble-outline"
+                        size={14}
+                        color={Colors.textMuted}
+                        style={{ marginLeft: 12 }}
+                      />
+                      <Text style={styles.commMetaTxt}>
+                        {commentCount} {commentCount === 1 ? 'reply' : 'replies'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            </>
+          );
+        })()}
 
-        {/* Suggested read — Library surfaced as card (not a tab) */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Suggested for you</Text>
-        </View>
-        <TouchableOpacity
-          activeOpacity={0.9}
-          style={styles.readCard}
-          onPress={() => router.push('/(tabs)/library')}
-        >
-          <LinearGradient
-            colors={['#FFF8FC', '#FFF0F5']}
-            style={styles.readInner}
-          >
-            <View style={styles.readBadge}>
-              <Text style={styles.readBadgeTxt}>5 MIN READ</Text>
+        {/* Suggested read — personalized by kid age */}
+        {suggestedArticle && (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Suggested for you</Text>
             </View>
-            <Text style={styles.readTitle}>
-              Introducing solids: a gentle 6-week roadmap
-            </Text>
-            <Text style={styles.readSub}>From the Maamitra Library</Text>
-          </LinearGradient>
-        </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.9}
+              style={styles.readCard}
+              onPress={() => router.push('/(tabs)/library')}
+            >
+              <LinearGradient
+                colors={['#FFF8FC', '#FFF0F5']}
+                style={styles.readInner}
+              >
+                <View style={styles.readBadge}>
+                  <Text style={styles.readBadgeTxt}>
+                    {(suggestedArticle.readTime || '5 min').toUpperCase()} READ
+                  </Text>
+                </View>
+                <Text style={styles.readTitle}>{suggestedArticle.title}</Text>
+                <Text style={styles.readSub}>From the Maamitra Library</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </>
+        )}
       </ScrollView>
 
       {/* Profile sheet */}
@@ -694,14 +751,20 @@ function buildTodayCards({
   todayMood,
   moodHistory,
   vaccineSchedule,
+  router,
 }: {
   activeKid: ReturnType<typeof useActiveKid>['activeKid'];
   ageLabel: string;
   todayMood: any;
   moodHistory: any[];
   vaccineSchedule: ReturnType<typeof useVaccineSchedule>;
+  router: ReturnType<typeof useRouter>;
 }): TodayCard[] {
   const cards: TodayCard[] = [];
+  const goWellness = () => router.push('/(tabs)/wellness');
+  const goFamily = () => router.push('/(tabs)/family');
+  const goLibrary = () => router.push('/(tabs)/library');
+  const goHealth = () => router.push('/(tabs)/health');
 
   if (!todayMood) {
     cards.push({
@@ -711,6 +774,7 @@ function buildTodayCards({
       bg: '#FFF0F5',
       value: 'Log mood',
       label: 'Not logged yet',
+      onPress: goWellness,
     });
   } else {
     cards.push({
@@ -720,6 +784,7 @@ function buildTodayCards({
       bg: '#FFF0F5',
       value: `${todayMood.emoji} ${todayMood.label}`,
       label: "Today's mood",
+      onPress: goWellness,
     });
   }
 
@@ -731,6 +796,7 @@ function buildTodayCards({
       bg: '#FFF0F5',
       value: 'Pregnancy tips',
       label: 'For this trimester',
+      onPress: goLibrary,
     });
   } else if (activeKid) {
     const months = Math.max(
@@ -748,6 +814,7 @@ function buildTodayCards({
         bg: Colors.border,
         value: 'Sleep tips',
         label: `${activeKid.name} · ${ageLabel}`,
+        onPress: goLibrary,
       });
     } else if (months < 9) {
       cards.push({
@@ -757,6 +824,7 @@ function buildTodayCards({
         bg: Colors.bgPink,
         value: 'Start solids',
         label: `${activeKid.name} · ${ageLabel}`,
+        onPress: goLibrary,
       });
     } else if (months < 24) {
       cards.push({
@@ -766,6 +834,7 @@ function buildTodayCards({
         bg: Colors.bgPink,
         value: 'Milestones',
         label: `${activeKid.name} · ${ageLabel}`,
+        onPress: goFamily,
       });
     } else {
       cards.push({
@@ -775,6 +844,7 @@ function buildTodayCards({
         bg: Colors.bgPink,
         value: 'Development',
         label: `${activeKid.name} · ${ageLabel}`,
+        onPress: goFamily,
       });
     }
   }
@@ -803,6 +873,7 @@ function buildTodayCards({
       bg: nextVaccine.status === 'overdue' ? '#FEE2E2' : Colors.border,
       value: nextVaccine.name,
       label,
+      onPress: goHealth,
     });
   }
 
@@ -817,6 +888,7 @@ function buildTodayCards({
         bg: '#FFE7EF',
         value: 'Take a breath',
         label: 'A gentle check-in',
+        onPress: goWellness,
       });
     }
   }
@@ -1111,16 +1183,18 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
   },
   todayCard: {
-    width: 140,
+    width: 160,
+    minHeight: 100,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
     gap: 6,
   },
   todayVal: {
     fontFamily: Fonts.sansBold,
-    fontSize: FontSize.lg,
+    fontSize: FontSize.md,
     color: Colors.textDark,
     marginTop: 4,
+    lineHeight: 20,
   },
   todaySub: {
     fontFamily: Fonts.sansRegular,
