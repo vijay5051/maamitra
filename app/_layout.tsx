@@ -41,6 +41,14 @@ export default function RootLayout() {
     fetchSettings();
   }, []);
 
+  // HARD safety net: whatever happens with the animated splash (reanimated
+  // callback not firing, component erroring, anything), force it offscreen
+  // after 3s so the user is never locked out of sign-in.
+  useEffect(() => {
+    const t = setTimeout(() => setSplashDone(true), 3000);
+    return () => clearTimeout(t);
+  }, []);
+
   // Hide native splash as soon as fonts are ready OR if there was an error
   useEffect(() => {
     if (fontsLoaded || fontError) SplashScreen.hideAsync();

@@ -9,7 +9,6 @@ import Animated, {
   withRepeat,
   withSequence,
   Easing,
-  runOnJS,
   interpolate,
   type SharedValue,
 } from 'react-native-reanimated';
@@ -73,13 +72,18 @@ export default function AnimatedSplash({ onDone }: Props) {
       withTiming(0, { duration: 520, easing: Easing.out(Easing.cubic) }),
     );
 
-    // 5) Whole thing fades out at 1.9s — callback at 2.25s
+    // 5) Whole thing fades out at 1.9s.
+    // IMPORTANT: don't rely on the reanimated completion callback to fire
+    // onDone — on web it's flaky and if it never fires the splash stays
+    // mounted forever and covers the whole app (invisible but blocking).
+    // Use a plain setTimeout which is bulletproof across platforms.
     rootOpacity.value = withDelay(
       1900,
-      withTiming(0, { duration: 380, easing: Easing.in(Easing.quad) }, (finished) => {
-        if (finished) runOnJS(onDone)();
-      }),
+      withTiming(0, { duration: 380, easing: Easing.in(Easing.quad) }),
     );
+
+    const t = setTimeout(() => onDone(), 2300);
+    return () => clearTimeout(t);
   }, []);
 
   const rootStyle = useAnimatedStyle(() => ({ opacity: rootOpacity.value }));
