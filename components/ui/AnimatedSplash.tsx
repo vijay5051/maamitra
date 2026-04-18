@@ -25,8 +25,10 @@ interface Props {
   onDone: () => void;
 }
 
-const LOGO_SIZE = 120;
-const SPARKLE_RADIUS = 92;
+const LOGO_SIZE = 140;
+// Sparkles orbit outside the logo bounding box. Slightly larger than half
+// the logo so they look like they're circling around it, not clipping it.
+const SPARKLE_RADIUS = 108;
 
 export default function AnimatedSplash({ onDone }: Props) {
   // Shared values for the animation timeline
@@ -114,16 +116,15 @@ export default function AnimatedSplash({ onDone }: Props) {
         ))}
       </View>
 
-      {/* Logo */}
+      {/* Logo — standalone, no white plate (the logo already has its own
+          rounded shape; a containing disc creates a square-in-circle look). */}
       <View style={styles.center}>
         <Animated.View style={[styles.logoWrap, logoStyle]}>
-          <View style={styles.logoRing}>
-            <Image
-              source={require('../../assets/icon.png')}
-              style={styles.logo}
-              resizeMode="contain"
-            />
-          </View>
+          <Image
+            source={require('../../assets/icon.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
         </Animated.View>
 
         {/* Wordmark */}
@@ -195,18 +196,9 @@ const styles = StyleSheet.create({
     shadowRadius: 40,
     elevation: 20,
   },
-  logoRing: {
+  logo: {
     width: LOGO_SIZE,
     height: LOGO_SIZE,
-    borderRadius: LOGO_SIZE / 2,
-    backgroundColor: '#ffffff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 14,
-  },
-  logo: {
-    width: '100%',
-    height: '100%',
   },
   wordmarkWrap: {
     marginTop: 28,
