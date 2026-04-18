@@ -63,7 +63,15 @@ export default function HomeTab() {
 
   const { motherName, parentGender } = useProfileStore();
   const { activeKid, ageLabel } = useActiveKid();
-  const { todayMood, moodHistory } = useWellnessStore();
+  const moodHistory = useWellnessStore((s) => s.moodHistory);
+  // Derive todayMood from moodHistory reactively — the store's `todayMood`
+  // field is only set when logMood is called in the current session, so it's
+  // stale after a fresh login / page reload.
+  const todayMood = useMemo(() => {
+    const t = new Date();
+    const todayStr = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+    return moodHistory.find((m: any) => m.date === todayStr) ?? null;
+  }, [moodHistory]);
   const { user } = useAuthStore();
 
   // Real notifications from Firestore (reactions, comments, follow

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   Dimensions,
   Modal,
@@ -149,90 +149,29 @@ const moodStyles = StyleSheet.create({
 function MoodChart({
   weekHistory,
 }: {
-  weekHistory: Array<{ score: number; emoji: string; date: string } | null>;
+  weekHistory: Array<{ score: number; emoji: string; date: string; label?: string } | null>;
 }) {
-  const [chartWidth, setChartWidth] = useState(SCREEN_WIDTH - 64);
-  const days = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-  const chartHeight = 80;
   const maxScore = 5;
-  const paddingX = 12;
-  const paddingY = 8;
+  const barMaxHeight = 72;
 
-  const onLayout = useCallback((e: any) => {
-    setChartWidth(e.nativeEvent.layout.width);
+  // Day labels derived from THIS week starting Monday (fixes the static
+  // ['M','T','W','T','F','S','S'] confusion between Sat and Sun).
+  const dayLabels = useMemo(() => {
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0 = Sunday
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - ((dayOfWeek + 6) % 7));
+    const abbr = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      const isToday =
+        d.getFullYear() === today.getFullYear() &&
+        d.getMonth() === today.getMonth() &&
+        d.getDate() === today.getDate();
+      return { abbr: abbr[i], day: d.getDate(), isToday };
+    });
   }, []);
-
-  // Build (x, y) points
-  const usableWidth = chartWidth - paddingX * 2;
-  const usableHeight = chartHeight - paddingY * 2;
-  const stepX = weekHistory.length > 1 ? usableWidth / (weekHistory.length - 1) : usableWidth;
-
-  const points = weekHistory.map((entry, i) => ({
-    x: paddingX + i * stepX,
-    y: entry
-      ? paddingY + usableHeight - (entry.score / maxScore) * usableHeight
-      : null,
-  }));
-
-  // Build smooth cubic bezier SVG path for the line
-  function buildLinePath(pts: Array<{ x: number; y: number | null }>): string {
-    const valid = pts.filter((p) => p.y !== null) as Array<{ x: number; y: number }>;
-    if (valid.length < 2) return '';
-
-    // Fill gaps for drawing: use linear interpolation between known points
-    const resolved: Array<{ x: number; y: number }> = pts.map((p, i) => {
-      if (p.y !== null) return { x: p.x, y: p.y };
-      // find nearest non-null neighbours
-      let prev = i - 1;
-      let next = i + 1;
-      while (prev >= 0 && pts[prev].y === null) prev--;
-      while (next < pts.length && pts[next].y === null) next++;
-      if (prev < 0) return { x: p.x, y: pts[next].y as number };
-      if (next >= pts.length) return { x: p.x, y: pts[prev].y as number };
-      const t = (p.x - pts[prev].x) / (pts[next].x - pts[prev].x);
-      return { x: p.x, y: (pts[prev].y as number) + t * ((pts[next].y as number) - (pts[prev].y as number)) };
-    });
-
-    let d = `M ${resolved[0].x} ${resolved[0].y}`;
-    for (let i = 1; i < resolved.length; i++) {
-      const p0 = resolved[i - 1];
-      const p1 = resolved[i];
-      const cpX = (p0.x + p1.x) / 2;
-      d += ` C ${cpX} ${p0.y}, ${cpX} ${p1.y}, ${p1.x} ${p1.y}`;
-    }
-    return d;
-  }
-
-  // Area path: line path + close down to bottom
-  function buildAreaPath(pts: Array<{ x: number; y: number | null }>): string {
-    const linePath = buildLinePath(pts);
-    if (!linePath) return '';
-    const resolved = pts.map((p, i) => {
-      if (p.y !== null) return { x: p.x, y: p.y };
-      let prev = i - 1;
-      let next = i + 1;
-      while (prev >= 0 && pts[prev].y === null) prev--;
-      while (next < pts.length && pts[next].y === null) next++;
-      if (prev < 0) return { x: p.x, y: pts[next].y as number };
-      if (next >= pts.length) return { x: p.x, y: pts[prev].y as number };
-      const t = (p.x - pts[prev].x) / (pts[next].x - pts[prev].x);
-      return { x: p.x, y: (pts[prev].y as number) + t * ((pts[next].y as number) - (pts[prev].y as number)) };
-    });
-    const bottom = chartHeight - paddingY + 2;
-    const firstX = resolved[0].x;
-    const lastX = resolved[resolved.length - 1].x;
-    return `${linePath} L ${lastX} ${bottom} L ${firstX} ${bottom} Z`;
-  }
-
-  // Weekly summary
-  const nonNull = weekHistory.filter(Boolean) as Array<{ score: number; emoji: string; date: string }>;
-  let summaryText = '';
-  if (nonNull.length > 0) {
-    const best = nonNull.reduce((a, b) => (b.score > a.score ? b : a));
-    const bestMoodData = MOOD_DATA.find((m) => m.score === best.score);
-    const count = nonNull.filter((e) => e.score === best.score).length;
-    summaryText = `You felt ${bestMoodData?.label.toLowerCase() ?? 'well'} ${count} out of 7 days`;
-  }
 
   const hasData = weekHistory.some(Boolean);
 
@@ -251,64 +190,53 @@ function MoodChart({
     );
   }
 
-  const linePath = buildLinePath(points);
-  const areaPath = buildAreaPath(points);
+  // Weekly summary
+  const nonNull = weekHistory.filter(Boolean) as Array<{ score: number; emoji: string; date: string }>;
+  let summaryText = '';
+  if (nonNull.length > 0) {
+    const best = nonNull.reduce((a, b) => (b.score > a.score ? b : a));
+    const bestMoodData = MOOD_DATA.find((m) => m.score === best.score);
+    const count = nonNull.filter((e) => e.score === best.score).length;
+    summaryText = `You felt ${bestMoodData?.label.toLowerCase() ?? 'well'} ${count} out of 7 days`;
+  }
 
   return (
     <View style={chartStyles.container}>
       <Text style={chartStyles.label}>7-Day Mood Trend</Text>
 
-      <View style={chartStyles.chartWrap} onLayout={onLayout}>
-        <Svg width={chartWidth} height={chartHeight}>
-          <Defs>
-            <SvgLinearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-              <Stop offset="0" stopColor="rgba(232,72,122,0.3)" />
-              <Stop offset="1" stopColor="rgba(232,72,122,0)" />
-            </SvgLinearGradient>
-          </Defs>
-
-          {/* Area fill */}
-          {areaPath ? (
-            <Path d={areaPath} fill="url(#areaGrad)" />
-          ) : null}
-
-          {/* Line */}
-          {linePath ? (
-            <Path
-              d={linePath}
-              stroke="#E8487A"
-              strokeWidth={2.5}
-              fill="none"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          ) : null}
-
-          {/* Dots */}
-          {points.map((p, i) =>
-            p.y !== null ? (
-              <React.Fragment key={i}>
-                {weekHistory[i] ? (
-                  <>
-                    <Circle cx={p.x} cy={p.y} r={4} fill="#E8487A" />
-                    <Circle cx={p.x} cy={p.y} r={2} fill="#ffffff" />
-                  </>
+      <View style={chartStyles.barsRow}>
+        {weekHistory.map((entry, i) => {
+          const { abbr, day, isToday } = dayLabels[i];
+          const heightPct = entry ? (entry.score / maxScore) : 0;
+          return (
+            <View key={i} style={chartStyles.barCol}>
+              <View style={[chartStyles.barTrack, { height: barMaxHeight }]}>
+                {entry ? (
+                  <LinearGradient
+                    colors={isToday ? ['#E8487A', '#7C3AED'] : ['#F4B3CC', '#C9A8E0']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 0, y: 1 }}
+                    style={[
+                      chartStyles.barFill,
+                      { height: Math.max(8, barMaxHeight * heightPct) },
+                    ]}
+                  />
                 ) : (
-                  <Circle cx={p.x} cy={p.y} r={4} fill="none" stroke="#E8487A" strokeWidth={2} />
+                  <View style={[chartStyles.barEmpty, { height: 6 }]} />
                 )}
-              </React.Fragment>
-            ) : null
-          )}
-        </Svg>
-
-        {/* Day labels */}
-        <View style={chartStyles.dayRow}>
-          {days.map((d, i) => (
-            <Text key={i} style={chartStyles.dayLabel}>
-              {d}
-            </Text>
-          ))}
-        </View>
+                {entry && (
+                  <Text style={chartStyles.barEmoji}>{entry.emoji}</Text>
+                )}
+              </View>
+              <Text style={[chartStyles.barDayLabel, isToday && chartStyles.barDayLabelToday]}>
+                {abbr}
+              </Text>
+              <Text style={[chartStyles.barDateLabel, isToday && chartStyles.barDateLabelToday]}>
+                {isToday ? 'Today' : day}
+              </Text>
+            </View>
+          );
+        })}
       </View>
 
       {/* Weekly Summary Card */}
@@ -332,19 +260,58 @@ const chartStyles = StyleSheet.create({
     marginBottom: 10,
     textTransform: 'uppercase',
   },
-  chartWrap: { width: '100%' },
-  dayRow: {
+  barsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    marginTop: 6,
+    alignItems: 'flex-end',
+    paddingHorizontal: 4,
+    marginTop: 4,
   },
-  dayLabel: {
-    fontFamily: Fonts.sansMedium,
+  barCol: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 6,
+  },
+  barTrack: {
+    width: '62%',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  barFill: {
+    width: '100%',
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  barEmpty: {
+    width: '60%',
+    backgroundColor: '#EDE9F6',
+    borderRadius: 4,
+  },
+  barEmoji: {
+    position: 'absolute',
+    top: -18,
+    fontSize: 14,
+  },
+  barDayLabel: {
+    fontFamily: Fonts.sansSemiBold,
     fontSize: 10,
-    color: '#C4B5D4',
-    width: 14,
-    textAlign: 'center',
+    color: '#6B7280',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  barDayLabelToday: {
+    color: '#E8487A',
+    fontFamily: Fonts.sansBold,
+  },
+  barDateLabel: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: 10,
+    color: '#9CA3AF',
+  },
+  barDateLabelToday: {
+    color: '#E8487A',
+    fontFamily: Fonts.sansBold,
   },
   summaryCard: {
     flexDirection: 'row',
@@ -735,14 +702,19 @@ export default function WellnessScreen() {
   const profile = useProfileStore((s) => s.profile);
   const { user } = useAuthStore();
 
-  const [selectedMoodScore, setSelectedMoodScore] = useState<number | null>(() => {
-    const todayMood = getTodayMood();
-    return todayMood?.score ?? null;
-  });
-  const [moodResponse, setMoodResponse] = useState<string | null>(() => {
-    const todayMood = getTodayMood();
-    return todayMood ? MOOD_RESPONSES[todayMood.score] : null;
-  });
+  // Subscribe to moodHistory so we re-compute today's mood on rehydrate.
+  // Zustand persist is async; useState-with-init would freeze the value to
+  // whatever moodHistory was at first paint (empty), hiding saved moods.
+  const moodHistory = useWellnessStore((s) => s.moodHistory);
+  const todayMood = useMemo(() => {
+    const today = (() => {
+      const t = new Date();
+      return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+    })();
+    return moodHistory.find((m: any) => m.date === today) ?? null;
+  }, [moodHistory]);
+  const selectedMoodScore = todayMood?.score ?? null;
+  const moodResponse = todayMood ? MOOD_RESPONSES[todayMood.score] : null;
 
   const [showCondModal, setShowCondModal] = useState(false);
   const [selectedYogaSession, setSelectedYogaSession] = useState<YogaSession | null>(null);
@@ -752,12 +724,11 @@ export default function WellnessScreen() {
 
   const handleMoodSelect = (score: 1 | 2 | 3 | 4 | 5) => {
     logMood(score);
-    setSelectedMoodScore(score);
-    setMoodResponse(MOOD_RESPONSES[score]);
-    // Persist to Firestore immediately after store update
+    // selectedMoodScore and moodResponse update automatically via the
+    // moodHistory selector above — no local state to keep in sync.
     if (user?.uid) {
-      const { moodHistory } = useWellnessStore.getState();
-      syncWellnessData(user.uid, moodHistory, healthConditions);
+      const { moodHistory: latest } = useWellnessStore.getState();
+      syncWellnessData(user.uid, latest, healthConditions);
     }
   };
 
