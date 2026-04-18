@@ -30,6 +30,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useActiveKid } from '../../hooks/useActiveKid';
 import { useVaccineSchedule } from '../../hooks/useVaccineSchedule';
 import { type AppNotification } from '../../services/social';
+import { getUserProfile, saveUserProfile } from '../../services/firebase';
 import SettingsModal from '../../components/ui/SettingsModal';
 import NotificationsSheet from '../../components/community/NotificationsSheet';
 import HelpSupportSheet from '../../components/ui/HelpSupportSheet';
@@ -126,18 +127,30 @@ export default function HomeTab() {
   };
 
   useEffect(() => {
+    if (!user?.uid) return;
     (async () => {
       try {
-        const seen = await AsyncStorage.getItem(FIRST_RUN_KEY);
-        if (!seen) setFirstRunOpen(true);
+        // Per-user check so it doesn't pop on every device. Firestore is the
+        // source of truth; local AsyncStorage is a fast-path cache.
+        const localKey = `${FIRST_RUN_KEY}-${user.uid}`;
+        const seenLocal = await AsyncStorage.getItem(localKey);
+        if (seenLocal === '1') return;
+        const profile = await getUserProfile(user.uid);
+        if (profile?.hasSeenIntro) {
+          AsyncStorage.setItem(localKey, '1').catch(() => {});
+          return;
+        }
+        setFirstRunOpen(true);
       } catch {}
     })();
-  }, []);
+  }, [user?.uid]);
 
   const dismissFirstRun = async () => {
     setFirstRunOpen(false);
+    if (!user?.uid) return;
     try {
-      await AsyncStorage.setItem(FIRST_RUN_KEY, '1');
+      await AsyncStorage.setItem(`${FIRST_RUN_KEY}-${user.uid}`, '1');
+      await saveUserProfile(user.uid, { hasSeenIntro: true });
     } catch {}
   };
 
@@ -887,7 +900,7 @@ function FirstRunHero({
   const [typed, setTyped] = useState('');
   const [showReply, setShowReply] = useState(false);
   const pulse = useRef(new Animated.Value(0)).current;
-  const fullQuestion = `Hi ${parentSalutation}, is my baby ready for solids?`;
+  const fullQuestion = `Hi MaaMitra, is my baby ready for solids?`;
 
   useEffect(() => {
     if (!visible) {
