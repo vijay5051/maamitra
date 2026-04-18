@@ -885,7 +885,10 @@ function buildTodayCards({
     });
   }
 
-  const recent = (moodHistory || []).slice(-3);
+  // moodHistory is sorted newest-first in the store, so slice(0, 3) gets the
+  // 3 most recent entries (previous slice(-3) was returning the OLDEST 3
+  // — wrong signal for the "take a breath" check-in).
+  const recent = (moodHistory || []).slice(0, 3);
   if (recent.length >= 2) {
     const avg = recent.reduce((s: number, m: any) => s + m.score, 0) / recent.length;
     if (avg <= 2.5) {

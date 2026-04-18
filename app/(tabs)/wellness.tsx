@@ -146,49 +146,69 @@ const moodStyles = StyleSheet.create({
 
 // ─── MoodChart ────────────────────────────────────────────────────────────────
 
-function MoodChart({
-  weekHistory,
-}: {
-  weekHistory: Array<{ score: number; emoji: string; date: string; label?: string } | null>;
-}) {
+function MoodChart() {
   const maxScore = 5;
   const barMaxHeight = 72;
+  const getWeekHistoryFor = useWellnessStore((s) => s.getWeekHistoryFor);
+  const getMonthHistoryFor = useWellnessStore((s) => s.getMonthHistoryFor);
+  // Subscribe to moodHistory so the chart re-renders when entries change
+  useWellnessStore((s) => s.moodHistory);
 
-  // Day labels derived from THIS week starting Monday (fixes the static
-  // ['M','T','W','T','F','S','S'] confusion between Sat and Sun).
-  const dayLabels = useMemo(() => {
-    const today = new Date();
-    const dayOfWeek = today.getDay(); // 0 = Sunday
-    const monday = new Date(today);
-    monday.setDate(today.getDate() - ((dayOfWeek + 6) % 7));
+  // ── Week view anchor ──────────────────────────────────────────────────
+  // Anchored on Monday of the currently-viewed week. ← / → shift by 7 days.
+  const today = useMemo(() => new Date(), []);
+  const thisMonday = useMemo(() => {
+    const d = new Date(today);
+    const dow = d.getDay();
+    d.setDate(d.getDate() - ((dow + 6) % 7));
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }, [today]);
+
+  const [weekAnchor, setWeekAnchor] = useState<Date>(thisMonday);
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [calMonthAnchor, setCalMonthAnchor] = useState<Date>(() => {
+    const d = new Date(today);
+    d.setDate(1);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
+
+  const weekHistory = useMemo(() => getWeekHistoryFor(weekAnchor), [getWeekHistoryFor, weekAnchor]);
+
+  // Day columns (abbr + day-of-month + isToday) derived from weekAnchor
+  const dayColumns = useMemo(() => {
     const abbr = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
     return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(monday);
-      d.setDate(monday.getDate() + i);
+      const d = new Date(weekAnchor);
+      d.setDate(weekAnchor.getDate() + i);
       const isToday =
         d.getFullYear() === today.getFullYear() &&
         d.getMonth() === today.getMonth() &&
         d.getDate() === today.getDate();
       return { abbr: abbr[i], day: d.getDate(), isToday };
     });
-  }, []);
+  }, [weekAnchor, today]);
 
-  const hasData = weekHistory.some(Boolean);
+  // Week range title — "Apr 15 – 21" or "Apr 29 – May 5"
+  const weekRangeLabel = useMemo(() => {
+    const start = new Date(weekAnchor);
+    const end = new Date(weekAnchor);
+    end.setDate(start.getDate() + 6);
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const sameMonth = start.getMonth() === end.getMonth();
+    const sameYear = start.getFullYear() === end.getFullYear();
+    if (sameMonth) return `${months[start.getMonth()]} ${start.getDate()} – ${end.getDate()}`;
+    return `${months[start.getMonth()]} ${start.getDate()} – ${months[end.getMonth()]} ${end.getDate()}${sameYear ? '' : `, ${end.getFullYear()}`}`;
+  }, [weekAnchor]);
 
-  if (!hasData) {
-    return (
-      <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
-        <Text style={{ fontFamily: Fonts.sansSemiBold, fontSize: 10, color: '#C4B5D4', letterSpacing: 1, marginBottom: 12 }}>
-          7-DAY MOOD TREND
-        </Text>
-        <View style={{ height: 72, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(232,72,122,0.04)', borderRadius: 12, borderWidth: 1.5, borderColor: 'rgba(232,72,122,0.1)', borderStyle: 'dashed' }}>
-          <Text style={{ fontFamily: Fonts.sansRegular, fontSize: 13, color: '#C4B5D4' }}>
-            Tap a mood above to start tracking ✨
-          </Text>
-        </View>
-      </View>
-    );
-  }
+  const isThisWeek = weekAnchor.getTime() === thisMonday.getTime();
+
+  const shiftWeek = (deltaDays: number) => {
+    const d = new Date(weekAnchor);
+    d.setDate(d.getDate() + deltaDays);
+    setWeekAnchor(d);
+  };
 
   // Weekly summary
   const nonNull = weekHistory.filter(Boolean) as Array<{ score: number; emoji: string; date: string }>;
@@ -198,15 +218,67 @@ function MoodChart({
     const bestMoodData = MOOD_DATA.find((m) => m.score === best.score);
     const count = nonNull.filter((e) => e.score === best.score).length;
     summaryText = `You felt ${bestMoodData?.label.toLowerCase() ?? 'well'} ${count} out of 7 days`;
+  } else {
+    summaryText = isThisWeek
+      ? 'Tap a mood above to start tracking ✨'
+      : 'No moods logged for this week';
   }
+
+  // ── Month calendar ───────────────────────────────────────────────────
+  const calMonthLabel = useMemo(() => {
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    return `${months[calMonthAnchor.getMonth()]} ${calMonthAnchor.getFullYear()}`;
+  }, [calMonthAnchor]);
+
+  const monthDays = useMemo(
+    () => getMonthHistoryFor(calMonthAnchor.getFullYear(), calMonthAnchor.getMonth()),
+    [getMonthHistoryFor, calMonthAnchor],
+  );
+
+  // Leading blanks so the 1st lands on the right day column (Mon = 0)
+  const firstDayOffset = useMemo(() => {
+    const dow = new Date(calMonthAnchor.getFullYear(), calMonthAnchor.getMonth(), 1).getDay();
+    return (dow + 6) % 7; // 0 = Mon .. 6 = Sun
+  }, [calMonthAnchor]);
+
+  const shiftCalMonth = (deltaMonths: number) => {
+    const d = new Date(calMonthAnchor);
+    d.setMonth(d.getMonth() + deltaMonths);
+    setCalMonthAnchor(d);
+  };
+
+  const isFutureMonth =
+    calMonthAnchor.getFullYear() > today.getFullYear() ||
+    (calMonthAnchor.getFullYear() === today.getFullYear() &&
+      calMonthAnchor.getMonth() >= today.getMonth());
 
   return (
     <View style={chartStyles.container}>
-      <Text style={chartStyles.label}>7-Day Mood Trend</Text>
+      {/* Header row: label + nav */}
+      <View style={chartStyles.headerRow}>
+        <Text style={chartStyles.label}>{weekRangeLabel}</Text>
+        <View style={chartStyles.navRow}>
+          <TouchableOpacity
+            onPress={() => shiftWeek(-7)}
+            style={chartStyles.navBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="chevron-back" size={16} color="#7C3AED" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => shiftWeek(7)}
+            disabled={isThisWeek}
+            style={[chartStyles.navBtn, isThisWeek && { opacity: 0.3 }]}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="chevron-forward" size={16} color="#7C3AED" />
+          </TouchableOpacity>
+        </View>
+      </View>
 
       <View style={chartStyles.barsRow}>
         {weekHistory.map((entry, i) => {
-          const { abbr, day, isToday } = dayLabels[i];
+          const { abbr, day, isToday } = dayColumns[i];
           const heightPct = entry ? (entry.score / maxScore) : 0;
           return (
             <View key={i} style={chartStyles.barCol}>
@@ -239,26 +311,193 @@ function MoodChart({
         })}
       </View>
 
-      {/* Weekly Summary Card */}
-      {summaryText ? (
-        <View style={chartStyles.summaryCard}>
-          <View style={chartStyles.summaryBorder} />
-          <Text style={chartStyles.summaryText}>{summaryText}</Text>
+      {/* Summary */}
+      <View style={chartStyles.summaryCard}>
+        <View style={chartStyles.summaryBorder} />
+        <Text style={chartStyles.summaryText}>{summaryText}</Text>
+      </View>
+
+      {/* Calendar toggle */}
+      <TouchableOpacity
+        onPress={() => setShowCalendar((v) => !v)}
+        activeOpacity={0.75}
+        style={chartStyles.calToggle}
+      >
+        <Ionicons name="calendar-outline" size={14} color="#7C3AED" />
+        <Text style={chartStyles.calToggleText}>
+          {showCalendar ? 'Hide full history' : 'View full history'}
+        </Text>
+        <Ionicons
+          name={showCalendar ? 'chevron-up' : 'chevron-down'}
+          size={14}
+          color="#7C3AED"
+        />
+      </TouchableOpacity>
+
+      {showCalendar && (
+        <View style={chartStyles.calendarWrap}>
+          {/* Month header */}
+          <View style={chartStyles.calHeaderRow}>
+            <TouchableOpacity onPress={() => shiftCalMonth(-1)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="chevron-back" size={18} color="#7C3AED" />
+            </TouchableOpacity>
+            <Text style={chartStyles.calMonthLabel}>{calMonthLabel}</Text>
+            <TouchableOpacity
+              onPress={() => shiftCalMonth(1)}
+              disabled={isFutureMonth}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="chevron-forward" size={18} color={isFutureMonth ? '#D1D5DB' : '#7C3AED'} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Weekday header */}
+          <View style={chartStyles.calWeekdaysRow}>
+            {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
+              <Text key={i} style={chartStyles.calWeekday}>{d}</Text>
+            ))}
+          </View>
+
+          {/* Days grid */}
+          <View style={chartStyles.calGrid}>
+            {Array.from({ length: firstDayOffset }).map((_, i) => (
+              <View key={`blank-${i}`} style={chartStyles.calCell} />
+            ))}
+            {monthDays.map(({ date, entry }) => {
+              const dayNum = parseInt(date.slice(-2), 10);
+              const isToday = date === (() => {
+                const t = new Date();
+                return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+              })();
+              const bg = entry ? MOOD_TINTS[entry.score as 1 | 2 | 3 | 4 | 5] : '#F3F0FA';
+              return (
+                <View
+                  key={date}
+                  style={[
+                    chartStyles.calCell,
+                    chartStyles.calCellFilled,
+                    { backgroundColor: bg },
+                    isToday && chartStyles.calCellToday,
+                  ]}
+                >
+                  <Text style={[chartStyles.calCellDay, isToday && chartStyles.calCellDayToday]}>
+                    {dayNum}
+                  </Text>
+                  {entry ? (
+                    <Text style={chartStyles.calCellEmoji}>{entry.emoji}</Text>
+                  ) : null}
+                </View>
+              );
+            })}
+          </View>
         </View>
-      ) : null}
+      )}
     </View>
   );
 }
 
 const chartStyles = StyleSheet.create({
   container: { marginTop: 16 },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
   label: {
     fontFamily: Fonts.sansSemiBold,
     fontSize: 11,
     color: '#C4B5D4',
     letterSpacing: 0.8,
-    marginBottom: 10,
     textTransform: 'uppercase',
+  },
+  navRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  navBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(124,58,237,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    marginTop: 4,
+  },
+  calToggleText: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 13,
+    color: '#7C3AED',
+  },
+  calendarWrap: {
+    marginTop: 8,
+    padding: 14,
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#EDE9F6',
+  },
+  calHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  calMonthLabel: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 15,
+    color: '#1C1033',
+  },
+  calWeekdaysRow: {
+    flexDirection: 'row',
+    marginBottom: 6,
+  },
+  calWeekday: {
+    flex: 1,
+    textAlign: 'center',
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 10,
+    color: '#9CA3AF',
+    letterSpacing: 0.5,
+  },
+  calGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  calCell: {
+    width: `${100 / 7}%`,
+    aspectRatio: 1,
+    padding: 2,
+  },
+  calCellFilled: {
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F3F0FA',
+  },
+  calCellToday: {
+    borderWidth: 1.5,
+    borderColor: '#E8487A',
+  },
+  calCellDay: {
+    fontFamily: Fonts.sansMedium,
+    fontSize: 11,
+    color: '#6B7280',
+  },
+  calCellDayToday: {
+    color: '#E8487A',
+    fontFamily: Fonts.sansBold,
+  },
+  calCellEmoji: {
+    fontSize: 14,
+    lineHeight: 16,
   },
   barsRow: {
     flexDirection: 'row',
@@ -694,8 +933,6 @@ export default function WellnessScreen() {
   const insets = useSafeAreaInsets();
   const {
     logMood,
-    getTodayMood,
-    getWeekHistory,
     healthConditions,
     setHealthConditions,
   } = useWellnessStore();
@@ -719,8 +956,6 @@ export default function WellnessScreen() {
   const [showCondModal, setShowCondModal] = useState(false);
   const [selectedYogaSession, setSelectedYogaSession] = useState<YogaSession | null>(null);
   const [showYogaModal, setShowYogaModal] = useState(false);
-
-  const weekHistory = getWeekHistory();
 
   const handleMoodSelect = (score: 1 | 2 | 3 | 4 | 5) => {
     logMood(score);
@@ -784,7 +1019,7 @@ export default function WellnessScreen() {
             </>
           )}
 
-          <MoodChart weekHistory={weekHistory} />
+          <MoodChart />
         </Card>
 
         {/* Yoga section */}
