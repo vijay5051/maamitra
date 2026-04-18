@@ -14,6 +14,7 @@ import {
   saveFullProfile,
   deleteUserAccount,
   signInWithGoogle as firebaseSignInWithGoogle,
+  getGoogleRedirectResult,
   sendVerificationEmail,
 } from '../services/firebase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -275,6 +276,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ user: null, isAuthenticated: false, isLoading: false });
       return;
     }
+
+    // If the user just came back from a Google redirect sign-in (mobile web
+    // flow), resolve it here. This writes the profile doc for first-time
+    // Google users so the subsequent onAuthStateChanged + hydrate can find
+    // their name. Fire-and-forget — onAuthStateChanged picks up the user
+    // state regardless of this resolving first.
+    getGoogleRedirectResult().catch(() => {});
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
