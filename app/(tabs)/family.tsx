@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Image,
   Modal,
   ScrollView,
   StyleSheet,
@@ -18,7 +17,6 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { saveFullProfile } from '../../services/firebase';
 import { useActiveKid } from '../../hooks/useActiveKid';
 import { MILESTONES } from '../../data/milestones';
-import GradientAvatar from '../../components/ui/GradientAvatar';
 import GradientButton from '../../components/ui/GradientButton';
 import DatePickerField from '../../components/ui/DatePickerField';
 import Card from '../../components/ui/Card';
@@ -396,7 +394,7 @@ const addChildStyles = StyleSheet.create({
 export default function FamilyScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { kids, activeKidId, setActiveKidId, addKid, motherName, profile, completedVaccines, parentGender, photoUrl } = useProfileStore();
+  const { kids, activeKidId, setActiveKidId, addKid, motherName, profile, completedVaccines } = useProfileStore();
   const { activeKid } = useActiveKid();
   const { user } = useAuthStore();
   const [showAddModal, setShowAddModal] = useState(false);
@@ -461,26 +459,6 @@ export default function FamilyScreen() {
     }
   };
 
-  const dietLabel = (d?: string) => {
-    const map: Record<string, string> = {
-      vegetarian: 'Vegetarian 🥦',
-      eggetarian: 'Eggetarian 🥚',
-      'non-vegetarian': 'Non-Veg 🍗',
-      vegan: 'Vegan 🌱',
-    };
-    return d ? (map[d] ?? d) : '—';
-  };
-
-  const familyLabel = (f?: string) => {
-    const map: Record<string, string> = {
-      nuclear: 'Nuclear Family',
-      joint: 'Joint Family',
-      'in-laws': 'With In-Laws',
-      'single-parent': 'Single Parent',
-    };
-    return f ? (map[f] ?? f) : '—';
-  };
-
   return (
     <View style={styles.container}>
       {/* ── Dark Gradient Header ── */}
@@ -538,56 +516,6 @@ export default function FamilyScreen() {
               : `Ask Maamitra anything about your family`
           }
         />
-
-        {/* ── Mom Profile Card (dark gradient) ── */}
-        <LinearGradient
-          colors={['#1C1033', '#3b1060']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.momCard}
-        >
-          <View style={styles.momGlowBlob} pointerEvents="none" />
-          <View style={styles.momRow}>
-            <View style={styles.momAvatarWrap}>
-              {photoUrl ? (
-                <Image source={{ uri: photoUrl }} style={{ width: 60, height: 60, borderRadius: 30 }} />
-              ) : (
-                <GradientAvatar name={motherName || 'M'} size={60} />
-              )}
-              <View style={styles.momGlowRing} />
-            </View>
-            <View style={styles.momInfo}>
-              <Text style={styles.momName}>{motherName || 'Mom'}</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <Ionicons name="location-outline" size={12} color="rgba(255,255,255,0.5)" />
-                <Text style={styles.momDetail}>{profile?.state || 'India'}</Text>
-              </View>
-            </View>
-          </View>
-          <View style={styles.momStatsRow}>
-            <View style={styles.momStat}>
-              <Text style={styles.momStatValue}>{kids.length}</Text>
-              <Text style={styles.momStatLabel}>Children</Text>
-            </View>
-            <View style={styles.momStatDivider} />
-            <View style={styles.momStat}>
-              <Text style={styles.momStatValue}>{dietLabel(profile?.diet).split(' ')[0]}</Text>
-              <Text style={styles.momStatLabel}>Diet</Text>
-            </View>
-            <View style={styles.momStatDivider} />
-            <View style={styles.momStat}>
-              <Text style={styles.momStatValue}>{familyLabel(profile?.familyType).split(' ')[0]}</Text>
-              <Text style={styles.momStatLabel}>Family</Text>
-            </View>
-          </View>
-          {(!profile?.diet || !profile?.state || !profile?.familyType || !parentGender) && (
-            <TouchableOpacity style={styles.completeNudge} onPress={() => setShowSettings(true)} activeOpacity={0.8}>
-              <Ionicons name="sparkles-outline" size={12} color="#F59E0B" />
-              <Text style={styles.completeNudgeText}>Complete your profile</Text>
-              <Ionicons name="chevron-forward" size={12} color="rgba(255,255,255,0.5)" />
-            </TouchableOpacity>
-          )}
-        </LinearGradient>
 
         {/* ── Children Section ── */}
         <Text style={styles.sectionTitle}>Children</Text>
@@ -835,46 +763,6 @@ const styles = StyleSheet.create({
 
   content: { paddingHorizontal: 16, paddingTop: 20 },
 
-  // ── Mom Card ──
-  momCard: {
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 24,
-    overflow: 'hidden',
-    position: 'relative',
-    shadowColor: '#1C1033',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 8,
-    boxShadow: '0px 4px 16px rgba(28, 16, 51, 0.2)',
-  } as any,
-  momGlowBlob: {
-    position: 'absolute', width: 150, height: 150, borderRadius: 75,
-    backgroundColor: 'rgba(232,72,122,0.15)', top: -40, right: -30,
-  },
-  momRow: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 20 },
-  momAvatarWrap: { position: 'relative' },
-  momGlowRing: {
-    position: 'absolute', top: -3, left: -3, right: -3, bottom: -3,
-    borderRadius: 33, borderWidth: 2, borderColor: 'rgba(232,72,122,0.5)',
-  },
-  momInfo: { flex: 1 },
-  momName: { fontFamily: Fonts.serif, fontSize: 22, color: '#ffffff', marginBottom: 4 },
-  momDetail: { fontFamily: Fonts.sansRegular, fontSize: 13, color: 'rgba(255,255,255,0.55)' },
-  momStatsRow: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    borderRadius: 14,
-    paddingVertical: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  momStat: { flex: 1, alignItems: 'center' },
-  momStatValue: { fontFamily: Fonts.sansBold, fontSize: 16, color: '#ffffff', marginBottom: 2 },
-  momStatLabel: { fontFamily: Fonts.sansRegular, fontSize: 10, color: 'rgba(255,255,255,0.45)', letterSpacing: 0.5 },
-  momStatDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.12)', marginVertical: 4 },
-
   // ── Section ──
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   sectionTitle: {
@@ -926,9 +814,6 @@ const styles = StyleSheet.create({
   expectingTitle: { fontFamily: Fonts.sansBold, fontSize: 16, color: '#1C1033', marginBottom: 8 },
   expectingText: { fontFamily: Fonts.sansRegular, fontSize: 14, color: '#9CA3AF', textAlign: 'center', lineHeight: 22 },
 
-  // ── Profile completeness nudge ──
-  completeNudge: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' },
-  completeNudgeText: { fontFamily: Fonts.sansMedium, fontSize: 12, color: 'rgba(255,255,255,0.7)', flex: 1 },
 
   // ── Action card ──
   actionCard: { marginBottom: 20, borderRadius: 16, overflow: 'hidden' },
