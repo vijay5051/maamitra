@@ -10,7 +10,6 @@ import {
   isFirebaseConfigured,
   auth,
   saveUserProfile,
-  getUserProfile,
   loadFullProfile,
   saveFullProfile,
   deleteUserAccount,
@@ -21,6 +20,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useProfileStore } from './useProfileStore';
 import { useWellnessStore } from './useWellnessStore';
 import { useChatStore } from './useChatStore';
+import { useTeethStore } from './useTeethStore';
 
 // Lazy-accessed to avoid circular dependency (useSocialStore imports useAuthStore)
 const getSocialStore = () => require('./useSocialStore').useSocialStore;
@@ -59,12 +59,13 @@ async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
       }
     });
     setOnboardingComplete(fullProfile.onboardingComplete);
-    const { setParentGender, setBio, setExpertise, setPhotoUrl, setVisibilitySettings } = useProfileStore.getState();
+    const { setParentGender, setBio, setExpertise, setPhotoUrl, setVisibilitySettings, setHasSeenIntro } = useProfileStore.getState();
     if (fullProfile.parentGender) setParentGender(fullProfile.parentGender as any);
     if (fullProfile.bio) setBio(fullProfile.bio);
     if (fullProfile.expertise?.length) setExpertise(fullProfile.expertise);
     if (fullProfile.photoUrl) setPhotoUrl(fullProfile.photoUrl);
     if (fullProfile.visibilitySettings) setVisibilitySettings(fullProfile.visibilitySettings);
+    setHasSeenIntro(!!fullProfile.hasSeenIntro);
 
     // Restore My Health checklist into AsyncStorage so health.tsx picks it up on mount
     if (fullProfile.healthTracking && Object.keys(fullProfile.healthTracking).length > 0) {
@@ -84,6 +85,11 @@ async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
     // Restore allergies into chat store
     if ((fullProfile as any).allergies !== null && (fullProfile as any).allergies !== undefined) {
       useChatStore.setState({ allergies: (fullProfile as any).allergies });
+    }
+
+    // Restore per-kid teething tracker into teeth store
+    if (fullProfile.teethTracking && Object.keys(fullProfile.teethTracking).length > 0) {
+      useTeethStore.getState().hydrate(fullProfile.teethTracking as any);
     }
 
     return fullProfile.onboardingComplete;
@@ -138,18 +144,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     useProfileStore.getState().resetProfile();
     try {
       const credential = await signInWithEmailAndPassword(auth, email, password);
-      const profile = await getUserProfile(credential.user.uid);
+      // Hydrate profile — this reads users/{uid} once. Previously we also called
+      // getUserProfile() separately for the name, which was a redundant read
+      // through App Check (+1-2s). Pull the name from the hydrated store.
+      await hydrateProfileFromFirestore(credential.user.uid);
       const providerIds = credential.user.providerData.map((p) => p.providerId);
+      const hydratedName = useProfileStore.getState().motherName;
       const authUser: AuthUser = {
         uid: credential.user.uid,
-        name: profile?.name ?? credential.user.displayName ?? 'Mom',
+        name: hydratedName || credential.user.displayName || 'Mom',
         email: credential.user.email ?? email,
         emailVerified: credential.user.emailVerified,
         isGoogleSignIn: providerIds.includes('google.com'),
       };
-      // Hydrate profile BEFORE setting isAuthenticated — prevents index.tsx from
-      // seeing the transient state: isAuthenticated:true + onboardingComplete:false
-      await hydrateProfileFromFirestore(credential.user.uid);
       set({ user: authUser, isAuthenticated: true, isLoading: false });
     } catch (error) {
       set({ isLoading: false });
@@ -192,9 +199,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true });
     const result = await firebaseSignInWithGoogle();
     if (!result) { set({ isLoading: false }); return null; } // User cancelled
-    const profile = await getUserProfile(result.uid);
-    // Hydrate profile BEFORE setting isAuthenticated to avoid the transient
-    // state where isAuthenticated:true but onboardingComplete:false
+    // Hydrate profile (single Firestore read). Previously we also called
+    // getUserProfile() here — that was the SAME doc loaded twice, ~1-2s
+    // slower through App Check / reCAPTCHA. Dropped.
     const hadProfile = await hydrateProfileFromFirestore(result.uid);
     const authUser: AuthUser = {
       ...result,
@@ -203,7 +210,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     };
     set({ user: authUser, isAuthenticated: true, isLoading: false });
     // If profile has onboardingComplete, go to tabs; otherwise onboarding
-    return (profile?.onboardingComplete || hadProfile) ? 'tabs' : 'onboarding';
+    return hadProfile ? 'tabs' : 'onboarding';
   },
 
   signOut: async () => {
@@ -211,6 +218,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     useProfileStore.getState().resetProfile();
     useWellnessStore.getState().resetWellness();
     useChatStore.getState().resetAll();
+    useTeethStore.getState().resetTeeth();
     getSocialStore().getState().reset();
     getCommunityStore().getState().resetCommunity();
     if (!isFirebaseConfigured() || !auth) {
@@ -238,6 +246,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     useProfileStore.getState().resetProfile();
     useWellnessStore.getState().resetWellness();
     useChatStore.getState().resetAll();
+    useTeethStore.getState().resetTeeth();
     getSocialStore().getState().reset();
     getCommunityStore().getState().resetCommunity();
     await deleteUserAccount(user.uid);
@@ -274,17 +283,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         // Clear any stale profile data from a previous session/user
         useProfileStore.getState().resetProfile();
         try {
-          const profile = await getUserProfile(firebaseUser.uid);
+          // Single Firestore read via hydrate (was previously two — hydrate +
+          // getUserProfile for the name). Name is pulled from hydrated state.
+          await hydrateProfileFromFirestore(firebaseUser.uid);
+          const hydratedName = useProfileStore.getState().motherName;
           const authUser: AuthUser = {
             uid: firebaseUser.uid,
-            name: profile?.name ?? firebaseUser.displayName ?? 'Mom',
+            name: hydratedName || firebaseUser.displayName || 'Mom',
             email: firebaseUser.email ?? '',
             emailVerified: firebaseUser.emailVerified,
             isGoogleSignIn: isGoogle,
           };
-          // Hydrate profile BEFORE setting isAuthenticated so index.tsx never sees
-          // the transient state: isAuthenticated:true + onboardingComplete:false
-          await hydrateProfileFromFirestore(firebaseUser.uid);
           set({ user: authUser, isAuthenticated: true, isLoading: false });
         } catch {
           // Even on error, try to hydrate then set authenticated

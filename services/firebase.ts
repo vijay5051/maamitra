@@ -155,6 +155,8 @@ export interface FullProfileData {
   moodHistory?: any[];                      // Wellness mood log (capped at 30)
   healthConditions?: string[] | null;       // Wellness health conditions
   allergies?: string[] | null;              // Chat allergy selections
+  teethTracking?: Record<string, Record<string, any>>; // Per-kid teething: { kidId: { toothId: ToothEntry } }
+  hasSeenIntro?: boolean;                   // Home first-run popup dismissed once
 }
 
 export async function saveFullProfile(uid: string, data: FullProfileData): Promise<void> {
@@ -199,6 +201,8 @@ export async function loadFullProfile(uid: string): Promise<FullProfileData | nu
       moodHistory: d.moodHistory ?? [],
       healthConditions: Array.isArray(d.healthConditions) && d.healthConditions.length > 0 ? d.healthConditions : null,
       allergies: d.allergies ?? null,
+      teethTracking: d.teethTracking ?? {},
+      hasSeenIntro: d.hasSeenIntro === true,
     };
   } catch (error) {
     console.error('loadFullProfile error:', error);
@@ -222,6 +226,16 @@ export async function syncHealthTracking(uid: string, data: Record<string, strin
     await setDoc(doc(db, 'users', uid), { healthTracking: data, updatedAt: serverTimestamp() }, { merge: true });
   } catch (error) {
     console.error('syncHealthTracking error:', error);
+  }
+}
+
+/** Persist per-kid teething tracker (health tab → Teeth sub-tab). */
+export async function syncTeethTracking(uid: string, byKid: Record<string, Record<string, any>>): Promise<void> {
+  if (!db) return;
+  try {
+    await setDoc(doc(db, 'users', uid), { teethTracking: byKid, updatedAt: serverTimestamp() }, { merge: true });
+  } catch (error) {
+    console.error('syncTeethTracking error:', error);
   }
 }
 

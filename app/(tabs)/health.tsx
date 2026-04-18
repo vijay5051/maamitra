@@ -31,6 +31,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { syncHealthTracking } from '../../services/firebase';
 import Card from '../../components/ui/Card';
 import VaccineCardComponent from '../../components/health/VaccineCard';
+import TeethTab from '../../components/health/TeethTab';
 import { TabIcon } from '../../components/ui/AppIcon';
 import { Fonts } from '../../constants/theme';
 
@@ -43,10 +44,11 @@ const MIST   = '#EDE9F6';
 const INK    = '#1C1033';
 const STONE  = '#6B7280';
 
-type SubTab = 'vaccines' | 'schemes' | 'myhealth';
+type SubTab = 'vaccines' | 'teeth' | 'schemes' | 'myhealth';
 
 const TABS: { key: SubTab; label: string; icon: string }[] = [
   { key: 'vaccines', label: 'Vaccines',  icon: 'shield-checkmark-outline' },
+  { key: 'teeth',    label: 'Teeth',     icon: 'happy-outline' },
   { key: 'schemes',  label: 'Schemes',   icon: 'ribbon-outline' },
   { key: 'myhealth', label: 'My Health', icon: 'heart-outline' },
 ];
@@ -67,8 +69,10 @@ function SubTabSelector({
 
   const handleLayout = (e: LayoutChangeEvent) => {
     const w = e.nativeEvent.layout.width;
-    // Each tab is flex:1 so pill width = total/3, gap=6 so effective slot = (total - 2*6) / 3
-    tabWidth.value = (w - 12) / 3; // 2 gaps of 6
+    // Each tab is flex:1; pill spans one slot with 6px gaps between.
+    // Slots = TABS.length, gaps = TABS.length - 1.
+    const gapCount = Math.max(0, TABS.length - 1);
+    tabWidth.value = (w - gapCount * 6) / TABS.length;
   };
 
   useEffect(() => {
@@ -1124,6 +1128,9 @@ export default function HealthScreen() {
             )}
           </>
         )}
+
+        {/* ── TEETH ── */}
+        {subTab === 'teeth' && <TeethTab />}
 
         {/* ── SCHEMES ── */}
         {subTab === 'schemes' && (

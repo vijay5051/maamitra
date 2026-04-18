@@ -30,7 +30,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useActiveKid } from '../../hooks/useActiveKid';
 import { useVaccineSchedule } from '../../hooks/useVaccineSchedule';
 import { type AppNotification, fetchRecentPosts } from '../../services/social';
-import { getUserProfile, saveUserProfile } from '../../services/firebase';
+import { saveUserProfile } from '../../services/firebase';
 import { ARTICLES, type Article } from '../../data/articles';
 import SettingsModal from '../../components/ui/SettingsModal';
 import NotificationsSheet from '../../components/community/NotificationsSheet';
@@ -163,28 +163,22 @@ export default function HomeTab() {
     }
   };
 
+  // Intro popup: hasSeenIntro is hydrated into the profile store on login
+  // (single Firestore read as part of the login hydrate — no extra round
+  // trip on every home mount).
+  const hasSeenIntro = useProfileStore((s) => s.hasSeenIntro);
+  const setHasSeenIntro = useProfileStore((s) => s.setHasSeenIntro);
   useEffect(() => {
     if (!user?.uid) return;
-    (async () => {
-      try {
-        // Per-user check so it doesn't pop on every device. Firestore is the
-        // source of truth; local AsyncStorage is a fast-path cache.
-        const localKey = `${FIRST_RUN_KEY}-${user.uid}`;
-        const seenLocal = await AsyncStorage.getItem(localKey);
-        if (seenLocal === '1') return;
-        const profile = await getUserProfile(user.uid);
-        if (profile?.hasSeenIntro) {
-          AsyncStorage.setItem(localKey, '1').catch(() => {});
-          return;
-        }
-        setFirstRunOpen(true);
-      } catch {}
-    })();
-  }, [user?.uid]);
+    if (hasSeenIntro) return;
+    setFirstRunOpen(true);
+  }, [user?.uid, hasSeenIntro]);
 
   const dismissFirstRun = async () => {
     setFirstRunOpen(false);
     if (!user?.uid) return;
+    setHasSeenIntro(true);
+    // Persist to Firestore (and AsyncStorage as a cache) — both best-effort.
     try {
       await AsyncStorage.setItem(`${FIRST_RUN_KEY}-${user.uid}`, '1');
       await saveUserProfile(user.uid, { hasSeenIntro: true });

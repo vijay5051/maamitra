@@ -88,6 +88,10 @@ interface ProfileState {
   expertise: string[];
   visibilitySettings: VisibilitySettings;
 
+  // UX flags (synced to Firestore users/{uid}.hasSeenIntro)
+  hasSeenIntro: boolean;
+  setHasSeenIntro: (v: boolean) => void;
+
   setMotherName: (name: string) => void;
   setProfile: (profile: Profile) => void;
   addKid: (kid: Omit<Kid, 'ageInMonths' | 'ageInWeeks' | 'id'> & { id?: string }) => void;
@@ -125,6 +129,9 @@ export const useProfileStore = create<ProfileState>()(
       bio: '',
       expertise: [],
       visibilitySettings: DEFAULT_VISIBILITY,
+
+      hasSeenIntro: false,
+      setHasSeenIntro: (v: boolean) => set({ hasSeenIntro: v }),
 
       setMotherName: (name) => set({ motherName: name }),
 
@@ -222,6 +229,7 @@ export const useProfileStore = create<ProfileState>()(
           bio: '',
           expertise: [],
           visibilitySettings: DEFAULT_VISIBILITY,
+          hasSeenIntro: false,
         }),
 
       setPhotoUrl: (url) => set({ photoUrl: url }),
