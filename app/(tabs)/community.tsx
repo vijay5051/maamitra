@@ -59,10 +59,6 @@ function getTopicColor(topic: string): string {
   return TOPIC_COLORS[topic] ?? '#EDE9F6';
 }
 
-// ─── Mock reaction avatar names (for stacked circles) ────────────────────────
-
-const MOCK_REACTOR_NAMES = ['Priya', 'Ananya', 'Meera', 'Sunita', 'Kavya', 'Divya'];
-
 // ─── Image Crop Helpers ───────────────────────────────────────────────────────
 
 type CropRatio = 'Original' | '1:1' | '4:3' | '16:9';
@@ -170,75 +166,6 @@ const heartStyles = StyleSheet.create({
     fontFamily: Fonts.sansSemiBold,
     fontSize: 12,
     color: '#E8487A',
-  },
-});
-
-// ─── Stacked Reactor Avatars ──────────────────────────────────────────────────
-
-function StackedReactorAvatars({ count }: { count: number }) {
-  if (count === 0) return null;
-  const visibleCount = Math.min(count, 3);
-  const names = MOCK_REACTOR_NAMES.slice(0, visibleCount);
-
-  return (
-    <View style={stackStyles.row}>
-      <View style={stackStyles.avatarsWrap}>
-        {names.map((name, index) => (
-          <View
-            key={name}
-            style={[
-              stackStyles.avatarCircle,
-              { left: index * 12, zIndex: visibleCount - index },
-            ]}
-          >
-            <LinearGradient
-              colors={['#E8487A', '#7C3AED']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFill}
-            />
-            <Text style={stackStyles.avatarInitial}>{name.charAt(0)}</Text>
-          </View>
-        ))}
-      </View>
-      <Text style={stackStyles.countText}>{count}</Text>
-    </View>
-  );
-}
-
-const stackStyles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  avatarsWrap: {
-    flexDirection: 'row',
-    width: 3 * 12 + 20, // 3 avatars with overlap + last avatar width
-    height: 20,
-    position: 'relative',
-  },
-  avatarCircle: {
-    position: 'absolute',
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: '#ffffff',
-  },
-  avatarInitial: {
-    fontFamily: Fonts.sansBold,
-    fontSize: 9,
-    color: '#ffffff',
-    zIndex: 1,
-  },
-  countText: {
-    fontFamily: Fonts.sansSemiBold,
-    fontSize: 13,
-    color: '#6B7280',
   },
 });
 

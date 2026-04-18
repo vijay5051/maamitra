@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
+  Image,
   Modal,
   ScrollView,
   StyleSheet,
@@ -348,11 +349,18 @@ export default function HomeTab() {
                 style={styles.card}
               >
                 <View style={styles.commRow}>
-                  <View style={styles.commAvatar}>
-                    <Text style={styles.commInitial}>
-                      {(latestPost.authorName ?? '?').charAt(0).toUpperCase()}
-                    </Text>
-                  </View>
+                  {latestPost.authorPhotoUrl ? (
+                    <Image
+                      source={{ uri: latestPost.authorPhotoUrl }}
+                      style={styles.commAvatar}
+                    />
+                  ) : (
+                    <View style={styles.commAvatar}>
+                      <Text style={styles.commInitial}>
+                        {(latestPost.authorName ?? '?').charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
                   <View style={{ flex: 1 }}>
                     <Text style={styles.commName}>
                       {(latestPost.authorName ?? 'Community member')} · {ago}
