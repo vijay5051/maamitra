@@ -346,8 +346,20 @@ export default function SignUpScreen() {
       const destination = await signInWithGoogle();
       if (destination === 'tabs') router.replace('/(tabs)/');
       else if (destination === 'onboarding') router.replace('/(auth)/onboarding');
+      else {
+        setApiError('Sign-in window was blocked or closed. Allow popups for this site and try again.');
+      }
     } catch (e: any) {
-      setApiError(e?.message ?? 'Google sign-in failed. Please try again.');
+      const code = e?.code ?? '';
+      if (code === 'auth/popup-blocked') {
+        setApiError('Your browser blocked the Google sign-in popup. Allow popups for this site and try again.');
+      } else if (code === 'auth/unauthorized-domain') {
+        setApiError('This domain is not authorized for Google sign-in. Add it in Firebase Console → Authentication → Settings → Authorized domains.');
+      } else if (code === 'auth/network-request-failed') {
+        setApiError('No internet connection. Please try again.');
+      } else {
+        setApiError(`${code ? code + ': ' : ''}${e?.message ?? 'Google sign-in failed. Please try again.'}`);
+      }
       triggerShake();
     } finally {
       setGoogleLoading(false);

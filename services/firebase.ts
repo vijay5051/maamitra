@@ -11,8 +11,6 @@ import {
   deleteUser,
   GoogleAuthProvider,
   signInWithPopup,
-  signInWithRedirect,
-  getRedirectResult,
   sendEmailVerification,
   reload,
 } from 'firebase/auth';
@@ -267,36 +265,12 @@ export async function syncAllergies(uid: string, allergies: string[]): Promise<v
 
 // ─── Google Sign-In ───────────────────────────────────────────────────────────
 
-// Detect mobile-web where popups are frequently blocked by the OS browser
-// (iOS Safari blocks popups by default; Android Chrome is better but still
-// flaky inside in-app webviews). On mobile-web we go straight to redirect.
-function isMobileWeb(): boolean {
-  if (Platform.OS !== 'web') return false;
-  if (typeof navigator === 'undefined') return false;
-  return /iPhone|iPad|iPod|Android|Mobi|webOS|IEMobile|BlackBerry/i.test(navigator.userAgent);
-}
-
 export async function signInWithGoogle(): Promise<{ uid: string; name: string; email: string } | null> {
   if (!auth) return null;
-  const provider = new GoogleAuthProvider();
-  provider.addScope('profile');
-  provider.addScope('email');
-
-  // Mobile web → redirect (popup is almost always blocked). The browser
-  // navigates away; when it comes back, getGoogleRedirectResult() picks up
-  // the result during app boot.
-  if (isMobileWeb()) {
-    try {
-      await signInWithRedirect(auth, provider);
-      return null; // page is about to navigate away
-    } catch (error) {
-      console.error('signInWithRedirect error:', error);
-      throw error;
-    }
-  }
-
-  // Desktop / native → try popup first, fall back to redirect if blocked
   try {
+    const provider = new GoogleAuthProvider();
+    provider.addScope('profile');
+    provider.addScope('email');
     const result = await signInWithPopup(auth, provider);
     const user = result.user;
     const name = user.displayName ?? 'Mom';
@@ -304,20 +278,8 @@ export async function signInWithGoogle(): Promise<{ uid: string; name: string; e
     await saveUserProfile(user.uid, { name, email, provider: 'google', createdAt: new Date().toISOString() });
     return { uid: user.uid, name, email };
   } catch (error: any) {
-    // popup-closed-by-user or cancelled — not a real error
     if (error?.code === 'auth/popup-closed-by-user' || error?.code === 'auth/cancelled-popup-request') {
       return null;
-    }
-    // Popup blocked (common on Safari, private browsing, strict browsers) —
-    // fall back to full-page redirect.
-    if (error?.code === 'auth/popup-blocked') {
-      try {
-        await signInWithRedirect(auth, provider);
-        return null;
-      } catch (redirectError) {
-        console.error('redirect fallback failed:', redirectError);
-        throw redirectError;
-      }
     }
     console.error('signInWithGoogle error:', error);
     throw error;
@@ -325,26 +287,11 @@ export async function signInWithGoogle(): Promise<{ uid: string; name: string; e
 }
 
 /**
- * Call once on app boot (after auth is initialized). If the user just came
- * back from a Google redirect sign-in, this resolves their credential and
- * writes the profile doc. Returns { uid, name, email } if a redirect just
- * completed, or null otherwise. Never throws — logs and returns null so it
- * can't block app startup.
+ * Kept as a no-op so callers that imported this during the redirect
+ * experiment still compile. Returns null — we're back on popup-only.
  */
 export async function getGoogleRedirectResult(): Promise<{ uid: string; name: string; email: string } | null> {
-  if (!auth) return null;
-  try {
-    const result = await getRedirectResult(auth);
-    if (!result) return null;
-    const user = result.user;
-    const name = user.displayName ?? 'Mom';
-    const email = user.email ?? '';
-    await saveUserProfile(user.uid, { name, email, provider: 'google', createdAt: new Date().toISOString() });
-    return { uid: user.uid, name, email };
-  } catch (error) {
-    console.error('getGoogleRedirectResult error:', error);
-    return null;
-  }
+  return null;
 }
 
 // ─── Email Verification ───────────────────────────────────────────────────────
