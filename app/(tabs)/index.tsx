@@ -169,22 +169,13 @@ export default function HomeTab() {
     }
   };
 
-  // Intro popup: hasSeenIntro is hydrated into the profile store on login
-  // (single Firestore read as part of the login hydrate — no extra round
-  // trip on every home mount).
-  const hasSeenIntro = useProfileStore((s) => s.hasSeenIntro);
+  // Intro popup is disabled while we debug sign-in issues. It never auto-opens.
   const setHasSeenIntro = useProfileStore((s) => s.setHasSeenIntro);
-  useEffect(() => {
-    if (!user?.uid) return;
-    if (hasSeenIntro) return;
-    setFirstRunOpen(true);
-  }, [user?.uid, hasSeenIntro]);
 
   const dismissFirstRun = async () => {
     setFirstRunOpen(false);
     if (!user?.uid) return;
     setHasSeenIntro(true);
-    // Persist to Firestore (and AsyncStorage as a cache) — both best-effort.
     try {
       await AsyncStorage.setItem(`${FIRST_RUN_KEY}-${user.uid}`, '1');
       await saveUserProfile(user.uid, { hasSeenIntro: true });
