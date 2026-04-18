@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Animated, {
@@ -986,7 +986,25 @@ const hStyles = StyleSheet.create({
 export default function HealthScreen() {
   const insets     = useSafeAreaInsets();
   const router     = useRouter();
-  const [subTab, setSubTab] = useState<SubTab>('vaccines');
+  // `?tab=teeth` (or schemes/myhealth/vaccines) opens the screen on that
+  // sub-tab — used by the home Quick Actions deep-link.
+  const params     = useLocalSearchParams<{ tab?: string }>();
+  const initialTab: SubTab =
+    params?.tab === 'teeth' || params?.tab === 'schemes' || params?.tab === 'myhealth'
+      ? (params.tab as SubTab)
+      : 'vaccines';
+  const [subTab, setSubTab] = useState<SubTab>(initialTab);
+  // If the param changes after mount (re-deep-link), follow it.
+  useEffect(() => {
+    if (
+      params?.tab === 'teeth' ||
+      params?.tab === 'schemes' ||
+      params?.tab === 'myhealth' ||
+      params?.tab === 'vaccines'
+    ) {
+      setSubTab(params.tab as SubTab);
+    }
+  }, [params?.tab]);
   const vaccines   = useVaccineSchedule();
   const { activeKid } = useActiveKid();
   const motherName = useProfileStore((s) => s.motherName);

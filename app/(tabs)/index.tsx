@@ -27,8 +27,10 @@ import { useProfileStore } from '../../store/useProfileStore';
 import { useWellnessStore } from '../../store/useWellnessStore';
 import { useSocialStore } from '../../store/useSocialStore';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useTeethStore } from '../../store/useTeethStore';
 import { useActiveKid } from '../../hooks/useActiveKid';
 import { useVaccineSchedule } from '../../hooks/useVaccineSchedule';
+import { TEETH } from '../../data/teeth';
 import { type AppNotification, fetchRecentPosts } from '../../services/social';
 import { saveUserProfile } from '../../services/firebase';
 import { ARTICLES, type Article } from '../../data/articles';
@@ -64,6 +66,9 @@ export default function HomeTab() {
   const { motherName, parentGender } = useProfileStore();
   const { activeKid, ageLabel } = useActiveKid();
   const moodHistory = useWellnessStore((s) => s.moodHistory);
+  // Subscribe to the per-kid teeth map so the home Quick Action card stays
+  // in sync the moment the user logs a tooth in Health → Teeth.
+  const teethByKid = useTeethStore((s) => s.byKid);
   // Derive todayMood from moodHistory reactively — the store's `todayMood`
   // field is only set when logMood is called in the current session, so it's
   // stale after a fresh login / page reload.
@@ -123,8 +128,8 @@ export default function HomeTab() {
   }, [activeKid]);
 
   const todayCards = useMemo(
-    () => buildTodayCards({ activeKid, ageLabel, todayMood, moodHistory, vaccineSchedule, router }),
-    [activeKid, ageLabel, todayMood, moodHistory, vaccineSchedule, router]
+    () => buildTodayCards({ activeKid, ageLabel, todayMood, moodHistory, vaccineSchedule, teethByKid, router }),
+    [activeKid, ageLabel, todayMood, moodHistory, vaccineSchedule, teethByKid, router]
   );
 
   // Merged inbox — real community notifications + computed vaccine
@@ -753,6 +758,7 @@ function buildTodayCards({
   todayMood,
   moodHistory,
   vaccineSchedule,
+  teethByKid,
   router,
 }: {
   activeKid: ReturnType<typeof useActiveKid>['activeKid'];
@@ -760,6 +766,7 @@ function buildTodayCards({
   todayMood: any;
   moodHistory: any[];
   vaccineSchedule: ReturnType<typeof useVaccineSchedule>;
+  teethByKid: Record<string, Record<string, { state: string; eruptDate?: string; shedDate?: string }>>;
   router: ReturnType<typeof useRouter>;
 }): TodayCard[] {
   const cards: TodayCard[] = [];
@@ -767,6 +774,7 @@ function buildTodayCards({
   const goFamily = () => router.push('/(tabs)/family');
   const goLibrary = () => router.push('/(tabs)/library');
   const goHealth = () => router.push('/(tabs)/health');
+  const goTeeth = () => router.push({ pathname: '/(tabs)/health', params: { tab: 'teeth' } });
 
   if (!todayMood) {
     cards.push({
@@ -877,6 +885,101 @@ function buildTodayCards({
       label,
       onPress: goHealth,
     });
+  }
+
+  // ── Teething card (personalised per kid) ───────────────────────────
+  // Only appears when there's something useful to surface for this kid:
+  //   • 4-7 mo with no teeth logged → "Watch for first tooth" prompt
+  //   • 8-15 mo with no teeth logged → "Log first tooth?" prompt
+  //   • some teeth erupted, not all 20 → live progress with next-tooth hint
+  //   • ≥15 mo with zero teeth → late-eruption nudge (warning tint)
+  //   • ≥5 yr → shedding focus (uses shed count)
+  //   • all 20 erupted, none shed, age <5yr → silent (don't add card)
+  if (activeKid && !activeKid.isExpecting && activeKid.dob) {
+    const months = Math.max(
+      0,
+      Math.floor(
+        (Date.now() - new Date(activeKid.dob).getTime()) /
+          (1000 * 60 * 60 * 24 * 30.44),
+      ),
+    );
+    const kidTeeth = teethByKid[activeKid.id] ?? {};
+    const eruptedCount = Object.values(kidTeeth).filter((e) => e?.state === 'erupted').length;
+    const shedCount = Object.values(kidTeeth).filter((e) => e?.state === 'shed').length;
+    const ageYears = months / 12;
+
+    let teethCard: TodayCard | null = null;
+
+    if (months >= 4 && months < 8 && eruptedCount === 0) {
+      teethCard = {
+        id: 'teeth',
+        icon: 'happy-outline',
+        tint: Colors.primary,
+        bg: '#FFF0F5',
+        value: 'First tooth soon',
+        label: `${activeKid.name} · ${ageLabel}`,
+        onPress: goTeeth,
+      };
+    } else if (months >= 8 && months < 15 && eruptedCount === 0) {
+      teethCard = {
+        id: 'teeth',
+        icon: 'happy-outline',
+        tint: Colors.primary,
+        bg: '#FFF0F5',
+        value: 'Log first tooth',
+        label: `${activeKid.name} · ${ageLabel}`,
+        onPress: goTeeth,
+      };
+    } else if (months >= 15 && eruptedCount === 0 && ageYears < 5) {
+      // Late-eruption nudge (mention to paediatrician at next visit).
+      teethCard = {
+        id: 'teeth',
+        icon: 'alert-circle-outline',
+        tint: Colors.error,
+        bg: '#FFF7ED',
+        value: 'Late tooth?',
+        label: `${activeKid.name} · ${ageLabel}`,
+        onPress: goTeeth,
+      };
+    } else if (eruptedCount > 0 && eruptedCount < TEETH.length && ageYears < 5) {
+      // Mid-journey: show live progress; surface the next typical tooth so
+      // it feels personal, not just a counter.
+      const nextTooth = TEETH
+        .filter((t) => !kidTeeth[t.id] || kidTeeth[t.id]?.state === 'not-erupted')
+        .sort((a, b) => a.eruptMinMo - b.eruptMinMo)[0];
+      teethCard = {
+        id: 'teeth',
+        icon: 'happy-outline',
+        tint: Colors.primary,
+        bg: '#FFF0F5',
+        value: `${eruptedCount}/${TEETH.length} teeth`,
+        label: nextTooth ? `Next: ${nextTooth.shortName.toLowerCase()}` : `${activeKid.name} · ${ageLabel}`,
+        onPress: goTeeth,
+      };
+    } else if (ageYears >= 5 && shedCount === 0 && eruptedCount > 0) {
+      // First baby tooth shedding window opens around 5-6.
+      teethCard = {
+        id: 'teeth',
+        icon: 'sparkles-outline',
+        tint: Colors.primary,
+        bg: '#FFF0F5',
+        value: 'Shedding soon',
+        label: `${activeKid.name} · ${ageLabel}`,
+        onPress: goTeeth,
+      };
+    } else if (ageYears >= 5 && shedCount > 0 && shedCount < TEETH.length) {
+      teethCard = {
+        id: 'teeth',
+        icon: 'sparkles-outline',
+        tint: Colors.primary,
+        bg: '#FFF0F5',
+        value: `${shedCount}/${TEETH.length} shed`,
+        label: `${activeKid.name} · ${ageLabel}`,
+        onPress: goTeeth,
+      };
+    }
+
+    if (teethCard) cards.push(teethCard);
   }
 
   // moodHistory is sorted newest-first in the store, so slice(0, 3) gets the
