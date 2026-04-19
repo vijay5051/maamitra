@@ -21,6 +21,7 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useLocalSearchParams } from 'expo-router';
 import { useCommunityStore, CommunityFilter } from '../../store/useCommunityStore';
 import { useProfileStore } from '../../store/useProfileStore';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -939,6 +940,13 @@ export default function CommunityScreen() {
   const [viewingUid, setViewingUid] = useState<string | null>(null);
   const [showOwnPosts, setShowOwnPosts] = useState(false);
   const [showUserSearch, setShowUserSearch] = useState(false);
+  // Home's "Find moms" Quick Jump tile deep-links here with ?search=1.
+  const routeParams = useLocalSearchParams<{ search?: string }>();
+  useEffect(() => {
+    if (routeParams?.search === '1') {
+      setShowUserSearch(true);
+    }
+  }, [routeParams?.search]);
   const [reactorsPost, setReactorsPost] = useState<CommunityPost | null>(null);
   const [reactorsEmoji, setReactorsEmoji] = useState<string | undefined>(undefined);
   const [editingPost, setEditingPost] = useState<import('../../store/useCommunityStore').Post | null>(null);

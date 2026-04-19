@@ -506,7 +506,12 @@ export default function HomeTab() {
             <TouchableOpacity
               activeOpacity={0.9}
               style={styles.readCard}
-              onPress={() => router.push('/(tabs)/library')}
+              onPress={() =>
+                router.push({
+                  pathname: '/(tabs)/library',
+                  params: { tab: 'read', articleId: suggestedArticle.id },
+                })
+              }
             >
               <LinearGradient
                 colors={['#FFF8FC', '#FFF0F5']}
@@ -592,12 +597,19 @@ export default function HomeTab() {
         )}
 
         {/* ── Moms near you — only shown when state is set and there's
-            at least one other user in that state. */}
+            at least one other user in that state. Opens the Community
+            tab with the user-search sheet auto-opened (see
+            community.tsx ?search=1 handler). */}
         {profile?.state && momsInState > 0 && (
           <TouchableOpacity
             activeOpacity={0.9}
             style={styles.nearbyCard}
-            onPress={() => router.push('/(tabs)/community')}
+            onPress={() =>
+              router.push({
+                pathname: '/(tabs)/community',
+                params: { search: '1' },
+              })
+            }
           >
             <View style={styles.nearbyIconWrap}>
               <Ionicons name="people-outline" size={22} color="#7C3AED" />
@@ -607,7 +619,7 @@ export default function HomeTab() {
                 {momsInState >= 50 ? '50+' : momsInState} {momsInState === 1 ? 'mom' : 'moms'} in {profile.state}
               </Text>
               <Text style={styles.nearbySub}>
-                Tap to connect with parents near you
+                Tap to search and connect
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={18} color="#b5a9d5" />
@@ -633,7 +645,12 @@ export default function HomeTab() {
                   key={a.id}
                   style={styles.recReadCard}
                   activeOpacity={0.9}
-                  onPress={() => router.push('/(tabs)/library')}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/(tabs)/library',
+                      params: { tab: 'read', articleId: a.id },
+                    })
+                  }
                 >
                   <Text style={styles.recReadEmoji}>{a.emoji || '📖'}</Text>
                   <Text style={styles.recReadTitle} numberOfLines={2}>
@@ -657,46 +674,59 @@ export default function HomeTab() {
         </View>
         <View style={styles.jumpGrid}>
           <JumpTile
-            icon="book-outline"
-            label="Library"
+            icon="newspaper-outline"
+            label="Articles"
             bg="#FFF0F5"
             tint="#E8487A"
-            onPress={() => router.push('/(tabs)/library')}
+            onPress={() =>
+              router.push({ pathname: '/(tabs)/library', params: { tab: 'read' } })
+            }
           />
           <JumpTile
             icon="bookmark-outline"
             label="Saved"
             bg="#EDE9F6"
             tint="#7C3AED"
-            onPress={() => router.push('/(tabs)/library')}
+            onPress={() =>
+              router.push({ pathname: '/(tabs)/library', params: { tab: 'saved' } })
+            }
           />
           <JumpTile
             icon="ribbon-outline"
             label="Schemes"
             bg="#F0FDF4"
             tint="#16A34A"
-            onPress={() => router.push({ pathname: '/(tabs)/health', params: { tab: 'schemes' } })}
+            onPress={() =>
+              router.push({ pathname: '/(tabs)/health', params: { tab: 'schemes' } })
+            }
           />
           <JumpTile
             icon="leaf-outline"
             label="Yoga"
             bg="#F0FDF4"
             tint="#047857"
-            onPress={() => router.push('/(tabs)/wellness')}
+            onPress={() =>
+              router.push({ pathname: '/(tabs)/wellness', params: { section: 'yoga' } })
+            }
           />
           <JumpTile
             icon="checkmark-done-outline"
             label="My health"
             bg="#FFF7ED"
             tint="#EA580C"
-            onPress={() => router.push({ pathname: '/(tabs)/health', params: { tab: 'myhealth' } })}
+            onPress={() =>
+              router.push({ pathname: '/(tabs)/health', params: { tab: 'myhealth' } })
+            }
           />
           <JumpTile
             icon="search-outline"
             label="Find moms"
             bg="#FDF2F8"
             tint="#E8487A"
-            onPress={() => router.push('/(tabs)/community')}
+            onPress={() =>
+              // Community tab reads ?search=1 and auto-opens UserSearchSheet.
+              router.push({ pathname: '/(tabs)/community', params: { search: '1' } })
+            }
           />
         </View>
       </ScrollView>
@@ -1040,8 +1070,15 @@ function buildTodayCards({
   const goWellness = () => router.push('/(tabs)/wellness');
   const goFamily = () => router.push('/(tabs)/family');
   const goLibrary = () => router.push('/(tabs)/library');
+  const goLibraryTopic = (topic: string) =>
+    router.push({ pathname: '/(tabs)/library', params: { tab: 'read', topic } });
+  const goSavedAnswers = () =>
+    router.push({ pathname: '/(tabs)/library', params: { tab: 'saved' } });
   const goHealth = () => router.push('/(tabs)/health');
-  const goTeeth = () => router.push({ pathname: '/(tabs)/health', params: { tab: 'teeth' } });
+  const goSchemes = () =>
+    router.push({ pathname: '/(tabs)/health', params: { tab: 'schemes' } });
+  const goTeeth = () =>
+    router.push({ pathname: '/(tabs)/health', params: { tab: 'teeth' } });
 
   if (!todayMood) {
     cards.push({
@@ -1073,7 +1110,7 @@ function buildTodayCards({
       bg: '#FFF0F5',
       value: 'Pregnancy tips',
       label: 'For this trimester',
-      onPress: goLibrary,
+      onPress: () => goLibraryTopic('Pregnancy'),
     });
   } else if (activeKid) {
     const months = Math.max(
@@ -1091,7 +1128,7 @@ function buildTodayCards({
         bg: Colors.border,
         value: 'Sleep tips',
         label: `${activeKid.name} · ${ageLabel}`,
-        onPress: goLibrary,
+        onPress: () => goLibraryTopic('Sleep'),
       });
     } else if (months < 9) {
       cards.push({
@@ -1101,7 +1138,13 @@ function buildTodayCards({
         bg: Colors.bgPink,
         value: 'Start solids',
         label: `${activeKid.name} · ${ageLabel}`,
-        onPress: goLibrary,
+        // 'a01' = "Starting Solid Foods the Right Way" — auto-expands on
+        // open; falls back to the Feeding topic filter if the exact id
+        // can't be found (e.g. id rotation).
+        onPress: () => router.push({
+          pathname: '/(tabs)/library',
+          params: { tab: 'read', articleId: 'a01', topic: 'Feeding' },
+        }),
       });
     } else if (months < 24) {
       cards.push({
@@ -1285,7 +1328,7 @@ function buildTodayCards({
       bg: '#FFF0F5',
       value: `${savedAnswers.length} saved`,
       label: 'AI answers',
-      onPress: goLibrary,
+      onPress: goSavedAnswers,
     });
   }
 
@@ -1311,7 +1354,7 @@ function buildTodayCards({
       bg: '#F0FDF4',
       value: candidateScheme.shortName,
       label: profileState ? `Scheme · ${profileState}` : 'A scheme for you',
-      onPress: () => router.push({ pathname: '/(tabs)/health', params: { tab: 'schemes' } }),
+      onPress: goSchemes,
     });
   }
 

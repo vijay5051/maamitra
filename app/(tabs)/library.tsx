@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   Image,
@@ -22,7 +22,7 @@ import { useChatStore } from '../../store/useChatStore';
 import { useBookStore, DynamicBook } from '../../store/useBookStore';
 import { useArticleStore, DynamicArticle } from '../../store/useArticleStore';
 import { useProductStore, DynamicProduct } from '../../store/useProductStore';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuthStore } from '../../store/useAuthStore';
 import { PRODUCTS, Product } from '../../data/products';
 import { Article } from '../../data/articles';
@@ -383,11 +383,28 @@ function getArticleGradient(topic: string): [string, string] {
 
 // ─── Article Card (rich preview) ──────────────────────────────────────────────
 
-function ArticleCard({ article }: { article: Article }) {
-  const [expanded, setExpanded] = useState(false);
+function ArticleCard({
+  article,
+  autoExpand,
+  onAutoExpanded,
+}: {
+  article: Article;
+  /** When true on mount or flip, expands the card body. Used for deep-links
+      from Home (Recommended reads, Suggested for you). */
+  autoExpand?: boolean;
+  onAutoExpanded?: () => void;
+}) {
+  const [expanded, setExpanded] = useState(!!autoExpand);
   const [imgError, setImgError] = useState(false);
   const [colors] = useState<[string, string]>(() => getArticleGradient(article.topic));
   const showRealImg = !!(article.imageUrl && !imgError);
+
+  useEffect(() => {
+    if (autoExpand) {
+      setExpanded(true);
+      onAutoExpanded?.();
+    }
+  }, [autoExpand]);
 
   return (
     <View style={articleStyles.card}>
@@ -1120,12 +1137,52 @@ const ADMIN_EMAILS = new Set([
 export default function LibraryScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const [subTab, setSubTab] = useState<SubTab>('read');
+  // Deep-links from Home's Quick Jump + Recommended Reads:
+  //   ?tab=read|books|products|saved|journey  — pick a sub-tab
+  //   ?articleId=aXX                          — auto-expand that article
+  //                                            (implies tab=read)
+  //   ?topic=Feeding                          — seed the articles topic filter
+  const params = useLocalSearchParams<{ tab?: string; articleId?: string; topic?: string }>();
+  const initialSubTab: SubTab =
+    params?.tab === 'books' || params?.tab === 'products' ||
+    params?.tab === 'saved' || params?.tab === 'journey'
+      ? (params.tab as SubTab)
+      : params?.articleId
+      ? 'read'
+      : 'read';
+  const [subTab, setSubTab] = useState<SubTab>(initialSubTab);
   const [productCategory, setProductCategory] = useState('All');
   const [sortMode, setSortMode] = useState<SortMode>('Featured');
   const [showSortModal, setShowSortModal] = useState(false);
   const [articleSearch, setArticleSearch] = useState('');
-  const [articleTopicFilter, setArticleTopicFilter] = useState('All');
+  const [articleTopicFilter, setArticleTopicFilter] = useState(
+    typeof params?.topic === 'string' ? params.topic : 'All',
+  );
+
+  // Track the deep-linked article id so the matching ArticleCard can
+  // auto-expand and the ScrollView / FlatList can scroll to it.
+  const [pendingArticleId, setPendingArticleId] = useState<string | null>(
+    typeof params?.articleId === 'string' ? params.articleId : null,
+  );
+  // Clear after consumption so switching sub-tabs doesn't re-trigger expand.
+  const consumePendingArticle = () => setPendingArticleId(null);
+
+  // Re-apply params if they change after mount (navigation without unmount).
+  useEffect(() => {
+    if (params?.tab === 'books' || params?.tab === 'products' ||
+        params?.tab === 'saved' || params?.tab === 'journey' ||
+        params?.tab === 'read') {
+      setSubTab(params.tab as SubTab);
+    }
+    if (typeof params?.articleId === 'string' && params.articleId) {
+      setPendingArticleId(params.articleId);
+      setSubTab('read');
+    }
+    if (typeof params?.topic === 'string' && params.topic) {
+      setArticleTopicFilter(params.topic);
+      setSubTab('read');
+    }
+  }, [params?.tab, params?.articleId, params?.topic]);
 
   const user = useAuthStore((s) => s.user);
   const isAdmin = !!(user?.email && ADMIN_EMAILS.has(user.email));
@@ -1434,7 +1491,14 @@ export default function LibraryScreen() {
                 </TouchableOpacity>
               </View>
             ) : (
-              articles.map((a) => <ArticleCard key={a.id} article={a} />)
+              articles.map((a) => (
+                <ArticleCard
+                  key={a.id}
+                  article={a}
+                  autoExpand={pendingArticleId === a.id}
+                  onAutoExpanded={consumePendingArticle}
+                />
+              ))
             )}
 
           </ScrollView>
