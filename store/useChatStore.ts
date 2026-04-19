@@ -85,6 +85,14 @@ interface ChatState {
   allergies: string[] | null;
   savedAnswers: SavedAnswer[];
 
+  /**
+   * Preferred language for voice input AND spoken replies. BCP-47 tag
+   * (e.g. 'en-IN', 'hi-IN', 'ta-IN'). The AI itself always mirrors the
+   * user's text script — this is only for voice features.
+   */
+  voiceLanguage: string;
+  setVoiceLanguage: (code: string) => void;
+
   // Computed
   getActiveThread: () => ChatThread | null;
   getActiveMessages: () => ChatMessage[];
@@ -115,6 +123,8 @@ export const useChatStore = create<ChatState>()(
       isTyping: false,
       allergies: null,
       savedAnswers: [],
+      voiceLanguage: 'en-IN',
+      setVoiceLanguage: (code: string) => set({ voiceLanguage: code }),
 
       getActiveThread: () => {
         const { threads, activeThreadId } = get();

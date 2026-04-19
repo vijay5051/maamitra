@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Platform,
   StyleSheet,
@@ -7,10 +7,17 @@ import {
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import GradientAvatar from '../ui/GradientAvatar';
 import TagPill from '../ui/TagPill';
-import { ChatMessage } from '../../store/useChatStore';
+import { ChatMessage, useChatStore } from '../../store/useChatStore';
 import { Fonts } from '../../constants/theme';
+import {
+  detectLanguage,
+  isSpeechSynthesisSupported,
+  speak,
+  type TTSHandle,
+} from '../../services/voice';
 
 interface ChatBubbleProps {
   message: ChatMessage;
@@ -25,6 +32,40 @@ function formatTime(date: Date | string): string {
 
 export default function ChatBubble({ message, onSave, isFirstInGroup = true }: ChatBubbleProps) {
   const isAssistant = message.role === 'assistant';
+  const voiceLanguage = useChatStore((s) => s.voiceLanguage);
+  const [speaking, setSpeaking] = useState(false);
+  const ttsRef = useRef<TTSHandle | null>(null);
+
+  useEffect(() => {
+    return () => {
+      ttsRef.current?.stop();
+    };
+  }, []);
+
+  const handleSpeak = () => {
+    if (speaking) {
+      ttsRef.current?.stop();
+      ttsRef.current = null;
+      setSpeaking(false);
+      return;
+    }
+    // Prefer the language the message was actually written in (so Hindi
+    // replies play in Hindi even when the user's preferred voice lang is
+    // English). Fall back to the user preference.
+    const detected = detectLanguage(message.content);
+    const lang = detected ?? voiceLanguage;
+    ttsRef.current = speak(message.content, lang) ?? null;
+    if (ttsRef.current) {
+      setSpeaking(true);
+      // SpeechSynthesis doesn't always fire events reliably — clear the
+      // speaking state on a reasonable timer. 14 chars/second is a fair
+      // upper bound.
+      const estMs = Math.min(60000, Math.max(3000, (message.content.length / 14) * 1000));
+      setTimeout(() => setSpeaking(false), estMs + 500);
+    }
+  };
+
+  const ttsSupported = isAssistant && isSpeechSynthesisSupported();
 
   if (!isAssistant) {
     return (
@@ -75,15 +116,34 @@ export default function ChatBubble({ message, onSave, isFirstInGroup = true }: C
               style={styles.tagPill}
             />
           ) : null}
-          {onSave ? (
-            <TouchableOpacity
-              onPress={() => onSave(message.id)}
-              hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-              style={styles.saveButton}
-            >
-              <Text style={styles.saveText}>Save 🔖</Text>
-            </TouchableOpacity>
-          ) : null}
+          <View style={styles.actionRow}>
+            {ttsSupported ? (
+              <TouchableOpacity
+                onPress={handleSpeak}
+                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                style={styles.iconAction}
+                accessibilityLabel={speaking ? 'Stop reading' : 'Read aloud'}
+              >
+                <Ionicons
+                  name={speaking ? 'stop-circle' : 'volume-medium-outline'}
+                  size={16}
+                  color={speaking ? '#E8487A' : '#7C3AED'}
+                />
+                <Text style={[styles.iconActionText, speaking && { color: '#E8487A' }]}>
+                  {speaking ? 'Stop' : 'Listen'}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+            {onSave ? (
+              <TouchableOpacity
+                onPress={() => onSave(message.id)}
+                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                style={styles.iconAction}
+              >
+                <Text style={styles.saveText}>Save 🔖</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
           <Text style={styles.timestamp}>{formatTime(message.timestamp)}</Text>
         </View>
       </View>
@@ -198,6 +258,22 @@ const styles = StyleSheet.create({
   },
   saveText: {
     color: '#9ca3af',
+    fontFamily: Fonts.sansMedium,
+    fontSize: 12,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 6,
+  },
+  iconAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  iconActionText: {
+    color: '#7C3AED',
     fontFamily: Fonts.sansMedium,
     fontSize: 12,
   },

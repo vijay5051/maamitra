@@ -17,9 +17,12 @@ import { useChatStore } from '../../store/useChatStore';
 import { useProfileStore, calculateAgeInMonths } from '../../store/useProfileStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useWellnessStore } from '../../store/useWellnessStore';
+import { useTeethStore } from '../../store/useTeethStore';
 import { syncAllergies } from '../../services/firebase';
 import { useActiveKid } from '../../hooks/useActiveKid';
+import { useVaccineSchedule } from '../../hooks/useVaccineSchedule';
 import { detectIsFood } from '../../services/claude';
+import { TEETH } from '../../data/teeth';
 import ChatBubble from '../../components/chat/ChatBubble';
 import ChatInput from '../../components/chat/ChatInput';
 import QuickChips from '../../components/chat/QuickChips';
@@ -236,21 +239,95 @@ export default function ChatScreen() {
 
   const flatListRef = useRef<FlatList>(null);
 
-  const buildContext = useCallback(() => ({
-    motherName: motherName || (parentGender === 'father' ? 'Dad' : 'Mom'),
-    stage: profile?.stage ?? 'newborn',
-    state: profile?.state ?? 'India',
-    diet: profile?.diet ?? 'vegetarian',
-    familyType: profile?.familyType ?? 'nuclear',
-    kidName: activeKid?.name ?? 'your baby',
-    kidAgeMonths: activeKid && !activeKid.isExpecting ? calculateAgeInMonths(activeKid.dob) : 0,
-    kidDOB: activeKid?.dob,
-    kidGender: activeKid?.gender,
-    isExpecting: activeKid?.isExpecting ?? false,
-    allergies,
-    healthConditions,
-    parentGender,
-  }), [motherName, profile, activeKid, allergies, healthConditions, parentGender]);
+  // ── Rich context builders — every extra signal makes the AI's answer
+  // more specific to this parent. All lookups read cached store values;
+  // no extra Firestore reads per turn.
+  const completedVaccines = useProfileStore((s) => s.completedVaccines);
+  const moodHistory = useWellnessStore((s) => s.moodHistory);
+  const teethByKid = useTeethStore((s) => s.byKid);
+  const savedAnswers = useChatStore((s) => s.savedAnswers);
+  const vaccineSchedule = useVaccineSchedule();
+
+  const buildContext = useCallback(() => {
+    const ageMo = activeKid && !activeKid.isExpecting ? calculateAgeInMonths(activeKid.dob) : 0;
+
+    // Vaccines — count done + find next pending on the schedule.
+    let completedCount = 0;
+    if (activeKid) {
+      const kidDone = completedVaccines[activeKid.id] ?? {};
+      completedCount = Object.values(kidDone).filter((v: any) => v?.done).length;
+    }
+    const nextVaccine =
+      vaccineSchedule.find((v) => v.status === 'overdue') ??
+      vaccineSchedule.find((v) => v.status === 'due-soon') ??
+      vaccineSchedule.find((v) => v.status === 'upcoming');
+    let nextVaccineDueInDays: number | undefined;
+    if (nextVaccine?.dueDate) {
+      nextVaccineDueInDays = Math.round(
+        (nextVaccine.dueDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24),
+      );
+    }
+
+    // Teeth — count erupted + figure out typical next tooth for this age.
+    let teethErupted: number | undefined;
+    let nextToothName: string | undefined;
+    if (activeKid && !activeKid.isExpecting) {
+      const kidTeeth = teethByKid[activeKid.id] ?? {};
+      teethErupted = Object.values(kidTeeth).filter((e: any) => e?.state === 'erupted').length;
+      const nextTooth = TEETH
+        .filter((t) => !kidTeeth[t.id] || kidTeeth[t.id]?.state === 'not-erupted')
+        .sort((a, b) => a.eruptMinMo - b.eruptMinMo)[0];
+      nextToothName = nextTooth?.shortName;
+    }
+
+    // Mood — average of the last 3 entries (already sorted newest-first).
+    let recentMoodAvg: number | undefined;
+    let recentMoodTrend: 'low' | 'ok' | 'good' | undefined;
+    const recent = (moodHistory || []).slice(0, 3);
+    if (recent.length >= 2) {
+      recentMoodAvg = recent.reduce((s: number, m: any) => s + (m.score || 0), 0) / recent.length;
+      recentMoodTrend = recentMoodAvg <= 2.5 ? 'low' : recentMoodAvg >= 4 ? 'good' : 'ok';
+    }
+
+    // Saved-answer topics — show interests as a handful of unique labels.
+    const savedAnswerTopics = Array.from(
+      new Set(
+        (savedAnswers || [])
+          .slice(0, 10)
+          .map((a: any) => (a.tag?.tag ?? '').replace(/^\W+\s*/, '')) // strip leading emoji
+          .filter(Boolean),
+      ),
+    );
+
+    return {
+      motherName: motherName || (parentGender === 'father' ? 'Dad' : 'Mom'),
+      stage: profile?.stage ?? 'newborn',
+      state: profile?.state ?? 'India',
+      diet: profile?.diet ?? 'vegetarian',
+      familyType: profile?.familyType ?? 'nuclear',
+      kidName: activeKid?.name ?? 'your baby',
+      kidAgeMonths: ageMo,
+      kidDOB: activeKid?.dob,
+      kidGender: activeKid?.gender,
+      isExpecting: activeKid?.isExpecting ?? false,
+      allergies,
+      healthConditions,
+      parentGender,
+      // Pass 2 signals
+      completedVaccinesCount: completedCount,
+      nextVaccineName: nextVaccine?.name,
+      nextVaccineDueInDays,
+      teethErupted,
+      teethTotal: TEETH.length,
+      nextToothName,
+      recentMoodAvg,
+      recentMoodTrend,
+      savedAnswerTopics,
+    };
+  }, [
+    motherName, profile, activeKid, allergies, healthConditions, parentGender,
+    completedVaccines, vaccineSchedule, teethByKid, moodHistory, savedAnswers,
+  ]);
 
   const handleSend = useCallback(
     async (text: string) => {

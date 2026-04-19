@@ -24,8 +24,17 @@
 
 const ANTHROPIC_API = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VER = '2023-06-01';
-const MODEL         = 'claude-haiku-4-5-20251001';
-const MAX_TOKENS    = 1024;
+// Sonnet 4.5 → substantially smarter on parenting/medical nuance than
+// Haiku, worth the ~3× cost per token for MaaMitra's small-but-growing
+// base. Drop back to Haiku with a router if cost becomes an issue.
+const MODEL         = 'claude-sonnet-4-5-20250929';
+// 2× the previous cap — Sonnet gives richer answers and users asked for
+// 'super smart + very informative'. Worker still caps messages[] at 40,
+// so a runaway thread can't escalate cost.
+const MAX_TOKENS    = 2048;
+// Lower than default (1.0). Keeps medical/parenting guidance grounded
+// and consistent without losing the warm-friend voice.
+const TEMPERATURE   = 0.6;
 
 const ALLOWED_ORIGINS = [
   'https://maa-mitra-7kird8.web.app',
@@ -100,6 +109,7 @@ export default {
       body: JSON.stringify({
         model: MODEL,
         max_tokens: MAX_TOKENS,
+        temperature: TEMPERATURE,
         system: systemPrompt ?? '',
         messages,
       }),
