@@ -156,22 +156,32 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     useProfileStore.getState().resetProfile();
     try {
       const credential = await signInWithEmailAndPassword(auth, email, password);
-      // Hydrate profile — this reads users/{uid} once. Previously we also called
-      // getUserProfile() separately for the name, which was a redundant read
-      // through App Check (+1-2s). Pull the name from the hydrated store.
-      await hydrateProfileFromFirestore(credential.user.uid);
+      // CRITICAL: set the user in the store BEFORE awaiting hydrate. This
+      // primes onAuthStateChanged's same-uid guard so it doesn't race us
+      // by calling resetProfile() + hydrate concurrently. Without this,
+      // onboardingComplete can flip to false between here and the caller
+      // reading the store → user gets routed to onboarding by mistake.
       const providerIds = credential.user.providerData.map((p) => p.providerId);
-      const hydratedName = useProfileStore.getState().motherName;
-      const authUser: AuthUser = {
+      const preliminaryUser: AuthUser = {
         uid: credential.user.uid,
-        name: hydratedName || credential.user.displayName || 'Mom',
+        name: credential.user.displayName || 'Mom',
         email: credential.user.email ?? email,
         emailVerified: credential.user.emailVerified,
         isGoogleSignIn: providerIds.includes('google.com'),
       };
-      set({ user: authUser, isAuthenticated: true, isLoading: false });
+      set({ user: preliminaryUser, isAuthenticated: true });
+
+      // Hydrate profile — this reads users/{uid} once. Previously we also called
+      // getUserProfile() separately for the name, which was a redundant read
+      // through App Check (+1-2s). Pull the name from the hydrated store.
+      await hydrateProfileFromFirestore(credential.user.uid);
+      const hydratedName = useProfileStore.getState().motherName;
+      set({
+        user: { ...preliminaryUser, name: hydratedName || preliminaryUser.name },
+        isLoading: false,
+      });
     } catch (error) {
-      set({ isLoading: false });
+      set({ isLoading: false, user: null, isAuthenticated: false });
       throw error;
     }
   },
@@ -213,13 +223,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Persist the minimal user doc (name/email/createdAt) so the subsequent
       // hydrate has something to read for first-time Google users.
       const result = await finaliseGoogleSignIn(credential);
-      const hadProfile = await hydrateProfileFromFirestore(result.uid);
-      const authUser: AuthUser = {
+
+      // Prime onAuthStateChanged's same-uid guard (see signIn for details).
+      // Without this, the Firebase auth-state listener fires concurrently
+      // and calls resetProfile() mid-hydrate, flipping onboardingComplete
+      // back to false before the caller reads it.
+      const preliminaryUser: AuthUser = {
         ...result,
         emailVerified: auth.currentUser?.emailVerified ?? true,
         isGoogleSignIn: true,
       };
-      set({ user: authUser, isAuthenticated: true, isLoading: false });
+      set({ user: preliminaryUser, isAuthenticated: true });
+
+      const hadProfile = await hydrateProfileFromFirestore(result.uid);
+      set({ isLoading: false });
 
       // Route: need onboarding → onboarding. Onboarded but no phone → phone.
       // Fully ready → tabs.
@@ -228,7 +245,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (!phone) return 'phone';
       return 'tabs';
     } catch (error) {
-      set({ isLoading: false });
+      set({ isLoading: false, user: null, isAuthenticated: false });
       throw error;
     }
   },
@@ -305,9 +322,27 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
+        // CRITICAL: do NOT wipe + rehydrate the profile if we already have
+        // this user in the store. That's a classic race — signIn() is in
+        // flight, it already hydrated the profile and set the user; then
+        // Firebase fires this listener with the same uid. If we resetProfile
+        // here, any code that reads the store AFTER signIn resolves (like
+        // sign-in.tsx's routeAfterSignIn) sees `onboardingComplete: false`
+        // for a brief window and routes the user to the onboarding flow
+        // even though they're already onboarded.
+        const existing = get().user;
+        if (existing && existing.uid === firebaseUser.uid) {
+          // Same user, already hydrated. Just make sure isLoading is false
+          // (covers the boot path where signIn didn't run but we were
+          // already in state). No re-hydrate needed.
+          if (get().isLoading) set({ isLoading: false });
+          return;
+        }
+
         const providerIds = firebaseUser.providerData.map((p) => p.providerId);
         const isGoogle = providerIds.includes('google.com');
-        // Clear any stale profile data from a previous session/user
+        // Different uid (or no user in store) — clear any stale profile
+        // data from a previous session/user and hydrate from Firestore.
         useProfileStore.getState().resetProfile();
         try {
           // Single Firestore read via hydrate (was previously two — hydrate +
