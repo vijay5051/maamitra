@@ -44,6 +44,18 @@ import SettingsModal from '../../components/ui/SettingsModal';
 import NotificationsSheet from '../../components/community/NotificationsSheet';
 import ConversationsSheet from '../../components/community/ConversationsSheet';
 import HelpSupportSheet from '../../components/ui/HelpSupportSheet';
+import AnimatedPressable from '../../components/ui/AnimatedPressable';
+import AnimatedNumber from '../../components/ui/AnimatedNumber';
+import Reanimated, {
+  FadeInDown,
+  FadeInUp,
+  useSharedValue,
+  useAnimatedStyle,
+  withDelay,
+  withSequence,
+  withTiming,
+  Easing as REasing,
+} from 'react-native-reanimated';
 import { useDMStore } from '../../store/useDMStore';
 
 // ─── Home (landing) tab ───────────────────────────────────────────────
@@ -154,20 +166,78 @@ export default function HomeTab() {
     return () => { cancelled = true; };
   }, [profile?.state, user?.uid]);
 
-  // Age-personalized article for "Suggested for you". Uses the active kid's
-  // age in months (or 0 if expecting) to match against ARTICLES ageMin/ageMax.
+  // Suggested article — personalised by stage × age × recent mood. The
+  // previous implementation just picked the first article whose ageMin/
+  // ageMax bracketed the kid's age, which meant a pregnant user with
+  // ageMonths=0 got whatever happened to be first in the list (often
+  // a newborn sleep piece). Now we score each candidate and pick the
+  // best match for the parent's current life moment.
   const suggestedArticle = useMemo<Article | null>(() => {
-    const now = Date.now();
     let ageMonths = 0;
-    if (activeKid && !activeKid.isExpecting && activeKid.dob) {
-      ageMonths = Math.max(
-        0,
-        Math.floor((now - new Date(activeKid.dob).getTime()) / (1000 * 60 * 60 * 24 * 30.44)),
-      );
+    let isExpecting = false;
+    if (activeKid) {
+      isExpecting = !!activeKid.isExpecting;
+      if (!isExpecting && activeKid.dob) {
+        ageMonths = Math.max(
+          0,
+          Math.floor((Date.now() - new Date(activeKid.dob).getTime()) / (1000 * 60 * 60 * 24 * 30.44)),
+        );
+      }
     }
-    const match = ARTICLES.find((a) => ageMonths >= a.ageMin && ageMonths <= a.ageMax);
-    return match ?? ARTICLES[0] ?? null;
-  }, [activeKid]);
+
+    // Topic priorities for the parent's current life stage. Higher is
+    // better. Topics not listed get score 0 (still eligible as fallback).
+    let priority: Record<string, number> = {};
+    if (isExpecting) {
+      priority = { Pregnancy: 10, Nutrition: 6, 'Mental Health': 5, Sleep: 3 };
+    } else if (ageMonths < 6) {
+      priority = { Sleep: 10, Feeding: 8, Development: 6, 'Mental Health': 5 };
+    } else if (ageMonths < 12) {
+      priority = { Feeding: 10, Development: 7, Sleep: 6, Nutrition: 6 };
+    } else if (ageMonths < 24) {
+      priority = { Development: 10, Nutrition: 7, Feeding: 6, Behaviour: 6 };
+    } else if (ageMonths < 60) {
+      priority = { Development: 10, Behaviour: 9, Nutrition: 6, Feeding: 4 };
+    } else {
+      priority = { Development: 9, Behaviour: 9, Nutrition: 5 };
+    }
+
+    // If the parent's recent mood is low, surface a Mental Health piece.
+    // Same signal the "Take a breath" Quick Action uses.
+    const recentMoods = (moodHistory || []).slice(0, 3);
+    if (recentMoods.length >= 2) {
+      const avg = recentMoods.reduce((s: number, m: any) => s + (m.score || 0), 0) / recentMoods.length;
+      if (avg <= 2.5) priority['Mental Health'] = 11; // bumps above all else
+    }
+
+    // Deprioritise diet-inappropriate content.
+    const diet = profile?.diet;
+    const isIncompatibleDiet = (a: Article): boolean => {
+      const t = `${a.topic} ${a.tag} ${a.title}`.toLowerCase();
+      if (diet === 'vegetarian' && /non[-\s]?veg|meat|chicken|fish|mutton/.test(t)) return true;
+      if (diet === 'vegan' && /non[-\s]?veg|meat|chicken|fish|mutton|dairy|paneer|ghee/.test(t)) return true;
+      return false;
+    };
+
+    // Candidates must fit the age range.
+    const candidates = ARTICLES.filter(
+      (a) => ageMonths >= a.ageMin && ageMonths <= a.ageMax,
+    );
+    if (candidates.length === 0) return ARTICLES[0] ?? null;
+
+    // Score and pick the best. Ties broken by narrower age range (more
+    // specific = more personalised). Diet-incompatible articles take a
+    // big penalty but aren't eliminated entirely.
+    const scored = candidates.map((a) => {
+      const topicScore = priority[a.topic] ?? 0;
+      const rangeWidth = a.ageMax - a.ageMin;
+      const specificity = Math.max(0, 36 - rangeWidth) / 10; // narrower = better
+      const dietPenalty = isIncompatibleDiet(a) ? -5 : 0;
+      return { a, score: topicScore + specificity + dietPenalty };
+    });
+    scored.sort((x, y) => y.score - x.score);
+    return scored[0].a;
+  }, [activeKid, moodHistory, profile?.diet]);
 
   // "Recommended reads" — three age-matched articles (excludes the one
   // shown in the main Suggested card to avoid duplication). Diet field
@@ -232,6 +302,23 @@ export default function HomeTab() {
     router.push('/(tabs)/chat');
   };
 
+  // Avatar pulse — a one-time welcome scale pop on first mount. Runs on
+  // the UI thread, doesn't block anything, and stops at identity. Skipped
+  // on re-focus (only fires when the component first mounts in a session).
+  const avatarScale = useSharedValue(1);
+  useEffect(() => {
+    avatarScale.value = withDelay(
+      250,
+      withSequence(
+        withTiming(1.08, { duration: 260, easing: REasing.out(REasing.quad) }),
+        withTiming(1, { duration: 320, easing: REasing.out(REasing.cubic) }),
+      ),
+    );
+  }, []);
+  const avatarPulseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: avatarScale.value }],
+  }));
+
   const todayCards = useMemo(
     () =>
       buildTodayCards({
@@ -284,21 +371,23 @@ export default function HomeTab() {
             the same triplet used on every tab with a header:
             🔔 Notifications · 💬 Messages · ⚙️ Settings. */}
         <View style={styles.headerRow}>
-          <TouchableOpacity
-            style={styles.avatar}
-            onPress={() => setProfileOpen(true)}
-            accessibilityLabel="Profile menu"
-          >
-            {photoUrl ? (
-              <Image source={{ uri: photoUrl }} style={styles.avatarPhoto} />
-            ) : (
-              <LinearGradient colors={Gradients.avatar} style={styles.avatarInner}>
-                <Text style={styles.avatarTxt}>
-                  {firstName.charAt(0).toUpperCase()}
-                </Text>
-              </LinearGradient>
-            )}
-          </TouchableOpacity>
+          <Reanimated.View style={[avatarPulseStyle]}>
+            <TouchableOpacity
+              style={styles.avatar}
+              onPress={() => setProfileOpen(true)}
+              accessibilityLabel="Profile menu"
+            >
+              {photoUrl ? (
+                <Image source={{ uri: photoUrl }} style={styles.avatarPhoto} />
+              ) : (
+                <LinearGradient colors={Gradients.avatar} style={styles.avatarInner}>
+                  <Text style={styles.avatarTxt}>
+                    {firstName.charAt(0).toUpperCase()}
+                  </Text>
+                </LinearGradient>
+              )}
+            </TouchableOpacity>
+          </Reanimated.View>
           <View style={{ flex: 1 }}>
             <Text style={styles.greetSmall}>Good morning</Text>
             <Text style={styles.greetBig}>{greetingTitle}</Text>
@@ -381,17 +470,25 @@ export default function HomeTab() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.todayScroll}
         >
-          {todayCards.map((c) => (
-            <TouchableOpacity
+          {todayCards.map((c, i) => (
+            // Outer wrapper handles the mount animation (fade + slide up,
+            // staggered by 60ms per card so the strip reveals itself in
+            // sequence). Inner Pressable drives the press-scale via
+            // shared value — the two transforms don't conflict because
+            // the outer settles to identity after mount.
+            <Reanimated.View
               key={c.id}
-              activeOpacity={0.85}
-              onPress={c.onPress}
-              style={[styles.todayCard, { backgroundColor: c.bg }]}
+              entering={FadeInDown.delay(i * 60).duration(340).springify().damping(15)}
             >
-              <Ionicons name={c.icon as any} size={20} color={c.tint} />
-              <Text style={styles.todayVal} numberOfLines={2}>{c.value}</Text>
-              <Text style={styles.todaySub} numberOfLines={2}>{c.label}</Text>
-            </TouchableOpacity>
+              <AnimatedPressable
+                onPress={c.onPress}
+                style={[styles.todayCard, { backgroundColor: c.bg }]}
+              >
+                <Ionicons name={c.icon as any} size={20} color={c.tint} />
+                <Text style={styles.todayVal} numberOfLines={2}>{c.value}</Text>
+                <Text style={styles.todaySub} numberOfLines={2}>{c.label}</Text>
+              </AnimatedPressable>
+            </Reanimated.View>
           ))}
         </ScrollView>
 
@@ -541,58 +638,60 @@ export default function HomeTab() {
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Your week</Text>
             </View>
-            <View style={styles.weekGrid}>
-              <TouchableOpacity
+            <Reanimated.View
+              style={styles.weekGrid}
+              entering={FadeInUp.duration(420).springify().damping(16)}
+            >
+              <AnimatedPressable
                 style={styles.weekTile}
-                activeOpacity={0.85}
                 onPress={() => router.push('/(tabs)/wellness')}
               >
-                <Text style={styles.weekTileValue}>
-                  {weeklyDigest.moodLoggedDays}/7
-                </Text>
+                <AnimatedNumber
+                  value={weeklyDigest.moodLoggedDays}
+                  style={styles.weekTileValue}
+                  suffix="/7"
+                />
                 <Text style={styles.weekTileLabel}>Mood logged</Text>
                 {weeklyDigest.moodAvg !== null && (
                   <Text style={styles.weekTileSub}>
                     Avg {weeklyDigest.moodAvg.toFixed(1)}/5
                   </Text>
                 )}
-              </TouchableOpacity>
-              <TouchableOpacity
+              </AnimatedPressable>
+              <AnimatedPressable
                 style={styles.weekTile}
-                activeOpacity={0.85}
                 onPress={() => router.push('/(tabs)/health')}
               >
-                <Text
+                <AnimatedNumber
+                  value={weeklyDigest.vaccinesDone}
                   style={[
                     styles.weekTileValue,
                     weeklyDigest.vaccinesPending > 0 && { color: Colors.error },
                   ]}
-                >
-                  {weeklyDigest.vaccinesDone}
-                </Text>
+                />
                 <Text style={styles.weekTileLabel}>Vaccines done</Text>
                 <Text style={styles.weekTileSub}>
                   {weeklyDigest.vaccinesPending > 0
                     ? `${weeklyDigest.vaccinesPending} pending`
                     : 'All caught up'}
                 </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
+              </AnimatedPressable>
+              <AnimatedPressable
                 style={styles.weekTile}
-                activeOpacity={0.85}
                 onPress={() => router.push('/(tabs)/community')}
               >
-                <Text style={styles.weekTileValue}>
-                  {weeklyDigest.myPostsThisWeek}
-                </Text>
+                <AnimatedNumber
+                  value={weeklyDigest.myPostsThisWeek}
+                  style={styles.weekTileValue}
+                />
                 <Text style={styles.weekTileLabel}>Your posts</Text>
                 <Text style={styles.weekTileSub}>
                   {weeklyDigest.newNotifs > 0
                     ? `${weeklyDigest.newNotifs} new activity`
                     : 'Share your week'}
                 </Text>
-              </TouchableOpacity>
-            </View>
+              </AnimatedPressable>
+            </Reanimated.View>
           </>
         )}
 
@@ -1507,14 +1606,13 @@ function JumpTile({
   onPress: () => void;
 }) {
   return (
-    <TouchableOpacity
+    <AnimatedPressable
       style={[styles.jumpTile, { backgroundColor: bg }]}
-      activeOpacity={0.8}
       onPress={onPress}
     >
       <Ionicons name={icon as any} size={22} color={tint} />
       <Text style={[styles.jumpTileLabel, { color: tint }]}>{label}</Text>
-    </TouchableOpacity>
+    </AnimatedPressable>
   );
 }
 

@@ -9,6 +9,14 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSequence,
+  withSpring,
+  withTiming,
+  Easing,
+} from 'react-native-reanimated';
 import GradientAvatar from '../ui/GradientAvatar';
 import TagPill from '../ui/TagPill';
 import { Post } from '../../store/useCommunityStore';
@@ -44,6 +52,51 @@ function timeAgo(date: Date | string): string {
   if (hrs < 24) return `${hrs}h ago`;
   const days = Math.floor(hrs / 24);
   return `${days}d ago`;
+}
+
+// ─── ReactionPill ────────────────────────────────────────────────────
+// Small tappable pill with a scale pop on tap — the premium-feeling
+// "my reaction landed" signal. Pop runs entirely on the UI thread (shared
+// value + withSequence) so it's smooth even in long feeds.
+function ReactionPill({
+  emoji,
+  count,
+  active,
+  onPress,
+  onLongPress,
+}: {
+  emoji: string;
+  count: number;
+  active: boolean;
+  onPress: () => void;
+  onLongPress?: () => void;
+}) {
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+  const handlePress = () => {
+    scale.value = withSequence(
+      withTiming(1.18, { duration: 110, easing: Easing.out(Easing.quad) }),
+      withSpring(1, { damping: 9, stiffness: 220 }),
+    );
+    onPress();
+  };
+  return (
+    <Animated.View style={[animatedStyle]}>
+      <TouchableOpacity
+        onPress={handlePress}
+        onLongPress={onLongPress}
+        delayLongPress={250}
+        style={[styles.reactionPill, active && styles.reactionPillActive]}
+      >
+        <Text style={styles.reactionEmoji}>{emoji}</Text>
+        <Text style={[styles.reactionCount, active && styles.reactionCountActive]}>
+          {count}
+        </Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
 }
 
 export default function PostCard({
@@ -231,18 +284,14 @@ export default function PostCard({
         {post.reactions && Object.entries(post.reactions).map(([emoji, count]) => {
           const userReacted = isUserReacted(emoji);
           return (
-            <TouchableOpacity
+            <ReactionPill
               key={emoji}
+              emoji={emoji}
+              count={Math.max(0, count as number)}
+              active={userReacted}
               onPress={() => onReact(post.id, emoji)}
               onLongPress={onShowReactors ? () => onShowReactors(post.id, emoji) : undefined}
-              delayLongPress={250}
-              style={[styles.reactionPill, userReacted && styles.reactionPillActive]}
-            >
-              <Text style={styles.reactionEmoji}>{emoji}</Text>
-              <Text style={[styles.reactionCount, userReacted && styles.reactionCountActive]}>
-                {Math.max(0, count as number)}
-              </Text>
-            </TouchableOpacity>
+            />
           );
         })}
 

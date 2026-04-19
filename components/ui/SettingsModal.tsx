@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../store/useAuthStore';
 import { ConfirmationResult } from 'firebase/auth';
+import SuccessCheck from './SuccessCheck';
 import { useProfileStore, Kid, Profile, ParentGender, ParentRelation, calculateAgeInMonths, calculateAgeInWeeks, DEFAULT_VISIBILITY } from '../../store/useProfileStore';
 import {
   saveFullProfile,
@@ -662,9 +663,7 @@ function ChangePhoneView({
     >
       {success ? (
         <View style={cp.successCard}>
-          <View style={cp.successIcon}>
-            <Ionicons name="checkmark-circle" size={44} color="#16a34a" />
-          </View>
+          <SuccessCheck size={80} style={cp.successIcon} />
           <Text style={cp.successTitle}>Mobile verified</Text>
           <Text style={cp.successSub}>Your new number has been saved.</Text>
         </View>
