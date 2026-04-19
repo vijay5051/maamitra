@@ -61,7 +61,7 @@ export default function HomeTab() {
   const [notifsOpen, setNotifsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [settingsView, setSettingsView] = useState<
-    null | 'edit-profile' | 'privacy'
+    null | 'main' | 'edit-profile' | 'privacy'
   >(null);
 
   const { motherName, parentGender } = useProfileStore();
@@ -218,6 +218,13 @@ export default function HomeTab() {
                 <Text style={styles.badgeTxt}>{unreadCount}</Text>
               </View>
             )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.iconBtn, { marginLeft: 8 }]}
+            onPress={() => setSettingsView('main')}
+            accessibilityLabel="Settings"
+          >
+            <Ionicons name="settings-outline" size={22} color={Colors.textDark} />
           </TouchableOpacity>
         </View>
 

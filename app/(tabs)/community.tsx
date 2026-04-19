@@ -34,6 +34,9 @@ import UserPostsSheet from '../../components/community/UserPostsSheet';
 import EditPostModal from '../../components/community/EditPostModal';
 import NotificationsSheet from '../../components/community/NotificationsSheet';
 import ConversationsSheet from '../../components/community/ConversationsSheet';
+import UserSearchSheet from '../../components/community/UserSearchSheet';
+import ReactorsSheet from '../../components/community/ReactorsSheet';
+import type { CommunityPost } from '../../services/social';
 import ContextualAskChip from '../../components/ui/ContextualAskChip';
 import { EmailVerifyBanner } from '../../components/ui/EmailVerifyBanner';
 import { Fonts } from '../../constants/theme';
@@ -935,6 +938,9 @@ export default function CommunityScreen() {
   const [showMessages, setShowMessages] = useState(false);
   const [viewingUid, setViewingUid] = useState<string | null>(null);
   const [showOwnPosts, setShowOwnPosts] = useState(false);
+  const [showUserSearch, setShowUserSearch] = useState(false);
+  const [reactorsPost, setReactorsPost] = useState<CommunityPost | null>(null);
+  const [reactorsEmoji, setReactorsEmoji] = useState<string | undefined>(undefined);
   const [editingPost, setEditingPost] = useState<import('../../store/useCommunityStore').Post | null>(null);
   const { unreadTotal: unreadDMs, loadUnreadCount: loadDMCount } = useDMStore();
   const [refreshing, setRefreshing] = useState(false);
@@ -979,6 +985,16 @@ export default function CommunityScreen() {
         <View style={styles.headerInner}>
           <Text style={styles.headerTitle}>Connect</Text>
           <View style={styles.headerRight}>
+            {/* Search people */}
+            <TouchableOpacity
+              style={styles.notifBtn}
+              onPress={() => setShowUserSearch(true)}
+              activeOpacity={0.75}
+              accessibilityLabel="Search people"
+            >
+              <Ionicons name="search-outline" size={20} color="rgba(255,255,255,0.9)" />
+            </TouchableOpacity>
+
             {/* Messages */}
             <TouchableOpacity
               style={styles.notifBtn}
@@ -1062,49 +1078,6 @@ export default function CommunityScreen() {
         />
       )}
 
-      {/* Filter chips with right-fade gradient */}
-      <View style={styles.filtersWrap}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filtersRow}
-        >
-          {orderedFilters.map((f) => (
-            <TouchableOpacity
-              key={f}
-              onPress={() => setFilter(f)}
-              activeOpacity={0.75}
-              style={{ height: 32, borderRadius: 16, overflow: 'hidden' }}
-            >
-              {activeFilter === f ? (
-                <LinearGradient
-                  colors={['#E8487A', '#7C3AED']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={{ height: 32, borderRadius: 16, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' }}
-                >
-                  <Text style={{ fontFamily: Fonts.sansBold, fontSize: 12, color: '#ffffff' }}>{f}</Text>
-                </LinearGradient>
-              ) : (
-                <View style={{ height: 32, borderRadius: 16, paddingHorizontal: 14, backgroundColor: '#EDE9F6', alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={{ fontFamily: Fonts.sansMedium, fontSize: 12, color: '#7C3AED' }}>{f}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
-        {/* Fade overlay on right edge */}
-        <View style={styles.filterFadeRight} pointerEvents="none">
-          <LinearGradient
-            colors={['rgba(255,248,252,0)', '#FFF8FC']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={StyleSheet.absoluteFill}
-          />
-        </View>
-      </View>
-
       {/* Posts */}
       <FlatList
         data={posts}
@@ -1127,6 +1100,49 @@ export default function CommunityScreen() {
               onPostsPress={() => setShowOwnPosts(true)}
             />
             <ComposeCard onPress={() => setShowNewPost(true)} />
+
+            {/* Topic filters — below compose so posting is the primary action */}
+            <View style={styles.filtersWrap}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.filtersRow}
+              >
+                {orderedFilters.map((f) => (
+                  <TouchableOpacity
+                    key={f}
+                    onPress={() => setFilter(f)}
+                    activeOpacity={0.75}
+                    style={{ height: 32, borderRadius: 16, overflow: 'hidden' }}
+                  >
+                    {activeFilter === f ? (
+                      <LinearGradient
+                        colors={['#E8487A', '#7C3AED']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={{ height: 32, borderRadius: 16, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        <Text style={{ fontFamily: Fonts.sansBold, fontSize: 12, color: '#ffffff' }}>{f}</Text>
+                      </LinearGradient>
+                    ) : (
+                      <View style={{ height: 32, borderRadius: 16, paddingHorizontal: 14, backgroundColor: '#EDE9F6', alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ fontFamily: Fonts.sansMedium, fontSize: 12, color: '#7C3AED' }}>{f}</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              {/* Fade overlay on right edge */}
+              <View style={styles.filterFadeRight} pointerEvents="none">
+                <LinearGradient
+                  colors={['rgba(255,248,252,0)', '#FFF8FC']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={StyleSheet.absoluteFill}
+                />
+              </View>
+            </View>
           </>
         }
         renderItem={({ item }) => (
@@ -1175,6 +1191,14 @@ export default function CommunityScreen() {
                 Alert.alert('Error', 'Could not delete the comment. Please try again.');
               });
             } : undefined}
+            onShowReactors={(postId, emoji) => {
+              // CommunityPost type (from services/social) matches the shape
+              // we need for fetchPostReactors — cast is safe here.
+              const p = posts.find((x) => x.id === postId) as any as CommunityPost | undefined;
+              if (!p) return;
+              setReactorsPost(p);
+              setReactorsEmoji(emoji);
+            }}
           />
         )}
         ListEmptyComponent={
@@ -1211,6 +1235,25 @@ export default function CommunityScreen() {
             addPost(text, topic, motherName || 'Anonymous', imageUri, imageAspectRatio);
           }
         }}
+      />
+
+      {/* User search sheet — opened from header search icon */}
+      <UserSearchSheet
+        visible={showUserSearch}
+        onClose={() => setShowUserSearch(false)}
+        onSelectUser={(uid) => {
+          setViewingUid(uid);
+        }}
+      />
+
+      {/* Reactors sheet — opened from PostCard's "See who reacted" chip or
+          a long-press on a specific reaction emoji. */}
+      <ReactorsSheet
+        visible={reactorsPost !== null}
+        post={reactorsPost}
+        emojiFilter={reactorsEmoji}
+        onClose={() => { setReactorsPost(null); setReactorsEmoji(undefined); }}
+        onSelectUser={(uid) => setViewingUid(uid)}
       />
     </View>
   );

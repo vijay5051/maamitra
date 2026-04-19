@@ -927,9 +927,15 @@ export async function getUnreadCount(uid: string): Promise<number> {
 export async function upsertPublicProfile(uid: string, data: Partial<UserPublicProfile>): Promise<void> {
   if (!db) return;
   try {
+    // Mirror `name` into a lowercased `nameLower` so searchPublicProfiles
+    // can do a case-insensitive prefix range query without full-text search.
+    const withLower: Record<string, any> = { ...data, updatedAt: serverTimestamp() };
+    if (typeof data.name === 'string') {
+      withLower.nameLower = data.name.trim().toLowerCase();
+    }
     await setDoc(
       doc(db, 'publicProfiles', uid),
-      { ...data, updatedAt: serverTimestamp() },
+      withLower,
       { merge: true },
     );
   } catch (error) {
@@ -947,4 +953,115 @@ export async function getPublicProfile(uid: string): Promise<UserPublicProfile |
     console.error('getPublicProfile error:', error);
     return null;
   }
+}
+
+/**
+ * Fetch multiple public profiles in one shot. Keeps reads cheap when a list
+ * view (e.g. reactors, followers) needs to render 5–50 user cards.
+ * Falls back to one-by-one getDoc if the uid list is long — Firestore's
+ * `in` operator only accepts 30 values per query, so we chunk above that.
+ */
+export async function getPublicProfiles(uids: string[]): Promise<UserPublicProfile[]> {
+  if (!db || uids.length === 0) return [];
+  try {
+    const unique = Array.from(new Set(uids));
+    // Parallel single reads — avoids the 30-item `in` cap and is simple.
+    const snaps = await Promise.all(unique.map((uid) => getDoc(doc(db!, 'publicProfiles', uid))));
+    return snaps
+      .filter((s) => s.exists())
+      .map((s) => s.data() as UserPublicProfile);
+  } catch (error) {
+    console.error('getPublicProfiles error:', error);
+    return [];
+  }
+}
+
+/**
+ * Case-insensitive "starts with" search over the publicProfiles collection
+ * by name. Firestore doesn't support true full-text or case-insensitive
+ * search, so we store a lowercased mirror field `nameLower` when the
+ * profile is upserted, then use a range query against it.
+ *
+ * Results are capped at 30. Blocked users filter happens client-side via
+ * `excludeUids` so we don't need a composite index.
+ */
+export async function searchPublicProfiles(
+  queryText: string,
+  excludeUids: string[] = []
+): Promise<UserPublicProfile[]> {
+  if (!db) return [];
+  const raw = queryText.trim().toLowerCase();
+  if (!raw) return [];
+  try {
+    const col = collection(db, 'publicProfiles');
+    // Prefix range: all names that start with `raw`.
+    const q = query(
+      col,
+      orderBy('nameLower'),
+      where('nameLower', '>=', raw),
+      where('nameLower', '<', raw + '\uf8ff'),
+      limit(30)
+    );
+    const snap = await getDocs(q);
+    const excluded = new Set(excludeUids);
+    return snap.docs
+      .map((d) => d.data() as UserPublicProfile)
+      .filter((p) => !excluded.has(p.uid));
+  } catch (error) {
+    // Missing `nameLower` field on older profiles: fall back to an un-sorted
+    // `name` prefix scan, which works for users whose display name happens
+    // to already be lowercase or match exact case. Not ideal, but safer than
+    // crashing the UI when the collection is mid-migration.
+    console.warn('searchPublicProfiles primary query failed, falling back:', error);
+    try {
+      const col = collection(db, 'publicProfiles');
+      const q2 = query(col, orderBy('name'), limit(100));
+      const snap = await getDocs(q2);
+      const excluded = new Set(excludeUids);
+      return snap.docs
+        .map((d) => d.data() as UserPublicProfile)
+        .filter((p) => !excluded.has(p.uid))
+        .filter((p) => (p.name || '').toLowerCase().startsWith(raw))
+        .slice(0, 30);
+    } catch (fallbackErr) {
+      console.error('searchPublicProfiles fallback also failed:', fallbackErr);
+      return [];
+    }
+  }
+}
+
+// ─── Reactor list ────────────────────────────────────────────────────────────
+// Post docs already store `reactionsByUser: Record<uid, emoji[]>`. We don't
+// need another Firestore read to know WHO reacted — we just need to resolve
+// each uid to their public profile for name/photo.
+
+export interface ReactorEntry {
+  uid: string;
+  emojis: string[];
+  profile: UserPublicProfile | null;
+}
+
+/**
+ * Given a post, return the list of users who have reacted (any emoji),
+ * each with their public profile joined in. If `emojiFilter` is set, only
+ * includes users who reacted with that specific emoji.
+ */
+export async function fetchPostReactors(
+  post: CommunityPost,
+  emojiFilter?: string
+): Promise<ReactorEntry[]> {
+  const byUser = (post as any).reactionsByUser as Record<string, string[]> | undefined;
+  if (!byUser) return [];
+  const entries = Object.entries(byUser)
+    .map(([uid, emojis]) => ({ uid, emojis: emojis || [] }))
+    .filter((e) => e.emojis.length > 0)
+    .filter((e) => !emojiFilter || e.emojis.includes(emojiFilter));
+  if (entries.length === 0) return [];
+  const profiles = await getPublicProfiles(entries.map((e) => e.uid));
+  const byUid = new Map(profiles.map((p) => [p.uid, p]));
+  return entries.map((e) => ({
+    uid: e.uid,
+    emojis: e.emojis,
+    profile: byUid.get(e.uid) ?? null,
+  }));
 }

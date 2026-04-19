@@ -1104,7 +1104,8 @@ export default function SettingsModal({
             contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 32 }]}
             showsVerticalScrollIndicator={false}
           >
-            {/* Profile card */}
+            {/* Profile card — prominent Sign Out top-right so it's
+                never hidden behind scroll through Profile/Kids/Privacy. */}
             <View style={s.profileCard}>
               {photoUrl ? (
                 <RNImage source={{ uri: photoUrl }} style={s.avatar} />
@@ -1117,6 +1118,15 @@ export default function SettingsModal({
                 <Text style={s.profileName}>{motherName || user?.name || 'Mom'}</Text>
                 <Text style={s.profileEmail}>{user?.email || 'demo@maamitra.app'}</Text>
               </View>
+              <TouchableOpacity
+                onPress={loading ? undefined : () => setShowSignOutConfirm(true)}
+                disabled={loading}
+                activeOpacity={0.75}
+                style={s.signOutQuickBtn}
+              >
+                <Ionicons name="log-out-outline" size={16} color="#8b5cf6" />
+                <Text style={s.signOutQuickText}>{loading ? 'Signing out…' : 'Sign Out'}</Text>
+              </TouchableOpacity>
             </View>
 
             {/* Profile & Kids */}
@@ -1364,6 +1374,22 @@ const s = StyleSheet.create({
   profileInfo: { flex: 1 },
   profileName: { fontSize: 17, fontWeight: '700', color: '#1a1a2e' },
   profileEmail: { fontSize: 13, color: '#6b7280', marginTop: 2 },
+  signOutQuickBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    backgroundColor: '#faf5ff',
+    borderWidth: 1,
+    borderColor: '#ede9fe',
+  },
+  signOutQuickText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#8b5cf6',
+  },
 
   sectionHeader: {
     fontSize: 12,

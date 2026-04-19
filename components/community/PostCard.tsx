@@ -27,6 +27,9 @@ interface PostCardProps {
   onDeletePost?: (postId: string) => void;               // only provided for own posts
   onEditPost?: (postId: string) => void;                 // only provided for own posts
   onDeleteComment?: (postId: string, commentId: string) => void; // own comment or own post's comment
+  /** Tap on a reaction pill (long-press / secondary) → show who reacted.
+      If omitted, the reaction pill is just a tap-to-toggle. */
+  onShowReactors?: (postId: string, emoji?: string) => void;
 }
 
 const REACTION_OPTIONS = ['❤️', '🤱', '😊', '💪', '🙏', '💜'];
@@ -56,6 +59,7 @@ export default function PostCard({
   onDeletePost,
   onEditPost,
   onDeleteComment,
+  onShowReactors,
 }: PostCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [commentText, setCommentText] = useState('');
@@ -220,7 +224,9 @@ export default function PostCard({
         </View>
       ) : null}
 
-      {/* Reactions row */}
+      {/* Reactions row. Tap a pill to toggle your own reaction; long-press
+          (or tap the "who reacted" chevron below) to see the list of users
+          who reacted with that emoji. */}
       <View style={styles.reactionsRow}>
         {post.reactions && Object.entries(post.reactions).map(([emoji, count]) => {
           const userReacted = isUserReacted(emoji);
@@ -228,6 +234,8 @@ export default function PostCard({
             <TouchableOpacity
               key={emoji}
               onPress={() => onReact(post.id, emoji)}
+              onLongPress={onShowReactors ? () => onShowReactors(post.id, emoji) : undefined}
+              delayLongPress={250}
               style={[styles.reactionPill, userReacted && styles.reactionPillActive]}
             >
               <Text style={styles.reactionEmoji}>{emoji}</Text>
@@ -253,6 +261,22 @@ export default function PostCard({
           <Text style={styles.commentCount}>{post.commentCount ?? displayedComments?.length ?? 0}</Text>
         </TouchableOpacity>
       </View>
+
+      {/* "Who reacted" chip — shown when there's at least one reaction and
+          the parent provided a handler. Explicit affordance for users who
+          don't discover long-press on mobile. */}
+      {onShowReactors &&
+        post.reactions &&
+        Object.values(post.reactions).some((c: any) => (c as number) > 0) && (
+          <TouchableOpacity
+            onPress={() => onShowReactors(post.id)}
+            style={styles.reactorsLink}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="people-outline" size={14} color="#7C3AED" />
+            <Text style={styles.reactorsLinkText}>See who reacted</Text>
+          </TouchableOpacity>
+        )}
 
       {/* Reaction picker */}
       {showReactionPicker && (
@@ -559,6 +583,22 @@ const styles = StyleSheet.create({
   commentCount: {
     fontSize: 13,
     color: '#9ca3af',
+  },
+  reactorsLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 6,
+    marginLeft: 2,
+    alignSelf: 'flex-start',
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 8,
+  },
+  reactorsLinkText: {
+    fontSize: 12,
+    color: '#7C3AED',
+    fontWeight: '500',
   },
   reactionPicker: {
     flexDirection: 'row',
