@@ -17,13 +17,22 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../store/useAuthStore';
+import { ConfirmationResult } from 'firebase/auth';
 import { useProfileStore, Kid, Profile, ParentGender, ParentRelation, calculateAgeInMonths, calculateAgeInWeeks, DEFAULT_VISIBILITY } from '../../store/useProfileStore';
-import { saveFullProfile } from '../../services/firebase';
+import {
+  saveFullProfile,
+  saveUserProfile,
+  sendPhoneOtp,
+  verifyPhoneOtp,
+  resetPhoneRecaptcha,
+  PHONE_OTP_CONTAINER_ID,
+  PHONE_OTP_UNSUPPORTED,
+} from '../../services/firebase';
 import { uploadAvatar } from '../../services/storage';
 import DatePickerField from './DatePickerField';
 import StateSelectorComponent from '../onboarding/StateSelector';
 
-type ViewMode = 'main' | 'edit-profile' | 'edit-kid';
+type ViewMode = 'main' | 'edit-profile' | 'edit-kid' | 'change-phone';
 
 interface SettingsModalProps {
   visible: boolean;
@@ -528,6 +537,374 @@ function EditKidView({ kid, onBack, onRemove }: { kid: Kid; onBack: () => void; 
   );
 }
 
+// ─── Change Phone View ───────────────────────────────────────────────────────
+// OTP-gated mobile number change. The user CANNOT persist a new number
+// without completing the OTP step — same helper (`sendPhoneOtp`) as the
+// first-time flow, which auto-unlinks the old phone before linking the new.
+
+function validateIndianMobile(digits: string): string | null {
+  const clean = digits.replace(/\D/g, '');
+  if (clean.length === 0) return 'Please enter your mobile number';
+  if (clean.length !== 10) return 'Mobile number must be 10 digits';
+  if (!/^[6-9]/.test(clean)) return 'Please enter a valid Indian mobile number';
+  return null;
+}
+
+function friendlyOtpError(e: any): string {
+  const code = e?.code ?? '';
+  switch (code) {
+    case 'auth/invalid-phone-number': return 'That phone number format is invalid.';
+    case 'auth/too-many-requests': return 'Too many attempts. Please wait a few minutes and try again.';
+    case 'auth/invalid-verification-code': return 'That code is incorrect. Please check and try again.';
+    case 'auth/code-expired': return 'Code expired. Tap resend to get a new one.';
+    case 'auth/credential-already-in-use':
+    case 'auth/account-exists-with-different-credential':
+      return 'This number is already linked to another MaaMitra account.';
+    case 'auth/captcha-check-failed': return 'Security check failed. Please refresh the page and try again.';
+    case 'auth/quota-exceeded': return 'SMS quota reached. Please try again later.';
+    case 'auth/missing-phone-number': return 'Please enter your phone number.';
+    default: return `${code ? code + ': ' : ''}${e?.message ?? 'Something went wrong.'}`;
+  }
+}
+
+function ChangePhoneView({
+  onBack,
+  insetsBottom,
+}: {
+  onBack: () => void;
+  insetsBottom: number;
+}) {
+  const { user } = useAuthStore();
+  const currentPhone = useProfileStore((st) => st.phone);
+  const setPhone = useProfileStore((st) => st.setPhone);
+  const setPhoneVerified = useProfileStore((st) => st.setPhoneVerified);
+
+  const [step, setStep] = useState<'enter-number' | 'enter-code'>('enter-number');
+  const [digits, setDigits] = useState('');
+  const [code, setCode] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  const confirmationRef = useRef<ConfirmationResult | null>(null);
+  const e164 = `+91${digits.replace(/\D/g, '')}`;
+
+  const handleSendOtp = async () => {
+    const v = validateIndianMobile(digits);
+    if (v) { setError(v); return; }
+    if (!user?.uid) { setError('You are not signed in.'); return; }
+    // Don't allow "changing" to the same number
+    if (`+91${digits}` === currentPhone) {
+      setError('This is already your current mobile number.');
+      return;
+    }
+    setError('');
+    setBusy(true);
+    try {
+      const confirmation = await sendPhoneOtp(e164);
+      confirmationRef.current = confirmation;
+      setStep('enter-code');
+    } catch (e: any) {
+      if (e?.code === PHONE_OTP_UNSUPPORTED) {
+        setError('OTP verification is only available on web. Please use a browser to change your mobile number.');
+      } else {
+        setError(friendlyOtpError(e));
+        resetPhoneRecaptcha();
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    const clean = code.replace(/\D/g, '');
+    if (clean.length !== 6) { setError('Enter the 6-digit code from the SMS.'); return; }
+    if (!confirmationRef.current) {
+      setError('Verification expired. Please request a new code.');
+      setStep('enter-number');
+      return;
+    }
+    if (!user?.uid) return;
+    setError('');
+    setBusy(true);
+    try {
+      await verifyPhoneOtp(confirmationRef.current, clean);
+      // Only persist AFTER successful OTP — this is the whole point of
+      // the gate. Local store + Firestore stay in sync.
+      setPhone(e164);
+      setPhoneVerified(true);
+      await saveUserProfile(user.uid, { phone: e164, phoneVerified: true });
+      setSuccess(true);
+      // Brief success state before returning to settings
+      setTimeout(() => onBack(), 1200);
+    } catch (e: any) {
+      setError(friendlyOtpError(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleResend = () => {
+    confirmationRef.current = null;
+    resetPhoneRecaptcha();
+    setCode('');
+    setError('');
+    setStep('enter-number');
+  };
+
+  const isStep1 = step === 'enter-number';
+
+  return (
+    <ScrollView
+      contentContainerStyle={[s.content, { paddingBottom: insetsBottom + 32 }]}
+      showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+    >
+      {success ? (
+        <View style={cp.successCard}>
+          <View style={cp.successIcon}>
+            <Ionicons name="checkmark-circle" size={44} color="#16a34a" />
+          </View>
+          <Text style={cp.successTitle}>Mobile verified</Text>
+          <Text style={cp.successSub}>Your new number has been saved.</Text>
+        </View>
+      ) : (
+        <>
+          {/* Current number */}
+          {currentPhone ? (
+            <View style={cp.currentCard}>
+              <Text style={cp.currentLabel}>Current number</Text>
+              <Text style={cp.currentValue}>{currentPhone}</Text>
+            </View>
+          ) : null}
+
+          <Text style={s.editSectionTitle}>
+            {isStep1 ? 'New mobile number' : 'Enter the code we sent'}
+          </Text>
+          <Text style={cp.hint}>
+            {isStep1
+              ? "We'll send a one-time code to verify the new number. It stays private."
+              : `A 6-digit code was sent to ${e164}. It may take a few seconds.`}
+          </Text>
+
+          {isStep1 ? (
+            <View style={[cp.inputRow, error && cp.inputRowError]}>
+              <View style={cp.countryBox}>
+                <Text style={cp.flag}>🇮🇳</Text>
+                <Text style={cp.countryCode}>+91</Text>
+              </View>
+              <TextInput
+                value={digits}
+                onChangeText={(t) => { setDigits(t.replace(/\D/g, '').slice(0, 10)); setError(''); }}
+                placeholder="98765 43210"
+                placeholderTextColor="#9ca3af"
+                keyboardType="phone-pad"
+                maxLength={10}
+                style={cp.input}
+                autoFocus
+                returnKeyType="done"
+                onSubmitEditing={handleSendOtp}
+              />
+            </View>
+          ) : (
+            <View style={[cp.codeRow, error && cp.inputRowError]}>
+              <TextInput
+                value={code}
+                onChangeText={(t) => { setCode(t.replace(/\D/g, '').slice(0, 6)); setError(''); }}
+                placeholder="• • • • • •"
+                placeholderTextColor="#9ca3af"
+                keyboardType="number-pad"
+                maxLength={6}
+                style={cp.codeInput}
+                autoFocus
+                returnKeyType="done"
+                onSubmitEditing={handleVerifyOtp}
+              />
+            </View>
+          )}
+
+          {error ? <Text style={cp.errorText}>{error}</Text> : null}
+
+          <TouchableOpacity
+            onPress={isStep1 ? handleSendOtp : handleVerifyOtp}
+            disabled={busy || (isStep1 ? digits.length < 10 : code.length < 6)}
+            activeOpacity={0.85}
+            style={{ marginTop: 20 }}
+          >
+            <LinearGradient
+              colors={['#ec4899', '#8b5cf6']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={[
+                cp.primaryBtn,
+                (busy || (isStep1 ? digits.length < 10 : code.length < 6)) && cp.primaryBtnDisabled,
+              ]}
+            >
+              <Text style={cp.primaryBtnText}>
+                {busy
+                  ? (isStep1 ? 'Sending…' : 'Verifying…')
+                  : (isStep1 ? 'Send OTP' : 'Verify & Save')}
+              </Text>
+              {!busy && <Ionicons name="arrow-forward" size={16} color="#ffffff" style={{ marginLeft: 6 }} />}
+            </LinearGradient>
+          </TouchableOpacity>
+
+          {!isStep1 && (
+            <TouchableOpacity onPress={handleResend} activeOpacity={0.7} style={{ marginTop: 14, alignItems: 'center' }}>
+              <Text style={cp.resendText}>Didn't get the code? Resend / change number</Text>
+            </TouchableOpacity>
+          )}
+
+          <Text style={cp.legal}>
+            By continuing you agree to receive transactional SMS on this number. Standard carrier rates may apply.
+          </Text>
+        </>
+      )}
+
+      {/* Invisible reCAPTCHA container — required by Firebase Phone Auth on web.
+          React Native Web renders View as <div>, and nativeID becomes the HTML id. */}
+      <View nativeID={PHONE_OTP_CONTAINER_ID} style={cp.recaptcha} />
+    </ScrollView>
+  );
+}
+
+const cp = StyleSheet.create({
+  currentCard: {
+    backgroundColor: '#faf5ff',
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#ede9fe',
+    marginBottom: 20,
+  },
+  currentLabel: {
+    fontSize: 12,
+    color: '#9ca3af',
+    marginBottom: 2,
+  },
+  currentValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  hint: {
+    fontSize: 13,
+    color: '#6b7280',
+    lineHeight: 18,
+    marginBottom: 16,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+  },
+  inputRowError: {
+    borderColor: '#ef4444',
+  },
+  countryBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRightWidth: 1,
+    borderRightColor: '#e5e7eb',
+    gap: 6,
+  },
+  flag: { fontSize: 18 },
+  countryCode: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  input: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: Platform.OS === 'web' ? 10 : 12,
+    fontSize: 17,
+    color: '#111827',
+    letterSpacing: 0.5,
+  },
+  codeRow: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  codeInput: {
+    textAlign: 'center',
+    paddingVertical: Platform.OS === 'web' ? 14 : 16,
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#111827',
+    letterSpacing: 8,
+  },
+  errorText: {
+    fontSize: 13,
+    color: '#ef4444',
+    marginTop: 10,
+    marginLeft: 4,
+  },
+  primaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 12,
+  },
+  primaryBtnDisabled: {
+    opacity: 0.45,
+  },
+  primaryBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#ffffff',
+    letterSpacing: 0.2,
+  },
+  resendText: {
+    fontSize: 13,
+    color: '#6d1a7a',
+    fontWeight: '500',
+    textDecorationLine: 'underline',
+  },
+  legal: {
+    fontSize: 11,
+    color: '#9ca3af',
+    lineHeight: 16,
+    marginTop: 20,
+    textAlign: 'center',
+  },
+  recaptcha: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    width: 1,
+    height: 1,
+    opacity: 0,
+  },
+  successCard: {
+    alignItems: 'center',
+    paddingTop: 48,
+  },
+  successIcon: {
+    marginBottom: 12,
+  },
+  successTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  successSub: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+});
+
 // ─── Main Modal ───────────────────────────────────────────────────────────────
 
 export default function SettingsModal({
@@ -539,7 +916,7 @@ export default function SettingsModal({
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user, signOut, deleteAccount } = useAuthStore();
-  const { motherName, profile, kids, visibilitySettings, setVisibilitySettings, removeKid, photoUrl } = useProfileStore();
+  const { motherName, profile, kids, visibilitySettings, setVisibilitySettings, removeKid, photoUrl, phone, phoneVerified } = useProfileStore();
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>(initialView ?? 'main');
   const [editingKidId, setEditingKidId] = useState<string | null>(null);
@@ -693,7 +1070,9 @@ export default function SettingsModal({
 
   const initials = (motherName || user?.name || 'M').slice(0, 1).toUpperCase();
 
-  const headerTitle = viewMode === 'edit-profile'
+  const headerTitle = viewMode === 'change-phone'
+    ? (phone ? 'Change Mobile Number' : 'Add Mobile Number')
+    : viewMode === 'edit-profile'
     ? 'Edit Profile ✏️'
     : viewMode === 'edit-kid'
     ? `Edit ${editingKid?.name ?? 'Child'} ✏️`
@@ -753,6 +1132,13 @@ export default function SettingsModal({
                 icon="mail-outline"
                 label="Email"
                 value={user?.email || '—'}
+              />
+              <View style={s.divider} />
+              <SettingsRow
+                icon="call-outline"
+                label={phoneVerified ? 'Mobile ✓' : 'Mobile'}
+                value={phone || 'Not added'}
+                onPress={() => setViewMode('change-phone')}
               />
               {profile && (
                 <>
@@ -888,6 +1274,11 @@ export default function SettingsModal({
         {/* Edit kid view */}
         {viewMode === 'edit-kid' && editingKid && (
           <EditKidView kid={editingKid} onBack={handleBack} onRemove={handleRemoveKid} />
+        )}
+
+        {/* Change phone view — gated by OTP verification */}
+        {viewMode === 'change-phone' && (
+          <ChangePhoneView onBack={handleBack} insetsBottom={insets.bottom} />
         )}
       </View>
 

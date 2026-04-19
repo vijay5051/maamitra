@@ -18,6 +18,7 @@ import {
   reload,
   RecaptchaVerifier,
   linkWithPhoneNumber,
+  unlink,
   ConfirmationResult,
 } from 'firebase/auth';
 import {
@@ -367,6 +368,10 @@ export function resetPhoneRecaptcha(): void {
  * Send an OTP SMS to {e164Phone}. Returns a ConfirmationResult the caller
  * must hold on to and pass back to {verifyPhoneOtp}. Throws if the user
  * isn't signed in, the platform is native, or Firebase rejects.
+ *
+ * Works for BOTH first-time add and change-phone flows — if the user
+ * already has a phone credential linked, it's unlinked first so the new
+ * number can be linked cleanly without 'auth/provider-already-linked'.
  */
 export async function sendPhoneOtp(e164Phone: string): Promise<ConfirmationResult> {
   if (Platform.OS !== 'web') {
@@ -377,6 +382,19 @@ export async function sendPhoneOtp(e164Phone: string): Promise<ConfirmationResul
   if (!auth) throw new Error('Auth not configured');
   const user = auth.currentUser;
   if (!user) throw new Error('You must be signed in before verifying your phone.');
+
+  // If this user already has a phone credential linked (change-phone flow),
+  // unlink it first so linkWithPhoneNumber below can proceed. Failure to
+  // unlink isn't fatal — linkWithPhoneNumber will surface a clearer error
+  // if there's really a problem.
+  const hasPhone = user.providerData.some((p) => p.providerId === 'phone');
+  if (hasPhone) {
+    try {
+      await unlink(user, 'phone');
+    } catch (e) {
+      console.warn('unlink existing phone failed:', e);
+    }
+  }
 
   // Reuse the verifier across attempts — recreating it on every send leaks
   // reCAPTCHA widgets into the DOM and starts rate-limiting.
