@@ -689,7 +689,7 @@ export default function HomeTab() {
             label="My health"
             bg="#FFF7ED"
             tint="#EA580C"
-            onPress={() => router.push({ pathname: '/(tabs)/health', params: { tab: 'my-health' } })}
+            onPress={() => router.push({ pathname: '/(tabs)/health', params: { tab: 'myhealth' } })}
           />
           <JumpTile
             icon="search-outline"
