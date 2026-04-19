@@ -53,6 +53,11 @@ const FIRST_RUN_KEY = 'maamitra-home-first-run-v1';
 export default function HomeTab() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  // Avatar tap opens a quick-access profile hub with shortcuts to
+  // Edit Profile, Library, Health records, Notifications, Privacy,
+  // Help & Support. Distinct from the header's gear icon which opens
+  // the full Settings modal.
+  const [profileOpen, setProfileOpen] = useState(false);
   const [firstRunOpen, setFirstRunOpen] = useState(false);
 
   // Shared sheets — same components the Community tab uses, so users see
@@ -67,7 +72,7 @@ export default function HomeTab() {
     null | 'main' | 'edit-profile' | 'privacy'
   >(null);
 
-  const { motherName, parentGender } = useProfileStore();
+  const { motherName, parentGender, photoUrl } = useProfileStore();
   const { activeKid, ageLabel } = useActiveKid();
   const moodHistory = useWellnessStore((s) => s.moodHistory);
   // Subscribe to the per-kid teeth map so the home Quick Action card stays
@@ -177,14 +182,18 @@ export default function HomeTab() {
         <View style={styles.headerRow}>
           <TouchableOpacity
             style={styles.avatar}
-            onPress={() => setSettingsView('edit-profile')}
-            accessibilityLabel="Edit profile"
+            onPress={() => setProfileOpen(true)}
+            accessibilityLabel="Profile menu"
           >
-            <LinearGradient colors={Gradients.avatar} style={styles.avatarInner}>
-              <Text style={styles.avatarTxt}>
-                {firstName.charAt(0).toUpperCase()}
-              </Text>
-            </LinearGradient>
+            {photoUrl ? (
+              <Image source={{ uri: photoUrl }} style={styles.avatarPhoto} />
+            ) : (
+              <LinearGradient colors={Gradients.avatar} style={styles.avatarInner}>
+                <Text style={styles.avatarTxt}>
+                  {firstName.charAt(0).toUpperCase()}
+                </Text>
+              </LinearGradient>
+            )}
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={styles.greetSmall}>Good morning</Text>
@@ -411,6 +420,137 @@ export default function HomeTab() {
           </>
         )}
       </ScrollView>
+
+      {/* Profile hub — quick-access menu opened from the avatar. Grouped
+          by intent (You / Content / Activity / Support) for less scanning.
+          Edit Profile, Privacy and Notifications still live in Settings
+          too; this is the shortcut surface, not a duplicate. */}
+      <Modal
+        visible={profileOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setProfileOpen(false)}
+      >
+        <TouchableOpacity
+          activeOpacity={1}
+          style={styles.sheetOverlay}
+          onPress={() => setProfileOpen(false)}
+        >
+          <TouchableOpacity activeOpacity={1} style={styles.sheet}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.sheetHeader}>
+              {photoUrl ? (
+                <Image source={{ uri: photoUrl }} style={styles.sheetAvatarPhoto} />
+              ) : (
+                <LinearGradient colors={Gradients.avatar} style={styles.sheetAvatar}>
+                  <Text style={styles.avatarTxt}>
+                    {firstName.charAt(0).toUpperCase()}
+                  </Text>
+                </LinearGradient>
+              )}
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sheetName}>{motherName || firstName}</Text>
+                <Text style={styles.sheetEmail}>
+                  {parentGender === 'father'
+                    ? 'Dad'
+                    : parentGender === 'other'
+                    ? 'Parent'
+                    : 'Mom'}
+                  {activeKid ? ` · ${activeKid.name}` : ''}
+                </Text>
+              </View>
+            </View>
+
+            {/* You */}
+            <Text style={styles.sheetSectionLabel}>You</Text>
+            <ProfileRow
+              icon="person-outline"
+              label="Edit profile"
+              sub="Name, photo, bio, children"
+              onPress={() => {
+                setProfileOpen(false);
+                setTimeout(() => setSettingsView('edit-profile'), 120);
+              }}
+            />
+            <ProfileRow
+              icon="lock-closed-outline"
+              label="Privacy"
+              sub="Control what others can see"
+              onPress={() => {
+                setProfileOpen(false);
+                setTimeout(() => setSettingsView('privacy'), 120);
+              }}
+            />
+
+            {/* Content */}
+            <Text style={styles.sheetSectionLabel}>Content</Text>
+            <ProfileRow
+              icon="book-outline"
+              label="Library"
+              sub="Articles & guides"
+              onPress={() => {
+                setProfileOpen(false);
+                router.push('/(tabs)/library');
+              }}
+            />
+            <ProfileRow
+              icon="medical-outline"
+              label="Health records"
+              sub="Reports, prescriptions"
+              onPress={() => {
+                setProfileOpen(false);
+                router.push('/(tabs)/health');
+              }}
+            />
+
+            {/* Activity */}
+            <Text style={styles.sheetSectionLabel}>Activity</Text>
+            <ProfileRow
+              icon="notifications-outline"
+              label="Notifications"
+              sub={
+                socialUnread > 0
+                  ? `${socialUnread} new notification${socialUnread === 1 ? '' : 's'}`
+                  : 'Reactions, comments, follows'
+              }
+              onPress={() => {
+                setProfileOpen(false);
+                setTimeout(() => setNotifsOpen(true), 120);
+              }}
+            />
+            <ProfileRow
+              icon="chatbubbles-outline"
+              label="Messages"
+              sub={unreadDMs > 0 ? `${unreadDMs} unread` : 'Direct messages'}
+              onPress={() => {
+                setProfileOpen(false);
+                setTimeout(() => setMessagesOpen(true), 120);
+              }}
+            />
+
+            {/* Support */}
+            <Text style={styles.sheetSectionLabel}>Support</Text>
+            <ProfileRow
+              icon="help-circle-outline"
+              label="Help & support"
+              sub="FAQ, email us, send a message"
+              onPress={() => {
+                setProfileOpen(false);
+                setTimeout(() => setHelpOpen(true), 120);
+              }}
+            />
+            <ProfileRow
+              icon="settings-outline"
+              label="All settings"
+              sub="Full settings, sign out, delete account"
+              onPress={() => {
+                setProfileOpen(false);
+                setTimeout(() => setSettingsView('main'), 120);
+              }}
+            />
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Messages sheet — shared with Community tab so users see the
           same DM list regardless of entry point. */}
@@ -1034,6 +1174,7 @@ const styles = StyleSheet.create({
   },
   avatar: { width: 44, height: 44, borderRadius: 22, overflow: 'hidden' },
   avatarInner: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  avatarPhoto: { width: 44, height: 44, borderRadius: 22 },
   avatarTxt: {
     color: '#fff',
     fontFamily: Fonts.sansBold,
@@ -1321,6 +1462,21 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  sheetAvatarPhoto: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+  },
+  sheetSectionLabel: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 11,
+    color: Colors.textMuted,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    paddingHorizontal: Spacing.md,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.xs,
   },
   sheetName: {
     fontFamily: Fonts.sansSemiBold,
