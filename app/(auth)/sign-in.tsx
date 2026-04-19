@@ -287,6 +287,7 @@ export default function SignInScreen() {
       setApiError('Authentication is not configured.');
       return;
     }
+    console.log('[GoogleSignIn] click → opening popup');
     setGoogleLoading(true);
     setApiError('');
     const provider = buildGoogleProvider();
@@ -294,15 +295,21 @@ export default function SignInScreen() {
     // Sync call — keeps the user-gesture chain intact on iOS Safari.
     signInWithPopup(auth, provider)
       .then(async (credential) => {
+        console.log('[GoogleSignIn] popup resolved, uid:', credential.user.uid);
         const destination = await onGoogleCredential(credential);
+        console.log('[GoogleSignIn] destination:', destination);
         if (destination === 'tabs') router.replace('/(tabs)/');
         else if (destination === 'phone') router.replace('/(auth)/phone');
         else router.replace('/(auth)/onboarding');
       })
       .catch((e: any) => {
         const code = e?.code ?? '';
+        console.log('[GoogleSignIn] error:', code, e?.message);
         if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
-          // User closed the popup intentionally — silent
+          // Don't swallow silently — users assume the button is broken. Tell
+          // them the popup closed and offer a retry.
+          setApiError('Sign-in window closed before completing. Please try again.');
+          triggerShake();
           return;
         }
         if (code === 'auth/popup-blocked') {

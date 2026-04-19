@@ -353,20 +353,26 @@ export default function SignUpScreen() {
       setApiError('Authentication is not configured.');
       return;
     }
+    console.log('[GoogleSignUp] click → opening popup');
     setGoogleLoading(true);
     setApiError('');
     const provider = buildGoogleProvider();
 
     signInWithPopup(auth, provider)
       .then(async (credential) => {
+        console.log('[GoogleSignUp] popup resolved, uid:', credential.user.uid);
         const destination = await onGoogleCredential(credential);
+        console.log('[GoogleSignUp] destination:', destination);
         if (destination === 'tabs') router.replace('/(tabs)/');
         else if (destination === 'phone') router.replace('/(auth)/phone');
         else router.replace('/(auth)/onboarding');
       })
       .catch((e: any) => {
         const code = e?.code ?? '';
+        console.log('[GoogleSignUp] error:', code, e?.message);
         if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+          setApiError('Sign-in window closed before completing. Please try again.');
+          triggerShake();
           return;
         }
         if (code === 'auth/popup-blocked') {
