@@ -16,6 +16,9 @@ import {
   UserCredential,
   sendEmailVerification,
   reload,
+  RecaptchaVerifier,
+  linkWithPhoneNumber,
+  ConfirmationResult,
 } from 'firebase/auth';
 import {
   getFirestore,
@@ -161,6 +164,7 @@ export interface FullProfileData {
   teethTracking?: Record<string, Record<string, any>>; // Per-kid teething: { kidId: { toothId: ToothEntry } }
   hasSeenIntro?: boolean;                   // Home first-run popup dismissed once
   phone?: string;                           // E.164-ish mobile number, e.g. "+919876543210"
+  phoneVerified?: boolean;                  // True if the number was OTP-verified
 }
 
 export async function saveFullProfile(uid: string, data: FullProfileData): Promise<void> {
@@ -208,6 +212,7 @@ export async function loadFullProfile(uid: string): Promise<FullProfileData | nu
       teethTracking: d.teethTracking ?? {},
       hasSeenIntro: d.hasSeenIntro === true,
       phone: d.phone ?? '',
+      phoneVerified: d.phoneVerified === true,
     };
   } catch (error) {
     console.error('loadFullProfile error:', error);
@@ -326,6 +331,73 @@ export async function getGoogleRedirectResult(): Promise<{ uid: string; name: st
     console.error('getGoogleRedirectResult error:', error);
     return null;
   }
+}
+
+// ─── Phone OTP (web) ─────────────────────────────────────────────────────────
+//
+// Firebase phone auth requires reCAPTCHA on web. We build an INVISIBLE
+// verifier against a DOM element the phone screen renders. The flow:
+//   1. phone screen mounts <View nativeID="recaptcha-container" />
+//   2. on "Send OTP", we call sendPhoneOtp(e164) — which creates (once) a
+//      RecaptchaVerifier bound to that div and triggers linkWithPhoneNumber
+//      on the CURRENTLY SIGNED-IN user (Google / email). Linking means the
+//      phone becomes a second credential on the same account — the user
+//      doesn't get "signed out" of their Google identity.
+//   3. Firebase sends the SMS. We stash the ConfirmationResult.
+//   4. on "Verify", caller invokes confirmation.confirm(code). Success
+//      populates auth.currentUser.phoneNumber.
+//
+// Native platforms return throw ISS_UNSUPPORTED — the UI falls back to
+// saving the number without OTP verification.
+
+export const PHONE_OTP_CONTAINER_ID = 'recaptcha-container';
+export const PHONE_OTP_UNSUPPORTED = 'phone-otp/unsupported-platform';
+
+let _recaptchaVerifier: RecaptchaVerifier | null = null;
+
+/** Reset between attempts so a new reCAPTCHA token is generated. */
+export function resetPhoneRecaptcha(): void {
+  if (_recaptchaVerifier) {
+    try { _recaptchaVerifier.clear(); } catch {}
+    _recaptchaVerifier = null;
+  }
+}
+
+/**
+ * Send an OTP SMS to {e164Phone}. Returns a ConfirmationResult the caller
+ * must hold on to and pass back to {verifyPhoneOtp}. Throws if the user
+ * isn't signed in, the platform is native, or Firebase rejects.
+ */
+export async function sendPhoneOtp(e164Phone: string): Promise<ConfirmationResult> {
+  if (Platform.OS !== 'web') {
+    const err: any = new Error('Phone OTP is only supported on web in this build.');
+    err.code = PHONE_OTP_UNSUPPORTED;
+    throw err;
+  }
+  if (!auth) throw new Error('Auth not configured');
+  const user = auth.currentUser;
+  if (!user) throw new Error('You must be signed in before verifying your phone.');
+
+  // Reuse the verifier across attempts — recreating it on every send leaks
+  // reCAPTCHA widgets into the DOM and starts rate-limiting.
+  if (!_recaptchaVerifier) {
+    _recaptchaVerifier = new RecaptchaVerifier(auth, PHONE_OTP_CONTAINER_ID, {
+      size: 'invisible',
+    });
+  }
+
+  // linkWithPhoneNumber attaches the phone credential to the currently
+  // signed-in user (Google/email). signInWithPhoneNumber would REPLACE the
+  // auth session, which we don't want.
+  return await linkWithPhoneNumber(user, e164Phone, _recaptchaVerifier);
+}
+
+/** Confirm the 6-digit code. Throws on invalid code / expired / too many tries. */
+export async function verifyPhoneOtp(
+  confirmation: ConfirmationResult,
+  code: string
+): Promise<void> {
+  await confirmation.confirm(code);
 }
 
 // ─── Email Verification ───────────────────────────────────────────────────────

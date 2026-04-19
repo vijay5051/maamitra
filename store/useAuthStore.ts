@@ -61,7 +61,7 @@ async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
       }
     });
     setOnboardingComplete(fullProfile.onboardingComplete);
-    const { setParentGender, setBio, setExpertise, setPhotoUrl, setVisibilitySettings, setHasSeenIntro, setPhone } = useProfileStore.getState();
+    const { setParentGender, setBio, setExpertise, setPhotoUrl, setVisibilitySettings, setHasSeenIntro, setPhone, setPhoneVerified } = useProfileStore.getState();
     if (fullProfile.parentGender) setParentGender(fullProfile.parentGender as any);
     if (fullProfile.bio) setBio(fullProfile.bio);
     if (fullProfile.expertise?.length) setExpertise(fullProfile.expertise);
@@ -69,6 +69,7 @@ async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
     if (fullProfile.visibilitySettings) setVisibilitySettings(fullProfile.visibilitySettings);
     setHasSeenIntro(!!fullProfile.hasSeenIntro);
     if (fullProfile.phone) setPhone(fullProfile.phone);
+    setPhoneVerified(!!fullProfile.phoneVerified);
 
     // Restore My Health checklist into AsyncStorage so health.tsx picks it up on mount
     if (fullProfile.healthTracking && Object.keys(fullProfile.healthTracking).length > 0) {

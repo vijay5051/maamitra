@@ -90,6 +90,8 @@ interface ProfileState {
 
   /** E.164-ish format — e.g. "+919876543210". Captured after sign-in. */
   phone: string;
+  /** True if the phone was verified via OTP. False = unverified fallback. */
+  phoneVerified: boolean;
 
   // UX flags (synced to Firestore users/{uid}.hasSeenIntro)
   hasSeenIntro: boolean;
@@ -115,6 +117,7 @@ interface ProfileState {
   setExpertise: (tags: string[]) => void;
   setVisibilitySettings: (s: Partial<VisibilitySettings>) => void;
   setPhone: (phone: string) => void;
+  setPhoneVerified: (verified: boolean) => void;
 }
 
 export const useProfileStore = create<ProfileState>()(
@@ -134,6 +137,7 @@ export const useProfileStore = create<ProfileState>()(
       expertise: [],
       visibilitySettings: DEFAULT_VISIBILITY,
       phone: '',
+      phoneVerified: false,
 
       hasSeenIntro: false,
       setHasSeenIntro: (v: boolean) => set({ hasSeenIntro: v }),
@@ -236,6 +240,7 @@ export const useProfileStore = create<ProfileState>()(
           visibilitySettings: DEFAULT_VISIBILITY,
           hasSeenIntro: false,
           phone: '',
+          phoneVerified: false,
         }),
 
       setPhotoUrl: (url) => set({ photoUrl: url }),
@@ -245,6 +250,7 @@ export const useProfileStore = create<ProfileState>()(
       setVisibilitySettings: (s) =>
         set((state) => ({ visibilitySettings: { ...state.visibilitySettings, ...s } })),
       setPhone: (phone) => set({ phone }),
+      setPhoneVerified: (verified) => set({ phoneVerified: verified }),
     }),
     {
       name: 'maamitra-profile',
