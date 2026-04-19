@@ -88,6 +88,9 @@ interface ProfileState {
   expertise: string[];
   visibilitySettings: VisibilitySettings;
 
+  /** E.164-ish format — e.g. "+919876543210". Captured after sign-in. */
+  phone: string;
+
   // UX flags (synced to Firestore users/{uid}.hasSeenIntro)
   hasSeenIntro: boolean;
   setHasSeenIntro: (v: boolean) => void;
@@ -111,6 +114,7 @@ interface ProfileState {
   setBio: (bio: string) => void;
   setExpertise: (tags: string[]) => void;
   setVisibilitySettings: (s: Partial<VisibilitySettings>) => void;
+  setPhone: (phone: string) => void;
 }
 
 export const useProfileStore = create<ProfileState>()(
@@ -129,6 +133,7 @@ export const useProfileStore = create<ProfileState>()(
       bio: '',
       expertise: [],
       visibilitySettings: DEFAULT_VISIBILITY,
+      phone: '',
 
       hasSeenIntro: false,
       setHasSeenIntro: (v: boolean) => set({ hasSeenIntro: v }),
@@ -230,6 +235,7 @@ export const useProfileStore = create<ProfileState>()(
           expertise: [],
           visibilitySettings: DEFAULT_VISIBILITY,
           hasSeenIntro: false,
+          phone: '',
         }),
 
       setPhotoUrl: (url) => set({ photoUrl: url }),
@@ -238,6 +244,7 @@ export const useProfileStore = create<ProfileState>()(
       setExpertise: (tags) => set({ expertise: tags }),
       setVisibilitySettings: (s) =>
         set((state) => ({ visibilitySettings: { ...state.visibilitySettings, ...s } })),
+      setPhone: (phone) => set({ phone }),
     }),
     {
       name: 'maamitra-profile',

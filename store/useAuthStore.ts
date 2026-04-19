@@ -5,6 +5,7 @@ import {
   signOut as firebaseSignOut,
   onAuthStateChanged,
   reload as reloadFirebaseUser,
+  UserCredential,
 } from 'firebase/auth';
 import {
   isFirebaseConfigured,
@@ -13,7 +14,7 @@ import {
   loadFullProfile,
   saveFullProfile,
   deleteUserAccount,
-  signInWithGoogle as firebaseSignInWithGoogle,
+  finaliseGoogleSignIn,
   getGoogleRedirectResult,
   sendVerificationEmail,
 } from '../services/firebase';
@@ -60,13 +61,14 @@ async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
       }
     });
     setOnboardingComplete(fullProfile.onboardingComplete);
-    const { setParentGender, setBio, setExpertise, setPhotoUrl, setVisibilitySettings, setHasSeenIntro } = useProfileStore.getState();
+    const { setParentGender, setBio, setExpertise, setPhotoUrl, setVisibilitySettings, setHasSeenIntro, setPhone } = useProfileStore.getState();
     if (fullProfile.parentGender) setParentGender(fullProfile.parentGender as any);
     if (fullProfile.bio) setBio(fullProfile.bio);
     if (fullProfile.expertise?.length) setExpertise(fullProfile.expertise);
     if (fullProfile.photoUrl) setPhotoUrl(fullProfile.photoUrl);
     if (fullProfile.visibilitySettings) setVisibilitySettings(fullProfile.visibilitySettings);
     setHasSeenIntro(!!fullProfile.hasSeenIntro);
+    if (fullProfile.phone) setPhone(fullProfile.phone);
 
     // Restore My Health checklist into AsyncStorage so health.tsx picks it up on mount
     if (fullProfile.healthTracking && Object.keys(fullProfile.healthTracking).length > 0) {
@@ -117,13 +119,21 @@ const NOT_CONFIGURED = new Error(
   'Authentication is not configured. Please check your Firebase env vars.'
 );
 
+export type AuthDestination = 'onboarding' | 'phone' | 'tabs';
+
 interface AuthState {
   user: AuthUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, name: string) => Promise<void>;
-  signInWithGoogle: () => Promise<'onboarding' | 'tabs' | null>;
+  /**
+   * Hydrate the store from a Firebase UserCredential that the caller
+   * obtained by calling `signInWithPopup` synchronously. The split is
+   * critical on iOS Safari where any await between click and popup kills
+   * the user gesture.
+   */
+  onGoogleCredential: (credential: UserCredential) => Promise<AuthDestination>;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<void>;
   resendVerificationEmail: () => Promise<void>;
@@ -191,27 +201,35 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  signInWithGoogle: async () => {
+  onGoogleCredential: async (credential: UserCredential): Promise<AuthDestination> => {
     if (!isFirebaseConfigured() || !auth) {
       throw NOT_CONFIGURED;
     }
     // Wipe local data before loading new user
     useProfileStore.getState().resetProfile();
     set({ isLoading: true });
-    const result = await firebaseSignInWithGoogle();
-    if (!result) { set({ isLoading: false }); return null; } // User cancelled
-    // Hydrate profile (single Firestore read). Previously we also called
-    // getUserProfile() here — that was the SAME doc loaded twice, ~1-2s
-    // slower through App Check / reCAPTCHA. Dropped.
-    const hadProfile = await hydrateProfileFromFirestore(result.uid);
-    const authUser: AuthUser = {
-      ...result,
-      emailVerified: auth.currentUser?.emailVerified ?? true,
-      isGoogleSignIn: true,
-    };
-    set({ user: authUser, isAuthenticated: true, isLoading: false });
-    // If profile has onboardingComplete, go to tabs; otherwise onboarding
-    return hadProfile ? 'tabs' : 'onboarding';
+    try {
+      // Persist the minimal user doc (name/email/createdAt) so the subsequent
+      // hydrate has something to read for first-time Google users.
+      const result = await finaliseGoogleSignIn(credential);
+      const hadProfile = await hydrateProfileFromFirestore(result.uid);
+      const authUser: AuthUser = {
+        ...result,
+        emailVerified: auth.currentUser?.emailVerified ?? true,
+        isGoogleSignIn: true,
+      };
+      set({ user: authUser, isAuthenticated: true, isLoading: false });
+
+      // Route: need onboarding → onboarding. Onboarded but no phone → phone.
+      // Fully ready → tabs.
+      if (!hadProfile) return 'onboarding';
+      const phone = useProfileStore.getState().phone;
+      if (!phone) return 'phone';
+      return 'tabs';
+    } catch (error) {
+      set({ isLoading: false });
+      throw error;
+    }
   },
 
   signOut: async () => {

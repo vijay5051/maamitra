@@ -26,7 +26,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useProfileStore } from '../../store/useProfileStore';
 import { Fonts } from '../../constants/theme';
+import {
+  auth,
+  signInWithPopup,
+  signInWithRedirect,
+  buildGoogleProvider,
+} from '../../services/firebase';
 
 // ─── Animated Field ───────────────────────────────────────────────────────────
 
@@ -207,7 +214,7 @@ function validate(email: string, password: string) {
 export default function SignInScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { signIn, signInWithGoogle } = useAuthStore();
+  const { signIn, onGoogleCredential } = useAuthStore();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -233,6 +240,13 @@ export default function SignInScreen() {
     );
   };
 
+  const routeAfterSignIn = () => {
+    const { onboardingComplete, phone } = useProfileStore.getState();
+    if (!onboardingComplete) router.replace('/(auth)/onboarding');
+    else if (!phone) router.replace('/(auth)/phone');
+    else router.replace('/(tabs)/');
+  };
+
   const handleSubmit = async () => {
     const validationErrors = validate(email, password);
     if (Object.keys(validationErrors).length > 0) {
@@ -245,7 +259,7 @@ export default function SignInScreen() {
     setLoading(true);
     try {
       await signIn(email.trim(), password.trim());
-      router.replace('/(tabs)/');
+      routeAfterSignIn();
     } catch (e: any) {
       const code = e?.code ?? '';
       if (code === 'auth/user-not-found' || code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
@@ -263,33 +277,53 @@ export default function SignInScreen() {
     }
   };
 
-  const handleGoogleSignIn = async () => {
+  // CRITICAL iOS Safari rule: signInWithPopup MUST be called in the same
+  // synchronous task as the user gesture. Any `await` between click and
+  // popup call breaks the gesture link and the browser blocks the popup.
+  // So this handler is NOT async — it kicks off signInWithPopup directly
+  // and then handles the promise.
+  const handleGoogleSignIn = () => {
+    if (!auth) {
+      setApiError('Authentication is not configured.');
+      return;
+    }
     setGoogleLoading(true);
     setApiError('');
-    try {
-      const destination = await signInWithGoogle();
-      if (destination === 'tabs') router.replace('/(tabs)/');
-      else if (destination === 'onboarding') router.replace('/(auth)/onboarding');
-      else {
-        // null destination = popup closed / blocked before completing.
-        // Tell the user explicitly so they don't stare at a silent button.
-        setApiError('Sign-in window was blocked or closed. Allow popups for this site and try again.');
-      }
-    } catch (e: any) {
-      const code = e?.code ?? '';
-      if (code === 'auth/popup-blocked') {
-        setApiError('Your browser blocked the Google sign-in popup. Allow popups for this site and try again.');
-      } else if (code === 'auth/unauthorized-domain') {
-        setApiError('This domain is not authorized for Google sign-in. Add it in Firebase Console → Authentication → Settings → Authorized domains.');
-      } else if (code === 'auth/network-request-failed') {
-        setApiError('No internet connection. Please try again.');
-      } else {
-        setApiError(`${code ? code + ': ' : ''}${e?.message ?? 'Google sign-in failed. Please try again.'}`);
-      }
-      triggerShake();
-    } finally {
-      setGoogleLoading(false);
-    }
+    const provider = buildGoogleProvider();
+
+    // Sync call — keeps the user-gesture chain intact on iOS Safari.
+    signInWithPopup(auth, provider)
+      .then(async (credential) => {
+        const destination = await onGoogleCredential(credential);
+        if (destination === 'tabs') router.replace('/(tabs)/');
+        else if (destination === 'phone') router.replace('/(auth)/phone');
+        else router.replace('/(auth)/onboarding');
+      })
+      .catch((e: any) => {
+        const code = e?.code ?? '';
+        if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+          // User closed the popup intentionally — silent
+          return;
+        }
+        if (code === 'auth/popup-blocked') {
+          // Popup blocked by the browser. Fall back to full-page redirect.
+          setApiError('Popup blocked — redirecting to Google…');
+          signInWithRedirect(auth!, provider).catch((redirectErr: any) => {
+            setApiError(redirectErr?.message ?? 'Redirect sign-in failed.');
+            triggerShake();
+          });
+          return;
+        }
+        if (code === 'auth/unauthorized-domain') {
+          setApiError('This domain is not authorized for Google sign-in. Add it in Firebase Console → Authentication → Settings → Authorized domains.');
+        } else if (code === 'auth/network-request-failed') {
+          setApiError('No internet connection. Please try again.');
+        } else {
+          setApiError(`${code ? code + ': ' : ''}${e?.message ?? 'Google sign-in failed. Please try again.'}`);
+        }
+        triggerShake();
+      })
+      .finally(() => setGoogleLoading(false));
   };
 
   return (

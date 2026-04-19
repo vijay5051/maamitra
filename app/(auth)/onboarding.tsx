@@ -365,11 +365,12 @@ export default function OnboardingScreen() {
     [addMsg]
   );
 
-  // Prevent re-entry: if already onboarded, redirect to chat
+  // Prevent re-entry: if already onboarded, redirect to chat. But if the
+  // user hasn't given us a phone number yet, send them to /phone first.
   useEffect(() => {
-    if (onboardingComplete) {
-      router.replace('/(tabs)/');
-    }
+    if (!onboardingComplete) return;
+    const phone = useProfileStore.getState().phone;
+    router.replace(phone ? '/(tabs)/' : '/(auth)/phone');
   }, [onboardingComplete]);
 
   // Keep answersRef in sync with answers state
@@ -671,7 +672,9 @@ export default function OnboardingScreen() {
             }).catch(console.error);
           }
 
-          router.replace('/(tabs)/');
+          // Route: if we don't have the phone yet, collect it before tabs.
+          const phone = useProfileStore.getState().phone;
+          router.replace(phone ? '/(tabs)/' : '/(auth)/phone');
         }, 1500);
       }, 800);
     },

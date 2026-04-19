@@ -26,7 +26,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useProfileStore } from '../../store/useProfileStore';
 import { Fonts } from '../../constants/theme';
+import {
+  auth,
+  signInWithPopup,
+  signInWithRedirect,
+  buildGoogleProvider,
+} from '../../services/firebase';
 
 // ─── Password strength ─────────────────────────────────────────────────────────
 
@@ -286,7 +293,7 @@ function validate(name: string, email: string, password: string) {
 export default function SignUpScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { signUp, signInWithGoogle } = useAuthStore();
+  const { signUp, onGoogleCredential } = useAuthStore();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -339,31 +346,47 @@ export default function SignUpScreen() {
     }
   };
 
-  const handleGoogleSignIn = async () => {
+  // Sync click handler — see notes in sign-in.tsx. Any await before
+  // signInWithPopup makes iOS Safari block the popup.
+  const handleGoogleSignIn = () => {
+    if (!auth) {
+      setApiError('Authentication is not configured.');
+      return;
+    }
     setGoogleLoading(true);
     setApiError('');
-    try {
-      const destination = await signInWithGoogle();
-      if (destination === 'tabs') router.replace('/(tabs)/');
-      else if (destination === 'onboarding') router.replace('/(auth)/onboarding');
-      else {
-        setApiError('Sign-in window was blocked or closed. Allow popups for this site and try again.');
-      }
-    } catch (e: any) {
-      const code = e?.code ?? '';
-      if (code === 'auth/popup-blocked') {
-        setApiError('Your browser blocked the Google sign-in popup. Allow popups for this site and try again.');
-      } else if (code === 'auth/unauthorized-domain') {
-        setApiError('This domain is not authorized for Google sign-in. Add it in Firebase Console → Authentication → Settings → Authorized domains.');
-      } else if (code === 'auth/network-request-failed') {
-        setApiError('No internet connection. Please try again.');
-      } else {
-        setApiError(`${code ? code + ': ' : ''}${e?.message ?? 'Google sign-in failed. Please try again.'}`);
-      }
-      triggerShake();
-    } finally {
-      setGoogleLoading(false);
-    }
+    const provider = buildGoogleProvider();
+
+    signInWithPopup(auth, provider)
+      .then(async (credential) => {
+        const destination = await onGoogleCredential(credential);
+        if (destination === 'tabs') router.replace('/(tabs)/');
+        else if (destination === 'phone') router.replace('/(auth)/phone');
+        else router.replace('/(auth)/onboarding');
+      })
+      .catch((e: any) => {
+        const code = e?.code ?? '';
+        if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+          return;
+        }
+        if (code === 'auth/popup-blocked') {
+          setApiError('Popup blocked — redirecting to Google…');
+          signInWithRedirect(auth!, provider).catch((redirectErr: any) => {
+            setApiError(redirectErr?.message ?? 'Redirect sign-in failed.');
+            triggerShake();
+          });
+          return;
+        }
+        if (code === 'auth/unauthorized-domain') {
+          setApiError('This domain is not authorized for Google sign-in. Add it in Firebase Console → Authentication → Settings → Authorized domains.');
+        } else if (code === 'auth/network-request-failed') {
+          setApiError('No internet connection. Please try again.');
+        } else {
+          setApiError(`${code ? code + ': ' : ''}${e?.message ?? 'Google sign-in failed. Please try again.'}`);
+        }
+        triggerShake();
+      })
+      .finally(() => setGoogleLoading(false));
   };
 
   return (

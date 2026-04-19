@@ -11,6 +11,9 @@ import {
   deleteUser,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+  UserCredential,
   sendEmailVerification,
   reload,
 } from 'firebase/auth';
@@ -157,6 +160,7 @@ export interface FullProfileData {
   allergies?: string[] | null;              // Chat allergy selections
   teethTracking?: Record<string, Record<string, any>>; // Per-kid teething: { kidId: { toothId: ToothEntry } }
   hasSeenIntro?: boolean;                   // Home first-run popup dismissed once
+  phone?: string;                           // E.164-ish mobile number, e.g. "+919876543210"
 }
 
 export async function saveFullProfile(uid: string, data: FullProfileData): Promise<void> {
@@ -203,6 +207,7 @@ export async function loadFullProfile(uid: string): Promise<FullProfileData | nu
       allergies: d.allergies ?? null,
       teethTracking: d.teethTracking ?? {},
       hasSeenIntro: d.hasSeenIntro === true,
+      phone: d.phone ?? '',
     };
   } catch (error) {
     console.error('loadFullProfile error:', error);
@@ -264,34 +269,63 @@ export async function syncAllergies(uid: string, allergies: string[]): Promise<v
 }
 
 // ─── Google Sign-In ───────────────────────────────────────────────────────────
+//
+// IMPORTANT: iOS Safari (and increasingly Chrome) only allows a popup to open
+// inside the SAME synchronous task as the user gesture. The old flow —
+//   click → async handler → await signInWithGoogle() → await signInWithPopup
+// — put enough awaits between the click and the popup call that the browser
+// treated the popup as unsolicited and blocked it.
+//
+// The fix: caller builds the provider and calls `signInWithPopup` itself,
+// synchronously, from the click handler. We expose the primitives and a
+// `finaliseGoogleSignIn(result)` helper that runs AFTER the popup resolves.
 
-export async function signInWithGoogle(): Promise<{ uid: string; name: string; email: string } | null> {
-  if (!auth) return null;
-  try {
-    const provider = new GoogleAuthProvider();
-    provider.addScope('profile');
-    provider.addScope('email');
-    const result = await signInWithPopup(auth, provider);
-    const user = result.user;
-    const name = user.displayName ?? 'Mom';
-    const email = user.email ?? '';
-    await saveUserProfile(user.uid, { name, email, provider: 'google', createdAt: new Date().toISOString() });
-    return { uid: user.uid, name, email };
-  } catch (error: any) {
-    if (error?.code === 'auth/popup-closed-by-user' || error?.code === 'auth/cancelled-popup-request') {
-      return null;
-    }
-    console.error('signInWithGoogle error:', error);
-    throw error;
-  }
+export { signInWithPopup, signInWithRedirect, GoogleAuthProvider };
+
+/** Build a preconfigured Google provider. Safe to call synchronously. */
+export function buildGoogleProvider(): GoogleAuthProvider {
+  const provider = new GoogleAuthProvider();
+  provider.addScope('profile');
+  provider.addScope('email');
+  // Force account chooser every time — avoids silent sign-in into a stale
+  // account the user forgot they were signed into.
+  provider.setCustomParameters({ prompt: 'select_account' });
+  return provider;
 }
 
 /**
- * Kept as a no-op so callers that imported this during the redirect
- * experiment still compile. Returns null — we're back on popup-only.
+ * Run AFTER a successful signInWithPopup / getRedirectResult. Writes the
+ * minimal user profile doc and returns the normalised identity.
+ */
+export async function finaliseGoogleSignIn(
+  credential: UserCredential
+): Promise<{ uid: string; name: string; email: string }> {
+  const user = credential.user;
+  const name = user.displayName ?? 'Mom';
+  const email = user.email ?? '';
+  await saveUserProfile(user.uid, {
+    name,
+    email,
+    provider: 'google',
+    createdAt: new Date().toISOString(),
+  });
+  return { uid: user.uid, name, email };
+}
+
+/**
+ * Call once on app boot. If the user just came back from a redirect sign-in,
+ * resolves their credential. Never throws.
  */
 export async function getGoogleRedirectResult(): Promise<{ uid: string; name: string; email: string } | null> {
-  return null;
+  if (!auth) return null;
+  try {
+    const result = await getRedirectResult(auth);
+    if (!result) return null;
+    return await finaliseGoogleSignIn(result);
+  } catch (error) {
+    console.error('getGoogleRedirectResult error:', error);
+    return null;
+  }
 }
 
 // ─── Email Verification ───────────────────────────────────────────────────────
