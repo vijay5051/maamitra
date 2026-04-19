@@ -956,6 +956,29 @@ export async function getPublicProfile(uid: string): Promise<UserPublicProfile |
 }
 
 /**
+ * Cheap count of public profiles in a given state. We cap the read at 50
+ * so a very popular state doesn't scan the whole collection — for the
+ * Home "Moms near you" card we only need "N moms in your state" where
+ * showing "50+" is fine. Returns 0 on error so the UI silently hides.
+ */
+export async function countProfilesInState(
+  state: string,
+  excludeUid?: string,
+  cap: number = 50,
+): Promise<number> {
+  if (!db || !state) return 0;
+  try {
+    const col = collection(db, 'publicProfiles');
+    const q = query(col, where('state', '==', state), limit(cap));
+    const snap = await getDocs(q);
+    return snap.docs.filter((d) => (excludeUid ? d.id !== excludeUid : true)).length;
+  } catch (error) {
+    console.warn('countProfilesInState error:', error);
+    return 0;
+  }
+}
+
+/**
  * Fetch multiple public profiles in one shot. Keeps reads cheap when a list
  * view (e.g. reactors, followers) needs to render 5–50 user cards.
  * Falls back to one-by-one getDoc if the uid list is long — Firestore's

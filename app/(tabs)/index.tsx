@@ -29,12 +29,17 @@ import { useWellnessStore } from '../../store/useWellnessStore';
 import { useSocialStore } from '../../store/useSocialStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useTeethStore } from '../../store/useTeethStore';
+import { useChatStore } from '../../store/useChatStore';
+import { useCommunityStore } from '../../store/useCommunityStore';
 import { useActiveKid } from '../../hooks/useActiveKid';
 import { useVaccineSchedule } from '../../hooks/useVaccineSchedule';
 import { TEETH } from '../../data/teeth';
-import { type AppNotification, fetchRecentPosts } from '../../services/social';
+import { type AppNotification, fetchRecentPosts, countProfilesInState } from '../../services/social';
 import { saveUserProfile } from '../../services/firebase';
 import { ARTICLES, type Article } from '../../data/articles';
+import { GOVERNMENT_SCHEMES } from '../../data/schemes';
+import { YOGA_SESSIONS } from '../../data/yogaSessions';
+import { MILESTONES } from '../../data/milestones';
 import SettingsModal from '../../components/ui/SettingsModal';
 import NotificationsSheet from '../../components/community/NotificationsSheet';
 import ConversationsSheet from '../../components/community/ConversationsSheet';
@@ -72,9 +77,19 @@ export default function HomeTab() {
     null | 'main' | 'edit-profile' | 'privacy'
   >(null);
 
-  const { motherName, parentGender, photoUrl } = useProfileStore();
+  const { motherName, parentGender, photoUrl, profile, kids } = useProfileStore();
   const { activeKid, ageLabel } = useActiveKid();
   const moodHistory = useWellnessStore((s) => s.moodHistory);
+
+  // Threads + saved answers — drive the Continue-chat and Saved-answers cards
+  // without costing a Firestore read. Both already hydrated on login.
+  const chatThreads = useChatStore((s) => s.threads);
+  const savedAnswers = useChatStore((s) => s.savedAnswers);
+  const switchThread = useChatStore((s) => s.switchThread);
+
+  // Community posts cache — used for the "Your Week" digest to count my posts
+  // and reactions received. Just reads cached state, no extra fetch.
+  const cachedPosts = useCommunityStore((s) => s.posts);
   // Subscribe to the per-kid teeth map so the home Quick Action card stays
   // in sync the moment the user logs a tooth in Health → Teeth.
   const teethByKid = useTeethStore((s) => s.byKid);
@@ -127,6 +142,18 @@ export default function HomeTab() {
     return () => { cancelled = true; };
   }, []);
 
+  // "Moms near you" count — hits Firestore once, capped at 50. Hidden
+  // if the user hasn't set their state yet or no one else is there.
+  const [momsInState, setMomsInState] = useState<number>(0);
+  useEffect(() => {
+    if (!profile?.state || !user?.uid) return;
+    let cancelled = false;
+    countProfilesInState(profile.state, user.uid)
+      .then((n) => { if (!cancelled) setMomsInState(n); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [profile?.state, user?.uid]);
+
   // Age-personalized article for "Suggested for you". Uses the active kid's
   // age in months (or 0 if expecting) to match against ARTICLES ageMin/ageMax.
   const suggestedArticle = useMemo<Article | null>(() => {
@@ -142,9 +169,86 @@ export default function HomeTab() {
     return match ?? ARTICLES[0] ?? null;
   }, [activeKid]);
 
+  // "Recommended reads" — three age-matched articles (excludes the one
+  // shown in the main Suggested card to avoid duplication). Diet field
+  // isn't present on articles yet; we use topic as a soft filter: if the
+  // user is vegetarian/vegan we deprioritise posts tagged with things like
+  // "Non-veg" (currently none in the data, but ready for future content).
+  const recommendedArticles = useMemo<Article[]>(() => {
+    let ageMonths = 0;
+    if (activeKid && !activeKid.isExpecting && activeKid.dob) {
+      ageMonths = Math.max(
+        0,
+        Math.floor((Date.now() - new Date(activeKid.dob).getTime()) / (1000 * 60 * 60 * 24 * 30.44)),
+      );
+    }
+    const diet = profile?.diet;
+    const matches = ARTICLES.filter((a) => ageMonths >= a.ageMin && ageMonths <= a.ageMax)
+      .filter((a) => a.id !== suggestedArticle?.id);
+    // Diet deprioritisation — vegetarian/vegan parents shouldn't see egg/
+    // meat weaning content pushed first.
+    const tagPriority = (a: Article) => {
+      const t = (a.topic || '').toLowerCase();
+      if (diet === 'vegetarian' && /non[-\s]?veg|meat|egg/.test(t)) return 1;
+      if (diet === 'vegan' && /non[-\s]?veg|meat|egg|dairy|milk/.test(t)) return 1;
+      return 0;
+    };
+    return matches.slice().sort((a, b) => tagPriority(a) - tagPriority(b)).slice(0, 5);
+  }, [activeKid, profile?.diet, suggestedArticle?.id]);
+
+  // "Your Week" digest — low-cost client-side aggregation of existing
+  // stores. No extra Firestore read.
+  const weeklyDigest = useMemo(() => {
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const moodsThisWeek = (moodHistory || []).filter((m: any) => {
+      const t = m.date ? new Date(m.date + 'T00:00:00').getTime() : 0;
+      return t >= weekAgo;
+    });
+    const moodAvg = moodsThisWeek.length
+      ? moodsThisWeek.reduce((s: number, m: any) => s + (m.score || 0), 0) / moodsThisWeek.length
+      : null;
+    const vaccinesDone = vaccineSchedule.filter((v) => v.status === 'done').length;
+    const vaccinesPending = vaccineSchedule.filter(
+      (v) => v.status === 'overdue' || v.status === 'due-soon',
+    ).length;
+    const myUid = user?.uid;
+    const myPostsThisWeek = (cachedPosts || []).filter((p: any) => {
+      if (p.authorUid !== myUid) return false;
+      const t = p.createdAt instanceof Date ? p.createdAt.getTime() : new Date(p.createdAt).getTime();
+      return t >= weekAgo;
+    }).length;
+    return {
+      moodLoggedDays: moodsThisWeek.length,
+      moodAvg,
+      vaccinesDone,
+      vaccinesPending,
+      myPostsThisWeek,
+      newNotifs: socialUnread,
+    };
+  }, [moodHistory, vaccineSchedule, cachedPosts, user?.uid, socialUnread]);
+
+  const handleContinueChat = (threadId: string) => {
+    switchThread(threadId);
+    router.push('/(tabs)/chat');
+  };
+
   const todayCards = useMemo(
-    () => buildTodayCards({ activeKid, ageLabel, todayMood, moodHistory, vaccineSchedule, teethByKid, router }),
-    [activeKid, ageLabel, todayMood, moodHistory, vaccineSchedule, teethByKid, router]
+    () =>
+      buildTodayCards({
+        activeKid,
+        ageLabel,
+        todayMood,
+        moodHistory,
+        vaccineSchedule,
+        teethByKid,
+        router,
+        chatThreads,
+        savedAnswers,
+        onContinueChat: handleContinueChat,
+        profileState: profile?.state,
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [activeKid, ageLabel, todayMood, moodHistory, vaccineSchedule, teethByKid, router, chatThreads, savedAnswers, profile?.state]
   );
 
   // Vaccine reminders continue to render inline on the Home body (as
@@ -419,6 +523,182 @@ export default function HomeTab() {
             </TouchableOpacity>
           </>
         )}
+
+        {/* ── Your week — compact digest of real signals from the past 7d.
+            Every tile taps to the matching deep tab. Hidden if everything
+            is zero (no meaningful story to tell yet). */}
+        {(weeklyDigest.moodLoggedDays > 0 ||
+          weeklyDigest.vaccinesDone > 0 ||
+          weeklyDigest.vaccinesPending > 0 ||
+          weeklyDigest.myPostsThisWeek > 0 ||
+          weeklyDigest.newNotifs > 0) && (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Your week</Text>
+            </View>
+            <View style={styles.weekGrid}>
+              <TouchableOpacity
+                style={styles.weekTile}
+                activeOpacity={0.85}
+                onPress={() => router.push('/(tabs)/wellness')}
+              >
+                <Text style={styles.weekTileValue}>
+                  {weeklyDigest.moodLoggedDays}/7
+                </Text>
+                <Text style={styles.weekTileLabel}>Mood logged</Text>
+                {weeklyDigest.moodAvg !== null && (
+                  <Text style={styles.weekTileSub}>
+                    Avg {weeklyDigest.moodAvg.toFixed(1)}/5
+                  </Text>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.weekTile}
+                activeOpacity={0.85}
+                onPress={() => router.push('/(tabs)/health')}
+              >
+                <Text
+                  style={[
+                    styles.weekTileValue,
+                    weeklyDigest.vaccinesPending > 0 && { color: Colors.error },
+                  ]}
+                >
+                  {weeklyDigest.vaccinesDone}
+                </Text>
+                <Text style={styles.weekTileLabel}>Vaccines done</Text>
+                <Text style={styles.weekTileSub}>
+                  {weeklyDigest.vaccinesPending > 0
+                    ? `${weeklyDigest.vaccinesPending} pending`
+                    : 'All caught up'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.weekTile}
+                activeOpacity={0.85}
+                onPress={() => router.push('/(tabs)/community')}
+              >
+                <Text style={styles.weekTileValue}>
+                  {weeklyDigest.myPostsThisWeek}
+                </Text>
+                <Text style={styles.weekTileLabel}>Your posts</Text>
+                <Text style={styles.weekTileSub}>
+                  {weeklyDigest.newNotifs > 0
+                    ? `${weeklyDigest.newNotifs} new activity`
+                    : 'Share your week'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+
+        {/* ── Moms near you — only shown when state is set and there's
+            at least one other user in that state. */}
+        {profile?.state && momsInState > 0 && (
+          <TouchableOpacity
+            activeOpacity={0.9}
+            style={styles.nearbyCard}
+            onPress={() => router.push('/(tabs)/community')}
+          >
+            <View style={styles.nearbyIconWrap}>
+              <Ionicons name="people-outline" size={22} color="#7C3AED" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.nearbyTitle}>
+                {momsInState >= 50 ? '50+' : momsInState} {momsInState === 1 ? 'mom' : 'moms'} in {profile.state}
+              </Text>
+              <Text style={styles.nearbySub}>
+                Tap to connect with parents near you
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#b5a9d5" />
+          </TouchableOpacity>
+        )}
+
+        {/* ── Recommended reads — 3–5 age + diet-filtered articles. */}
+        {recommendedArticles.length > 0 && (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Recommended reads</Text>
+              <TouchableOpacity onPress={() => router.push('/(tabs)/library')}>
+                <Text style={styles.sectionLink}>Library</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.recReadsScroll}
+            >
+              {recommendedArticles.map((a) => (
+                <TouchableOpacity
+                  key={a.id}
+                  style={styles.recReadCard}
+                  activeOpacity={0.9}
+                  onPress={() => router.push('/(tabs)/library')}
+                >
+                  <Text style={styles.recReadEmoji}>{a.emoji || '📖'}</Text>
+                  <Text style={styles.recReadTitle} numberOfLines={2}>
+                    {a.title}
+                  </Text>
+                  <Text style={styles.recReadMeta}>
+                    {(a.readTime || '5 min')} · {a.topic || 'Article'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </>
+        )}
+
+        {/* ── Quick Jump — icon grid to reach the most commonly-buried
+            surfaces in one tap. Every icon is a real destination; if a
+            feature doesn't exist yet (e.g. user search needs the
+            community sheet), we open the parent tab. */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Quick jump</Text>
+        </View>
+        <View style={styles.jumpGrid}>
+          <JumpTile
+            icon="book-outline"
+            label="Library"
+            bg="#FFF0F5"
+            tint="#E8487A"
+            onPress={() => router.push('/(tabs)/library')}
+          />
+          <JumpTile
+            icon="bookmark-outline"
+            label="Saved"
+            bg="#EDE9F6"
+            tint="#7C3AED"
+            onPress={() => router.push('/(tabs)/library')}
+          />
+          <JumpTile
+            icon="ribbon-outline"
+            label="Schemes"
+            bg="#F0FDF4"
+            tint="#16A34A"
+            onPress={() => router.push({ pathname: '/(tabs)/health', params: { tab: 'schemes' } })}
+          />
+          <JumpTile
+            icon="leaf-outline"
+            label="Yoga"
+            bg="#F0FDF4"
+            tint="#047857"
+            onPress={() => router.push('/(tabs)/wellness')}
+          />
+          <JumpTile
+            icon="checkmark-done-outline"
+            label="My health"
+            bg="#FFF7ED"
+            tint="#EA580C"
+            onPress={() => router.push({ pathname: '/(tabs)/health', params: { tab: 'my-health' } })}
+          />
+          <JumpTile
+            icon="search-outline"
+            label="Find moms"
+            bg="#FDF2F8"
+            tint="#E8487A"
+            onPress={() => router.push('/(tabs)/community')}
+          />
+        </View>
       </ScrollView>
 
       {/* Profile hub — quick-access menu opened from the avatar. Grouped
@@ -739,6 +1019,10 @@ function buildTodayCards({
   vaccineSchedule,
   teethByKid,
   router,
+  chatThreads,
+  savedAnswers,
+  onContinueChat,
+  profileState,
 }: {
   activeKid: ReturnType<typeof useActiveKid>['activeKid'];
   ageLabel: string;
@@ -747,6 +1031,10 @@ function buildTodayCards({
   vaccineSchedule: ReturnType<typeof useVaccineSchedule>;
   teethByKid: Record<string, Record<string, { state: string; eruptDate?: string; shedDate?: string }>>;
   router: ReturnType<typeof useRouter>;
+  chatThreads: Array<{ id: string; title: string; messages: any[]; lastMessageAt: Date | string }>;
+  savedAnswers: any[];
+  onContinueChat: (threadId: string) => void;
+  profileState: string | undefined;
 }): TodayCard[] {
   const cards: TodayCard[] = [];
   const goWellness = () => router.push('/(tabs)/wellness');
@@ -961,6 +1249,120 @@ function buildTodayCards({
     if (teethCard) cards.push(teethCard);
   }
 
+  // ── Continue AI chat ────────────────────────────────────────────────
+  // Surface the most-recently-active thread if the user has at least one
+  // with real conversation. Skips empty "new chat" placeholders.
+  const liveThreads = (chatThreads || [])
+    .filter((t) => (t.messages?.length ?? 0) > 1) // >1 to skip lone greeting
+    .slice()
+    .sort((a, b) => {
+      const at = a.lastMessageAt ? new Date(a.lastMessageAt as any).getTime() : 0;
+      const bt = b.lastMessageAt ? new Date(b.lastMessageAt as any).getTime() : 0;
+      return bt - at;
+    });
+  if (liveThreads[0]) {
+    const t = liveThreads[0];
+    const title = (t.title || 'Recent chat').slice(0, 28);
+    cards.push({
+      id: 'continue-chat',
+      icon: 'chatbubble-ellipses-outline',
+      tint: Colors.primary,
+      bg: '#EDE9F6',
+      value: 'Continue',
+      label: title,
+      onPress: () => onContinueChat(t.id),
+    });
+  }
+
+  // ── Saved answers ──────────────────────────────────────────────────
+  // Only show when there's something to return to. Routes to Library
+  // where the Saved sub-tab lives.
+  if ((savedAnswers?.length ?? 0) > 0) {
+    cards.push({
+      id: 'saved',
+      icon: 'bookmark-outline',
+      tint: Colors.primary,
+      bg: '#FFF0F5',
+      value: `${savedAnswers.length} saved`,
+      label: 'AI answers',
+      onPress: goLibrary,
+    });
+  }
+
+  // ── Scheme for you ─────────────────────────────────────────────────
+  // State × stage matcher. Prefers the scheme whose tags overlap with
+  // the user's current life stage. Falls back to a generic maternal
+  // scheme when no kid is set yet.
+  const stageTag = activeKid?.isExpecting
+    ? 'pregnant'
+    : activeKid && !activeKid.isExpecting
+    ? 'newborn'
+    : 'pregnant';
+  const girlTag = activeKid?.gender === 'girl' ? 'girl' : null;
+  const candidateScheme =
+    GOVERNMENT_SCHEMES.find((s) => girlTag && s.tags.includes(girlTag)) ??
+    GOVERNMENT_SCHEMES.find((s) => s.tags.includes(stageTag)) ??
+    GOVERNMENT_SCHEMES.find((s) => s.tags.includes('all'));
+  if (candidateScheme) {
+    cards.push({
+      id: 'scheme',
+      icon: 'ribbon-outline',
+      tint: Colors.textDark,
+      bg: '#F0FDF4',
+      value: candidateScheme.shortName,
+      label: profileState ? `Scheme · ${profileState}` : 'A scheme for you',
+      onPress: () => router.push({ pathname: '/(tabs)/health', params: { tab: 'schemes' } }),
+    });
+  }
+
+  // ── Yoga pick ──────────────────────────────────────────────────────
+  // Mood dip → Stress Relief. New mom (<6mo kid) → Baby & Me Bonding.
+  // Pregnant → Morning Stretch. Otherwise → Sleep Better.
+  if (YOGA_SESSIONS.length > 0) {
+    const recentForYoga = (moodHistory || []).slice(0, 3);
+    const avgMood = recentForYoga.length >= 2
+      ? recentForYoga.reduce((s: number, m: any) => s + m.score, 0) / recentForYoga.length
+      : null;
+    const kidMonths = activeKid && !activeKid.isExpecting && activeKid.dob
+      ? Math.max(0, Math.floor((Date.now() - new Date(activeKid.dob).getTime()) / (1000 * 60 * 60 * 24 * 30.44)))
+      : null;
+    let pickId = 'y01';
+    if (avgMood !== null && avgMood <= 2.5) pickId = 'y04';         // Stress Relief
+    else if (activeKid?.isExpecting) pickId = 'y01';                 // Morning Stretch
+    else if (kidMonths !== null && kidMonths < 12) pickId = 'y03';   // Baby & Me
+    else pickId = 'y05';                                             // Sleep Better
+    const pick = YOGA_SESSIONS.find((y) => y.id === pickId) ?? YOGA_SESSIONS[0];
+    if (pick) {
+      cards.push({
+        id: 'yoga',
+        icon: 'leaf-outline',
+        tint: '#047857',
+        bg: '#F0FDF4',
+        value: pick.name.length > 20 ? pick.name.slice(0, 18) + '…' : pick.name,
+        label: `${pick.duration} min · ${pick.level}`,
+        onPress: goWellness,
+      });
+    }
+  }
+
+  // ── Today's milestone ──────────────────────────────────────────────
+  // Nearest upcoming milestone for the active kid based on age in months.
+  if (activeKid && !activeKid.isExpecting && activeKid.dob) {
+    const months = Math.max(0, Math.floor((Date.now() - new Date(activeKid.dob).getTime()) / (1000 * 60 * 60 * 24 * 30.44)));
+    const upcoming = MILESTONES.find((m) => m.ageMonths >= months && m.ageMonths <= months + 3);
+    if (upcoming) {
+      cards.push({
+        id: 'milestone',
+        icon: 'sparkles-outline',
+        tint: Colors.primary,
+        bg: '#FFF0F5',
+        value: upcoming.title.length > 22 ? upcoming.title.slice(0, 20) + '…' : upcoming.title,
+        label: `${upcoming.emoji} ${upcoming.ageLabel}`,
+        onPress: goFamily,
+      });
+    }
+  }
+
   // moodHistory is sorted newest-first in the store, so slice(0, 3) gets the
   // 3 most recent entries (previous slice(-3) was returning the OLDEST 3
   // — wrong signal for the "take a breath" check-in).
@@ -1040,6 +1442,35 @@ function ProfileRow({
       {!danger && (
         <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
       )}
+    </TouchableOpacity>
+  );
+}
+
+// ─── Jump Tile ───────────────────────────────────────────────────────
+// Small tappable square used by the "Quick jump" grid at the bottom of
+// Home. Each tile is a shortcut to a surface that previously required
+// 2–3 taps to reach (Library → Saved, Health → Schemes, etc.).
+function JumpTile({
+  icon,
+  label,
+  bg,
+  tint,
+  onPress,
+}: {
+  icon: string;
+  label: string;
+  bg: string;
+  tint: string;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      style={[styles.jumpTile, { backgroundColor: bg }]}
+      activeOpacity={0.8}
+      onPress={onPress}
+    >
+      <Ionicons name={icon as any} size={22} color={tint} />
+      <Text style={[styles.jumpTileLabel, { color: tint }]}>{label}</Text>
     </TouchableOpacity>
   );
 }
@@ -1423,6 +1854,128 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sansRegular,
     fontSize: FontSize.sm,
     color: Colors.textMuted,
+  },
+
+  // ─── Your Week digest ────────────────────────────────────────────
+  weekGrid: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: Spacing.md,
+  },
+  weekTile: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    minHeight: 88,
+  },
+  weekTileValue: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 22,
+    color: Colors.textDark,
+    letterSpacing: -0.5,
+  },
+  weekTileLabel: {
+    fontFamily: Fonts.sansMedium,
+    fontSize: 12,
+    color: Colors.textDark,
+    marginTop: 4,
+  },
+  weekTileSub: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: 11,
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
+
+  // ─── Moms near you ───────────────────────────────────────────────
+  nearbyCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: 14,
+    gap: 12,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: '#ede9fe',
+  },
+  nearbyIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#faf5ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nearbyTitle: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 15,
+    color: Colors.textDark,
+  },
+  nearbySub: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: 12,
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
+
+  // ─── Recommended reads ───────────────────────────────────────────
+  recReadsScroll: {
+    paddingVertical: 4,
+    paddingRight: 16,
+    gap: 10,
+  },
+  recReadCard: {
+    width: 170,
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginRight: 10,
+  },
+  recReadEmoji: {
+    fontSize: 22,
+    marginBottom: 6,
+  },
+  recReadTitle: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 14,
+    color: Colors.textDark,
+    lineHeight: 18,
+    minHeight: 36,
+  },
+  recReadMeta: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: 11,
+    color: Colors.textMuted,
+    marginTop: 8,
+  },
+
+  // ─── Quick Jump grid ─────────────────────────────────────────────
+  jumpGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: Spacing.md,
+  },
+  jumpTile: {
+    width: '31%',
+    aspectRatio: 1.3,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 8,
+  },
+  jumpTileLabel: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 12,
+    textAlign: 'center',
   },
 
   // ─── Sheets ──────────────────────────────────────────────────────
