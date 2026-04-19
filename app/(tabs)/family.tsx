@@ -22,7 +22,11 @@ import DatePickerField from '../../components/ui/DatePickerField';
 import Card from '../../components/ui/Card';
 import TagPill from '../../components/ui/TagPill';
 import SettingsModal from '../../components/ui/SettingsModal';
+import NotificationsSheet from '../../components/community/NotificationsSheet';
+import ConversationsSheet from '../../components/community/ConversationsSheet';
 import ContextualAskChip from '../../components/ui/ContextualAskChip';
+import { useSocialStore } from '../../store/useSocialStore';
+import { useDMStore } from '../../store/useDMStore';
 import { Fonts } from '../../constants/theme';
 
 // ─── ChildCard ─────────────────────────────────────────────────────────────────
@@ -399,6 +403,20 @@ export default function FamilyScreen() {
   const { user } = useAuthStore();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showMessages, setShowMessages] = useState(false);
+
+  // Badges for the new global header icons (same store as Home & Community).
+  const socialUnread = useSocialStore((s) => s.unreadCount);
+  const loadNotifications = useSocialStore((s) => s.loadNotifications);
+  const unreadDMs = useDMStore((s) => s.unreadTotal);
+  const loadDMUnreadCount = useDMStore((s) => s.loadUnreadCount);
+  useEffect(() => {
+    if (user?.uid) {
+      loadNotifications();
+      loadDMUnreadCount();
+    }
+  }, [user?.uid]);
 
   const currentAgeMonths = activeKid && activeKid.dob && !activeKid.isExpecting
     ? Math.max(0, Math.floor((Date.now() - new Date(activeKid.dob).getTime()) / (1000 * 60 * 60 * 24 * 30.44)))
@@ -481,25 +499,70 @@ export default function FamilyScreen() {
             </Text>
           </View>
           <View style={styles.headerActions}>
+            {/* Family-specific: add child */}
             <TouchableOpacity
               style={styles.headerBtn}
               onPress={() => setShowAddModal(true)}
               activeOpacity={0.8}
+              accessibilityLabel="Add child"
             >
               <Ionicons name="add" size={20} color="#ffffff" />
+            </TouchableOpacity>
+
+            {/* Global: notifications → messages → settings, same order as Home & Community */}
+            <TouchableOpacity
+              style={styles.headerBtn}
+              onPress={() => setShowNotifications(true)}
+              activeOpacity={0.75}
+              accessibilityLabel="Notifications"
+            >
+              <Ionicons name="notifications-outline" size={18} color="rgba(255,255,255,0.85)" />
+              {socialUnread > 0 && (
+                <View style={styles.headerBadge}>
+                  <Text style={styles.headerBadgeText}>{socialUnread > 9 ? '9+' : socialUnread}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.headerBtn}
+              onPress={() => setShowMessages(true)}
+              activeOpacity={0.75}
+              accessibilityLabel="Messages"
+            >
+              <Ionicons name="chatbubbles-outline" size={18} color="rgba(255,255,255,0.85)" />
+              {unreadDMs > 0 && (
+                <View style={styles.headerBadge}>
+                  <Text style={styles.headerBadgeText}>{unreadDMs > 9 ? '9+' : unreadDMs}</Text>
+                </View>
+              )}
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.headerBtn}
               onPress={() => setShowSettings(true)}
               activeOpacity={0.7}
+              accessibilityLabel="Settings"
             >
-              <Ionicons name="settings-outline" size={18} color="rgba(255,255,255,0.7)" />
+              <Ionicons name="settings-outline" size={18} color="rgba(255,255,255,0.85)" />
             </TouchableOpacity>
           </View>
         </View>
       </LinearGradient>
 
       <SettingsModal visible={showSettings} onClose={() => setShowSettings(false)} />
+      <NotificationsSheet
+        visible={showNotifications}
+        onClose={() => setShowNotifications(false)}
+        onViewProfile={() => {
+          // Family tab doesn't have its own UserProfileModal instance.
+          // Route to the Community tab where a tap on any avatar opens it.
+          setShowNotifications(false);
+          router.push('/(tabs)/community');
+        }}
+      />
+      <ConversationsSheet
+        visible={showMessages}
+        onClose={() => setShowMessages(false)}
+      />
 
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]}
@@ -759,6 +822,26 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.12)',
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center', justifyContent: 'center',
+    position: 'relative',
+  },
+  headerBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#E8487A',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: '#1C1033',
+  },
+  headerBadgeText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: '700',
   },
 
   content: { paddingHorizontal: 16, paddingTop: 20 },

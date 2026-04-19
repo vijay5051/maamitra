@@ -37,7 +37,9 @@ import { saveUserProfile } from '../../services/firebase';
 import { ARTICLES, type Article } from '../../data/articles';
 import SettingsModal from '../../components/ui/SettingsModal';
 import NotificationsSheet from '../../components/community/NotificationsSheet';
+import ConversationsSheet from '../../components/community/ConversationsSheet';
 import HelpSupportSheet from '../../components/ui/HelpSupportSheet';
+import { useDMStore } from '../../store/useDMStore';
 
 // ─── Home (landing) tab ───────────────────────────────────────────────
 // Replaces Chat as the post-login landing. AI Chat is the hero (top bar
@@ -51,14 +53,15 @@ const FIRST_RUN_KEY = 'maamitra-home-first-run-v1';
 export default function HomeTab() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const [profileOpen, setProfileOpen] = useState(false);
-  const [inboxOpen, setInboxOpen] = useState(false);
   const [firstRunOpen, setFirstRunOpen] = useState(false);
 
-  // Profile-sheet destinations. These open the existing SettingsModal
-  // pre-positioned on the right sub-view, plus the community
-  // NotificationsSheet and the new HelpSupportSheet.
+  // Shared sheets — same components the Community tab uses, so users see
+  // the same UI for notifications/messages regardless of which tab they
+  // access them from. Previously Home had its own bespoke Inbox modal
+  // that merged social notifs + vaccine reminders — we dropped it so the
+  // user only ever sees one notification surface in the app.
   const [notifsOpen, setNotifsOpen] = useState(false);
+  const [messagesOpen, setMessagesOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [settingsView, setSettingsView] = useState<
     null | 'main' | 'edit-profile' | 'privacy'
@@ -81,12 +84,18 @@ export default function HomeTab() {
   const { user } = useAuthStore();
 
   // Real notifications from Firestore (reactions, comments, follow
-  // requests, messages). Drives both the Home inbox and the unread
-  // badge on the mail icon.
+  // requests, messages). Drives the unread badge on the bell icon.
   const notifications = useSocialStore((s) => s.notifications);
   const socialUnread = useSocialStore((s) => s.unreadCount);
   const loadNotifications = useSocialStore((s) => s.loadNotifications);
   const markNotifRead = useSocialStore((s) => s.markRead);
+
+  // Direct message unread count — drives the badge on the messages icon.
+  const unreadDMs = useDMStore((s) => s.unreadTotal);
+  const loadDMUnreadCount = useDMStore((s) => s.loadUnreadCount);
+  useEffect(() => {
+    if (user?.uid) loadDMUnreadCount();
+  }, [user?.uid]);
 
   // Vaccine reminders computed from the active kid's DOB + completed map.
   const vaccineSchedule = useVaccineSchedule();
@@ -133,41 +142,10 @@ export default function HomeTab() {
     [activeKid, ageLabel, todayMood, moodHistory, vaccineSchedule, teethByKid, router]
   );
 
-  // Merged inbox — real community notifications + computed vaccine
-  // reminders. No mocks, no dead clicks; every item has a navigation
-  // target resolved in `openInboxItem` below.
-  const inboxItems = useMemo<InboxItem[]>(
-    () => buildInbox({ notifications, vaccineSchedule, kidName: activeKid?.name }),
-    [notifications, vaccineSchedule, activeKid?.name]
-  );
-
-  const unreadCount = socialUnread + inboxItems.filter(
-    (i) => i.kind === 'vaccine' && i.severity === 'overdue'
-  ).length;
-
-  // Route per inbox item. Community notifications navigate to the post
-  // (community feed) or conversation; vaccine reminders open Health.
-  const openInboxItem = async (item: InboxItem) => {
-    setInboxOpen(false);
-    if (item.kind === 'vaccine') {
-      router.push('/(tabs)/health');
-      return;
-    }
-    if (item.sourceNotif) {
-      if (!item.sourceNotif.read && user?.uid) {
-        await markNotifRead(item.sourceNotif.id);
-      }
-      const n = item.sourceNotif;
-      if (n.type === 'message' && n.fromUid) {
-        router.push({ pathname: '/conversation/[uid]', params: { uid: n.fromUid } });
-        return;
-      }
-      // Reactions/comments/follow — land on the community feed. Opening a
-      // specific post would require deeper plumbing; this is better than
-      // a dead tap and matches NotificationsSheet's default behavior.
-      router.push('/(tabs)/community');
-    }
-  };
+  // Vaccine reminders continue to render inline on the Home body (as
+  // Today/Quick-Action cards). We no longer merge them into a bespoke
+  // Inbox modal — the bell icon opens the shared NotificationsSheet used
+  // everywhere in the app.
 
   // Intro popup is disabled while we debug sign-in issues. It never auto-opens.
   const setHasSeenIntro = useProfileStore((s) => s.setHasSeenIntro);
@@ -192,11 +170,15 @@ export default function HomeTab() {
         }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header row */}
+        {/* Header row. Tapping the avatar takes you to Edit Profile
+            (fast path for "change my name/photo"). The right cluster is
+            the same triplet used on every tab with a header:
+            🔔 Notifications · 💬 Messages · ⚙️ Settings. */}
         <View style={styles.headerRow}>
           <TouchableOpacity
             style={styles.avatar}
-            onPress={() => setProfileOpen(true)}
+            onPress={() => setSettingsView('edit-profile')}
+            accessibilityLabel="Edit profile"
           >
             <LinearGradient colors={Gradients.avatar} style={styles.avatarInner}>
               <Text style={styles.avatarTxt}>
@@ -208,17 +190,33 @@ export default function HomeTab() {
             <Text style={styles.greetSmall}>Good morning</Text>
             <Text style={styles.greetBig}>{greetingTitle}</Text>
           </View>
+
           <TouchableOpacity
             style={styles.iconBtn}
-            onPress={() => setInboxOpen(true)}
+            onPress={() => setNotifsOpen(true)}
+            accessibilityLabel="Notifications"
           >
-            <Ionicons name="mail-outline" size={22} color={Colors.textDark} />
-            {unreadCount > 0 && (
+            <Ionicons name="notifications-outline" size={22} color={Colors.textDark} />
+            {socialUnread > 0 && (
               <View style={styles.badge}>
-                <Text style={styles.badgeTxt}>{unreadCount}</Text>
+                <Text style={styles.badgeTxt}>{socialUnread > 9 ? '9+' : socialUnread}</Text>
               </View>
             )}
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.iconBtn, { marginLeft: 8 }]}
+            onPress={() => setMessagesOpen(true)}
+            accessibilityLabel="Messages"
+          >
+            <Ionicons name="chatbubbles-outline" size={20} color={Colors.textDark} />
+            {unreadDMs > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeTxt}>{unreadDMs > 9 ? '9+' : unreadDMs}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={[styles.iconBtn, { marginLeft: 8 }]}
             onPress={() => setSettingsView('main')}
@@ -414,177 +412,12 @@ export default function HomeTab() {
         )}
       </ScrollView>
 
-      {/* Profile sheet */}
-      <Modal
-        visible={profileOpen}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setProfileOpen(false)}
-      >
-        <TouchableOpacity
-          activeOpacity={1}
-          style={styles.sheetOverlay}
-          onPress={() => setProfileOpen(false)}
-        >
-          <TouchableOpacity activeOpacity={1} style={styles.sheet}>
-            <View style={styles.sheetHandle} />
-            <View style={styles.sheetHeader}>
-              <LinearGradient colors={Gradients.avatar} style={styles.sheetAvatar}>
-                <Text style={styles.avatarTxt}>
-                  {firstName.charAt(0).toUpperCase()}
-                </Text>
-              </LinearGradient>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.sheetName}>{firstName}</Text>
-                <Text style={styles.sheetEmail}>
-                  {parentGender === 'father'
-                    ? 'Dad'
-                    : parentGender === 'other'
-                    ? 'Parent'
-                    : 'Mom'}
-                  {activeKid ? ` · ${activeKid.name}` : ''}
-                </Text>
-              </View>
-            </View>
-            <ProfileRow
-              icon="person-outline"
-              label="Edit profile"
-              onPress={() => {
-                setProfileOpen(false);
-                // Small delay so the profile sheet's dismiss animation
-                // doesn't interrupt the next modal's open animation.
-                setTimeout(() => setSettingsView('edit-profile'), 120);
-              }}
-            />
-            <ProfileRow
-              icon="book-outline"
-              label="Library"
-              sub="All articles & guides"
-              onPress={() => {
-                setProfileOpen(false);
-                router.push('/(tabs)/library');
-              }}
-            />
-            <ProfileRow
-              icon="medical-outline"
-              label="Health records"
-              sub="Reports, prescriptions"
-              onPress={() => {
-                setProfileOpen(false);
-                router.push('/(tabs)/health');
-              }}
-            />
-            <ProfileRow
-              icon="notifications-outline"
-              label="Notifications"
-              sub={
-                socialUnread > 0
-                  ? `${socialUnread} new notification${socialUnread === 1 ? '' : 's'}`
-                  : undefined
-              }
-              onPress={() => {
-                setProfileOpen(false);
-                setTimeout(() => setNotifsOpen(true), 120);
-              }}
-            />
-            <ProfileRow
-              icon="lock-closed-outline"
-              label="Privacy"
-              sub="Control what others can see"
-              onPress={() => {
-                setProfileOpen(false);
-                setTimeout(() => setSettingsView('privacy'), 120);
-              }}
-            />
-            <ProfileRow
-              icon="help-circle-outline"
-              label="Help & support"
-              sub="FAQ, email us, send a message"
-              onPress={() => {
-                setProfileOpen(false);
-                setTimeout(() => setHelpOpen(true), 120);
-              }}
-            />
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* Inbox sheet */}
-      <Modal
-        visible={inboxOpen}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setInboxOpen(false)}
-      >
-        <TouchableOpacity
-          activeOpacity={1}
-          style={styles.sheetOverlay}
-          onPress={() => setInboxOpen(false)}
-        >
-          <TouchableOpacity activeOpacity={1} style={[styles.sheet, { maxHeight: '80%' }]}>
-            <View style={styles.sheetHandle} />
-            <View style={styles.inboxHeader}>
-              <Text style={styles.inboxTitle}>Inbox</Text>
-              {unreadCount > 0 && (
-                <View style={styles.inboxBadge}>
-                  <Text style={styles.inboxBadgeTxt}>{unreadCount} new</Text>
-                </View>
-              )}
-            </View>
-            <ScrollView>
-              {inboxItems.length === 0 ? (
-                <View style={styles.inboxEmpty}>
-                  <Ionicons
-                    name="mail-open-outline"
-                    size={36}
-                    color={Colors.textMuted}
-                  />
-                  <Text style={styles.inboxEmptyTitle}>You're all caught up</Text>
-                  <Text style={styles.inboxEmptyBody}>
-                    We'll put reactions, replies, and vaccine reminders here as
-                    they come in.
-                  </Text>
-                </View>
-              ) : (
-                inboxItems.map((item) => (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={styles.inboxRow}
-                    activeOpacity={0.7}
-                    onPress={() => openInboxItem(item)}
-                  >
-                    <View style={styles.inboxIconWrap}>
-                      <Ionicons
-                        name={inboxIcon(item.kind) as any}
-                        size={18}
-                        color={Colors.primary}
-                      />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <View style={styles.inboxTitleRow}>
-                        <Text
-                          style={[
-                            styles.inboxItemTitle,
-                            item.unread && { color: Colors.textDark },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {item.title}
-                        </Text>
-                        <Text style={styles.inboxTime}>{item.time}</Text>
-                      </View>
-                      <Text style={styles.inboxBody} numberOfLines={2}>
-                        {item.body}
-                      </Text>
-                    </View>
-                    {item.unread && <View style={styles.inboxDot} />}
-                  </TouchableOpacity>
-                ))
-              )}
-            </ScrollView>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
+      {/* Messages sheet — shared with Community tab so users see the
+          same DM list regardless of entry point. */}
+      <ConversationsSheet
+        visible={messagesOpen}
+        onClose={() => setMessagesOpen(false)}
+      />
 
       {/* First-run hero animation */}
       <FirstRunHero
