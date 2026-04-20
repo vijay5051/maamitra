@@ -821,7 +821,7 @@ export default function HomeTab() {
                 <TouchableOpacity
                   key={a.id}
                   style={styles.recReadCard}
-                  activeOpacity={0.9}
+                  activeOpacity={0.85}
                   onPress={() =>
                     router.push({
                       pathname: '/(tabs)/library',
@@ -829,13 +829,19 @@ export default function HomeTab() {
                     })
                   }
                 >
-                  <Text style={styles.recReadEmoji}>{a.emoji || '📖'}</Text>
-                  <Text style={styles.recReadTitle} numberOfLines={2}>
+                  <View style={styles.recReadIconBox}>
+                    <Ionicons name="book-outline" size={16} color="#7C3AED" />
+                  </View>
+                  <Text style={styles.recReadTopic} numberOfLines={1}>
+                    {(a.topic || 'Article').toUpperCase()}
+                  </Text>
+                  <Text style={styles.recReadTitle} numberOfLines={3}>
                     {a.title}
                   </Text>
-                  <Text style={styles.recReadMeta}>
-                    {(a.readTime || '5 min')} · {a.topic || 'Article'}
-                  </Text>
+                  <View style={styles.recReadFooter}>
+                    <Ionicons name="time-outline" size={12} color="#9ca3af" />
+                    <Text style={styles.recReadMeta}>{a.readTime || '5 min'}</Text>
+                  </View>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -853,8 +859,6 @@ export default function HomeTab() {
           <JumpTile
             icon="newspaper-outline"
             label="Articles"
-            bg="#F5F0FF"
-            tint="#7C3AED"
             onPress={() =>
               router.push({ pathname: '/(tabs)/library', params: { tab: 'read' } })
             }
@@ -862,8 +866,6 @@ export default function HomeTab() {
           <JumpTile
             icon="bookmark-outline"
             label="Saved"
-            bg="#EDE9F6"
-            tint="#7C3AED"
             onPress={() =>
               router.push({ pathname: '/(tabs)/library', params: { tab: 'saved' } })
             }
@@ -871,8 +873,6 @@ export default function HomeTab() {
           <JumpTile
             icon="ribbon-outline"
             label="Schemes"
-            bg="#F0FDF4"
-            tint="#16A34A"
             onPress={() =>
               router.push({ pathname: '/(tabs)/health', params: { tab: 'schemes' } })
             }
@@ -880,8 +880,6 @@ export default function HomeTab() {
           <JumpTile
             icon="leaf-outline"
             label="Yoga"
-            bg="#F0FDF4"
-            tint="#047857"
             onPress={() =>
               router.push({ pathname: '/(tabs)/wellness', params: { section: 'yoga' } })
             }
@@ -889,8 +887,6 @@ export default function HomeTab() {
           <JumpTile
             icon="checkmark-done-outline"
             label="My health"
-            bg="#FFF7ED"
-            tint="#EA580C"
             onPress={() =>
               router.push({ pathname: '/(tabs)/health', params: { tab: 'myhealth' } })
             }
@@ -898,8 +894,6 @@ export default function HomeTab() {
           <JumpTile
             icon="search-outline"
             label="Find moms"
-            bg="#F5F0FF"
-            tint="#7C3AED"
             onPress={() =>
               // Community tab reads ?search=1 and auto-opens UserSearchSheet.
               router.push({ pathname: '/(tabs)/community', params: { search: '1' } })
@@ -926,26 +920,60 @@ export default function HomeTab() {
           <GestureDetector gesture={profileSheetPan}>
             <Reanimated.View style={[styles.sheet, profileSheetStyle]}>
             <View style={styles.sheetHandle} />
-            <View style={styles.sheetHeader}>
-              {photoUrl ? (
-                <Image source={{ uri: photoUrl }} style={styles.sheetAvatarPhoto} />
-              ) : (
-                <LinearGradient colors={Gradients.avatar} style={styles.sheetAvatar}>
-                  <Text style={styles.avatarTxt}>
-                    {firstName.charAt(0).toUpperCase()}
+            {/* Identity card — richer than a flat row. Avatar + name, then a
+                dense stat rail (kids · threads · saved). Makes the sheet
+                header feel substantial instead of empty. */}
+            <View style={styles.sheetIdentityCard}>
+              <View style={styles.sheetIdentityTop}>
+                {photoUrl ? (
+                  <Image source={{ uri: photoUrl }} style={styles.sheetAvatarPhoto} />
+                ) : (
+                  <View style={styles.sheetAvatarFallback}>
+                    <Text style={styles.sheetAvatarFallbackTxt}>
+                      {(motherName || firstName).charAt(0).toUpperCase() || 'M'}
+                    </Text>
+                  </View>
+                )}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.sheetName}>{motherName || firstName || 'Welcome'}</Text>
+                  <Text style={styles.sheetEmail}>
+                    {parentGender === 'father'
+                      ? 'Dad'
+                      : parentGender === 'other'
+                      ? 'Parent'
+                      : 'Mom'}
+                    {activeKid ? ` · ${activeKid.name}` : ''}
                   </Text>
-                </LinearGradient>
-              )}
-              <View style={{ flex: 1 }}>
-                <Text style={styles.sheetName}>{motherName || firstName}</Text>
-                <Text style={styles.sheetEmail}>
-                  {parentGender === 'father'
-                    ? 'Dad'
-                    : parentGender === 'other'
-                    ? 'Parent'
-                    : 'Mom'}
-                  {activeKid ? ` · ${activeKid.name}` : ''}
-                </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => {
+                    setProfileOpen(false);
+                    setTimeout(() => setSettingsView('edit-profile'), 120);
+                  }}
+                  style={styles.sheetEditBtn}
+                  activeOpacity={0.7}
+                  accessibilityLabel="Edit profile"
+                >
+                  <Ionicons name="pencil-outline" size={16} color={Colors.primary} />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.sheetStatRow}>
+                <View style={styles.sheetStat}>
+                  <Text style={styles.sheetStatValue}>{kids.length}</Text>
+                  <Text style={styles.sheetStatLabel}>
+                    {kids.length === 1 ? 'child' : 'children'}
+                  </Text>
+                </View>
+                <View style={styles.sheetStatDivider} />
+                <View style={styles.sheetStat}>
+                  <Text style={styles.sheetStatValue}>{chatThreads.length}</Text>
+                  <Text style={styles.sheetStatLabel}>chats</Text>
+                </View>
+                <View style={styles.sheetStatDivider} />
+                <View style={styles.sheetStat}>
+                  <Text style={styles.sheetStatValue}>{savedAnswers.length}</Text>
+                  <Text style={styles.sheetStatLabel}>saved</Text>
+                </View>
               </View>
             </View>
 
@@ -1770,23 +1798,21 @@ function ProfileRow({
 function JumpTile({
   icon,
   label,
-  bg,
-  tint,
   onPress,
 }: {
   icon: string;
   label: string;
-  bg: string;
-  tint: string;
   onPress: () => void;
 }) {
+  // Single-style tile — was four different bg/tint combos (lilac, lavender,
+  // mint, amber). Now a flat white card with a lilac icon chip and a
+  // brand-purple icon. Label sits below in dark ink.
   return (
-    <AnimatedPressable
-      style={[styles.jumpTile, { backgroundColor: bg }]}
-      onPress={onPress}
-    >
-      <Ionicons name={icon as any} size={22} color={tint} />
-      <Text style={[styles.jumpTileLabel, { color: tint }]}>{label}</Text>
+    <AnimatedPressable style={styles.jumpTile} onPress={onPress}>
+      <View style={styles.jumpIconChip}>
+        <Ionicons name={icon as any} size={18} color={Colors.primary} />
+      </View>
+      <Text style={styles.jumpTileLabel}>{label}</Text>
     </AnimatedPressable>
   );
 }
@@ -2240,18 +2266,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
-    borderRadius: 14,
+    borderRadius: 12,
     padding: 14,
     gap: 12,
     marginBottom: Spacing.md,
     borderWidth: 1,
-    borderColor: '#ede9fe',
+    borderColor: Colors.border,
   },
   nearbyIconWrap: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: '#faf5ff',
+    borderRadius: 10,
+    backgroundColor: '#F5F0FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2274,30 +2300,47 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   recReadCard: {
-    width: 170,
+    width: 180,
     backgroundColor: '#fff',
     borderRadius: 14,
     padding: 14,
     borderWidth: 1,
     borderColor: Colors.border,
     marginRight: 10,
+    gap: 8,
   },
-  recReadEmoji: {
-    fontSize: 22,
-    marginBottom: 6,
+  recReadIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: '#F5F0FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recReadTopic: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 10,
+    color: Colors.primary,
+    letterSpacing: 0.8,
+    marginTop: 2,
   },
   recReadTitle: {
     fontFamily: Fonts.sansBold,
     fontSize: 14,
     color: Colors.textDark,
-    lineHeight: 18,
-    minHeight: 36,
+    lineHeight: 19,
+    letterSpacing: -0.1,
+  },
+  recReadFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
   },
   recReadMeta: {
     fontFamily: Fonts.sansRegular,
     fontSize: 11,
     color: Colors.textMuted,
-    marginTop: 8,
   },
 
   // ─── Quick Jump grid ─────────────────────────────────────────────
@@ -2309,17 +2352,30 @@ const styles = StyleSheet.create({
   },
   jumpTile: {
     width: '31%',
-    aspectRatio: 1.3,
-    borderRadius: 14,
+    aspectRatio: 1.25,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 8,
     paddingHorizontal: 8,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: Colors.borderSoft,
+  },
+  jumpIconChip: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F5F0FF',
   },
   jumpTileLabel: {
     fontFamily: Fonts.sansBold,
     fontSize: 12,
     textAlign: 'center',
+    color: Colors.textDark,
+    letterSpacing: 0.1,
   },
 
   // ─── Sheets ──────────────────────────────────────────────────────
@@ -2353,6 +2409,37 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.border,
     marginBottom: Spacing.sm,
   },
+  sheetIdentityCard: {
+    backgroundColor: '#F5F0FF',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: '#EDE9F6',
+  },
+  sheetIdentityTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  sheetAvatarPhoto: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+  },
+  sheetAvatarFallback: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.primary,
+  },
+  sheetAvatarFallbackTxt: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 20,
+    color: '#ffffff',
+  },
   sheetAvatar: {
     width: 52,
     height: 52,
@@ -2360,10 +2447,46 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  sheetAvatarPhoto: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+  sheetEditBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#E5E1EE',
+  },
+  sheetStatRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
+    paddingVertical: 10,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#F0EDF5',
+  },
+  sheetStat: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  sheetStatValue: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 17,
+    color: Colors.textDark,
+    letterSpacing: -0.2,
+  },
+  sheetStatLabel: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: 11,
+    color: Colors.textMuted,
+    marginTop: 2,
+    textTransform: 'lowercase',
+  },
+  sheetStatDivider: {
+    width: 1,
+    backgroundColor: '#F0EDF5',
   },
   sheetSectionLabel: {
     fontFamily: Fonts.sansBold,
@@ -2376,13 +2499,14 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
   },
   sheetName: {
-    fontFamily: Fonts.sansSemiBold,
-    fontSize: FontSize.xl,
+    fontFamily: Fonts.sansBold,
+    fontSize: 18,
     color: Colors.textDark,
+    letterSpacing: -0.2,
   },
   sheetEmail: {
     fontFamily: Fonts.sansRegular,
-    fontSize: FontSize.sm,
+    fontSize: 13,
     color: Colors.textMuted,
     marginTop: 2,
   },
@@ -2395,8 +2519,8 @@ const styles = StyleSheet.create({
   profileIconWrap: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.bgPink,
+    borderRadius: 10,
+    backgroundColor: '#F5F0FF',
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -1,55 +1,60 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import TagPill from '../ui/TagPill';
 import { YogaSession } from '../../data/yogaSessions';
+import { Fonts } from '../../constants/theme';
 
 interface YogaCardProps {
   session: YogaSession;
   onPress: () => void;
 }
 
+// Map the session's emoji to an outline Ionicon. Keeps the visual cue
+// without the cartoonish colour of an emoji.
+function iconForSession(session: YogaSession): keyof typeof Ionicons.glyphMap {
+  const name = (session.name || '').toLowerCase();
+  if (name.includes('morning') || name.includes('stretch')) return 'sunny-outline';
+  if (name.includes('postpartum') || name.includes('core')) return 'body-outline';
+  if (name.includes('baby') || name.includes('bonding')) return 'happy-outline';
+  if (name.includes('stress') || name.includes('calm')) return 'flower-outline';
+  if (name.includes('sleep')) return 'moon-outline';
+  if (name.includes('dad') || name.includes('father') || name.includes('strength')) return 'barbell-outline';
+  if (name.includes('reset') || name.includes('tired')) return 'leaf-outline';
+  return 'leaf-outline';
+}
+
 export default function YogaCard({ session, onPress }: YogaCardProps) {
-  const totalDuration = session.poses.reduce((sum: number, p: import('../../data/yogaSessions').YogaPose) => sum + p.durationSeconds, 0);
+  const totalDuration = session.poses.reduce(
+    (sum: number, p: import('../../data/yogaSessions').YogaPose) => sum + p.durationSeconds,
+    0,
+  );
   const minutes = Math.ceil(totalDuration / 60);
 
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.88} style={styles.card}>
-      {/* Gradient strip */}
-      <LinearGradient
-        colors={['#1e1b4b', '#4c1d95']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.strip}
-      >
-        <Text style={styles.stripEmoji}>{session.emoji}</Text>
-        <View style={styles.stripText}>
-          <Text style={styles.stripName}>{session.name}</Text>
-          <View style={styles.levelBadge}>
-            <Text style={styles.levelText}>{session.level}</Text>
-          </View>
+    <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={styles.card}>
+      <View style={styles.topRow}>
+        <View style={styles.iconBox}>
+          <Ionicons name={iconForSession(session)} size={22} color="#7C3AED" />
         </View>
-      </LinearGradient>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.name}>{session.name}</Text>
+          <Text style={styles.level}>{session.level}</Text>
+        </View>
+      </View>
 
-      {/* White body */}
-      <View style={styles.body}>
-        <Text style={styles.description} numberOfLines={2}>
-          {session.description}
-        </Text>
-        <View style={styles.tagsRow}>
-          <TagPill label={`${minutes} min`} color="#8b5cf6" />
-          <TagPill label={`${session.poses.length} poses`} color="#7C3AED" />
-        </View>
-        <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={styles.startBtn}>
-          <LinearGradient
-            colors={['#7C3AED', '#8b5cf6']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.startGradient}
-          >
-            <Text style={styles.startText}>Start Session →</Text>
-          </LinearGradient>
-        </TouchableOpacity>
+      <Text style={styles.description} numberOfLines={2}>
+        {session.description}
+      </Text>
+
+      <View style={styles.tagsRow}>
+        <TagPill label={`${minutes} min`} color="#7C3AED" />
+        <TagPill label={`${session.poses.length} poses`} color="#7C3AED" />
+      </View>
+
+      <View style={styles.startBtn}>
+        <Text style={styles.startText}>Start session</Text>
+        <Ionicons name="arrow-forward" size={16} color="#ffffff" />
       </View>
     </TouchableOpacity>
   );
@@ -57,75 +62,63 @@ export default function YogaCard({ session, onPress }: YogaCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    marginBottom: 16,
-    shadowColor: '#4c1d95',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 4,
-    boxShadow: '0px 4px 12px rgba(76, 29, 149, 0.15)',
-  },
-  strip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    gap: 16,
-  },
-  stripEmoji: {
-    fontSize: 48,
-  },
-  stripText: {
-    flex: 1,
-    gap: 8,
-  },
-  stripName: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: '700',
-    letterSpacing: 0.2,
-  },
-  levelBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-  },
-  levelText: {
-    color: 'rgba(255,255,255,0.9)',
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'capitalize',
-  },
-  body: {
+    borderRadius: 14,
+    marginBottom: 14,
     backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#F0EDF5',
     padding: 16,
     gap: 12,
   },
-  description: {
-    fontSize: 14,
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  iconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#F5F0FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  name: {
+    fontFamily: Fonts.sansBold,
+    color: '#1C1033',
+    fontSize: 16,
+    letterSpacing: -0.1,
+  },
+  level: {
+    fontFamily: Fonts.sansRegular,
     color: '#9ca3af',
-    lineHeight: 20,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  description: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: 13,
+    color: '#6b7280',
+    lineHeight: 19,
   },
   tagsRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
   },
   startBtn: {
-    borderRadius: 999,
-    overflow: 'hidden',
-  },
-  startGradient: {
-    paddingVertical: 12,
+    flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 999,
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#7C3AED',
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginTop: 2,
   },
   startText: {
     color: '#ffffff',
-    fontWeight: '700',
-    fontSize: 15,
+    fontFamily: Fonts.sansBold,
+    fontSize: 14,
+    letterSpacing: 0.2,
   },
 });

@@ -582,10 +582,12 @@ const chartStyles = StyleSheet.create({
 
 // ─── YogaGallery ──────────────────────────────────────────────────────────────
 
+// Flattened from a rotating rose/purple/green/blue palette to a single
+// tonal brand-purple. Every card reads consistently now.
 const YOGA_CARD_GRADIENTS: [string, string][] = [
-  ['#7C3AED', '#7C3AED'],
-  ['#7C3AED', '#60A5FA'],
-  ['#34D399', '#60A5FA'],
+  ['#7C3AED', '#6d28d9'],
+  ['#7C3AED', '#6d28d9'],
+  ['#7C3AED', '#6d28d9'],
   ['#F59E0B', '#7C3AED'],
 ];
 
@@ -857,23 +859,22 @@ const condStyles = StyleSheet.create({
 });
 
 // ─── Mental Tips ──────────────────────────────────────────────────────────────
+// Emojis (🌸💧🌙👥🎵) swapped for outline Ionicons. Single lilac tile
+// replaces the two alternating tints.
 
-const MENTAL_TIPS = [
-  { emoji: '🌸', text: 'Practice 5 minutes of deep breathing daily — it rewires your nervous system' },
-  { emoji: '💧', text: 'Hydration affects mood — aim for 8 glasses of water daily' },
-  { emoji: '🌙', text: 'Sleep when baby sleeps is real advice — rest is medicine' },
-  { emoji: '👥', text: 'Share your feelings — isolation makes postpartum harder' },
-  { emoji: '🎵', text: 'Play calm music during feeding — it soothes both of you' },
+const MENTAL_TIPS: Array<{ icon: keyof typeof Ionicons.glyphMap; text: string }> = [
+  { icon: 'leaf-outline', text: 'Practice 5 minutes of deep breathing daily — it rewires your nervous system' },
+  { icon: 'water-outline', text: 'Hydration affects mood — aim for 8 glasses of water daily' },
+  { icon: 'moon-outline', text: 'Sleep when baby sleeps is real advice — rest is medicine' },
+  { icon: 'people-outline', text: 'Share your feelings — isolation makes postpartum harder' },
+  { icon: 'musical-notes-outline', text: 'Play calm music during feeding — it soothes both of you' },
 ];
 
-const TIP_BG = ['#F8F4FF', '#F5F0FF'];
-
-function PullQuoteTip({ tip, index }: { tip: { emoji: string; text: string }; index: number }) {
-  const bg = TIP_BG[index % 2];
+function PullQuoteTip({ tip }: { tip: { icon: keyof typeof Ionicons.glyphMap; text: string } }) {
   return (
-    <View style={[tipStyles.card, { backgroundColor: bg }]}>
-      <View style={tipStyles.emojiBox}>
-        <Text style={tipStyles.emoji}>{tip.emoji}</Text>
+    <View style={tipStyles.card}>
+      <View style={tipStyles.iconBox}>
+        <Ionicons name={tip.icon} size={18} color="#7C3AED" />
       </View>
       <Text style={tipStyles.tipText}>{tip.text}</Text>
     </View>
@@ -882,25 +883,25 @@ function PullQuoteTip({ tip, index }: { tip: { emoji: string; text: string }; in
 
 const tipStyles = StyleSheet.create({
   card: {
-    borderRadius: 14,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 14,
     marginBottom: 8,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    borderWidth: 1,
+    borderColor: '#F0EDF5',
   },
-  emojiBox: {
+  iconBox: {
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: 'rgba(28, 16, 51, 0.06)',
+    backgroundColor: '#F5F0FF',
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
-  },
-  emoji: {
-    fontSize: 18,
   },
   tipText: {
     fontFamily: Fonts.sansMedium,
@@ -1062,7 +1063,7 @@ export default function WellnessScreen() {
         {/* Mental Wellness tips */}
         <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Mental Wellness</Text>
         {MENTAL_TIPS.map((tip, i) => (
-          <PullQuoteTip key={i} tip={tip} index={i} />
+          <PullQuoteTip key={i} tip={tip} />
         ))}
       </ScrollView>
 
