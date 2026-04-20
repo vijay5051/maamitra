@@ -7,7 +7,7 @@ import Card from '../ui/Card';
 import FoodCategoryAccordion from './FoodCategoryAccordion';
 import FoodDetailSheet from './FoodDetailSheet';
 import {
-  BABY_FOODS,
+  babyFoodsForDiet,
   FOOD_BY_ID,
   FOOD_CATEGORIES,
   FoodCategory,
@@ -16,7 +16,7 @@ import {
 } from '../../data/babyFoods';
 import { useFoodTrackerStore } from '../../store/useFoodTrackerStore';
 import { useActiveKid } from '../../hooks/useActiveKid';
-import { calculateAgeInMonths } from '../../store/useProfileStore';
+import { calculateAgeInMonths, useProfileStore } from '../../store/useProfileStore';
 import { Fonts } from '../../constants/theme';
 
 const ROSE = '#E8487A';
@@ -30,6 +30,7 @@ const STONE = '#6B7280';
 export default function FoodTrackerTab() {
   const router = useRouter();
   const { activeKid, ageLabel } = useActiveKid();
+  const parentDiet = useProfileStore((s) => s.profile?.diet);
   const byKid = useFoodTrackerStore((s) => s.byKid);
   const setEntry = useFoodTrackerStore((s) => s.setEntry);
   const clearFood = useFoodTrackerStore((s) => s.clearFood);
@@ -46,14 +47,24 @@ export default function FoodTrackerTab() {
     return calculateAgeInMonths(activeKid.dob);
   }, [activeKid]);
 
-  const clearedCount = Object.values(kidFoods).filter((e) => e.cleared).length;
-  const inProgressCount = Object.values(kidFoods).filter(
-    (e) => !e.cleared && (e.d1Date || e.d2Date || e.d3Date),
+  // Diet-filtered food list — drives totals, search, and category render.
+  // Kept as a ref so the same array is used throughout this render.
+  const visibleFoods = useMemo(() => babyFoodsForDiet(parentDiet), [parentDiet]);
+  const visibleFoodIds = useMemo(() => new Set(visibleFoods.map((f) => f.id)), [visibleFoods]);
+
+  // Counts only span foods this user can actually feed — so the percentage
+  // reflects "how much of MY allowed list have I tried" rather than the
+  // full master list.
+  const clearedCount = Object.entries(kidFoods).filter(
+    ([id, e]) => visibleFoodIds.has(id) && e.cleared,
   ).length;
-  const reactionCount = Object.values(kidFoods).filter(
-    (e) => e.reaction === 'rash' || e.reaction === 'vomit',
+  const inProgressCount = Object.entries(kidFoods).filter(
+    ([id, e]) => visibleFoodIds.has(id) && !e.cleared && (e.d1Date || e.d2Date || e.d3Date),
   ).length;
-  const pct = Math.round((clearedCount / BABY_FOODS.length) * 100);
+  const reactionCount = Object.entries(kidFoods).filter(
+    ([id, e]) => visibleFoodIds.has(id) && (e.reaction === 'rash' || e.reaction === 'vomit'),
+  ).length;
+  const pct = visibleFoods.length === 0 ? 0 : Math.round((clearedCount / visibleFoods.length) * 100);
 
   // ── No active kid ─────────────────────────────────────────────
   if (!activeKid) {
@@ -111,19 +122,19 @@ export default function FoodTrackerTab() {
   }
 
   const handleAskAI = () => {
-    const cleared = BABY_FOODS
+    const cleared = visibleFoods
       .filter((f) => kidFoods[f.id]?.cleared)
       .map((f) => f.name.toLowerCase())
       .slice(0, 8)
       .join(', ');
-    const inProg = BABY_FOODS
+    const inProg = visibleFoods
       .filter((f) => {
         const e = kidFoods[f.id];
         return e && !e.cleared && (e.d1Date || e.d2Date || e.d3Date);
       })
       .map((f) => f.name.toLowerCase())
       .join(', ');
-    const reactions = BABY_FOODS
+    const reactions = visibleFoods
       .filter((f) => {
         const r = kidFoods[f.id]?.reaction;
         return r === 'rash' || r === 'vomit';
@@ -132,6 +143,7 @@ export default function FoodTrackerTab() {
       .join(', ');
 
     const parts: string[] = [`My baby ${activeKid.name} is ${ageLabel}.`];
+    if (parentDiet) parts.push(`We're a ${parentDiet} family — please only suggest foods we eat.`);
     if (clearedCount > 0) parts.push(`Foods we've successfully introduced: ${cleared || `${clearedCount} foods`}.`);
     if (inProg) parts.push(`Currently introducing: ${inProg}.`);
     if (reactions) parts.push(`Reactions to: ${reactions}.`);
@@ -140,10 +152,15 @@ export default function FoodTrackerTab() {
     router.push({ pathname: '/(tabs)/chat', params: { prefill: parts.join(' ') } });
   };
 
-  // Filter / search
+  // Drop categories that have no foods left after the diet filter — e.g.
+  // a vegetarian profile shouldn't see "Meat" / "Fish & Seafood" headers.
+  const dietCategories = useMemo(
+    () => FOOD_CATEGORIES.filter((c) => foodsByCategory(c.id, parentDiet).length > 0),
+    [parentDiet],
+  );
   const visibleCategories = activeCategory === 'all'
-    ? FOOD_CATEGORIES
-    : FOOD_CATEGORIES.filter((c) => c.id === activeCategory);
+    ? dietCategories
+    : dietCategories.filter((c) => c.id === activeCategory);
   const searchLower = search.trim().toLowerCase();
 
   return (
@@ -209,7 +226,7 @@ export default function FoodTrackerTab() {
           >
             <Text style={[styles.pillText, activeCategory === 'all' && styles.pillTextActive]}>All</Text>
           </TouchableOpacity>
-          {FOOD_CATEGORIES.map((c) => (
+          {dietCategories.map((c) => (
             <TouchableOpacity
               key={c.id}
               onPress={() => setActiveCategory(c.id)}
@@ -241,7 +258,7 @@ export default function FoodTrackerTab() {
       {/* Search results */}
       {searchLower.length > 0 ? (
         <View style={{ marginTop: 12 }}>
-          {BABY_FOODS
+          {visibleFoods
             .filter((f) => f.name.toLowerCase().includes(searchLower))
             .slice(0, 30)
             .map((f) => {
@@ -267,7 +284,7 @@ export default function FoodTrackerTab() {
                 </TouchableOpacity>
               );
             })}
-          {BABY_FOODS.filter((f) => f.name.toLowerCase().includes(searchLower)).length === 0 && (
+          {visibleFoods.filter((f) => f.name.toLowerCase().includes(searchLower)).length === 0 && (
             <Text style={styles.searchEmpty}>
               No food matches "{search}". Try another spelling or browse a category.
             </Text>
@@ -279,7 +296,7 @@ export default function FoodTrackerTab() {
             <FoodCategoryAccordion
               key={cat.id}
               category={cat}
-              foods={foodsByCategory(cat.id)}
+              foods={foodsByCategory(cat.id, parentDiet)}
               kidFoods={kidFoods}
               kidAgeMonths={ageMonths ?? 0}
               onSelect={(f) => setSelected(f)}

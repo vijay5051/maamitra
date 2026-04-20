@@ -35,7 +35,7 @@ import { useCommunityStore } from '../../store/useCommunityStore';
 import { useActiveKid } from '../../hooks/useActiveKid';
 import { useVaccineSchedule } from '../../hooks/useVaccineSchedule';
 import { TEETH } from '../../data/teeth';
-import { BABY_FOODS } from '../../data/babyFoods';
+import { BABY_FOODS, isAllowedForDiet } from '../../data/babyFoods';
 import { type AppNotification, fetchRecentPosts, countProfilesInState } from '../../services/social';
 import { saveUserProfile } from '../../services/firebase';
 import { ARTICLES, type Article } from '../../data/articles';
@@ -379,9 +379,10 @@ export default function HomeTab() {
         savedAnswers,
         onContinueChat: handleContinueChat,
         profileState: profile?.state,
+        parentDiet: profile?.diet,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [activeKid, ageLabel, todayMood, moodHistory, vaccineSchedule, teethByKid, foodsByKid, router, chatThreads, savedAnswers, profile?.state]
+    [activeKid, ageLabel, todayMood, moodHistory, vaccineSchedule, teethByKid, foodsByKid, router, chatThreads, savedAnswers, profile?.state, profile?.diet]
   );
 
   // Vaccine reminders continue to render inline on the Home body (as
@@ -1215,6 +1216,7 @@ function buildTodayCards({
   savedAnswers,
   onContinueChat,
   profileState,
+  parentDiet,
 }: {
   activeKid: ReturnType<typeof useActiveKid>['activeKid'];
   ageLabel: string;
@@ -1228,6 +1230,7 @@ function buildTodayCards({
   savedAnswers: any[];
   onContinueChat: (threadId: string) => void;
   profileState: string | undefined;
+  parentDiet: string | undefined;
 }): TodayCard[] {
   const cards: TodayCard[] = [];
   const goWellness = () => router.push('/(tabs)/wellness');
@@ -1474,12 +1477,15 @@ function buildTodayCards({
       ),
     );
     const kidFoods = foodsByKid[activeKid.id] ?? {};
-    const clearedFoods = Object.values(kidFoods).filter((e) => e?.cleared).length;
-    const inProgress = BABY_FOODS.find((f) => {
+    // Only consider foods this family actually eats — a vegetarian
+    // parent shouldn't get prompted about chicken progress.
+    const allowedFoods = BABY_FOODS.filter((f) => isAllowedForDiet(f, parentDiet));
+    const clearedFoods = allowedFoods.filter((f) => kidFoods[f.id]?.cleared).length;
+    const inProgress = allowedFoods.find((f) => {
       const e = kidFoods[f.id];
       return e && !e.cleared && (e.d1Date || e.d2Date || e.d3Date);
     });
-    const recentReaction = BABY_FOODS.find((f) => {
+    const recentReaction = allowedFoods.find((f) => {
       const r = kidFoods[f.id]?.reaction;
       return r === 'rash' || r === 'vomit';
     });

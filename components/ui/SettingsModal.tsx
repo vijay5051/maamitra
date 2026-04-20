@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Alert,
   Image as RNImage,
@@ -224,10 +224,36 @@ const spStyles = StyleSheet.create({
 
 // ─── Edit Profile View ────────────────────────────────────────────────────────
 
-const EXPERTISE_OPTIONS = [
-  'Breastfeeding', 'Baby Sleep', 'Nutrition', 'Child Development',
-  'Postpartum Recovery', 'Yoga & Wellness', 'Baby Care', 'Mental Health', 'Vaccination',
+// Expertise pool — common to every parent / caregiver. Role-specific
+// suggestions get layered on top via getExpertiseOptions() so a father
+// doesn't see "Breastfeeding / Lactation" and a grandparent doesn't see
+// "Postpartum Recovery".
+const EXPERTISE_COMMON = [
+  'Baby Sleep', 'Nutrition', 'Child Development',
+  'Baby Care', 'Mental Health', 'Vaccination', 'Yoga & Wellness',
 ];
+
+const EXPERTISE_MOTHER = [
+  'Breastfeeding', 'Postpartum Recovery', 'Pregnancy',
+  'Lactation', 'Mom Self-Care', 'Working Mom', 'Birth Story',
+];
+
+const EXPERTISE_FATHER = [
+  'Active Parenting', 'Bonding with Baby', 'Fatherhood Journey',
+  'Co-Parenting', 'Work-Life Balance', 'Sleep Training',
+];
+
+const EXPERTISE_OTHER = [
+  'Soothing Tricks', 'Family Routines', 'Multigenerational Care',
+  'Caregiving', 'Bonding with Baby',
+];
+
+function getExpertiseOptions(parentGender: ParentGender): string[] {
+  if (parentGender === 'father') return [...EXPERTISE_COMMON, ...EXPERTISE_FATHER];
+  if (parentGender === 'other')  return [...EXPERTISE_COMMON, ...EXPERTISE_OTHER];
+  // Default to mother — covers '' and 'mother'.
+  return [...EXPERTISE_COMMON, ...EXPERTISE_MOTHER];
+}
 
 function EditProfileView({ onBack }: { onBack: () => void }) {
   const {
@@ -249,6 +275,16 @@ function EditProfileView({ onBack }: { onBack: () => void }) {
   const [gender, setGender] = useState<ParentGender>(parentGender || '');
   const [bioText, setBioText] = useState(bio || '');
   const [expertiseTags, setExpertiseTags] = useState<string[]>(expertise || []);
+
+  // Role-personalised expertise pool. Re-derived whenever the user picks
+  // a different parent gender. Any currently-selected tag that ISN'T in
+  // the new role's pool is appended at the end so we never drop the
+  // user's existing choices when they switch roles.
+  const expertiseOptions = useMemo(() => {
+    const pool = getExpertiseOptions(gender);
+    const extras = expertiseTags.filter((t) => !pool.includes(t));
+    return [...pool, ...extras];
+  }, [gender, expertiseTags]);
   const [imgError, setImgError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [photoLoading, setPhotoLoading] = useState(false);
@@ -425,7 +461,7 @@ function EditProfileView({ onBack }: { onBack: () => void }) {
 
       {/* ── Expertise ── */}
       <Text style={s.editSectionTitle}>My Expertise <Text style={s.optional}>(pick all that apply)</Text></Text>
-      <MultiChipSelect options={EXPERTISE_OPTIONS} selected={expertiseTags} onToggle={toggleExpertise} />
+      <MultiChipSelect options={expertiseOptions} selected={expertiseTags} onToggle={toggleExpertise} />
 
       <TouchableOpacity style={s.saveBtn} onPress={handleSave} activeOpacity={0.85}>
         <LinearGradient colors={['#ec4899', '#8b5cf6']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.saveBtnGrad}>

@@ -47,6 +47,14 @@ export const FOOD_CATEGORIES: FoodCategoryInfo[] = [
   { id: 'others',      label: 'Others',           icon: 'apps-outline',       tint: '#E0F2FE' },
 ];
 
+/**
+ * Most restrictive diet that allows the food. Hierarchy is inclusive:
+ *   vegan ⊂ vegetarian ⊂ eggetarian ⊂ nonveg
+ * So a `vegetarian` user sees foods tagged `vegan` AND `vegetarian` (dairy)
+ * but not `eggetarian` (eggs) or `nonveg` (meat / fish / poultry).
+ */
+export type FoodDiet = 'vegan' | 'vegetarian' | 'eggetarian' | 'nonveg';
+
 export interface FoodRef {
   /** Stable slug — persisted to Firestore. */
   id: string;
@@ -56,12 +64,14 @@ export interface FoodRef {
   minAgeMonths: number;
   /** Concise warning shown in the detail sheet (choking, allergy, age gate). */
   warning?: string;
+  /** Most restrictive diet that allows this food. Defaults to 'vegan'. */
+  diet: FoodDiet;
 }
 
 function f(
   category: FoodCategory,
   name: string,
-  opts: { minAge?: number; warning?: string; idOverride?: string } = {},
+  opts: { minAge?: number; warning?: string; idOverride?: string; diet?: FoodDiet } = {},
 ): FoodRef {
   const id =
     opts.idOverride ??
@@ -69,12 +79,21 @@ function f(
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '');
+  // Sensible category-level defaults so we don't have to tag every plant
+  // food explicitly. Per-food overrides win.
+  const categoryDefault: FoodDiet =
+    category === 'dairy' ? 'vegetarian'
+      : category === 'eggsPoultry' ? 'nonveg' // overridden per-food for the egg-only entries
+      : category === 'fishSeafood' ? 'nonveg'
+      : category === 'meat' ? 'nonveg'
+      : 'vegan';
   return {
     id: `${category}.${id}`,
     name,
     category,
     minAgeMonths: opts.minAge ?? 6,
     warning: opts.warning,
+    diet: opts.diet ?? categoryDefault,
   };
 }
 
@@ -199,11 +218,11 @@ export const BABY_FOODS: FoodRef[] = [
 
   // Eggs & Poultry — egg yolk OK from 6-8 mo; whole egg from 8 mo. AAP
   // now encourages early egg introduction to reduce allergy risk.
-  f('eggsPoultry', 'Egg Yolk', { minAge: 7 }),
-  f('eggsPoultry', 'Whole Egg', { minAge: 8, warning: 'Common allergen — watch closely on D1' }),
-  f('eggsPoultry', 'Scrambled Egg', { minAge: 8 }),
-  f('eggsPoultry', 'Boiled Egg', { minAge: 8, warning: 'Mash well — choking hazard whole' }),
-  f('eggsPoultry', 'Egg Omelette', { minAge: 9 }),
+  f('eggsPoultry', 'Egg Yolk', { minAge: 7, diet: 'eggetarian' }),
+  f('eggsPoultry', 'Whole Egg', { minAge: 8, warning: 'Common allergen — watch closely on D1', diet: 'eggetarian' }),
+  f('eggsPoultry', 'Scrambled Egg', { minAge: 8, diet: 'eggetarian' }),
+  f('eggsPoultry', 'Boiled Egg', { minAge: 8, warning: 'Mash well — choking hazard whole', diet: 'eggetarian' }),
+  f('eggsPoultry', 'Egg Omelette', { minAge: 9, diet: 'eggetarian' }),
   f('eggsPoultry', 'Chicken (Boiled)', { minAge: 8 }),
   f('eggsPoultry', 'Chicken (Minced)', { minAge: 8 }),
   f('eggsPoultry', 'Chicken Soup', { minAge: 8 }),
@@ -300,6 +319,30 @@ export const FOOD_BY_ID: Record<string, FoodRef> = BABY_FOODS.reduce((acc, food)
   return acc;
 }, {} as Record<string, FoodRef>);
 
-export function foodsByCategory(category: FoodCategory): FoodRef[] {
-  return BABY_FOODS.filter((f) => f.category === category);
+/** Profile diet → set of FoodDiet labels the user is willing to eat. */
+const DIET_INCLUSIONS: Record<string, Set<FoodDiet>> = {
+  vegan:            new Set<FoodDiet>(['vegan']),
+  vegetarian:       new Set<FoodDiet>(['vegan', 'vegetarian']),
+  eggetarian:       new Set<FoodDiet>(['vegan', 'vegetarian', 'eggetarian']),
+  'non-vegetarian': new Set<FoodDiet>(['vegan', 'vegetarian', 'eggetarian', 'nonveg']),
+};
+
+/**
+ * Filter foods to those allowed by the parent's profile diet.
+ * Unknown / missing diet → assume non-vegetarian (show everything) so we
+ * never accidentally hide a food when the profile is incomplete.
+ */
+export function isAllowedForDiet(food: FoodRef, parentDiet: string | undefined): boolean {
+  if (!parentDiet) return true;
+  const allowed = DIET_INCLUSIONS[parentDiet];
+  if (!allowed) return true;
+  return allowed.has(food.diet);
+}
+
+export function foodsByCategory(category: FoodCategory, parentDiet?: string): FoodRef[] {
+  return BABY_FOODS.filter((f) => f.category === category && isAllowedForDiet(f, parentDiet));
+}
+
+export function babyFoodsForDiet(parentDiet?: string): FoodRef[] {
+  return BABY_FOODS.filter((f) => isAllowedForDiet(f, parentDiet));
 }
