@@ -191,13 +191,22 @@ service cloud.firestore {
     // ── Notifications ────────────────────────────────────────────────────────
     // Owner reads/updates/deletes. Any signed-in user may create a notification
     // for another user, but only with a capped payload (no arbitrary fields).
+    //
+    // IMPORTANT: the whitelist below MUST match exactly what
+    // services/social.ts createNotification() writes. An unknown field
+    // makes hasOnly() false and the write is silently rejected, breaking
+    // downstream features (follow requests, reaction/comment notifs).
     match /notifications/{uid}/items/{notifId} {
       allow read:   if isOwner(uid);
       allow create: if isVerified() &&
         request.resource.data.fromUid == request.auth.uid &&
+        request.auth.uid != uid &&  // can't notify yourself
         request.resource.data.keys().hasOnly(
-          ['type', 'fromUid', 'fromName', 'fromAvatar', 'postId', 'commentId',
-           'text', 'createdAt', 'read', 'emoji']
+          ['type', 'fromUid', 'fromName', 'fromPhotoUrl',
+           'postId', 'postText', 'commentId',
+           'text', 'emoji',
+           'requestId',
+           'createdAt', 'read']
         );
       allow update: if isOwner(uid) && onlyFields(['read']);
       allow delete: if isOwner(uid) || isAdmin();
