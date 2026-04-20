@@ -423,6 +423,15 @@ export default function SignInScreen() {
             />
             {errors.password ? <Text style={[styles.errorText, { marginTop: -16 }]}>{errors.password}</Text> : null}
 
+            <TouchableOpacity
+              onPress={() => router.push('/(auth)/forgot-password')}
+              activeOpacity={0.6}
+              style={styles.forgotBtn}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            >
+              <Text style={styles.forgotText}>Forgot password?</Text>
+            </TouchableOpacity>
+
             {apiError ? (
               <View style={styles.apiErrorBox}>
                 <Ionicons name="alert-circle" size={16} color="#ef4444" style={{ marginRight: 8 }} />
@@ -529,6 +538,12 @@ const styles = StyleSheet.create({
   },
 
   form: { width: '100%', marginBottom: 18 },
+  forgotBtn: { alignSelf: 'flex-end', marginTop: -6, marginBottom: 10 },
+  forgotText: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 12.5,
+    color: Colors.primary,
+  },
   errorText: {
     fontFamily: Fonts.sansMedium,
     color: '#ef4444',

@@ -15,6 +15,7 @@ import {
   getRedirectResult,
   UserCredential,
   sendEmailVerification,
+  sendPasswordResetEmail,
   reload,
   RecaptchaVerifier,
   linkWithPhoneNumber,
@@ -483,6 +484,18 @@ export async function checkEmailVerified(): Promise<boolean> {
   if (!auth?.currentUser) return false;
   await reload(auth.currentUser);
   return auth.currentUser.emailVerified;
+}
+
+// ─── Forgot Password ──────────────────────────────────────────────────────────
+// Firebase sends a password-reset email with a one-time link. We deliberately
+// don't tell the caller whether the email exists in Auth — revealing that is a
+// user-enumeration leak. Callers should show the same "If that email exists…"
+// confirmation regardless of result. `auth/invalid-email` is the only error
+// we surface distinctly, since it's a form-validation failure, not a signal
+// about account existence.
+export async function sendPasswordReset(email: string): Promise<void> {
+  if (!auth) throw new Error('Authentication is not configured.');
+  await sendPasswordResetEmail(auth, email.trim());
 }
 
 // ─── User Account Management ──────────────────────────────────────────────────
