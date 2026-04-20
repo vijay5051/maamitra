@@ -450,14 +450,14 @@ export default function UserProfileModal({ uid, visible, onClose, onEditProfile 
             end={{ x: 1, y: 0 }}
             style={styles.messageButtonGradient}
           >
-            <Text style={styles.followButtonGradientText}>Message 💬</Text>
+            <Text style={styles.followButtonGradientText}>Message</Text>
           </LinearGradient>
         </TouchableOpacity>
       );
     }
     return (
       <View style={[styles.messageButtonGrey, { flex: 1 }]}>
-        <Text style={styles.followButtonGreyText}>Message 💬</Text>
+        <Text style={styles.followButtonGreyText}>Message</Text>
       </View>
     );
   };
@@ -662,14 +662,11 @@ export default function UserProfileModal({ uid, visible, onClose, onEditProfile 
         onRequestClose={onClose}
       >
         <View style={styles.container}>
-          {/* Dark gradient hero header */}
-          <LinearGradient
-            colors={['#1C1033', '#3b1060', '#6d1a7a']}
-            style={styles.header}
-          >
-            {/* Close button */}
+          {/* Light profile header — was a dark purple→plum gradient; now a
+              plain light section that matches the rest of the refreshed UI. */}
+          <View style={styles.header}>
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-              <Ionicons name="close" size={22} color="rgba(255,255,255,0.9)" />
+              <Ionicons name="close" size={20} color="#6b7280" />
             </TouchableOpacity>
 
             {/* Profile identity */}
@@ -696,7 +693,10 @@ export default function UserProfileModal({ uid, visible, onClose, onEditProfile 
                   <Text style={styles.badgeText} numberOfLines={1}>{profile.badge}</Text>
                 )}
                 {!!profile?.state && (
-                  <Text style={styles.stateText} numberOfLines={1}>📍 {profile.state}</Text>
+                  <View style={styles.stateRow}>
+                    <Ionicons name="location-outline" size={12} color="#6b7280" />
+                    <Text style={styles.stateText} numberOfLines={1}>{profile.state}</Text>
+                  </View>
                 )}
               </View>
             </View>
@@ -736,7 +736,7 @@ export default function UserProfileModal({ uid, visible, onClose, onEditProfile 
                 <Text style={styles.statLabel}>following</Text>
               </TouchableOpacity>
             </View>
-          </LinearGradient>
+          </View>
 
           {/* Scrollable white content */}
           {renderContent()}
@@ -784,18 +784,23 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingTop: Platform.OS === 'ios' ? 16 : 24,
-    paddingBottom: 24,
+    paddingBottom: 20,
     paddingHorizontal: 20,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0EDF5',
   },
   closeButton: {
     alignSelf: 'flex-end',
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 10,
+    backgroundColor: '#F5F0FF',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E5E1EE',
   },
   identityRow: {
     flexDirection: 'row',
@@ -805,7 +810,7 @@ const styles = StyleSheet.create({
   },
   avatarWrapper: {
     borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.3)',
+    borderColor: '#F5F0FF',
     borderRadius: 42,
     padding: 2,
   },
@@ -824,25 +829,37 @@ const styles = StyleSheet.create({
   nameText: {
     fontFamily: Fonts.serif,
     fontSize: 22,
-    color: '#ffffff',
+    color: '#1C1033',
     lineHeight: 28,
+    letterSpacing: -0.3,
   },
   badgeText: {
-    fontFamily: Fonts.sansRegular,
+    fontFamily: Fonts.sansMedium,
     fontSize: 13,
-    color: 'rgba(255,255,255,0.7)',
+    color: '#7C3AED',
+  },
+  stateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
   },
   stateText: {
     fontFamily: Fonts.sansRegular,
     fontSize: 12,
-    color: 'rgba(255,255,255,0.55)',
+    color: '#6b7280',
   },
+  // Stats rail lives on a lilac background now that the profile header
+  // is light. Previously the translucent-white fill + white numbers
+  // rendered invisible on the new palette.
   statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 16,
+    backgroundColor: '#F5F0FF',
+    borderRadius: 12,
     paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#EDE9F6',
   },
   statBlock: {
     flex: 1,
@@ -852,19 +869,20 @@ const styles = StyleSheet.create({
   statNumber: {
     fontFamily: Fonts.sansBold,
     fontSize: 20,
-    color: '#ffffff',
+    color: '#1C1033',
+    letterSpacing: -0.3,
   },
   statLabel: {
-    fontFamily: Fonts.sansRegular,
+    fontFamily: Fonts.sansMedium,
     fontSize: 11,
-    color: 'rgba(255,255,255,0.6)',
+    color: '#6b7280',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   statSeparator: {
     width: 1,
-    height: 32,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    height: 28,
+    backgroundColor: '#E5E1EE',
   },
   scrollView: {
     flex: 1,
