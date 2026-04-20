@@ -124,18 +124,16 @@ export default function ConversationsSheet({ visible, onClose }: Props) {
       onRequestClose={onClose}
     >
       <View style={styles.container}>
-        {/* Header */}
-        <LinearGradient
-          colors={['#1C1033', '#3b1060', '#6d1a7a']}
-          style={styles.header}
-        >
+        {/* Light header — was a dark purple→plum gradient that clashed
+            with the rest of the refreshed UI. Plain light section now. */}
+        <View style={styles.header}>
           <View style={styles.headerRow}>
             <Text style={styles.headerTitle}>Messages</Text>
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-              <Ionicons name="close" size={22} color="rgba(255,255,255,0.9)" />
+              <Ionicons name="close" size={20} color="#6b7280" />
             </TouchableOpacity>
           </View>
-        </LinearGradient>
+        </View>
 
         {/* Content */}
         {isLoadingConversations ? (
@@ -155,7 +153,9 @@ export default function ConversationsSheet({ visible, onClose }: Props) {
             )}
             ListEmptyComponent={
               <View style={styles.empty}>
-                <Text style={styles.emptyEmoji}>💬</Text>
+                <View style={styles.emptyIconBox}>
+                  <Ionicons name="chatbubbles-outline" size={26} color="#7C3AED" />
+                </View>
                 <Text style={styles.emptyTitle}>No messages yet</Text>
                 <Text style={styles.emptySubtext}>
                   Visit a user's profile and tap Message to start a conversation.
@@ -179,8 +179,11 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FAFAFB' },
   header: {
     paddingTop: Platform.OS === 'ios' ? 16 : 24,
-    paddingBottom: 20,
+    paddingBottom: 16,
     paddingHorizontal: 20,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0EDF5',
   },
   headerRow: {
     flexDirection: 'row',
@@ -189,14 +192,17 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontFamily: Fonts.serif,
-    fontSize: 22,
-    color: '#ffffff',
+    fontSize: 24,
+    color: '#1C1033',
+    letterSpacing: -0.3,
   },
   closeButton: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 10,
+    backgroundColor: '#F5F0FF',
+    borderWidth: 1,
+    borderColor: '#E5E1EE',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -258,17 +264,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
     gap: 12,
   },
-  emptyEmoji: { fontSize: 48 },
+  emptyIconBox: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: '#F5F0FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
   emptyTitle: {
-    fontFamily: Fonts.sansSemiBold,
-    fontSize: 17,
+    fontFamily: Fonts.sansBold,
+    fontSize: 16,
     color: '#1C1033',
     textAlign: 'center',
+    letterSpacing: -0.1,
   },
   emptySubtext: {
     fontFamily: Fonts.sansRegular,
     fontSize: 14,
-    color: '#9ca3af',
+    color: '#6b7280',
     textAlign: 'center',
     lineHeight: 20,
   },

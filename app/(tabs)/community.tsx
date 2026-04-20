@@ -605,20 +605,11 @@ function MyProfileCard({
 
   return (
     <View style={heroStyles.card}>
-      <LinearGradient
-        colors={['#FFFFFF', '#FFFFFF', '#FFFFFF']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-
-      {/* Glow blobs */}
-      <View style={heroStyles.glowTopRight} pointerEvents="none" />
-      <View style={heroStyles.glowBottomLeft} pointerEvents="none" />
-
-      {/* Edit button — frosted glass, top-right */}
+      {/* Edit button — flat lilac chip, top-right. The previous "frosted
+          glass" white-on-white style made it disappear once the card went
+          light. */}
       <TouchableOpacity style={heroStyles.editBtn} onPress={onEdit} activeOpacity={0.75}>
-        <Ionicons name="create-outline" size={15} color="#6b7280" />
+        <Ionicons name="create-outline" size={14} color="#7C3AED" />
         <Text style={heroStyles.editBtnText}>Edit</Text>
       </TouchableOpacity>
 
@@ -722,164 +713,149 @@ function MyProfileCard({
 
 const heroStyles = StyleSheet.create({
   card: {
-    borderRadius: 24,
-    overflow: 'hidden',
+    borderRadius: 14,
     marginHorizontal: 16,
     marginBottom: 16,
-    padding: 20,
-    paddingTop: 22,
+    padding: 16,
+    paddingTop: 16,
     position: 'relative',
-  },
-  glowTopRight: {
-    position: 'absolute',
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'transparent',
-    top: -30,
-    right: -20,
-    opacity: 0.9,
-  },
-  glowBottomLeft: {
-    position: 'absolute',
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    backgroundColor: 'transparent',
-    bottom: -20,
-    left: -10,
-    opacity: 0.8,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#F0EDF5',
   },
   editBtn: {
     position: 'absolute',
-    top: 16,
-    right: 16,
+    top: 12,
+    right: 12,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 10,
+    backgroundColor: '#F5F0FF',
+    borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
+    borderColor: '#EDE9F6',
     zIndex: 10,
   },
   editBtnText: {
     fontFamily: Fonts.sansBold,
     fontSize: 12,
-    color: 'rgba(255,255,255,0.85)',
+    color: '#7C3AED',
   },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    marginBottom: 20,
+    marginBottom: 16,
     marginTop: 4,
+    paddingRight: 68, // leave room for edit chip
   },
   avatarRing: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    borderWidth: 3,
-    borderColor: '#F59E0B',
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 2,
+    borderColor: '#F5F0FF',
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarFallback: {
-    width: 66,
-    height: 66,
-    borderRadius: 33,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarInitial: {
     fontFamily: Fonts.sansBold,
-    fontSize: 26,
+    fontSize: 22,
     color: '#ffffff',
   },
   nameBlock: {
     flex: 1,
-    paddingRight: 48, // don't overlap edit button
   },
   name: {
     fontFamily: Fonts.serif,
-    fontSize: 22,
-    color: '#ffffff',
-    marginBottom: 4,
+    fontSize: 20,
+    color: '#1C1033',
+    letterSpacing: -0.3,
+    marginBottom: 2,
   },
   subtitle: {
     fontFamily: Fonts.sansRegular,
     fontSize: 13,
-    color: 'rgba(255,255,255,0.7)',
+    color: '#6b7280',
   },
+  // Stats rail sits on a lilac sub-card — was translucent-white on a
+  // (now) white hero which rendered invisible.
   statsRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: 4,
+    gap: 0,
+    backgroundColor: '#F5F0FF',
+    borderRadius: 10,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#EDE9F6',
   },
   statBox: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingVertical: 2,
+    paddingHorizontal: 8,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
   },
   statNum: {
     fontFamily: Fonts.sansBold,
-    fontSize: 22,
-    color: '#ffffff',
+    fontSize: 18,
+    color: '#1C1033',
+    letterSpacing: -0.2,
   },
   statNumSmall: {
     fontFamily: Fonts.sansBold,
     fontSize: 14,
-    color: '#ffffff',
+    color: '#1C1033',
     marginTop: 2,
   },
   statLabel: {
-    fontFamily: Fonts.sansRegular,
+    fontFamily: Fonts.sansMedium,
     fontSize: 11,
-    color: 'rgba(255,255,255,0.6)',
+    color: '#6b7280',
     marginTop: 2,
+    letterSpacing: 0.1,
   },
   bioText: {
     fontFamily: Fonts.sansRegular,
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.75)',
-    lineHeight: 18,
-    marginTop: 10,
+    fontSize: 13,
+    color: '#374151',
+    lineHeight: 19,
+    marginTop: 12,
   },
   tagRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
-    marginTop: 10,
+    marginTop: 12,
   },
   tag: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 8,
-    paddingHorizontal: 9,
+    backgroundColor: '#F5F0FF',
+    borderRadius: 999,
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
   },
   tagText: {
     fontFamily: Fonts.sansMedium,
     fontSize: 11,
-    color: 'rgba(255,255,255,0.85)',
+    color: '#7C3AED',
   },
   completeLink: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    marginTop: 14,
+    marginTop: 12,
   },
   completeLinkText: {
-    fontFamily: Fonts.sansSemiBold,
+    fontFamily: Fonts.sansBold,
     fontSize: 13,
     color: '#7C3AED',
   },
