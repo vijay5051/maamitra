@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -79,6 +79,20 @@ export default function HelpSupportSheet({
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  // Each time the sheet is opened, snap the ScrollView back to the top
+  // and collapse any expanded FAQ. Without this, re-opening after scrolling
+  // left the user mid-way down the sheet with a prior FAQ still open.
+  const scrollRef = useRef<ScrollView | null>(null);
+  useEffect(() => {
+    if (!visible) return;
+    setOpenFaq(null);
+    // Defer one tick so the ScrollView has mounted before we scroll.
+    const t = setTimeout(() => {
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+    }, 30);
+    return () => clearTimeout(t);
+  }, [visible]);
 
   const canSubmit =
     name.trim().length > 0 &&
@@ -163,6 +177,7 @@ export default function HelpSupportSheet({
             </LinearGradient>
 
             <ScrollView
+              ref={scrollRef}
               keyboardShouldPersistTaps="handled"
               contentContainerStyle={styles.scroll}
               showsVerticalScrollIndicator={false}
