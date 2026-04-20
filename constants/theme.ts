@@ -240,13 +240,18 @@ export const Shadow = {
 
 // ─── Font Families ─────────────────────────────────────────────────────────────
 // Typography rule:
-//   - Use `serif` ONLY for hero/display moments — the app name, a landing
+//   - Use `sansBold` for hero/display moments — the app name, a landing
 //     greeting ("Good morning, Vijay"), or the single biggest title on a
-//     screen. Never for section headers or repeated titles.
+//     screen. Never for repeated titles.
 //   - Use `sansSemiBold` for section titles and card headings.
 //   - Use `sansRegular` for body copy, `sansMedium` for captions / metadata.
+//
+// `Fonts.serif` is a deprecated alias kept for backward compatibility with
+// ~30 existing callers. It now resolves to DM Sans Bold — we dropped the
+// DM Serif Display face in favour of a single-family system. In new code,
+// use `Fonts.sansBold` directly.
 export const Fonts = {
-  serif: 'DMSerifDisplay_400Regular',
+  serif: 'DMSans_700Bold',
   sansRegular: 'DMSans_400Regular',
   sansMedium: 'DMSans_500Medium',
   sansSemiBold: 'DMSans_600SemiBold',

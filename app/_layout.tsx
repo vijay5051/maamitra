@@ -25,7 +25,6 @@ export default function RootLayout() {
   // correctly by Firebase Hosting (no external font URL requests that can fail).
   const [fontsLoaded, fontError] = useFonts({
     Ionicons:                  require('../assets/fonts/Ionicons.ttf'),
-    DMSerifDisplay_400Regular: require('../assets/fonts/DMSerifDisplay_400Regular.ttf'),
     DMSans_400Regular:         require('../assets/fonts/DMSans_400Regular.ttf'),
     DMSans_500Medium:          require('../assets/fonts/DMSans_500Medium.ttf'),
     DMSans_600SemiBold:        require('../assets/fonts/DMSans_600SemiBold.ttf'),

@@ -120,7 +120,7 @@ const styles = StyleSheet.create({
   hero: { alignItems: 'center', marginTop: 10 },
   logoImage: { width: 72, height: 72, marginBottom: 8 },
   wordmark: {
-    fontFamily: 'DMSerifDisplay_400Regular',
+    fontFamily: 'DMSans_700Bold',
     fontSize: 38,
     color: '#1C1033',
     letterSpacing: -0.6,
