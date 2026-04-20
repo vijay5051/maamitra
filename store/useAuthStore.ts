@@ -21,6 +21,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useProfileStore } from './useProfileStore';
 import { useWellnessStore } from './useWellnessStore';
+import { useThemeStore } from './useThemeStore';
 import { useChatStore } from './useChatStore';
 import { useTeethStore } from './useTeethStore';
 import { useFoodTrackerStore } from './useFoodTrackerStore';
@@ -117,6 +118,11 @@ async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
     if (fullProfile.foodTracking && Object.keys(fullProfile.foodTracking).length > 0) {
       useFoodTrackerStore.getState().hydrate(fullProfile.foodTracking as any);
     }
+
+    // Apply the user's picked accent colour (if any saved in Firestore).
+    // Fire-and-forget — non-blocking, missing colour just keeps the
+    // locally-persisted / default one.
+    useThemeStore.getState().loadFromFirestore(uid);
 
     return fullProfile.onboardingComplete;
   } catch (error) {

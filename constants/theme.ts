@@ -44,6 +44,13 @@ export const Colors = {
 // Most screens should prefer a solid `Colors.primary` over these gradients.
 // Kept as tuples for backward compatibility; values are now tonal variations
 // of brand purple rather than the old rose→purple rainbow.
+//
+// IMPORTANT: these are `as const` tuples at build time — at runtime we
+// overwrite the .primary / .avatar / .childRose / .childPurple entries via
+// setPrimaryAtRuntime() so the user-picked accent colour flows through
+// components that render gradients (avatars, buttons that still use
+// Gradients.primary, etc.). `as const` makes the type readonly but the
+// underlying JS object is still mutable.
 export const Gradients = {
   primary: ['#7C3AED', '#6d28d9'] as const,               // brand-only, subtle depth
   header: ['#1C1033', '#3b1060', '#6d1a7a'] as const,      // dark hero header kept
@@ -55,6 +62,87 @@ export const Gradients = {
   childRose: ['#7C3AED', '#6d28d9'] as const,
   childPurple: ['#7C3AED', '#6d28d9'] as const,
 } as const;
+
+// ─── Runtime theming ──────────────────────────────────────────────────────────
+//
+// The accent colour is user-pickable from Settings → Appearance. The picker
+// writes the chosen hex into useThemeStore, which on every successful write
+// (including the initial hydration from AsyncStorage / Firestore) calls
+// setPrimaryAtRuntime(hex). That mutates the module-level `Colors` and
+// `Gradients` objects.
+//
+// Caveat: StyleSheet.create() snapshots values at module-load time. Styles
+// created BEFORE the user's preference is known will keep the default
+// #7C3AED. So the theme store triggers a soft reload on web after a change
+// (see useThemeStore) to rebuild every stylesheet cache cleanly. On native
+// the user is prompted to restart the app.
+//
+// This trade-off keeps the implementation sane (zero refactors across
+// ~500 Colors.primary references) while delivering a live-looking result
+// to the user.
+
+/** Darken a hex colour by mixing toward black. `amount` 0–1. */
+function shade(hex: string, amount: number): string {
+  const h = hex.replace('#', '');
+  const num = parseInt(h.length === 3 ? h.split('').map((c) => c + c).join('') : h, 16);
+  const r = Math.max(0, Math.min(255, Math.round(((num >> 16) & 0xff) * (1 - amount))));
+  const g = Math.max(0, Math.min(255, Math.round(((num >> 8) & 0xff) * (1 - amount))));
+  const b = Math.max(0, Math.min(255, Math.round((num & 0xff) * (1 - amount))));
+  return '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('');
+}
+
+/** Lighten a hex colour by mixing toward white. `amount` 0–1. */
+function tint(hex: string, amount: number): string {
+  const h = hex.replace('#', '');
+  const num = parseInt(h.length === 3 ? h.split('').map((c) => c + c).join('') : h, 16);
+  const r = Math.max(0, Math.min(255, Math.round(((num >> 16) & 0xff) + (255 - ((num >> 16) & 0xff)) * amount)));
+  const g = Math.max(0, Math.min(255, Math.round(((num >> 8) & 0xff) + (255 - ((num >> 8) & 0xff)) * amount)));
+  const b = Math.max(0, Math.min(255, Math.round((num & 0xff) + (255 - (num & 0xff)) * amount)));
+  return '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Overwrite the module-level Colors.primary / Colors.primarySoft /
+ * Colors.secondary and the relevant Gradients entries with values derived
+ * from a user-picked accent colour. Safe to call during app bootstrap
+ * before any components render, or at runtime (followed by a reload).
+ */
+export function setPrimaryAtRuntime(hex: string): void {
+  if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return;
+  const soft = tint(hex, 0.92);                        // ~#F5F0FF-equivalent
+  const dark = shade(hex, 0.12);
+  // Colors is `as const` at the type level but plain JS at runtime — these
+  // writes do reach every call site that reads Colors.primary NEXT render.
+  (Colors as any).primary = hex;
+  (Colors as any).primarySoft = soft;
+  (Colors as any).bgPink = soft;
+  (Colors as any).bgTint = soft;
+  (Colors as any).secondary = hex;
+  (Colors as any).cloud = soft;
+  // Tonal gradients take the same accent + a subtle darkening.
+  (Gradients as any).primary  = [hex, dark];
+  (Gradients as any).avatar   = [hex, dark];
+  (Gradients as any).childRose   = [hex, dark];
+  (Gradients as any).childPurple = [hex, dark];
+}
+
+/**
+ * Curated palette shown in the Settings colour picker. Kept short and
+ * tonally varied so every choice still reads premium against the neutral
+ * canvas we built. `name` is shown in the picker label.
+ */
+export const ACCENT_PRESETS: ReadonlyArray<{ name: string; hex: string }> = [
+  { name: 'Purple',  hex: '#7C3AED' }, // default
+  { name: 'Indigo',  hex: '#4F46E5' },
+  { name: 'Blue',    hex: '#2563EB' },
+  { name: 'Teal',    hex: '#0D9488' },
+  { name: 'Emerald', hex: '#059669' },
+  { name: 'Amber',   hex: '#D97706' },
+  { name: 'Coral',   hex: '#EA580C' },
+  { name: 'Rose',    hex: '#E11D48' },
+  { name: 'Pink',    hex: '#DB2777' },
+  { name: 'Slate',   hex: '#475569' },
+];
 
 // ─── Border Radius ─────────────────────────────────────────────────────────────
 export const Radius = {
