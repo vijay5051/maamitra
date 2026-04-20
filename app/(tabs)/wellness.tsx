@@ -859,16 +859,145 @@ const condStyles = StyleSheet.create({
 });
 
 // ─── Mental Tips ──────────────────────────────────────────────────────────────
-// Emojis (🌸💧🌙👥🎵) swapped for outline Ionicons. Single lilac tile
-// replaces the two alternating tints.
+// Emojis swapped for outline Ionicons. Content is now derived from the
+// viewer's role + stage + active kid age so the tips speak to THIS
+// parent, not a generic postpartum mother.
 
-const MENTAL_TIPS: Array<{ icon: keyof typeof Ionicons.glyphMap; text: string }> = [
-  { icon: 'leaf-outline', text: 'Practice 5 minutes of deep breathing daily — it rewires your nervous system' },
-  { icon: 'water-outline', text: 'Hydration affects mood — aim for 8 glasses of water daily' },
-  { icon: 'moon-outline', text: 'Sleep when baby sleeps is real advice — rest is medicine' },
-  { icon: 'people-outline', text: 'Share your feelings — isolation makes postpartum harder' },
-  { icon: 'musical-notes-outline', text: 'Play calm music during feeding — it soothes both of you' },
-];
+type MentalTip = { icon: keyof typeof Ionicons.glyphMap; text: string };
+
+interface TipContext {
+  parentGender: 'mother' | 'father' | 'other' | '';
+  stage?: 'pregnant' | 'planning' | 'newborn' | null;
+  // Primary-kid first name (for natural-sounding copy) and age bucket.
+  kidName?: string;
+  ageBucket?: 'expecting' | 'newborn' | 'infant' | 'toddler' | 'older' | 'none';
+}
+
+function ageBucketFor(dob?: string | null, isExpecting?: boolean): TipContext['ageBucket'] {
+  if (!dob) return 'none';
+  if (isExpecting) return 'expecting';
+  const diffMs = Date.now() - new Date(dob).getTime();
+  const months = diffMs / (1000 * 60 * 60 * 24 * 30.44);
+  if (months < 0) return 'expecting';
+  if (months < 3) return 'newborn';
+  if (months < 12) return 'infant';
+  if (months < 36) return 'toddler';
+  return 'older';
+}
+
+/**
+ * Build a context-aware list of mental-wellness tips. Tips are tailored on
+ * three axes:
+ *   - Parent role (mother / father / other caregiver)
+ *   - Stage bucket (expecting vs post-arrival)
+ *   - Kid's age (newborn, infant, toddler, older)
+ * Uses the kid's first name when available so the copy reads personal.
+ */
+function buildMentalTips(ctx: TipContext): MentalTip[] {
+  const { parentGender, ageBucket, kidName } = ctx;
+  const who = kidName && kidName !== 'Little one' ? kidName : 'your baby';
+  const isExpecting = ageBucket === 'expecting';
+  const isNewborn = ageBucket === 'newborn';
+  const isInfant = ageBucket === 'infant' || isNewborn;
+  const isToddler = ageBucket === 'toddler';
+  const isOlder = ageBucket === 'older';
+
+  // Father-specific library
+  if (parentGender === 'father') {
+    if (isExpecting) {
+      return [
+        { icon: 'heart-outline', text: 'Your partner\'s hormones are doing heavy work — your calm presence lowers her stress more than you think' },
+        { icon: 'walk-outline', text: '20 minutes of walking 3x/week keeps paternal anxiety lower in the months before birth' },
+        { icon: 'moon-outline', text: 'Sleep-bank now — protect your own sleep for the last month. You\'ll need it.' },
+        { icon: 'chatbubbles-outline', text: 'Talk to one other dad who\'s a step ahead. The normalisation is gold.' },
+        { icon: 'book-outline', text: 'Read one article about paternal postpartum depression — 1 in 10 dads get it and it\'s easier to spot early' },
+      ];
+    }
+    if (isNewborn) {
+      return [
+        { icon: 'bed-outline', text: 'Split night duty in 5-hour shifts — "helping" isn\'t enough, splitting saves marriages' },
+        { icon: 'body-outline', text: `Skin-to-skin with ${who}: shirt off, 20 minutes daily. Drops your cortisol, raises your oxytocin.` },
+        { icon: 'alert-circle-outline', text: 'Watch yourself for irritability, withdrawal, or over-work — those are male PPD signs' },
+        { icon: 'people-outline', text: 'Protect your partner\'s sleep aggressively. One 5-hour block is her daily medicine.' },
+        { icon: 'barbell-outline', text: 'Exercise 3x/week — strongest buffer against new-dad burnout the research has found' },
+      ];
+    }
+    if (isToddler || isOlder) {
+      return [
+        { icon: 'basketball-outline', text: `Rough-and-tumble play with ${who} builds their emotional regulation — and yours` },
+        { icon: 'moon-outline', text: 'Claim bedtime routine as yours — stories, songs, lights out. It\'s the strongest daily bond there is.' },
+        { icon: 'walk-outline', text: 'A daily 20-min walk, phone in your pocket, clears more than any productivity hack' },
+        { icon: 'chatbubbles-outline', text: 'One close dad friend you see monthly — not optional, it\'s mental infrastructure' },
+        { icon: 'cafe-outline', text: 'Protect one weekly "me" slot — gym, chai, driving alone. You return better for everyone.' },
+      ];
+    }
+    // Fallback (no kid yet / planning)
+    return [
+      { icon: 'leaf-outline', text: '5 minutes of deep breathing daily rewires your nervous system — works for men too' },
+      { icon: 'walk-outline', text: 'A 20-minute walk most days is the single best mood intervention there is' },
+      { icon: 'chatbubbles-outline', text: 'Men talk about feelings 3x less than women — one honest conversation a week changes this' },
+      { icon: 'moon-outline', text: 'Sleep quality is the biggest predictor of your daily mental state. Treat it as non-negotiable.' },
+      { icon: 'people-outline', text: 'Two friendships you actively maintain is the minimum viable male mental-health setup' },
+    ];
+  }
+
+  // "Other" caregiver — generic but present-tense
+  if (parentGender === 'other') {
+    return [
+      { icon: 'leaf-outline', text: '5 minutes of deep breathing daily — it rewires your nervous system' },
+      { icon: 'water-outline', text: 'Hydration affects mood — aim for 8 glasses of water a day' },
+      { icon: 'moon-outline', text: `Rest when ${who} rests — your recovery matters too` },
+      { icon: 'people-outline', text: 'Caregiving is isolating. One conversation a day with another adult is medicine.' },
+      { icon: 'heart-outline', text: 'Your own check-in matters. Set a daily phone reminder to ask: how am I actually?' },
+    ];
+  }
+
+  // Default: mother
+  if (isExpecting) {
+    return [
+      { icon: 'leaf-outline', text: '5 minutes of deep breathing daily — lowers cortisol for both you and baby' },
+      { icon: 'water-outline', text: 'Hydration changes mood quickly — aim for 8–10 glasses a day in pregnancy' },
+      { icon: 'moon-outline', text: 'Sleep on your left side with a pillow between your knees — best circulation for both of you' },
+      { icon: 'chatbubbles-outline', text: 'Talk to one other pregnant woman this week — shared experience is half the healing' },
+      { icon: 'book-outline', text: 'Spend 10 minutes learning one thing about birth each day — less fear, more agency' },
+    ];
+  }
+  if (isNewborn) {
+    return [
+      { icon: 'moon-outline', text: `Sleep when ${who} sleeps is real advice — rest is medicine, not laziness` },
+      { icon: 'water-outline', text: 'Keep a water bottle next to wherever you feed — dehydration tanks milk supply and mood together' },
+      { icon: 'people-outline', text: 'Isolation is the #1 risk factor for postpartum depression — one call, one visit, one walk with a friend' },
+      { icon: 'leaf-outline', text: '4-7-8 breathing during night feeds regulates your nervous system in 2 minutes' },
+      { icon: 'alert-circle-outline', text: 'If the sadness lasts past week 3, it\'s not "baby blues" anymore — call your doctor' },
+    ];
+  }
+  if (isInfant) {
+    return [
+      { icon: 'leaf-outline', text: '5 minutes of deep breathing daily — it rewires your nervous system' },
+      { icon: 'water-outline', text: 'Hydration affects mood — aim for 8 glasses of water daily' },
+      { icon: 'moon-outline', text: `Rest when ${who} rests — your recovery still matters at this stage` },
+      { icon: 'people-outline', text: 'Share what you\'re feeling — isolation still makes the fourth trimester harder' },
+      { icon: 'musical-notes-outline', text: 'Calm music during feeding soothes both of you' },
+    ];
+  }
+  if (isToddler || isOlder) {
+    return [
+      { icon: 'cafe-outline', text: 'One protected hour a week that\'s yours — chai, book, nothing else. Non-negotiable.' },
+      { icon: 'chatbubbles-outline', text: `Talking to ${who} about your feelings (simply) models emotional regulation — it rubs off` },
+      { icon: 'moon-outline', text: 'Sleep quality drives your patience more than anything else at this age' },
+      { icon: 'leaf-outline', text: '3 slow breaths before reacting to a tantrum — that pause is the whole parenting skill' },
+      { icon: 'people-outline', text: 'One close mom friend you see regularly is the real daily-mental-health tool' },
+    ];
+  }
+  // Fallback: planning / no kid
+  return [
+    { icon: 'leaf-outline', text: '5 minutes of deep breathing daily — it rewires your nervous system' },
+    { icon: 'water-outline', text: 'Hydration affects mood — aim for 8 glasses of water daily' },
+    { icon: 'moon-outline', text: 'Sleep quality is the biggest predictor of your daily mental state' },
+    { icon: 'people-outline', text: 'One honest conversation a week is medicine — isolation is the real risk' },
+    { icon: 'book-outline', text: '10 minutes of reading (anything not your phone) lowers stress measurably' },
+  ];
+}
 
 function PullQuoteTip({ tip }: { tip: { icon: keyof typeof Ionicons.glyphMap; text: string } }) {
   return (
@@ -974,10 +1103,56 @@ export default function WellnessScreen() {
   // audience filter is a no-op, so behaviour is unchanged until content
   // starts getting tagged.
   const parentGenderForAudience = useProfileStore((s) => s.parentGender);
+  const kids = useProfileStore((s) => s.kids);
+  const primaryKid = kids.find((k) => k.isExpecting) || kids[0] || null;
   const audienceFiltered = filterByAudience(
     YOGA_SESSIONS,
     parentGenderToAudience(parentGenderForAudience),
   );
+
+  // Mental tips are generated per-user from role + stage + kid age so
+  // they actually speak to THIS parent (previously a single hard-coded
+  // "postpartum mother" list regardless of who was reading).
+  const mentalTips = useMemo(
+    () =>
+      buildMentalTips({
+        parentGender: (parentGenderForAudience as TipContext['parentGender']) || '',
+        stage: profile?.stage ?? null,
+        kidName: primaryKid?.name,
+        ageBucket: ageBucketFor(primaryKid?.dob, primaryKid?.isExpecting),
+      }),
+    [parentGenderForAudience, profile?.stage, primaryKid?.name, primaryKid?.dob, primaryKid?.isExpecting],
+  );
+
+  // Copy strings that change with role + stage + kid.
+  const mentalSectionTitle = useMemo(() => {
+    if (parentGenderForAudience === 'father') return 'Mental wellness for dads';
+    if (parentGenderForAudience === 'other') return 'Caregiver wellness';
+    return 'Mental wellness';
+  }, [parentGenderForAudience]);
+
+  const moodPromptCopy = useMemo(() => {
+    const firstName = primaryKid?.name && primaryKid.name !== 'Little one' ? primaryKid.name : '';
+    if (parentGenderForAudience === 'father') {
+      if (profile?.stage === 'pregnant') return "How's your headspace today, Dad?";
+      if (firstName) return `How are you feeling today${firstName ? `, with ${firstName}` : ''}?`;
+      return 'How are you feeling today?';
+    }
+    if (firstName && profile?.stage !== 'pregnant') return `How are you feeling today${firstName ? `, with ${firstName}` : ''}?`;
+    if (profile?.stage === 'pregnant') return 'How are you feeling today, mama?';
+    return 'How are you feeling today?';
+  }, [parentGenderForAudience, profile?.stage, primaryKid?.name]);
+
+  const headerSub = useMemo(() => {
+    const fatherMode = parentGenderForAudience === 'father';
+    if (profile?.stage === 'pregnant') {
+      return fatherMode ? 'Supporting your partner through pregnancy' : 'Pregnancy wellness for you';
+    }
+    if (profile?.stage === 'planning') {
+      return fatherMode ? 'Preparing your body and mind for fatherhood' : 'Preparing for what\'s next';
+    }
+    return fatherMode ? 'Being present in early parenthood' : 'Postpartum care & recovery';
+  }, [parentGenderForAudience, profile?.stage]);
   const filteredSessions = healthConditions !== null
     ? audienceFiltered.filter(
         (s) => !s.contraindications.some((c) => healthConditions.includes(c))
@@ -998,7 +1173,7 @@ export default function WellnessScreen() {
         <View style={styles.glowTopRight} pointerEvents="none" />
         <View style={styles.glowBottomLeft} pointerEvents="none" />
         <Text style={styles.headerTitle}>Wellness</Text>
-        <Text style={styles.headerSub}>{profile?.stage === 'pregnant' ? 'Pregnancy wellness for you' : 'Postpartum care & recovery'}</Text>
+        <Text style={styles.headerSub}>{headerSub}</Text>
       </LinearGradient>
 
       <ScrollView
@@ -1007,9 +1182,13 @@ export default function WellnessScreen() {
       >
         <ContextualAskChip
           prompt={
-            profile?.stage === 'pregnant'
-              ? 'Ask about my energy and mood during pregnancy'
-              : 'Ask about postpartum recovery and self-care'
+            parentGenderForAudience === 'father'
+              ? profile?.stage === 'pregnant'
+                ? 'Ask about supporting my partner during pregnancy'
+                : 'Ask about fatherhood and mental load'
+              : profile?.stage === 'pregnant'
+                ? 'Ask about my energy and mood during pregnancy'
+                : 'Ask about postpartum recovery and self-care'
           }
         />
 
@@ -1018,7 +1197,7 @@ export default function WellnessScreen() {
           style={{ ...styles.moodCard, backgroundColor: moodCardTint || '#ffffff' }}
           shadow="md"
         >
-          <Text style={styles.moodTitle}>How are you feeling today? 💙</Text>
+          <Text style={styles.moodTitle}>{moodPromptCopy}</Text>
           <MoodSelector selectedScore={selectedMoodScore} onSelect={handleMoodSelect} />
 
           {moodResponse && (
@@ -1060,9 +1239,9 @@ export default function WellnessScreen() {
           }}
         />
 
-        {/* Mental Wellness tips */}
-        <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Mental Wellness</Text>
-        {MENTAL_TIPS.map((tip, i) => (
+        {/* Mental Wellness tips — role + stage + kid-age tailored */}
+        <Text style={[styles.sectionTitle, { marginTop: 20 }]}>{mentalSectionTitle}</Text>
+        {mentalTips.map((tip, i) => (
           <PullQuoteTip key={i} tip={tip} />
         ))}
       </ScrollView>
