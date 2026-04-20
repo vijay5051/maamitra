@@ -54,8 +54,11 @@ import Reanimated, {
   withDelay,
   withSequence,
   withTiming,
+  withSpring,
+  runOnJS,
   Easing as REasing,
 } from 'react-native-reanimated';
+import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import { useDMStore } from '../../store/useDMStore';
 
 // ─── Home (landing) tab ───────────────────────────────────────────────
@@ -301,6 +304,40 @@ export default function HomeTab() {
     switchThread(threadId);
     router.push('/(tabs)/chat');
   };
+
+  // ─── Profile sheet swipe-down-to-dismiss ──────────────────────────────
+  // Shared value drives the sheet's translateY. Reset to 0 whenever the
+  // sheet is opened so it slides in cleanly. A vertical pan gesture drags
+  // it; releasing past 100px or with velocity >500 dismisses, otherwise
+  // springs back.
+  const profileSheetY = useSharedValue(0);
+  useEffect(() => {
+    if (profileOpen) profileSheetY.value = 0;
+  }, [profileOpen]);
+  const profileSheetStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: profileSheetY.value }],
+  }));
+  const dismissProfileSheet = () => setProfileOpen(false);
+  const profileSheetPan = Gesture.Pan()
+    // Only respond to a clearly downward drag — tapping a ProfileRow
+    // should not get captured. failOffsetX prevents horizontal swipes
+    // from stealing the gesture.
+    .activeOffsetY(12)
+    .failOffsetX([-20, 20])
+    .onUpdate((e) => {
+      // Clamp to downward only — no rubber-banding upward.
+      profileSheetY.value = Math.max(0, e.translationY);
+    })
+    .onEnd((e) => {
+      const shouldClose = e.translationY > 100 || e.velocityY > 500;
+      if (shouldClose) {
+        profileSheetY.value = withTiming(600, { duration: 180 }, () => {
+          runOnJS(dismissProfileSheet)();
+        });
+      } else {
+        profileSheetY.value = withSpring(0, { damping: 18, stiffness: 220 });
+      }
+    });
 
   // Avatar pulse — a one-time welcome scale pop on first mount. Runs on
   // the UI thread, doesn't block anything, and stops at identity. Skipped
@@ -845,7 +882,8 @@ export default function HomeTab() {
           style={styles.sheetOverlay}
           onPress={() => setProfileOpen(false)}
         >
-          <TouchableOpacity activeOpacity={1} style={styles.sheet}>
+          <GestureDetector gesture={profileSheetPan}>
+            <Reanimated.View style={[styles.sheet, profileSheetStyle]}>
             <View style={styles.sheetHandle} />
             <View style={styles.sheetHeader}>
               {photoUrl ? (
@@ -957,7 +995,8 @@ export default function HomeTab() {
                 setTimeout(() => setSettingsView('main'), 120);
               }}
             />
-          </TouchableOpacity>
+            </Reanimated.View>
+          </GestureDetector>
         </TouchableOpacity>
       </Modal>
 
