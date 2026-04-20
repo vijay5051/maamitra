@@ -81,17 +81,17 @@ export default function HelpSupportSheet({
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   // Each time the sheet is opened, snap the ScrollView back to the top
-  // and collapse any expanded FAQ. Without this, re-opening after scrolling
-  // left the user mid-way down the sheet with a prior FAQ still open.
+  // and collapse any expanded FAQ. Uses two delayed scrolls because
+  // some platforms lay out the sheet animation first and the ScrollView
+  // second — one snap may happen before the content is sized.
   const scrollRef = useRef<ScrollView | null>(null);
   useEffect(() => {
     if (!visible) return;
     setOpenFaq(null);
-    // Defer one tick so the ScrollView has mounted before we scroll.
-    const t = setTimeout(() => {
-      scrollRef.current?.scrollTo({ y: 0, animated: false });
-    }, 30);
-    return () => clearTimeout(t);
+    const snapToTop = () => scrollRef.current?.scrollTo({ y: 0, animated: false });
+    const t1 = setTimeout(snapToTop, 50);
+    const t2 = setTimeout(snapToTop, 300);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [visible]);
 
   const canSubmit =
@@ -176,36 +176,40 @@ export default function HelpSupportSheet({
               <View style={styles.closeBtn} />
             </LinearGradient>
 
+            {/* Support email — always visible, pinned above the scroll so the
+                user can see how to reach us without scrolling. Previously
+                this was the first item inside the ScrollView; some users
+                couldn't find it because the scroll position didn't reset
+                between opens. */}
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={styles.emailChipPinned}
+              onPress={handleEmail}
+            >
+              <View style={styles.emailIconWrap}>
+                <Ionicons
+                  name="mail-outline"
+                  size={18}
+                  color={Colors.primary}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.emailChipLabel}>Email us directly</Text>
+                <Text style={styles.emailChipSub}>{SUPPORT_EMAIL}</Text>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color={Colors.textMuted}
+              />
+            </TouchableOpacity>
+
             <ScrollView
               ref={scrollRef}
               keyboardShouldPersistTaps="handled"
               contentContainerStyle={styles.scroll}
               showsVerticalScrollIndicator={false}
             >
-              {/* Quick email chip */}
-              <TouchableOpacity
-                activeOpacity={0.85}
-                style={styles.emailChip}
-                onPress={handleEmail}
-              >
-                <View style={styles.emailIconWrap}>
-                  <Ionicons
-                    name="mail-outline"
-                    size={18}
-                    color={Colors.primary}
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.emailChipLabel}>Email us directly</Text>
-                  <Text style={styles.emailChipSub}>{SUPPORT_EMAIL}</Text>
-                </View>
-                <Ionicons
-                  name="chevron-forward"
-                  size={18}
-                  color={Colors.textMuted}
-                />
-              </TouchableOpacity>
-
               {/* FAQ */}
               <Text style={styles.sectionLabel}>FREQUENTLY ASKED</Text>
               <View style={styles.faqCard}>
@@ -398,7 +402,7 @@ const styles = StyleSheet.create({
 
   scroll: {
     paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.lg,
+    paddingTop: Spacing.md,
     paddingBottom: Spacing.xxxl,
   },
 
@@ -410,6 +414,20 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
     paddingVertical: 12,
     paddingHorizontal: 14,
+  },
+  // Always-visible variant rendered above the ScrollView, so the email
+  // doesn't rely on the scroll position being at top.
+  emailChipPinned: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    backgroundColor: Colors.bgPink,
+    borderRadius: Radius.lg,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginHorizontal: Spacing.xl,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.sm,
   },
   emailIconWrap: {
     width: 36,
