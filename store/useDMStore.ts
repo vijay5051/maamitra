@@ -9,9 +9,12 @@ import {
   markConversationRead,
   getUnreadDMCount,
   conversationId,
+  subscribeConversations,
+  subscribeMessages,
   type DMConversation,
   type DMMessage,
 } from '../services/messages';
+import type { Unsubscribe } from 'firebase/firestore';
 
 interface DMState {
   conversations: DMConversation[];
@@ -27,7 +30,32 @@ interface DMState {
   sendMessage: (otherUid: string, otherName: string, otherPhoto: string, text: string) => Promise<void>;
   markRead: (otherUid: string) => Promise<void>;
   loadUnreadCount: () => Promise<void>;
+
+  /** Open a real-time listener on all conversations for this user.
+   *  Powers the live unread-message badge on every tab that shows it.
+   *  Idempotent per uid. */
+  subscribeConversations: (uid: string) => () => void;
+  /** Listen to messages in a specific thread live. Returns a teardown. */
+  subscribeActiveThread: (otherUid: string) => () => void;
+  unsubscribeAll: () => void;
+
   reset: () => void;
+}
+
+let _convUnsub: Unsubscribe | null = null;
+let _convUid: string | null = null;
+let _activeUnsub: Unsubscribe | null = null;
+let _activeConvId: string | null = null;
+
+function stopConvSub() {
+  try { _convUnsub?.(); } catch {}
+  _convUnsub = null;
+  _convUid = null;
+}
+function stopActiveSub() {
+  try { _activeUnsub?.(); } catch {}
+  _activeUnsub = null;
+  _activeConvId = null;
 }
 
 const initialState = {
@@ -159,5 +187,47 @@ export const useDMStore = create<DMState>((set, get) => ({
     }
   },
 
-  reset: () => set(initialState),
+  subscribeConversations: (uid: string) => {
+    if (_convUid === uid && _convUnsub) {
+      return () => stopConvSub();
+    }
+    stopConvSub();
+    const unsub = subscribeConversations(uid, (conversations, unreadTotal) => {
+      set({ conversations, unreadTotal });
+    });
+    _convUnsub = unsub ?? null;
+    _convUid = uid;
+    return () => stopConvSub();
+  },
+
+  subscribeActiveThread: (otherUid: string) => {
+    const uid = useAuthStore.getState().user?.uid;
+    if (!uid) return () => {};
+    const convId = conversationId(uid, otherUid);
+    if (_activeConvId === convId && _activeUnsub) {
+      return () => stopActiveSub();
+    }
+    stopActiveSub();
+    set({ activeConvId: convId });
+    const unsub = subscribeMessages(convId, (messages) => {
+      // Service returns newest-first (desc). Store keeps oldest-first so
+      // the FlatList renders naturally top-to-bottom.
+      set({ activeMessages: [...messages].reverse() });
+    });
+    _activeUnsub = unsub ?? null;
+    _activeConvId = convId;
+    return () => stopActiveSub();
+  },
+
+  unsubscribeAll: () => {
+    stopConvSub();
+    stopActiveSub();
+  },
+
+  reset: () => {
+    // Tear down listeners so the next user's session doesn't leak streams.
+    stopConvSub();
+    stopActiveSub();
+    set(initialState);
+  },
 }));

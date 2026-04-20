@@ -81,6 +81,7 @@ export default function ConversationScreen() {
     loadMessages,
     sendMessage,
     markRead,
+    subscribeActiveThread,
   } = useDMStore();
 
   const [text, setText] = useState('');
@@ -116,10 +117,17 @@ export default function ConversationScreen() {
         console.error('Failed to prepare conversation:', e);
       }
       if (cancelled) return;
+      // One-shot prime (so the thread isn't empty during the first
+      // onSnapshot round-trip), then attach a live listener that
+      // overwrites activeMessages on every write.
       loadMessages(otherUid);
       markRead(otherUid);
     })();
-    return () => { cancelled = true; };
+    const teardown = subscribeActiveThread(otherUid);
+    return () => {
+      cancelled = true;
+      teardown();
+    };
   }, [otherUid]);
 
   // Scroll to bottom when new messages arrive

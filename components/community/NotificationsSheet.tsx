@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import GradientAvatar from '../ui/GradientAvatar';
 import { Fonts } from '../../constants/theme';
 import { useSocialStore } from '../../store/useSocialStore';
@@ -132,6 +133,7 @@ function NotifRow({ notif, handled, onAccept, onDecline, onPress }: NotifRowProp
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function NotificationsSheet({ visible, onClose, onViewProfile }: Props) {
+  const router = useRouter();
   const {
     notifications,
     unreadCount,
@@ -247,7 +249,18 @@ export default function NotificationsSheet({ visible, onClose, onViewProfile }: 
                   // timer, which meant new notifications arriving after open
                   // weren't marked and the unread dot flickered).
                   if (!item.read) markRead(item.id);
-                  if (item.fromUid && item.fromUid.trim().length > 0) {
+                  if (!item.fromUid || item.fromUid.trim().length === 0) return;
+
+                  // Route by notification type:
+                  //   message        → open the conversation thread
+                  //   everything else → open the sender's profile
+                  if (item.type === 'message') {
+                    onClose();
+                    router.push({
+                      pathname: '/conversation/[uid]',
+                      params: { uid: item.fromUid },
+                    });
+                  } else {
                     onViewProfile(item.fromUid);
                   }
                 }}

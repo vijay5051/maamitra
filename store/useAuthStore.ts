@@ -24,6 +24,7 @@ import { useWellnessStore } from './useWellnessStore';
 import { useChatStore } from './useChatStore';
 import { useTeethStore } from './useTeethStore';
 import { useFoodTrackerStore } from './useFoodTrackerStore';
+import { useDMStore } from './useDMStore';
 
 // Lazy-accessed to avoid circular dependency (useSocialStore imports useAuthStore)
 const getSocialStore = () => require('./useSocialStore').useSocialStore;
@@ -291,6 +292,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     useChatStore.getState().resetAll();
     useTeethStore.getState().resetTeeth();
     useFoodTrackerStore.getState().resetFoods();
+    useDMStore.getState().reset();
     getSocialStore().getState().reset();
     getCommunityStore().getState().resetCommunity();
     if (!isFirebaseConfigured() || !auth) {
@@ -375,6 +377,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           // Make sure social subscriptions are live even on the
           // same-user fast path (e.g. after a token refresh).
           try { getSocialStore().getState().subscribeAll(firebaseUser.uid); } catch {}
+          try { useDMStore.getState().subscribeConversations(firebaseUser.uid); } catch {}
           return;
         }
 
@@ -406,6 +409,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           // 'Requested → Following' UI transition and for live
           // notification badges.
           try { getSocialStore().getState().subscribeAll(firebaseUser.uid); } catch {}
+          try { useDMStore.getState().subscribeConversations(firebaseUser.uid); } catch {}
         } catch {
           // Even on error, try to hydrate then set authenticated
           await hydrateProfileFromFirestore(firebaseUser.uid);

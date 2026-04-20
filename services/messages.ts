@@ -25,7 +25,9 @@ import {
   startAfter,
   serverTimestamp,
   writeBatch,
+  onSnapshot,
   type DocumentSnapshot,
+  type Unsubscribe,
 } from 'firebase/firestore';
 import { createNotification, firestoreDate } from './social';
 
@@ -246,6 +248,83 @@ export async function markConversationRead(convId: string, myUid: string): Promi
   } catch (error) {
     console.error('markConversationRead error:', error);
   }
+}
+
+/**
+ * Live subscription to all conversations where the user is a participant.
+ * Pushes the full list (sorted newest-first, unread-count client-side)
+ * on every change: new message arrives, someone marks a thread read,
+ * etc. Drives the live Messages-icon badge on every tab.
+ */
+export function subscribeConversations(
+  uid: string,
+  cb: (conversations: DMConversation[], unreadTotal: number) => void,
+): Unsubscribe | null {
+  if (!db) return null;
+  const q = query(
+    collection(db, 'conversations'),
+    where('participants', 'array-contains', uid),
+  );
+  return onSnapshot(
+    q,
+    (snap) => {
+      const convos = snap.docs.map((d) => {
+        const data = d.data();
+        return {
+          id: d.id,
+          participants: data.participants ?? [],
+          participantNames: data.participantNames ?? {},
+          participantPhotos: data.participantPhotos ?? {},
+          lastMessage: data.lastMessage ?? '',
+          lastMessageTime: firestoreDate(data.lastMessageTime),
+          lastMessageSenderUid: data.lastMessageSenderUid ?? '',
+          unreadBy: data.unreadBy ?? [],
+          createdAt: firestoreDate(data.createdAt),
+        } as DMConversation;
+      });
+      convos.sort((a, b) => b.lastMessageTime.getTime() - a.lastMessageTime.getTime());
+      const unreadTotal = convos.filter((c) => c.unreadBy.includes(uid)).length;
+      cb(convos, unreadTotal);
+    },
+    (err) => console.warn('subscribeConversations error:', err),
+  );
+}
+
+/**
+ * Live subscription to messages in a single conversation, ordered
+ * newest-first (capped at 50). Drives in-thread live updates so a
+ * message sent by the other side appears without a manual refresh.
+ */
+export function subscribeMessages(
+  convId: string,
+  cb: (messages: DMMessage[]) => void,
+  limitN: number = 50,
+): Unsubscribe | null {
+  if (!db) return null;
+  const q = query(
+    collection(db, 'conversations', convId, 'messages'),
+    orderBy('createdAt', 'desc'),
+    limit(limitN),
+  );
+  return onSnapshot(
+    q,
+    (snap) => {
+      const msgs = snap.docs.map((d) => {
+        const data = d.data();
+        return {
+          id: d.id,
+          senderUid: data.senderUid ?? '',
+          senderName: data.senderName ?? '',
+          senderPhoto: data.senderPhoto,
+          text: data.text ?? '',
+          createdAt: firestoreDate(data.createdAt),
+          read: data.read ?? false,
+        } as DMMessage;
+      });
+      cb(msgs);
+    },
+    (err) => console.warn('subscribeMessages error:', err),
+  );
 }
 
 /** Count conversations with unread messages for a user.
