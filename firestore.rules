@@ -120,15 +120,22 @@ service cloud.firestore {
     }
 
     // ── Follow Relationships ─────────────────────────────────────────────────
-    // Doc ID convention: `${fromUid}_${toUid}`. Only the follower can create
-    // or delete their own follow edge.
+    // Doc ID convention: `${fromUid}_${toUid}`. Either party in the edge
+    // can create it: the follower (public self-follow) or the recipient
+    // (when they accept a pending follow request). Either party can also
+    // delete it (unfollow on sender side; remove-follower on recipient).
     match /follows/{followId} {
       allow read:   if isSignedIn();
       allow create: if isVerified() &&
-        request.resource.data.fromUid == request.auth.uid &&
-        followId == request.resource.data.fromUid + '_' + request.resource.data.toUid;
-      allow delete: if isSignedIn() &&
-        resource.data.fromUid == request.auth.uid;
+        followId == request.resource.data.fromUid + '_' + request.resource.data.toUid &&
+        (
+          request.resource.data.fromUid == request.auth.uid ||
+          request.resource.data.toUid == request.auth.uid
+        );
+      allow delete: if isSignedIn() && (
+        resource.data.fromUid == request.auth.uid ||
+        resource.data.toUid == request.auth.uid
+      );
     }
 
     // ── Follow Requests ──────────────────────────────────────────────────────

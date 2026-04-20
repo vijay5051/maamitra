@@ -165,25 +165,44 @@ export const useSocialStore = create<SocialState>((set, get) => ({
         photoUrl || ''
       );
 
+      // Wipe the follow_request notification(s) that point to this request
+      // so reopening the sheet doesn't show Accept/Decline again. Picks up
+      // any stale duplicates too (e.g. from an earlier retry). Fire-and-
+      // forget — the subscription will remove them from UI as soon as the
+      // deletes land.
+      const toDelete = get()
+        .notifications
+        .filter((n) => n.type === 'follow_request' && (n as any).requestId === requestId)
+        .map((n) => n.id);
+      if (toDelete.length > 0) {
+        SocialService.deleteNotifications(uid, toDelete).catch(() => {});
+      }
+
+      // Optimistic in-store updates — the live subscription will confirm
+      // these shortly. Do NOT set fromUid to 'following'; accepting their
+      // request means THEY follow US, not the reverse.
       const newFollower: FollowEntry = {
         uid: fromUid,
         name: fromName,
         photoUrl: fromPhotoUrl || '',
         followedAt: new Date(),
       } as FollowEntry;
-
       set((state) => ({
         incomingRequests: state.incomingRequests.filter((r) => r.id !== requestId),
-        followers: [...state.followers, newFollower],
-        followersCount: state.followersCount + 1,
-        // Do NOT set fromUid to 'following' — accepting their request means
-        // THEY follow US, not that we follow them. Leave their outgoing status
-        // as whatever it already is (none or pending_outgoing from our side).
-        notifications: state.notifications.map((n) =>
-          n.fromUid === fromUid && n.type === 'follow_request'
-            ? { ...n, read: true }
-            : n
+        followers: state.followers.some((f) => f.uid === fromUid)
+          ? state.followers
+          : [...state.followers, newFollower],
+        followersCount: state.followers.some((f) => f.uid === fromUid)
+          ? state.followersCount
+          : state.followersCount + 1,
+        notifications: state.notifications.filter(
+          (n) => !(n.type === 'follow_request' && (n as any).requestId === requestId),
         ),
+        unreadCount: state.notifications
+          .filter(
+            (n) => !(n.type === 'follow_request' && (n as any).requestId === requestId) && !n.read,
+          )
+          .length,
       }));
     } catch (error) {
       console.error('acceptRequest error:', error);
@@ -192,10 +211,31 @@ export const useSocialStore = create<SocialState>((set, get) => ({
   },
 
   declineRequest: async (requestId: string) => {
+    const uid = useAuthStore.getState().user?.uid;
+    if (!uid) return;
     try {
       await SocialService.declineFollowRequest(requestId);
+
+      // Same cleanup as accept — don't leave a stale actionable
+      // notification sitting in the feed after the user has declined.
+      const toDelete = get()
+        .notifications
+        .filter((n) => n.type === 'follow_request' && (n as any).requestId === requestId)
+        .map((n) => n.id);
+      if (toDelete.length > 0) {
+        SocialService.deleteNotifications(uid, toDelete).catch(() => {});
+      }
+
       set((state) => ({
         incomingRequests: state.incomingRequests.filter((r) => r.id !== requestId),
+        notifications: state.notifications.filter(
+          (n) => !(n.type === 'follow_request' && (n as any).requestId === requestId),
+        ),
+        unreadCount: state.notifications
+          .filter(
+            (n) => !(n.type === 'follow_request' && (n as any).requestId === requestId) && !n.read,
+          )
+          .length,
       }));
     } catch (error) {
       console.error('declineRequest error:', error);

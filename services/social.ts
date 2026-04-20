@@ -890,6 +890,38 @@ export async function markNotificationRead(uid: string, notifId: string): Promis
   }
 }
 
+/**
+ * Delete a single notification document. Used after the user has actioned
+ * an actionable notification (e.g. accepted/declined a follow request) so
+ * it doesn't reappear on next open. Non-actionable notifications (reactions,
+ * comments) stay in the feed and are just marked read.
+ */
+export async function deleteNotification(uid: string, notifId: string): Promise<void> {
+  if (!db) return;
+  try {
+    await deleteDoc(doc(db, 'notifications', uid, 'items', notifId));
+  } catch (error) {
+    console.error('deleteNotification error:', error);
+  }
+}
+
+/**
+ * Delete multiple notifications in one batch. Used after accept/decline
+ * to wipe the follow_request entry so it doesn't reappear across sessions.
+ */
+export async function deleteNotifications(uid: string, notifIds: string[]): Promise<void> {
+  if (!db || notifIds.length === 0) return;
+  try {
+    const batch = writeBatch(db);
+    notifIds.forEach((id) => {
+      batch.delete(doc(db!, 'notifications', uid, 'items', id));
+    });
+    await batch.commit();
+  } catch (error) {
+    console.error('deleteNotifications error:', error);
+  }
+}
+
 export async function markAllNotificationsRead(uid: string): Promise<void> {
   if (!db) return;
   try {
