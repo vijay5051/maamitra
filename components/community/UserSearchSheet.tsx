@@ -11,7 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import GradientAvatar from '../ui/GradientAvatar';
 import { Fonts } from '../../constants/theme';
@@ -69,6 +69,7 @@ function UserRow({
 // ─── Sheet ───────────────────────────────────────────────────────────────────
 
 export default function UserSearchSheet({ visible, onClose, onSelectUser }: Props) {
+  const insets = useSafeAreaInsets();
   const myUid = useAuthStore((s) => s.user?.uid) || '';
   // Exclude users I've blocked from search results.
   const blockedUids = useSocialStore((s) => s.blockedUids);
@@ -133,22 +134,30 @@ export default function UserSearchSheet({ visible, onClose, onSelectUser }: Prop
       onRequestClose={onClose}
     >
       <View style={styles.container}>
-        {/* Header */}
-        <LinearGradient colors={['#1C1033', '#3b1060', '#6d1a7a']} style={styles.header}>
+        {/* Light header — matches Home/Health. No gradient, no white-on-dark. */}
+        <View style={[styles.header, { paddingTop: insets.top + 14 }]}>
           <View style={styles.headerRow}>
-            <Text style={styles.headerTitle}>Find people</Text>
-            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-              <Ionicons name="close" size={22} color="rgba(255,255,255,0.9)" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.headerTitle}>Find people</Text>
+              <Text style={styles.headerSub}>Moms & dads on MaaMitra</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={onClose}
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              accessibilityLabel="Close search"
+            >
+              <Ionicons name="close" size={20} color={Colors.textDark} />
             </TouchableOpacity>
           </View>
 
           <View style={styles.searchBox}>
-            <Ionicons name="search" size={18} color="rgba(255,255,255,0.6)" />
+            <Ionicons name="search" size={18} color={Colors.primary} />
             <TextInput
               value={query}
               onChangeText={setQuery}
               placeholder="Search by name"
-              placeholderTextColor="rgba(255,255,255,0.5)"
+              placeholderTextColor={Colors.textMuted}
               style={styles.searchInput}
               autoFocus
               autoCapitalize="words"
@@ -157,11 +166,11 @@ export default function UserSearchSheet({ visible, onClose, onSelectUser }: Prop
             />
             {query.length > 0 && (
               <TouchableOpacity onPress={() => setQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Ionicons name="close-circle" size={18} color="rgba(255,255,255,0.6)" />
+                <Ionicons name="close-circle" size={18} color={Colors.textMuted} />
               </TouchableOpacity>
             )}
           </View>
-        </LinearGradient>
+        </View>
 
         {/* Body */}
         {loading ? (
@@ -177,18 +186,42 @@ export default function UserSearchSheet({ visible, onClose, onSelectUser }: Prop
               <View style={styles.empty}>
                 {!hasSearched ? (
                   <>
-                    <Text style={styles.emptyEmoji}>🔍</Text>
-                    <Text style={styles.emptyTitle}>Search for moms & dads</Text>
+                    {/* Idle state — illustrated hero + 3-line tip list.
+                        Was a single magnifier emoji + muted text; the screen
+                        looked blank before typing. Tips teach users what the
+                        search actually does without needing a dead-end page. */}
+                    <View style={styles.emptyIconWrap}>
+                      <Ionicons name="search" size={28} color={Colors.primary} />
+                    </View>
+                    <Text style={styles.emptyTitle}>Find your people</Text>
                     <Text style={styles.emptySub}>
-                      Type a name to find people on MaaMitra.
+                      Search by first name to connect with other parents — follow,
+                      chat, and swap notes from pregnancy to preschool.
                     </Text>
+
+                    <View style={styles.tipsCard}>
+                      {[
+                        { icon: 'person-outline',         text: 'Try a first name — "Priya", "Rahul"' },
+                        { icon: 'at-outline',             text: 'Matches parents on MaaMitra, not kids' },
+                        { icon: 'shield-checkmark-outline', text: 'Only public profiles appear in results' },
+                      ].map((tip) => (
+                        <View key={tip.text} style={styles.tipRow}>
+                          <View style={styles.tipIconWrap}>
+                            <Ionicons name={tip.icon as any} size={13} color={Colors.primary} />
+                          </View>
+                          <Text style={styles.tipText}>{tip.text}</Text>
+                        </View>
+                      ))}
+                    </View>
                   </>
                 ) : (
                   <>
-                    <Text style={styles.emptyEmoji}>🤷‍♀️</Text>
-                    <Text style={styles.emptyTitle}>No matches for "{query}"</Text>
+                    <View style={styles.emptyIconWrap}>
+                      <Ionicons name="sad-outline" size={28} color={Colors.primary} />
+                    </View>
+                    <Text style={styles.emptyTitle}>No matches for &ldquo;{query}&rdquo;</Text>
                     <Text style={styles.emptySub}>
-                      Check the spelling, or try a shorter prefix.
+                      Check the spelling, or try a shorter prefix of the name.
                     </Text>
                   </>
                 )}
@@ -207,43 +240,57 @@ export default function UserSearchSheet({ visible, onClose, onSelectUser }: Prop
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FAFAFB' },
   header: {
-    paddingTop: Platform.OS === 'ios' ? 16 : 24,
-    paddingBottom: 16,
+    paddingBottom: 14,
     paddingHorizontal: 20,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderSoft,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 12,
     marginBottom: 14,
   },
   headerTitle: {
     fontFamily: Fonts.serif,
-    fontSize: 22,
-    color: '#ffffff',
+    fontSize: 24,
+    color: Colors.textDark,
+    letterSpacing: -0.3,
+  },
+  headerSub: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: 12,
+    color: Colors.textLight,
+    marginTop: 2,
   },
   closeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: Colors.bgTint,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.borderSoft,
   },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: Colors.bgTint,
     borderRadius: 12,
     paddingHorizontal: 12,
-    paddingVertical: Platform.OS === 'web' ? 8 : 10,
+    paddingVertical: Platform.OS === 'web' ? 10 : 12,
     gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(124,58,237,0.12)',
   },
   searchInput: {
     flex: 1,
     fontFamily: Fonts.sansMedium,
     fontSize: 15,
-    color: '#ffffff',
+    color: Colors.textDark,
     padding: 0,
   },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
@@ -251,23 +298,66 @@ const styles = StyleSheet.create({
   emptyList: { flexGrow: 1, justifyContent: 'center' },
   empty: {
     alignItems: 'center',
-    paddingHorizontal: 40,
-    paddingVertical: 60,
+    paddingHorizontal: 28,
+    paddingVertical: 48,
   },
-  emptyEmoji: { fontSize: 40, marginBottom: 12 },
+  emptyIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: Colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(124,58,237,0.18)',
+  },
   emptyTitle: {
     fontFamily: Fonts.serif,
-    fontSize: 18,
-    color: '#1a1a2e',
-    marginBottom: 6,
+    fontSize: 20,
+    color: Colors.textDark,
+    marginBottom: 8,
     textAlign: 'center',
+    letterSpacing: -0.2,
   },
   emptySub: {
     fontFamily: Fonts.sansRegular,
     fontSize: 13,
-    color: '#6b7280',
+    color: Colors.textLight,
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: 19,
+    maxWidth: 300,
+  },
+  tipsCard: {
+    marginTop: 22,
+    width: '100%',
+    maxWidth: 320,
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: Colors.borderSoft,
+    gap: 10,
+  },
+  tipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  tipIconWrap: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    backgroundColor: Colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tipText: {
+    flex: 1,
+    fontFamily: Fonts.sansRegular,
+    fontSize: 12.5,
+    color: Colors.textLight,
+    lineHeight: 17,
   },
   row: {
     flexDirection: 'row',

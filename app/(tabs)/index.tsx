@@ -922,6 +922,16 @@ export default function HomeTab() {
           <GestureDetector gesture={profileSheetPan}>
             <Reanimated.View style={[styles.sheet, profileSheetStyle]}>
             <View style={styles.sheetHandle} />
+            {/* Sheet grew past a phone's viewport once "Your family" was
+                added. Wrap the scrolling sections so content can reach past
+                the screen edge without being clipped — the handle + pan-to-
+                dismiss live OUTSIDE the scroller so dragging down still
+                closes the sheet regardless of scroll position. */}
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.sheetScrollContent}
+              keyboardShouldPersistTaps="handled"
+            >
             {/* Identity card — richer than a flat row. Avatar + name, then a
                 dense stat rail (kids · threads · saved). Makes the sheet
                 header feel substantial instead of empty. */}
@@ -1131,6 +1141,7 @@ export default function HomeTab() {
                 setTimeout(() => setSettingsView('main'), 120);
               }}
             />
+            </ScrollView>
             </Reanimated.View>
           </GestureDetector>
         </TouchableOpacity>
@@ -2456,8 +2467,13 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: Radius.xxl,
     borderTopRightRadius: Radius.xxl,
     paddingTop: 10,
-    paddingBottom: 30,
     paddingHorizontal: Spacing.xl,
+    // Cap at 88% of viewport so tall content scrolls inside the sheet
+    // rather than pushing the top of the sheet off-screen.
+    maxHeight: '88%',
+  },
+  sheetScrollContent: {
+    paddingBottom: 30,
   },
   sheetHandle: {
     alignSelf: 'center',
