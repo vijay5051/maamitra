@@ -11,7 +11,6 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -45,12 +44,9 @@ const TOTAL_STEPS = STEPS.length;
 
 // ─── Small UI primitives ──────────────────────────────────────────────────────
 
-function SectionTitle({ icon, title, subtitle }: { icon: string; title: string; subtitle?: string }) {
+function SectionTitle({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
     <View style={styles.sectionTitleWrap}>
-      <View style={styles.sectionIconWrap}>
-        <Ionicons name={icon as any} size={20} color="#ffffff" />
-      </View>
       <Text style={styles.sectionTitle}>{title}</Text>
       {subtitle ? <Text style={styles.sectionSubtitle}>{subtitle}</Text> : null}
     </View>
@@ -68,8 +64,20 @@ function FieldLabel({ children, optional }: { children: React.ReactNode; optiona
 
 function InputError({ msg }: { msg?: string }) {
   if (!msg) return null;
-  return <Text style={styles.errorText}>{msg}</Text>;
+  return (
+    <View style={styles.errorRow}>
+      <Ionicons name="alert-circle" size={14} color="#ef4444" />
+      <Text style={styles.errorText}>{msg}</Text>
+    </View>
+  );
 }
+
+type ChipOption<T extends string> = {
+  value: T;
+  label: string;
+  /** Ionicon name — shown as a small, monochrome icon beside the label. */
+  icon?: React.ComponentProps<typeof Ionicons>['name'];
+};
 
 function ChipGroup<T extends string>({
   options,
@@ -77,27 +85,37 @@ function ChipGroup<T extends string>({
   onChange,
   columns,
 }: {
-  options: Array<{ value: T; label: string; icon?: string }>;
+  options: Array<ChipOption<T>>;
   value: T | null;
   onChange: (v: T) => void;
   columns?: 2 | 3;
 }) {
   return (
-    <View style={[styles.chipGroup, columns === 2 ? { flexDirection: 'row', flexWrap: 'wrap' } : null]}>
+    <View style={[styles.chipGroup, columns === 2 ? styles.chipGroupRow : null]}>
       {options.map((opt) => {
         const active = opt.value === value;
         return (
           <TouchableOpacity
             key={opt.value}
-            activeOpacity={0.85}
+            activeOpacity={0.8}
             onPress={() => onChange(opt.value)}
             style={[
               columns === 2 ? styles.chipHalf : styles.chip,
               active ? styles.chipActive : null,
             ]}
           >
-            {opt.icon ? <Text style={styles.chipIcon}>{opt.icon}</Text> : null}
+            {opt.icon ? (
+              <Ionicons
+                name={opt.icon}
+                size={18}
+                color={active ? '#7C3AED' : '#6b7280'}
+                style={styles.chipIcon}
+              />
+            ) : null}
             <Text style={[styles.chipText, active ? styles.chipTextActive : null]}>{opt.label}</Text>
+            {active ? (
+              <Ionicons name="checkmark-circle" size={16} color="#7C3AED" style={styles.chipCheck} />
+            ) : null}
           </TouchableOpacity>
         );
       })}
@@ -289,55 +307,37 @@ export default function OnboardingScreen() {
     }
   };
 
-  // ── Progress ──
-  const progressPct = ((step + 1) / TOTAL_STEPS) * 100;
-
   // ── Render ──
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
-      {/* Gradient hero */}
-      <LinearGradient
-        colors={['#1C1033', '#3b1060', '#6d1a7a']}
-        style={styles.header}
-      >
-        <Text style={styles.headerTop}>Step {step + 1} of {TOTAL_STEPS}</Text>
-        <Text style={styles.headerTitle}>{STEPS[step]}</Text>
-        <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: `${progressPct}%` }]} />
+      {/* Header — clean, minimal, with stepper */}
+      <View style={styles.header}>
+        <View style={styles.headerTopRow}>
+          <Text style={styles.headerBrand}>MaaMitra</Text>
+          <Text style={styles.headerStepCount}>
+            {step + 1} <Text style={styles.headerStepCountDim}>/ {TOTAL_STEPS}</Text>
+          </Text>
         </View>
-        {/* Step dots */}
-        <View style={styles.stepDots}>
-          {STEPS.map((label, i) => {
+
+        {/* Step rail — thin bars with a label under the active one */}
+        <View style={styles.stepRail}>
+          {STEPS.map((_, i) => {
             const done = i < step;
             const active = i === step;
             return (
-              <View key={label} style={styles.stepDotWrap}>
-                <View
-                  style={[
-                    styles.stepDot,
-                    done ? styles.stepDotDone : active ? styles.stepDotActive : null,
-                  ]}
-                >
-                  {done ? (
-                    <Ionicons name="checkmark" size={12} color="#ffffff" />
-                  ) : (
-                    <Text style={styles.stepDotText}>{i + 1}</Text>
-                  )}
-                </View>
-                <Text
-                  style={[
-                    styles.stepDotLabel,
-                    active ? styles.stepDotLabelActive : null,
-                  ]}
-                  numberOfLines={1}
-                >
-                  {label}
-                </Text>
-              </View>
+              <View
+                key={i}
+                style={[
+                  styles.stepRailBar,
+                  done ? styles.stepRailBarDone : active ? styles.stepRailBarActive : null,
+                ]}
+              />
             );
           })}
         </View>
-      </LinearGradient>
+
+        <Text style={styles.headerSectionLabel}>{STEPS[step]}</Text>
+      </View>
 
       <KeyboardAvoidingView
         style={styles.flex1}
@@ -354,7 +354,6 @@ export default function OnboardingScreen() {
           {step === 0 && (
             <View>
               <SectionTitle
-                icon="person-outline"
                 title="Tell us about you"
                 subtitle="A few quick details so every tip we give lands on your exact moment."
               />
@@ -379,9 +378,9 @@ export default function OnboardingScreen() {
                 <FieldLabel>Where are you right now?</FieldLabel>
                 <ChipGroup<Stage>
                   options={[
-                    { value: 'pregnant', label: "We're expecting", icon: '🤰' },
-                    { value: 'newborn', label: 'My baby is here', icon: '👶' },
-                    { value: 'planning', label: 'Planning to conceive', icon: '🌸' },
+                    { value: 'pregnant', label: "We're expecting", icon: 'heart-outline' },
+                    { value: 'newborn', label: 'My baby is here', icon: 'happy-outline' },
+                    { value: 'planning', label: 'Planning to conceive', icon: 'calendar-outline' },
                   ]}
                   value={stage}
                   onChange={(v) => {
@@ -396,9 +395,9 @@ export default function OnboardingScreen() {
                 <FieldLabel>Your relation to the baby</FieldLabel>
                 <ChipGroup<Relation>
                   options={[
-                    { value: 'mother', label: 'Mom', icon: '👩' },
-                    { value: 'father', label: 'Dad', icon: '👨' },
-                    { value: 'other', label: 'Other caregiver', icon: '💙' },
+                    { value: 'mother', label: 'Mother', icon: 'woman-outline' },
+                    { value: 'father', label: 'Father', icon: 'man-outline' },
+                    { value: 'other', label: 'Other caregiver', icon: 'people-outline' },
                   ]}
                   value={relation}
                   onChange={(v) => {
@@ -426,7 +425,6 @@ export default function OnboardingScreen() {
           {step === 1 && (
             <View>
               <SectionTitle
-                icon="sparkles-outline"
                 title="About your little one"
                 subtitle="This lets us personalise milestones, feeding, vaccines, and more."
               />
@@ -460,9 +458,9 @@ export default function OnboardingScreen() {
                 <FieldLabel>Gender</FieldLabel>
                 <ChipGroup<Gender>
                   options={[
-                    { value: 'boy', label: 'Boy', icon: '👦' },
-                    { value: 'girl', label: 'Girl', icon: '👧' },
-                    { value: 'surprise', label: 'Surprise', icon: '🎁' },
+                    { value: 'boy', label: 'Boy', icon: 'male-outline' },
+                    { value: 'girl', label: 'Girl', icon: 'female-outline' },
+                    { value: 'surprise', label: 'Surprise', icon: 'help-circle-outline' },
                   ]}
                   value={kidGender}
                   onChange={(v) => {
@@ -479,7 +477,6 @@ export default function OnboardingScreen() {
           {step === 2 && (
             <View>
               <SectionTitle
-                icon="home-outline"
                 title="Your home"
                 subtitle="State-specific schemes, diet-appropriate foods, and context-aware advice."
               />
@@ -500,10 +497,10 @@ export default function OnboardingScreen() {
                 <FieldLabel>Dietary preference</FieldLabel>
                 <ChipGroup<Diet>
                   options={[
-                    { value: 'vegetarian', label: 'Vegetarian', icon: '🥦' },
-                    { value: 'eggetarian', label: 'Eggetarian', icon: '🥚' },
-                    { value: 'non-vegetarian', label: 'Non-Veg', icon: '🍗' },
-                    { value: 'vegan', label: 'Vegan', icon: '🌱' },
+                    { value: 'vegetarian', label: 'Vegetarian', icon: 'leaf-outline' },
+                    { value: 'eggetarian', label: 'Eggetarian', icon: 'ellipse-outline' },
+                    { value: 'non-vegetarian', label: 'Non-vegetarian', icon: 'restaurant-outline' },
+                    { value: 'vegan', label: 'Vegan', icon: 'nutrition-outline' },
                   ]}
                   value={diet}
                   onChange={(v) => {
@@ -519,10 +516,10 @@ export default function OnboardingScreen() {
                 <FieldLabel>Your family setup</FieldLabel>
                 <ChipGroup<FamilyType>
                   options={[
-                    { value: 'nuclear', label: 'Nuclear', icon: '🏡' },
-                    { value: 'joint', label: 'Joint', icon: '👨‍👩‍👧‍👦' },
-                    { value: 'in-laws', label: 'With in-laws', icon: '🏘️' },
-                    { value: 'single-parent', label: 'Single parent', icon: '💪' },
+                    { value: 'nuclear', label: 'Nuclear', icon: 'home-outline' },
+                    { value: 'joint', label: 'Joint', icon: 'people-outline' },
+                    { value: 'in-laws', label: 'With in-laws', icon: 'business-outline' },
+                    { value: 'single-parent', label: 'Single parent', icon: 'person-outline' },
                   ]}
                   value={familyType}
                   onChange={(v) => {
@@ -540,7 +537,6 @@ export default function OnboardingScreen() {
           {step === 3 && (
             <View>
               <SectionTitle
-                icon="people-outline"
                 title="Any other children?"
                 subtitle="Add siblings here so each has their own milestones, vaccines, and tips."
               />
@@ -567,8 +563,8 @@ export default function OnboardingScreen() {
                     <FieldLabel>Stage</FieldLabel>
                     <ChipGroup
                       options={[
-                        { value: 'pregnant' as const, label: 'Expecting', icon: '🤰' },
-                        { value: 'newborn' as const, label: 'Born', icon: '👶' },
+                        { value: 'pregnant' as const, label: 'Expecting', icon: 'heart-outline' },
+                        { value: 'newborn' as const, label: 'Born', icon: 'happy-outline' },
                       ]}
                       value={ek.stage}
                       onChange={(v) => updateExtraKid(i, { stage: v })}
@@ -599,9 +595,9 @@ export default function OnboardingScreen() {
                       <FieldLabel>Gender</FieldLabel>
                       <ChipGroup<Gender>
                         options={[
-                          { value: 'boy', label: 'Boy', icon: '👦' },
-                          { value: 'girl', label: 'Girl', icon: '👧' },
-                          { value: 'surprise', label: 'Surprise', icon: '🎁' },
+                          { value: 'boy', label: 'Boy', icon: 'male-outline' },
+                          { value: 'girl', label: 'Girl', icon: 'female-outline' },
+                          { value: 'surprise', label: 'Surprise', icon: 'help-circle-outline' },
                         ]}
                         value={ek.gender}
                         onChange={(v) => updateExtraKid(i, { gender: v })}
@@ -638,7 +634,7 @@ export default function OnboardingScreen() {
               activeOpacity={0.8}
               disabled={submitting}
             >
-              <Ionicons name="chevron-back" size={18} color="#7C3AED" />
+              <Ionicons name="chevron-back" size={16} color="#6b7280" />
               <Text style={styles.backBtnText}>Back</Text>
             </TouchableOpacity>
           ) : (
@@ -648,34 +644,28 @@ export default function OnboardingScreen() {
           <TouchableOpacity
             onPress={handleNext}
             disabled={!canGoNext || submitting}
-            activeOpacity={0.85}
-            style={{ flex: 1.6, marginLeft: step > 0 ? 10 : 0 }}
+            activeOpacity={0.9}
+            style={[
+              styles.nextBtn,
+              { flex: 1.6, marginLeft: step > 0 ? 10 : 0 },
+              (!canGoNext || submitting) && styles.nextBtnDisabled,
+            ]}
           >
-            <LinearGradient
-              colors={['#E8487A', '#7C3AED']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={[
-                styles.nextBtn,
-                (!canGoNext || submitting) && styles.nextBtnDisabled,
-              ]}
-            >
-              <Text style={styles.nextBtnText}>
-                {submitting
-                  ? 'Saving…'
-                  : step === TOTAL_STEPS - 1
-                  ? 'Finish'
-                  : 'Continue'}
-              </Text>
-              {!submitting && (
-                <Ionicons
-                  name={step === TOTAL_STEPS - 1 ? 'checkmark' : 'arrow-forward'}
-                  size={18}
-                  color="#ffffff"
-                  style={{ marginLeft: 6 }}
-                />
-              )}
-            </LinearGradient>
+            <Text style={styles.nextBtnText}>
+              {submitting
+                ? 'Saving…'
+                : step === TOTAL_STEPS - 1
+                ? 'Finish'
+                : 'Continue'}
+            </Text>
+            {!submitting && (
+              <Ionicons
+                name={step === TOTAL_STEPS - 1 ? 'checkmark' : 'arrow-forward'}
+                size={16}
+                color="#ffffff"
+                style={{ marginLeft: 6 }}
+              />
+            )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -686,137 +676,120 @@ export default function OnboardingScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#FFF8FC' },
+  root: { flex: 1, backgroundColor: '#FAFAFB' },
   flex1: { flex: 1 },
 
+  // ── Header ──
   header: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 22,
+    paddingHorizontal: 22,
+    paddingTop: 10,
+    paddingBottom: 18,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0EDF5',
   },
-  headerTop: {
-    fontFamily: Fonts.sansMedium,
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.65)',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    marginBottom: 4,
-  },
-  headerTitle: {
-    fontFamily: Fonts.serif,
-    fontSize: 28,
-    color: '#ffffff',
-    letterSpacing: -0.4,
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: 14,
   },
-  progressTrack: {
-    width: '100%',
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    overflow: 'hidden',
+  headerBrand: {
+    fontFamily: Fonts.serif,
+    fontSize: 20,
+    color: '#1C1033',
+    letterSpacing: -0.2,
   },
-  progressFill: {
-    height: 5,
-    backgroundColor: '#ffffff',
-    borderRadius: 3,
-  },
-  stepDots: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 14,
-  },
-  stepDotWrap: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  stepDot: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 4,
-  },
-  stepDotActive: {
-    backgroundColor: '#ffffff',
-  },
-  stepDotDone: {
-    backgroundColor: '#22c55e',
-  },
-  stepDotText: {
+  headerStepCount: {
     fontFamily: Fonts.sansBold,
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.75)',
+    fontSize: 13,
+    color: '#7C3AED',
+    letterSpacing: 0.3,
   },
-  stepDotLabel: {
+  headerStepCountDim: {
     fontFamily: Fonts.sansMedium,
-    fontSize: 10,
-    color: 'rgba(255,255,255,0.5)',
-    textAlign: 'center',
+    color: '#c4b5d6',
   },
-  stepDotLabelActive: {
-    color: '#ffffff',
+  stepRail: {
+    flexDirection: 'row',
+    gap: 6,
+    marginBottom: 10,
+  },
+  stepRailBar: {
+    flex: 1,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: '#EDE9F6',
+  },
+  stepRailBarActive: {
+    backgroundColor: '#7C3AED',
+  },
+  stepRailBarDone: {
+    backgroundColor: '#7C3AED',
+    opacity: 0.5,
+  },
+  headerSectionLabel: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 12,
+    color: '#6b7280',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
   },
 
+  // ── Scroll ──
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 24,
+    paddingHorizontal: 22,
+    paddingTop: 28,
     paddingBottom: 120,
   },
 
+  // ── Section heading ──
   sectionTitleWrap: {
-    marginBottom: 22,
-  },
-  sectionIconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: '#7C3AED',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
+    marginBottom: 26,
   },
   sectionTitle: {
     fontFamily: Fonts.serif,
-    fontSize: 24,
+    fontSize: 26,
     color: '#1C1033',
-    letterSpacing: -0.3,
-    marginBottom: 4,
+    letterSpacing: -0.5,
+    marginBottom: 6,
   },
   sectionSubtitle: {
     fontFamily: Fonts.sansRegular,
-    fontSize: 13,
+    fontSize: 14,
     color: '#6b7280',
-    lineHeight: 18,
+    lineHeight: 20,
   },
 
-  field: { marginBottom: 20 },
+  // ── Field basics ──
+  field: { marginBottom: 22 },
   labelRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   labelText: {
     fontFamily: Fonts.sansBold,
     fontSize: 13,
     color: '#1C1033',
+    letterSpacing: 0.1,
   },
   optional: {
-    fontFamily: Fonts.sansRegular,
+    fontFamily: Fonts.sansMedium,
     fontSize: 11,
     color: '#9ca3af',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
   },
   textInput: {
     backgroundColor: '#ffffff',
-    borderRadius: 12,
-    borderWidth: 1.5,
+    borderRadius: 10,
+    borderWidth: 1,
     borderColor: '#E5E1EE',
     paddingHorizontal: 14,
-    paddingVertical: Platform.OS === 'web' ? 12 : 14,
-    fontSize: 16,
+    paddingVertical: Platform.OS === 'web' ? 13 : 14,
+    fontSize: 15,
     fontFamily: Fonts.sansRegular,
     color: '#1C1033',
   },
@@ -830,85 +803,105 @@ const styles = StyleSheet.create({
     marginTop: 6,
     lineHeight: 17,
   },
+  errorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 6,
+  },
   errorText: {
     fontFamily: Fonts.sansMedium,
     fontSize: 12,
     color: '#ef4444',
-    marginTop: 6,
   },
 
+  // ── Chips (cleaner, no saturated fills) ──
   chipGroup: {
+    gap: 8,
+  },
+  chipGroupRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
   },
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#ffffff',
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: '#E5E1EE',
-    borderRadius: 12,
-    paddingVertical: 14,
+    borderRadius: 10,
+    paddingVertical: 13,
     paddingHorizontal: 14,
-    marginBottom: 8,
-    gap: 8,
+    gap: 10,
   },
   chipHalf: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#ffffff',
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: '#E5E1EE',
-    borderRadius: 12,
+    borderRadius: 10,
     paddingVertical: 13,
     paddingHorizontal: 12,
-    gap: 8,
-    width: '48%',
-    marginRight: '2%',
-    marginBottom: 8,
+    gap: 10,
+    flexBasis: '48%',
+    flexGrow: 1,
   },
   chipActive: {
     borderColor: '#7C3AED',
-    backgroundColor: '#F8F3FF',
+    backgroundColor: '#FAF7FF',
+    borderWidth: 1.5,
   },
   chipIcon: {
-    fontSize: 18,
+    // spacing handled via gap
   },
   chipText: {
     fontFamily: Fonts.sansMedium,
     fontSize: 14,
     color: '#1C1033',
     flexShrink: 1,
+    flex: 1,
   },
   chipTextActive: {
-    color: '#7C3AED',
+    color: '#1C1033',
     fontFamily: Fonts.sansBold,
   },
+  chipCheck: {
+    marginLeft: 4,
+  },
 
+  // ── Lock notice ──
   lockNotice: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 6,
-    backgroundColor: '#FFF0F5',
+    gap: 8,
+    backgroundColor: '#F8F6FB',
     borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 12,
-    marginTop: 12,
+    marginTop: 14,
+    borderLeftWidth: 3,
+    borderLeftColor: '#7C3AED',
   },
   lockNoticeText: {
     flex: 1,
-    fontFamily: Fonts.sansMedium,
+    fontFamily: Fonts.sansRegular,
     fontSize: 12,
-    color: '#6d1a7a',
-    lineHeight: 16,
+    color: '#4b5563',
+    lineHeight: 17,
   },
 
   // Step 4 — extra kids
   emptyExtraKids: {
-    backgroundColor: '#FFF0F5',
-    borderRadius: 14,
-    padding: 18,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 20,
     alignItems: 'center',
     marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#F0EDF5',
+    borderStyle: 'dashed',
   },
   emptyExtraKidsText: {
     fontFamily: Fonts.sansRegular,
@@ -933,8 +926,9 @@ const styles = StyleSheet.create({
   },
   extraKidTitle: {
     fontFamily: Fonts.sansBold,
-    fontSize: 15,
+    fontSize: 14,
     color: '#1C1033',
+    letterSpacing: 0.2,
   },
   addChildBtn: {
     flexDirection: 'row',
@@ -942,11 +936,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: 'rgba(124,58,237,0.25)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E5E1EE',
     borderStyle: 'dashed',
-    backgroundColor: '#F8F3FF',
+    backgroundColor: '#ffffff',
     marginBottom: 8,
   },
   addChildBtnText: {
@@ -963,35 +957,36 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
 
-  // Action bar
+  // ── Action bar ──
   actionBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 22,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#EDE9F6',
+    borderTopColor: '#F0EDF5',
     backgroundColor: '#ffffff',
   },
   backBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    gap: 4,
+    paddingVertical: 14,
+    paddingHorizontal: 10,
+    gap: 2,
     flex: 1,
   },
   backBtnText: {
     fontFamily: Fonts.sansBold,
-    fontSize: 15,
-    color: '#7C3AED',
+    fontSize: 14,
+    color: '#6b7280',
   },
   nextBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: 10,
+    backgroundColor: '#7C3AED',
   },
   nextBtnDisabled: {
     opacity: 0.5,
