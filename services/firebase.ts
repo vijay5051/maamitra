@@ -191,37 +191,66 @@ export async function saveFullProfile(uid: string, data: FullProfileData): Promi
   }
 }
 
-export async function loadFullProfile(uid: string): Promise<FullProfileData | null> {
-  if (!db) return null;
+/**
+ * Result codes distinguish the three legitimate outcomes:
+ *   - 'ok'      : doc exists, data returned.
+ *   - 'missing' : doc genuinely does not exist (new account).
+ *   - 'error'   : transient fetch failure (network / App Check /
+ *                 auth-token propagation). Caller should retry.
+ *
+ * Previously this function collapsed 'missing' and 'error' into a single
+ * null return, which made hydrateProfileFromFirestore mis-route returning
+ * users to onboarding when Firestore had a transient failure — especially
+ * visible in iPhone Safari incognito where IndexedDB / cookie partitioning
+ * delays auth-token propagation to the Firestore SDK for the first read
+ * after sign-in.
+ */
+export interface LoadFullProfileResult {
+  status: 'ok' | 'missing' | 'error';
+  data?: FullProfileData;
+  error?: unknown;
+}
+
+export async function loadFullProfileStrict(uid: string): Promise<LoadFullProfileResult> {
+  if (!db) return { status: 'error', error: new Error('db not configured') };
   try {
     const snap = await getDoc(doc(db, 'users', uid));
-    if (!snap.exists()) return null; // truly no account
+    if (!snap.exists()) return { status: 'missing' };
     const d = snap.data();
     return {
-      motherName: d.motherName ?? '',
-      profile: d.profile ?? null,
-      kids: d.kids ?? [],
-      completedVaccines: d.completedVaccines ?? {},
-      onboardingComplete: d.onboardingComplete === true,
-      parentGender: d.parentGender ?? '',
-      bio: d.bio ?? '',
-      expertise: d.expertise ?? [],
-      photoUrl: d.photoUrl ?? '',
-      visibilitySettings: d.visibilitySettings ?? null,
-      healthTracking: d.healthTracking ?? {},
-      moodHistory: d.moodHistory ?? [],
-      healthConditions: Array.isArray(d.healthConditions) && d.healthConditions.length > 0 ? d.healthConditions : null,
-      allergies: d.allergies ?? null,
-      teethTracking: d.teethTracking ?? {},
-      foodTracking: d.foodTracking ?? {},
-      hasSeenIntro: d.hasSeenIntro === true,
-      phone: d.phone ?? '',
-      phoneVerified: d.phoneVerified === true,
+      status: 'ok',
+      data: {
+        motherName: d.motherName ?? '',
+        profile: d.profile ?? null,
+        kids: d.kids ?? [],
+        completedVaccines: d.completedVaccines ?? {},
+        onboardingComplete: d.onboardingComplete === true,
+        parentGender: d.parentGender ?? '',
+        bio: d.bio ?? '',
+        expertise: d.expertise ?? [],
+        photoUrl: d.photoUrl ?? '',
+        visibilitySettings: d.visibilitySettings ?? null,
+        healthTracking: d.healthTracking ?? {},
+        moodHistory: d.moodHistory ?? [],
+        healthConditions: Array.isArray(d.healthConditions) && d.healthConditions.length > 0 ? d.healthConditions : null,
+        allergies: d.allergies ?? null,
+        teethTracking: d.teethTracking ?? {},
+        foodTracking: d.foodTracking ?? {},
+        hasSeenIntro: d.hasSeenIntro === true,
+        phone: d.phone ?? '',
+        phoneVerified: d.phoneVerified === true,
+      },
     };
   } catch (error) {
     console.error('loadFullProfile error:', error);
-    return null;
+    return { status: 'error', error };
   }
+}
+
+/** Legacy wrapper — some older call sites still want a null / data return. */
+export async function loadFullProfile(uid: string): Promise<FullProfileData | null> {
+  const res = await loadFullProfileStrict(uid);
+  return res.status === 'ok' ? res.data! : null;
 }
 
 export async function syncCompletedVaccines(uid: string, completedVaccines: Record<string, any>): Promise<void> {

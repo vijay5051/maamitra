@@ -12,11 +12,13 @@ import {
   auth,
   saveUserProfile,
   loadFullProfile,
+  loadFullProfileStrict,
   saveFullProfile,
   deleteUserAccount,
   finaliseGoogleSignIn,
   getGoogleRedirectResult,
   sendVerificationEmail,
+  type FullProfileData,
 } from '../services/firebase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useProfileStore } from './useProfileStore';
@@ -31,34 +33,47 @@ import { useDMStore } from './useDMStore';
 const getSocialStore = () => require('./useSocialStore').useSocialStore;
 const getCommunityStore = () => require('./useCommunityStore').useCommunityStore;
 
-// Tracks UIDs currently being hydrated to prevent duplicate concurrent calls
-const _hydratingUids = new Set<string>();
+// Tracks in-flight hydration promises per uid so concurrent callers (the
+// sign-in path + the onAuthStateChanged listener) both await the SAME
+// result instead of timing out and returning stale state. This used to be
+// a Set with a 1.5s sleep, which races against the retry loop below
+// (worst-case ~1.3s) and could return stale `onboardingComplete=false`.
+const _hydrationInFlight = new Map<string, Promise<boolean>>();
 
-// Helper — populate profile store from Firestore after any successful login.
-// IMPORTANT: always call resetProfile() before this so no previous user's data leaks.
-// Returns true if Firestore had data, false if not.
 async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
-  if (_hydratingUids.has(uid)) {
-    // Another call is already hydrating this UID — wait for it then return current state
-    await new Promise<void>((resolve) => setTimeout(resolve, 1500));
-    return useProfileStore.getState().onboardingComplete;
-  }
-  _hydratingUids.add(uid);
+  const existing = _hydrationInFlight.get(uid);
+  if (existing) return existing;
+  const p = (async () => {
   try {
-    const fullProfile = await loadFullProfile(uid);
+    // Retry the Firestore fetch on transient errors (incognito Safari is the
+    // main culprit — IndexedDB / cookie partitioning delays auth-token
+    // propagation to the Firestore SDK for the first few hundred ms after
+    // sign-in). We only retry on 'error'; a definitive 'missing' means the
+    // user genuinely has no doc and should go to onboarding.
+    const delays = [0, 400, 900]; // ms — cumulative ~1.3s max
+    let res: { status: 'ok' | 'missing' | 'error'; data?: FullProfileData; error?: unknown } =
+      { status: 'error' };
+    for (const wait of delays) {
+      if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+      res = await loadFullProfileStrict(uid);
+      if (res.status !== 'error') break;
+    }
+
+    const fullProfile = res.data ?? null;
+
     if (!fullProfile) {
-      // Firestore returned null. This could be either:
-      //   (a) a truly new account with no doc yet (first-time user), or
-      //   (b) a transient network / App Check failure for an existing user.
-      // If our locally-cached profile was last hydrated for THIS uid, it's
-      // case (b): keep the cache so routing still works. If the cache is
-      // for a different uid (or empty), it's case (a) — the caller will
-      // see `false` and route to onboarding.
+      // `res.status` is either 'missing' (new account, route to onboarding)
+      // or 'error' (still unreachable after retries). For the error case we
+      // trust the cache if it matches this uid — that's the returning-user
+      // escape hatch that prevents a flaky network from sending a real
+      // user through onboarding again.
       const cached = useProfileStore.getState().cachedProfileUid;
-      if (cached === uid) {
-        // Returning user, Firestore unreachable — trust the cache.
+      if (res.status === 'error' && cached === uid) {
         return useProfileStore.getState().onboardingComplete;
       }
+      // If error + no cache match: we still can't tell for sure it's a new
+      // user, but the caller will surface this as onboarding. At least we
+      // tried three times over ~1.3s before giving up.
       return false;
     }
     useProfileStore.getState().resetProfile();
@@ -128,8 +143,13 @@ async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
   } catch (error) {
     console.error('hydrateProfileFromFirestore error:', error);
     return false;
+  }
+  })();
+  _hydrationInFlight.set(uid, p);
+  try {
+    return await p;
   } finally {
-    _hydratingUids.delete(uid);
+    _hydrationInFlight.delete(uid);
   }
 }
 
