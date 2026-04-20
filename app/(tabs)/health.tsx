@@ -34,6 +34,7 @@ import Card from '../../components/ui/Card';
 import VaccineCardComponent from '../../components/health/VaccineCard';
 import TeethTab from '../../components/health/TeethTab';
 import FoodTrackerTab from '../../components/health/FoodTrackerTab';
+import GrowthTab, { RoutineTab } from '../../components/health/GrowthTab';
 import { TabIcon } from '../../components/ui/AppIcon';
 import { Fonts } from '../../constants/theme';
 import { Colors } from '../../constants/theme';
@@ -47,12 +48,14 @@ const MIST   = '#EDE9F6';
 const INK    = '#1C1033';
 const STONE  = '#6B7280';
 
-type SubTab = 'vaccines' | 'teeth' | 'foods' | 'schemes' | 'myhealth';
+type SubTab = 'vaccines' | 'teeth' | 'foods' | 'growth' | 'routine' | 'schemes' | 'myhealth';
 
 const TABS: { key: SubTab; label: string; icon: string }[] = [
   { key: 'vaccines', label: 'Vaccines',  icon: 'shield-checkmark-outline' },
   { key: 'teeth',    label: 'Teeth',     icon: 'happy-outline' },
   { key: 'foods',    label: 'Foods',     icon: 'restaurant-outline' },
+  { key: 'growth',   label: 'Growth',    icon: 'trending-up-outline' },
+  { key: 'routine',  label: 'Routine',   icon: 'time-outline' },
   { key: 'schemes',  label: 'Schemes',   icon: 'ribbon-outline' },
   { key: 'myhealth', label: 'My Health', icon: 'heart-outline' },
 ];
@@ -1000,7 +1003,7 @@ export default function HealthScreen() {
   // `?tab=teeth` (or schemes/myhealth/vaccines) opens the screen on that
   // sub-tab — used by the home Quick Actions deep-link.
   const params     = useLocalSearchParams<{ tab?: string }>();
-  const validTabs: SubTab[] = ['vaccines', 'teeth', 'foods', 'schemes', 'myhealth'];
+  const validTabs: SubTab[] = ['vaccines', 'teeth', 'foods', 'growth', 'routine', 'schemes', 'myhealth'];
   const initialTab: SubTab =
     params?.tab && (validTabs as string[]).includes(params.tab)
       ? (params.tab as SubTab)
@@ -1160,6 +1163,12 @@ export default function HealthScreen() {
 
         {/* ── FOODS ── */}
         {subTab === 'foods' && <FoodTrackerTab />}
+
+        {/* ── GROWTH (weight / height / head) ── */}
+        {subTab === 'growth' && <GrowthTab />}
+
+        {/* ── ROUTINE (diaper / sleep) ── */}
+        {subTab === 'routine' && <RoutineTab />}
 
         {/* ── SCHEMES ── */}
         {subTab === 'schemes' && (

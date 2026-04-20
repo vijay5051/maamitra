@@ -27,6 +27,7 @@ import { useThemeStore } from './useThemeStore';
 import { useChatStore } from './useChatStore';
 import { useTeethStore } from './useTeethStore';
 import { useFoodTrackerStore } from './useFoodTrackerStore';
+import { useGrowthStore } from './useGrowthStore';
 import { useDMStore } from './useDMStore';
 
 // Lazy-accessed to avoid circular dependency (useSocialStore imports useAuthStore)
@@ -132,6 +133,11 @@ async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
     // Restore per-kid food tracker into food store
     if (fullProfile.foodTracking && Object.keys(fullProfile.foodTracking).length > 0) {
       useFoodTrackerStore.getState().hydrate(fullProfile.foodTracking as any);
+    }
+
+    // Restore per-kid growth + routine tracker (weight/height/head/diaper/sleep)
+    if ((fullProfile as any).growthTracking && Object.keys((fullProfile as any).growthTracking).length > 0) {
+      useGrowthStore.getState().hydrate((fullProfile as any).growthTracking);
     }
 
     // Apply the user's picked accent colour (if any saved in Firestore).
@@ -318,6 +324,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     useChatStore.getState().resetAll();
     useTeethStore.getState().resetTeeth();
     useFoodTrackerStore.getState().resetFoods();
+    useGrowthStore.getState().resetGrowth();
     useDMStore.getState().reset();
     getSocialStore().getState().reset();
     getCommunityStore().getState().resetCommunity();
@@ -348,6 +355,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     useChatStore.getState().resetAll();
     useTeethStore.getState().resetTeeth();
     useFoodTrackerStore.getState().resetFoods();
+    useGrowthStore.getState().resetGrowth();
     getSocialStore().getState().reset();
     getCommunityStore().getState().resetCommunity();
     await deleteUserAccount(user.uid);

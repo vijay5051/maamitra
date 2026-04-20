@@ -165,6 +165,7 @@ export interface FullProfileData {
   allergies?: string[] | null;              // Chat allergy selections
   teethTracking?: Record<string, Record<string, any>>; // Per-kid teething: { kidId: { toothId: ToothEntry } }
   foodTracking?: Record<string, Record<string, any>>;  // Per-kid 3-day-rule food log: { kidId: { foodId: FoodEntry } }
+  growthTracking?: Record<string, Record<string, any>>;// Per-kid growth + routine: weight/height/head/diaper/sleep entries
   hasSeenIntro?: boolean;                   // Home first-run popup dismissed once
   phone?: string;                           // E.164-ish mobile number, e.g. "+919876543210"
   phoneVerified?: boolean;                  // True if the number was OTP-verified
@@ -236,6 +237,7 @@ export async function loadFullProfileStrict(uid: string): Promise<LoadFullProfil
         allergies: d.allergies ?? null,
         teethTracking: d.teethTracking ?? {},
         foodTracking: d.foodTracking ?? {},
+        growthTracking: d.growthTracking ?? {},
         hasSeenIntro: d.hasSeenIntro === true,
         phone: d.phone ?? '',
         phoneVerified: d.phoneVerified === true,
@@ -289,6 +291,16 @@ export async function syncFoodTracking(uid: string, byKid: Record<string, Record
     await setDoc(doc(db, 'users', uid), { foodTracking: byKid, updatedAt: serverTimestamp() }, { merge: true });
   } catch (error) {
     console.error('syncFoodTracking error:', error);
+  }
+}
+
+/** Persist per-kid growth + routine trackers (weight/height/head/diaper/sleep). */
+export async function syncGrowthTracking(uid: string, byKid: Record<string, Record<string, any>>): Promise<void> {
+  if (!db) return;
+  try {
+    await setDoc(doc(db, 'users', uid), { growthTracking: byKid, updatedAt: serverTimestamp() }, { merge: true });
+  } catch (error) {
+    console.error('syncGrowthTracking error:', error);
   }
 }
 
