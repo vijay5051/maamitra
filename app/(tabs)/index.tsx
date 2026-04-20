@@ -81,6 +81,10 @@ export default function HomeTab() {
   // the full Settings modal.
   const [profileOpen, setProfileOpen] = useState(false);
   const [firstRunOpen, setFirstRunOpen] = useState(false);
+  // Quick Actions cap at 6 by default — collapses long card lists so the
+  // home screen doesn't get pushed too far down. "Show all" reveals the
+  // rest. Resets when the underlying card list shrinks back to ≤6.
+  const [quickActionsExpanded, setQuickActionsExpanded] = useState(false);
 
   // Shared sheets — same components the Community tab uses, so users see
   // the same UI for notifications/messages regardless of which tab they
@@ -505,12 +509,11 @@ export default function HomeTab() {
           </LinearGradient>
         </TouchableOpacity>
 
-        {/* Quick actions — 2-column wrap so everything is visible without
-            having to swipe. Was a horizontal ScrollView; users were
-            missing cards beyond the fold. */}
+        {/* Quick actions — 2-column wrap, capped at 6 visible. Compact
+            cards so the section doesn't dominate the home screen. */}
         <Text style={styles.sectionLabel}>QUICK ACTIONS</Text>
         <View style={styles.todayGrid}>
-          {todayCards.map((c, i) => (
+          {(quickActionsExpanded ? todayCards : todayCards.slice(0, 6)).map((c, i) => (
             // Outer wrapper handles the mount animation (fade + slide up,
             // staggered by 60ms per card so the grid reveals itself in
             // sequence). Inner Pressable drives the press-scale via
@@ -525,13 +528,29 @@ export default function HomeTab() {
                 onPress={c.onPress}
                 style={[styles.todayCard, { backgroundColor: c.bg }]}
               >
-                <Ionicons name={c.icon as any} size={20} color={c.tint} />
+                <Ionicons name={c.icon as any} size={16} color={c.tint} />
                 <Text style={styles.todayVal} numberOfLines={2}>{c.value}</Text>
-                <Text style={styles.todaySub} numberOfLines={2}>{c.label}</Text>
+                <Text style={styles.todaySub} numberOfLines={1}>{c.label}</Text>
               </AnimatedPressable>
             </Reanimated.View>
           ))}
         </View>
+        {todayCards.length > 6 && (
+          <TouchableOpacity
+            onPress={() => setQuickActionsExpanded((v) => !v)}
+            activeOpacity={0.75}
+            style={styles.quickActionsExpander}
+          >
+            <Ionicons
+              name={quickActionsExpanded ? 'chevron-up' : 'chevron-down'}
+              size={14}
+              color={Colors.primary}
+            />
+            <Text style={styles.quickActionsExpanderText}>
+              {quickActionsExpanded ? 'Show less' : `Show all (+${todayCards.length - 6})`}
+            </Text>
+          </TouchableOpacity>
+        )}
 
         {/* Family snapshot */}
         <View style={styles.sectionHeader}>
@@ -1974,32 +1993,50 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     paddingHorizontal: Spacing.xl,
-    gap: Spacing.md,
+    gap: Spacing.sm,
     marginTop: Spacing.md,
   },
   todayCardWrap: {
-    // 2-column grid. width:'48%' + gap:Spacing.md (12) leaves ~4% / row
-    // for the inter-card gap on a 360dp screen — fits without overflow.
-    width: '48%',
+    // 2-column grid. width:'48.5%' + gap:Spacing.sm (8) on a 360dp screen
+    // leaves the small inter-card gap room — fits cleanly without overflow.
+    width: '48.5%',
   },
   todayCard: {
     width: '100%',
-    minHeight: 100,
-    borderRadius: Radius.lg,
-    padding: Spacing.lg,
-    gap: 6,
+    minHeight: 76,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    gap: 3,
   },
   todayVal: {
     fontFamily: Fonts.sansBold,
-    fontSize: FontSize.md,
+    fontSize: FontSize.sm,
     color: Colors.textDark,
-    marginTop: 4,
-    lineHeight: 20,
+    marginTop: 2,
+    lineHeight: 17,
   },
   todaySub: {
     fontFamily: Fonts.sansRegular,
-    fontSize: FontSize.xs,
+    fontSize: 10,
     color: Colors.textMuted,
+    lineHeight: 13,
+  },
+  quickActionsExpander: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    alignSelf: 'center',
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    marginTop: Spacing.sm,
+    borderRadius: 18,
+    backgroundColor: 'rgba(232,72,122,0.08)',
+  },
+  quickActionsExpanderText: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 12,
+    color: Colors.primary,
   },
 
   sectionHeader: {
