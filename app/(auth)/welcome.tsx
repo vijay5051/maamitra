@@ -7,7 +7,6 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import GradientButton from '../../components/ui/GradientButton';
@@ -15,48 +14,39 @@ import { Fonts } from '../../constants/theme';
 
 const LOGO = require('../../assets/logo.png');
 
-const FEATURES: { icon: keyof typeof Ionicons.glyphMap; color: string; bg: string; title: string; text: string }[] = [
+// Feature list stays at six items but the icons are now monochrome and the
+// tiles are a single neutral tint. Removes the rainbow-sticker look of the
+// old welcome while keeping the same substance.
+const FEATURES: { icon: keyof typeof Ionicons.glyphMap; title: string; text: string }[] = [
   {
-    icon: 'chatbubble-ellipses',
-    color: '#E8487A',
-    bg: 'rgba(232,72,122,0.18)',
-    title: 'AI Companion',
+    icon: 'chatbubble-ellipses-outline',
+    title: 'AI companion',
     text: 'Chat like texting a knowledgeable friend',
   },
   {
-    icon: 'flag',
-    color: '#F59E0B',
-    bg: 'rgba(245,158,11,0.18)',
-    title: 'India-First',
+    icon: 'flag-outline',
+    title: 'India-first',
     text: 'India-specific foods, schemes & languages',
   },
   {
-    icon: 'sparkles',
-    color: '#A78BFA',
-    bg: 'rgba(167,139,250,0.18)',
-    title: 'Remembers You',
-    text: 'Remembers every detail about you & baby',
+    icon: 'sparkles-outline',
+    title: 'Remembers you',
+    text: 'Every detail about you and your baby',
   },
   {
-    icon: 'shield-checkmark',
-    color: '#34D399',
-    bg: 'rgba(52,211,153,0.18)',
-    title: 'Trusted Info',
-    text: 'IAP & FOGSI aligned medical content',
+    icon: 'shield-checkmark-outline',
+    title: 'Trusted info',
+    text: 'IAP and FOGSI aligned medical content',
   },
   {
-    icon: 'people',
-    color: '#60A5FA',
-    bg: 'rgba(96,165,250,0.18)',
-    title: 'Multi-Child',
-    text: 'Profiles for all your children',
+    icon: 'people-outline',
+    title: 'Multi-child',
+    text: 'Separate profile for each of your children',
   },
   {
-    icon: 'heart-circle',
-    color: '#E8487A',
-    bg: 'rgba(232,72,122,0.18)',
+    icon: 'heart-circle-outline',
     title: 'Community',
-    text: 'Connect with Indian mothers',
+    text: 'Connect with Indian parents going through it too',
   },
 ];
 
@@ -65,25 +55,15 @@ export default function WelcomeScreen() {
   const insets = useSafeAreaInsets();
 
   return (
-    <LinearGradient
-      colors={['#1C1033', '#3b1060', '#6d1a7a']}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={styles.gradient}
-    >
-      {/* Glow blobs */}
-      <View style={styles.glowTopRight} pointerEvents="none" />
-      <View style={styles.glowBottomLeft} pointerEvents="none" />
-      <View style={styles.glowCenter} pointerEvents="none" />
-
-      <View style={[styles.container, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
+    <View style={styles.root}>
+      <View style={[styles.container, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 20 }]}>
 
         {/* ── Hero ── */}
         <View style={styles.hero}>
           <Image source={LOGO} style={styles.logoImage} resizeMode="contain" />
           <Text style={styles.wordmark}>MaaMitra</Text>
           <Text style={styles.tagline}>
-            Your AI companion for every step of motherhood
+            Your AI companion for every step of parenthood.
           </Text>
         </View>
 
@@ -91,13 +71,11 @@ export default function WelcomeScreen() {
         <View style={styles.featuresGrid}>
           {FEATURES.map((f, i) => (
             <View key={i} style={styles.featureCard}>
-              <View style={[styles.iconBox, { backgroundColor: f.bg }]}>
-                <Ionicons name={f.icon} size={18} color={f.color} />
+              <View style={styles.iconBox}>
+                <Ionicons name={f.icon} size={18} color="#7C3AED" />
               </View>
-              <View style={styles.featureTextWrap}>
-                <Text style={styles.featureTitle}>{f.title}</Text>
-                <Text style={styles.featureText}>{f.text}</Text>
-              </View>
+              <Text style={styles.featureTitle}>{f.title}</Text>
+              <Text style={styles.featureText}>{f.text}</Text>
             </View>
           ))}
         </View>
@@ -105,16 +83,17 @@ export default function WelcomeScreen() {
         {/* ── CTA buttons ── */}
         <View style={styles.buttonsContainer}>
           <GradientButton
-            title="Get Started — It's Free"
+            title="Get started — it's free"
             onPress={() => router.push('/(auth)/sign-up')}
             style={styles.primaryButton}
           />
           <TouchableOpacity
-            style={styles.outlineButton}
+            style={styles.textCta}
             onPress={() => router.push('/(auth)/sign-in')}
-            activeOpacity={0.75}
+            activeOpacity={0.6}
           >
-            <Text style={styles.outlineButtonText}>I already have an account</Text>
+            <Text style={styles.textCtaLabel}>Already have an account?</Text>
+            <Text style={styles.textCtaAction}>Sign in</Text>
           </TouchableOpacity>
         </View>
 
@@ -123,25 +102,12 @@ export default function WelcomeScreen() {
         </Text>
 
       </View>
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  gradient: { flex: 1 },
-
-  glowTopRight: {
-    position: 'absolute', width: 300, height: 300, borderRadius: 150,
-    backgroundColor: 'rgba(232,72,122,0.2)', top: -80, right: -80,
-  },
-  glowBottomLeft: {
-    position: 'absolute', width: 240, height: 240, borderRadius: 120,
-    backgroundColor: 'rgba(124,58,237,0.18)', bottom: 80, left: -80,
-  },
-  glowCenter: {
-    position: 'absolute', width: 200, height: 200, borderRadius: 100,
-    backgroundColor: 'rgba(232,72,122,0.08)', top: '35%', right: -60,
-  },
+  root: { flex: 1, backgroundColor: '#FAFAFB' },
 
   container: {
     flex: 1,
@@ -150,90 +116,91 @@ const styles = StyleSheet.create({
   },
 
   // Hero
-  hero: { alignItems: 'center' },
-  logoImage: { width: 96, height: 96, marginBottom: 4 },
+  hero: { alignItems: 'center', marginTop: 10 },
+  logoImage: { width: 72, height: 72, marginBottom: 8 },
   wordmark: {
     fontFamily: 'DMSerifDisplay_400Regular',
-    fontSize: 42,
-    color: '#ffffff',
-    letterSpacing: -0.5,
-    textShadowColor: 'rgba(232,72,122,0.6)',
-    textShadowOffset: { width: 0, height: 4 },
-    textShadowRadius: 20,
+    fontSize: 38,
+    color: '#1C1033',
+    letterSpacing: -0.6,
     marginBottom: 10,
   },
   tagline: {
     fontFamily: Fonts.sansRegular,
     fontSize: 14,
-    color: 'rgba(255,255,255,0.55)',
+    color: '#6b7280',
     textAlign: 'center',
-    maxWidth: 260,
+    maxWidth: 280,
     lineHeight: 21,
   },
 
-  // Features 2-column grid
+  // Features 2-column grid — flat cards with a single neutral icon tile.
   featuresGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 10,
+    marginVertical: 6,
   },
   featureCard: {
-    width: '48.5%',
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
+    flexBasis: '48%',
+    flexGrow: 1,
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  } as any,
+    borderColor: '#F0EDF5',
+  },
   iconBox: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 1,
-    flexShrink: 0,
+    backgroundColor: '#F5F0FF',
+    marginBottom: 10,
   },
-  featureTextWrap: { flex: 1 },
   featureTitle: {
-    fontFamily: Fonts.sansSemiBold,
+    fontFamily: Fonts.sansBold,
     fontSize: 13,
-    color: 'rgba(255,255,255,0.9)',
+    color: '#1C1033',
     marginBottom: 2,
+    letterSpacing: 0.1,
   },
   featureText: {
     fontFamily: Fonts.sansRegular,
     fontSize: 12,
-    color: 'rgba(255,255,255,0.55)',
+    color: '#6b7280',
     lineHeight: 17,
   },
 
   // Buttons
-  buttonsContainer: { gap: 10 },
+  buttonsContainer: { gap: 6, marginTop: 4 },
   primaryButton: { width: '100%' },
-  outlineButton: {
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.25)',
-    paddingVertical: 16,
+  // Secondary CTA is a quiet text link now — no outline button competing
+  // with the primary.
+  textCta: {
+    flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    gap: 6,
   },
-  outlineButtonText: {
+  textCtaLabel: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  textCtaAction: {
     fontFamily: Fonts.sansBold,
-    color: 'rgba(255,255,255,0.85)',
-    fontSize: 15,
-    letterSpacing: 0.2,
+    fontSize: 14,
+    color: '#7C3AED',
   },
 
   footer: {
     fontFamily: Fonts.sansRegular,
-    fontSize: 10,
-    color: 'rgba(255,255,255,0.3)',
+    fontSize: 11,
+    color: '#9ca3af',
     textAlign: 'center',
     lineHeight: 15,
   },

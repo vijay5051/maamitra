@@ -9,9 +9,16 @@ import {
   ViewStyle,
   TextStyle,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Fonts } from '../../constants/theme';
+
+/**
+ * Primary CTA button for the whole app. Previously rendered a saturated
+ * pink→purple gradient with a loud shadow; that look became kids-app-y
+ * next to the refreshed onboarding. Now a single solid brand purple
+ * with a subtle lift. The name stays for backwards compatibility (used
+ * in 10+ places) — think of it as "PrimaryButton".
+ */
 
 interface GradientButtonProps {
   title: string;
@@ -23,6 +30,9 @@ interface GradientButtonProps {
   icon?: keyof typeof Ionicons.glyphMap;
   loading?: boolean;
 }
+
+const BRAND = '#7C3AED';
+const BRAND_DIM = '#c9b7f7';
 
 export default function GradientButton({
   title,
@@ -38,10 +48,10 @@ export default function GradientButton({
 
   const handlePressIn = () => {
     Animated.spring(scale, {
-      toValue: 0.96,
+      toValue: 0.97,
       useNativeDriver: true,
-      speed: 20,
-      bounciness: 4,
+      speed: 24,
+      bounciness: 3,
     }).start();
   };
 
@@ -49,8 +59,8 @@ export default function GradientButton({
     Animated.spring(scale, {
       toValue: 1,
       useNativeDriver: true,
-      speed: 20,
-      bounciness: 4,
+      speed: 24,
+      bounciness: 3,
     }).start();
   };
 
@@ -72,14 +82,14 @@ export default function GradientButton({
           ]}
         >
           {loading ? (
-            <ActivityIndicator color="#E8487A" size="small" />
+            <ActivityIndicator color={BRAND} size="small" />
           ) : (
             <View style={styles.inner}>
               {icon && (
                 <Ionicons
                   name={icon}
                   size={18}
-                  color="#E8487A"
+                  color={BRAND}
                   style={styles.icon}
                 />
               )}
@@ -100,65 +110,54 @@ export default function GradientButton({
     >
       <Animated.View
         style={[
-          styles.wrapper,
-          { transform: [{ scale }], opacity: isDisabled ? 0.5 : 1 },
+          styles.solid,
+          { transform: [{ scale }], backgroundColor: isDisabled ? BRAND_DIM : BRAND },
           style,
         ]}
       >
-        <LinearGradient
-          colors={['#E8487A', '#7C3AED']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.gradient}
-        >
-          {loading ? (
-            <ActivityIndicator color="#ffffff" size="small" />
-          ) : (
-            <View style={styles.inner}>
-              {icon && (
-                <Ionicons
-                  name={icon}
-                  size={18}
-                  color="#ffffff"
-                  style={styles.icon}
-                />
-              )}
-              <Text style={[styles.text, textStyle]}>{title}</Text>
-            </View>
-          )}
-        </LinearGradient>
+        {loading ? (
+          <ActivityIndicator color="#ffffff" size="small" />
+        ) : (
+          <View style={styles.inner}>
+            {icon && (
+              <Ionicons
+                name={icon}
+                size={18}
+                color="#ffffff"
+                style={styles.icon}
+              />
+            )}
+            <Text style={[styles.text, textStyle]}>{title}</Text>
+          </View>
+        )}
       </Animated.View>
     </TouchableWithoutFeedback>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    borderRadius: 18,
-    overflow: 'hidden',
-    shadowColor: '#E8487A',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 16,
-    elevation: 6,
-    boxShadow: '0px 8px 24px rgba(232, 72, 122, 0.35)',
-  },
-  gradient: {
-    paddingVertical: 17,
+  solid: {
+    paddingVertical: 15,
     paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 18,
+    borderRadius: 12,
+    shadowColor: '#1C1033',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 2,
+    boxShadow: '0px 4px 14px rgba(28, 16, 51, 0.08)',
   },
   outlineButton: {
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: '#E8487A',
-    paddingVertical: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E1EE',
+    paddingVertical: 14,
     paddingHorizontal: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'transparent',
+    backgroundColor: '#ffffff',
   },
   inner: {
     flexDirection: 'row',
@@ -171,13 +170,13 @@ const styles = StyleSheet.create({
   text: {
     color: '#ffffff',
     fontFamily: Fonts.sansBold,
-    fontSize: 16,
+    fontSize: 15,
     letterSpacing: 0.2,
   },
   outlineText: {
-    color: '#E8487A',
+    color: BRAND,
     fontFamily: Fonts.sansBold,
-    fontSize: 16,
+    fontSize: 15,
     letterSpacing: 0.2,
   },
 });

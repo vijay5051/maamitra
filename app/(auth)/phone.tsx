@@ -9,7 +9,6 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { ConfirmationResult } from 'firebase/auth';
@@ -23,6 +22,7 @@ import {
   PHONE_OTP_CONTAINER_ID,
   PHONE_OTP_UNSUPPORTED,
 } from '../../services/firebase';
+import GradientButton from '../../components/ui/GradientButton';
 import { Fonts } from '../../constants/theme';
 
 // Indian mobile numbers: 10 digits starting with 6-9.
@@ -48,8 +48,8 @@ export default function PhoneScreen() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
-  // The ConfirmationResult from Firebase must survive across re-renders;
-  // it's a one-time handle to the pending SMS challenge.
+  // Firebase ConfirmationResult — a one-time handle to the pending SMS
+  // challenge. Kept in a ref so a re-render doesn't drop it.
   const confirmationRef = useRef<ConfirmationResult | null>(null);
 
   const e164 = `+91${digits.replace(/\D/g, '')}`;
@@ -73,14 +73,10 @@ export default function PhoneScreen() {
       setStep('enter-code');
     } catch (e: any) {
       if (e?.code === PHONE_OTP_UNSUPPORTED) {
-        // Native platform — save unverified and continue. This keeps the
-        // product usable until we wire native phone auth.
         await savePhoneAndContinue(e164, false);
         return;
       }
       setError(friendlyOtpError(e));
-      // Any Firebase OTP error invalidates the recaptcha widget; reset so
-      // the next attempt builds a fresh one.
       resetPhoneRecaptcha();
     } finally {
       setBusy(false);
@@ -147,37 +143,31 @@ export default function PhoneScreen() {
   };
 
   const isEnterNumber = step === 'enter-number';
+  const canContinue = !busy && (isEnterNumber ? digits.length === 10 : code.length === 6);
 
   return (
-    <LinearGradient
-      colors={['#1C1033', '#3b1060', '#6d1a7a']}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={[styles.root, { paddingTop: insets.top + 24 }]}
-    >
+    <View style={[styles.root, { paddingTop: insets.top + 12 }]}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' || Platform.OS === 'web' ? 'padding' : 'height'}
       >
         <View style={styles.content}>
-          {/* Back button — only on step 2 (step 1 is the start of this flow) */}
-          {!isEnterNumber && (
-            <TouchableOpacity
-              style={styles.backBtn}
-              onPress={handleResend}
-              activeOpacity={0.7}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Ionicons name="chevron-back" size={22} color="#ffffff" />
-              <Text style={styles.backText}>Change number</Text>
-            </TouchableOpacity>
-          )}
+          {/* Top-left back — step 2 goes back to step 1, step 1 closes the flow */}
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={isEnterNumber ? () => router.back() : handleResend}
+            activeOpacity={0.7}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="chevron-back" size={22} color="#6b7280" />
+            {!isEnterNumber && <Text style={styles.backText}>Change number</Text>}
+          </TouchableOpacity>
 
           <View style={styles.iconCircle}>
             <Ionicons
               name={isEnterNumber ? 'phone-portrait-outline' : 'chatbubble-ellipses-outline'}
-              size={32}
-              color="#ffffff"
+              size={24}
+              color="#7C3AED"
             />
           </View>
 
@@ -186,21 +176,20 @@ export default function PhoneScreen() {
           </Text>
           <Text style={styles.subheading}>
             {isEnterNumber
-              ? "We'll send a one-time code to verify it's really you. Your number stays private."
+              ? "We'll text a one-time code to verify it's you. Your number stays private."
               : `We sent a code to ${e164}. It may take a few seconds to arrive.`}
           </Text>
 
           {isEnterNumber ? (
             <View style={[styles.inputRow, error ? styles.inputRowError : null]}>
               <View style={styles.countryCodeBox}>
-                <Text style={styles.flag}>🇮🇳</Text>
-                <Text style={styles.countryCode}>+91</Text>
+                <Text style={styles.countryCode}>🇮🇳 +91</Text>
               </View>
               <TextInput
                 value={digits}
                 onChangeText={handleChangeDigits}
                 placeholder="98765 43210"
-                placeholderTextColor="rgba(255,255,255,0.4)"
+                placeholderTextColor="#c4b5d4"
                 keyboardType="phone-pad"
                 maxLength={10}
                 style={styles.input}
@@ -215,7 +204,7 @@ export default function PhoneScreen() {
                 value={code}
                 onChangeText={handleChangeCode}
                 placeholder="• • • • • •"
-                placeholderTextColor="rgba(255,255,255,0.3)"
+                placeholderTextColor="#d4c9e8"
                 keyboardType="number-pad"
                 maxLength={6}
                 style={styles.codeInput}
@@ -226,36 +215,26 @@ export default function PhoneScreen() {
             </View>
           )}
 
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          {error ? (
+            <View style={styles.errorRow}>
+              <Ionicons name="alert-circle" size={14} color="#ef4444" />
+              <Text style={styles.errorText}>{error}</Text>
+            </View>
+          ) : null}
 
-          <TouchableOpacity
+          <GradientButton
+            title={
+              busy
+                ? (isEnterNumber ? 'Sending…' : 'Verifying…')
+                : (isEnterNumber ? 'Send OTP' : 'Verify & continue')
+            }
             onPress={isEnterNumber ? handleSendOtp : handleVerifyOtp}
-            disabled={busy || (isEnterNumber ? digits.length < 10 : code.length < 6)}
-            activeOpacity={0.85}
-            style={{ marginTop: 24 }}
-          >
-            <LinearGradient
-              colors={['#ec4899', '#8b5cf6']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={[
-                styles.continueBtn,
-                (busy || (isEnterNumber ? digits.length < 10 : code.length < 6)) && styles.continueBtnDisabled,
-              ]}
-            >
-              <Text style={styles.continueText}>
-                {busy
-                  ? (isEnterNumber ? 'Sending…' : 'Verifying…')
-                  : (isEnterNumber ? 'Send OTP' : 'Verify & Continue')}
-              </Text>
-              {!busy && (
-                <Ionicons name="arrow-forward" size={18} color="#ffffff" style={{ marginLeft: 6 }} />
-              )}
-            </LinearGradient>
-          </TouchableOpacity>
+            disabled={!canContinue}
+            style={styles.continueBtn}
+          />
 
           {!isEnterNumber && (
-            <TouchableOpacity onPress={handleResend} activeOpacity={0.7} style={styles.resendBtn}>
+            <TouchableOpacity onPress={handleResend} activeOpacity={0.6} style={styles.resendBtn}>
               <Text style={styles.resendText}>Didn't get the code? Resend</Text>
             </TouchableOpacity>
           )}
@@ -266,10 +245,10 @@ export default function PhoneScreen() {
         </View>
       </KeyboardAvoidingView>
 
-      {/* Invisible reCAPTCHA container — required by Firebase Phone Auth on web.
-          React Native Web renders View as <div>, and nativeID becomes the HTML id. */}
+      {/* Invisible reCAPTCHA container — required by Firebase Phone Auth on
+          web. React Native Web renders nativeID as the HTML id. */}
       <View nativeID={PHONE_OTP_CONTAINER_ID} style={styles.recaptchaContainer} />
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -295,150 +274,132 @@ function friendlyOtpError(e: any): string {
     case 'auth/missing-phone-number':
       return 'Please enter your phone number.';
     default:
-      return `${code ? code + ': ' : ''}${e?.message ?? 'Something went wrong.'}`;
+      return e?.message ?? 'Something went wrong.';
   }
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
+  root: { flex: 1, backgroundColor: '#FAFAFB' },
   flex: { flex: 1 },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 40,
+    paddingHorizontal: 22,
+    paddingTop: 8,
   },
   backBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
     alignSelf: 'flex-start',
+    paddingVertical: 4,
   },
   backText: {
     fontFamily: Fonts.sansMedium,
     fontSize: 14,
-    color: '#ffffff',
-    marginLeft: 4,
+    color: '#6b7280',
+    marginLeft: 2,
   },
   iconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#F5F0FF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.18)',
+    marginBottom: 22,
   },
   heading: {
     fontFamily: Fonts.serif,
-    fontSize: 28,
-    color: '#ffffff',
-    letterSpacing: -0.3,
+    fontSize: 26,
+    color: '#1C1033',
+    letterSpacing: -0.4,
     marginBottom: 8,
   },
   subheading: {
     fontFamily: Fonts.sansRegular,
     fontSize: 14,
-    color: 'rgba(255,255,255,0.72)',
+    color: '#6b7280',
     lineHeight: 20,
     marginBottom: 28,
   },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 12,
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
+    borderColor: '#E5E1EE',
     paddingHorizontal: 4,
-    paddingVertical: 4,
   },
   inputRowError: {
-    borderColor: '#ff6b8a',
+    borderColor: '#ef4444',
   },
   countryCodeBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderRightWidth: 1,
-    borderRightColor: 'rgba(255,255,255,0.12)',
-    gap: 6,
+    borderRightColor: '#F0EDF5',
   },
-  flag: { fontSize: 18 },
   countryCode: {
     fontFamily: Fonts.sansMedium,
-    fontSize: 16,
-    color: '#ffffff',
+    fontSize: 15,
+    color: '#1C1033',
   },
   input: {
     flex: 1,
     paddingHorizontal: 14,
-    paddingVertical: Platform.OS === 'web' ? 10 : 12,
+    paddingVertical: Platform.OS === 'web' ? 12 : 14,
     fontFamily: Fonts.sansMedium,
-    fontSize: 18,
-    color: '#ffffff',
-    letterSpacing: 0.5,
+    fontSize: 16,
+    color: '#1C1033',
+    letterSpacing: 0.3,
   },
   codeInputRow: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 12,
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-    paddingVertical: 4,
-    paddingHorizontal: 4,
+    borderColor: '#E5E1EE',
   },
   codeInput: {
     textAlign: 'center',
     paddingVertical: Platform.OS === 'web' ? 14 : 16,
     fontFamily: Fonts.sansBold,
-    fontSize: 26,
-    color: '#ffffff',
+    fontSize: 24,
+    color: '#1C1033',
     letterSpacing: 8,
   },
-  errorText: {
-    fontFamily: Fonts.sansRegular,
-    fontSize: 13,
-    color: '#ff6b8a',
-    marginTop: 10,
-    marginLeft: 4,
-  },
-  continueBtn: {
+  errorRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 12,
+    gap: 4,
+    marginTop: 10,
   },
-  continueBtnDisabled: {
-    opacity: 0.45,
+  errorText: {
+    fontFamily: Fonts.sansMedium,
+    fontSize: 12,
+    color: '#ef4444',
   },
-  continueText: {
-    fontFamily: Fonts.sansBold,
-    fontSize: 16,
-    color: '#ffffff',
-    letterSpacing: 0.2,
+  continueBtn: {
+    marginTop: 24,
   },
   resendBtn: {
-    marginTop: 16,
+    marginTop: 14,
     alignItems: 'center',
+    paddingVertical: 4,
   },
   resendText: {
     fontFamily: Fonts.sansMedium,
     fontSize: 14,
-    color: 'rgba(255,255,255,0.75)',
-    textDecorationLine: 'underline',
+    color: '#7C3AED',
   },
   privacyHint: {
     fontFamily: Fonts.sansRegular,
     fontSize: 12,
-    color: 'rgba(255,255,255,0.5)',
+    color: '#9ca3af',
     lineHeight: 17,
     marginTop: 24,
   },
-  // The reCAPTCHA container must exist in the DOM but can be invisible.
-  // Don't display:none it — Firebase needs the element to render the widget.
+  // reCAPTCHA container must exist in DOM — kept 1x1 and invisible.
   recaptchaContainer: {
     position: 'absolute',
     bottom: 0,

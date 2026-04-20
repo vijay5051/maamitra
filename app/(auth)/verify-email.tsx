@@ -6,11 +6,11 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { sendVerificationEmail, checkEmailVerified } from '../../services/firebase';
 import GradientButton from '../../components/ui/GradientButton';
+import { Fonts } from '../../constants/theme';
 
 const RESEND_COOLDOWN = 60; // seconds
 
@@ -23,12 +23,10 @@ export default function VerifyEmailScreen() {
   const [cooldown, setCooldown] = useState(0);
   const [error, setError] = useState('');
 
-  // Start cooldown on mount (email was just sent by sign-up)
   useEffect(() => {
     setCooldown(RESEND_COOLDOWN);
   }, []);
 
-  // Countdown timer
   useEffect(() => {
     if (cooldown <= 0) return;
     const timer = setTimeout(() => setCooldown((c) => c - 1), 1000);
@@ -66,51 +64,40 @@ export default function VerifyEmailScreen() {
   };
 
   return (
-    <LinearGradient
-      colors={['#fdf2f8', '#ede9fe', '#fdf6ff']}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 0.5, y: 1 }}
-      style={[styles.container, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 32 }]}
-    >
-      {/* Icon */}
-      <LinearGradient
-        colors={['#ec4899', '#8b5cf6']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.iconCircle}
-      >
-        <Ionicons name="mail-open-outline" size={36} color="#ffffff" />
-      </LinearGradient>
+    <View style={[styles.container, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 24 }]}>
+      <View style={styles.iconCircle}>
+        <Ionicons name="mail-outline" size={28} color="#7C3AED" />
+      </View>
 
-      <Text style={styles.title}>Check your email 📬</Text>
+      <Text style={styles.title}>Check your email</Text>
       <Text style={styles.body}>
-        We've sent a verification link to your email address. Click the link in the email to verify your account.
+        We've sent a verification link to your email. Click the link, then come back here to continue.
       </Text>
 
       <View style={styles.stepCard}>
-        <View style={styles.step}>
-          <View style={styles.stepNum}><Text style={styles.stepNumText}>1</Text></View>
-          <Text style={styles.stepText}>Open the email from MaaMitra</Text>
-        </View>
-        <View style={styles.step}>
-          <View style={styles.stepNum}><Text style={styles.stepNumText}>2</Text></View>
-          <Text style={styles.stepText}>Click "Verify my email" in the email</Text>
-        </View>
-        <View style={styles.step}>
-          <View style={styles.stepNum}><Text style={styles.stepNumText}>3</Text></View>
-          <Text style={styles.stepText}>Come back here and tap "I've verified"</Text>
-        </View>
+        {[
+          'Open the email from MaaMitra',
+          'Click "Verify my email" in the email',
+          "Come back here and tap I've verified",
+        ].map((text, i) => (
+          <View key={i} style={styles.step}>
+            <View style={styles.stepNum}>
+              <Text style={styles.stepNumText}>{i + 1}</Text>
+            </View>
+            <Text style={styles.stepText}>{text}</Text>
+          </View>
+        ))}
       </View>
 
       {error ? (
         <View style={styles.errorBox}>
-          <Ionicons name="alert-circle-outline" size={16} color="#ef4444" />
+          <Ionicons name="alert-circle" size={16} color="#ef4444" />
           <Text style={styles.errorText}>{error}</Text>
         </View>
       ) : null}
 
       <GradientButton
-        title={checking ? 'Checking…' : "I've verified my email →"}
+        title={checking ? 'Checking…' : "I've verified my email"}
         onPress={handleContinue}
         loading={checking}
         disabled={checking || sending}
@@ -121,7 +108,7 @@ export default function VerifyEmailScreen() {
         onPress={handleResend}
         disabled={cooldown > 0 || sending}
         style={styles.resendBtn}
-        activeOpacity={0.7}
+        activeOpacity={0.6}
       >
         <Text style={[styles.resendText, (cooldown > 0 || sending) && styles.resendTextDisabled]}>
           {sending
@@ -135,11 +122,14 @@ export default function VerifyEmailScreen() {
       <TouchableOpacity
         onPress={() => router.replace('/(auth)/sign-in')}
         style={styles.signInLink}
-        activeOpacity={0.7}
+        activeOpacity={0.6}
       >
-        <Text style={styles.signInText}>Wrong email? <Text style={styles.signInTextBold}>Sign in with different account</Text></Text>
+        <Text style={styles.signInText}>
+          Wrong email?{' '}
+          <Text style={styles.signInTextBold}>Sign in with a different account</Text>
+        </Text>
       </TouchableOpacity>
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -147,51 +137,44 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: 22,
+    backgroundColor: '#FAFAFB',
   },
   iconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 56,
+    height: 56,
+    borderRadius: 14,
+    backgroundColor: '#F5F0FF',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
-    shadowColor: '#ec4899',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 6,
-    boxShadow: '0px 4px 12px rgba(236, 72, 153, 0.25)',
   },
   title: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#1a1a2e',
+    fontFamily: Fonts.serif,
+    fontSize: 26,
+    color: '#1C1033',
+    letterSpacing: -0.4,
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   body: {
-    fontSize: 15,
+    fontFamily: Fonts.sansRegular,
+    fontSize: 14,
     color: '#6b7280',
     textAlign: 'center',
-    lineHeight: 23,
-    marginBottom: 28,
+    lineHeight: 20,
+    marginBottom: 26,
     maxWidth: 320,
   },
   stepCard: {
     width: '100%',
     backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 20,
-    gap: 16,
-    marginBottom: 24,
+    borderRadius: 14,
+    padding: 18,
+    gap: 14,
+    marginBottom: 22,
     borderWidth: 1,
-    borderColor: '#f3e8ff',
-    shadowColor: '#8b5cf6',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
-    shadowRadius: 8,
-    elevation: 2,
+    borderColor: '#F0EDF5',
   },
   step: {
     flexDirection: 'row',
@@ -199,20 +182,21 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   stepNum: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(139,92,246,0.12)',
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#F5F0FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepNumText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#8b5cf6',
+    fontFamily: Fonts.sansBold,
+    fontSize: 12,
+    color: '#7C3AED',
   },
   stepText: {
     flex: 1,
+    fontFamily: Fonts.sansRegular,
     fontSize: 14,
     color: '#374151',
     lineHeight: 20,
@@ -222,48 +206,50 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#fff5f5',
+    backgroundColor: '#FEF2F2',
     borderRadius: 10,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 10,
-    marginBottom: 16,
+    marginBottom: 14,
     borderWidth: 1,
-    borderColor: '#fee2e2',
+    borderColor: '#FECACA',
   },
   errorText: {
     flex: 1,
+    fontFamily: Fonts.sansMedium,
     fontSize: 13,
-    color: '#ef4444',
-    lineHeight: 19,
+    color: '#b91c1c',
+    lineHeight: 18,
   },
   continueBtn: {
     width: '100%',
-    marginBottom: 14,
-  },
-  resendBtn: {
-    paddingVertical: 8,
     marginBottom: 12,
   },
+  resendBtn: {
+    paddingVertical: 10,
+    marginBottom: 8,
+  },
   resendText: {
+    fontFamily: Fonts.sansBold,
     fontSize: 14,
-    color: '#8b5cf6',
-    fontWeight: '600',
+    color: '#7C3AED',
     textAlign: 'center',
   },
   resendTextDisabled: {
     color: '#9ca3af',
-    fontWeight: '400',
+    fontFamily: Fonts.sansMedium,
   },
   signInLink: {
     paddingVertical: 8,
   },
   signInText: {
+    fontFamily: Fonts.sansRegular,
     fontSize: 13,
     color: '#6b7280',
     textAlign: 'center',
   },
   signInTextBold: {
-    color: '#ec4899',
-    fontWeight: '700',
+    fontFamily: Fonts.sansBold,
+    color: '#7C3AED',
   },
 });

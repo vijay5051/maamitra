@@ -22,12 +22,12 @@ import Animated, {
 
 const LOGO = require('../../assets/logo.png');
 import { useRouter, Link } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useProfileStore } from '../../store/useProfileStore';
 import { Fonts } from '../../constants/theme';
+import GradientButton from '../../components/ui/GradientButton';
 import {
   auth,
   signInWithPopup,
@@ -36,6 +36,7 @@ import {
 } from '../../services/firebase';
 
 // ─── Animated Field ───────────────────────────────────────────────────────────
+// Floating-label TextInput. Label lifts and colours to brand purple on focus.
 
 interface AnimatedFieldProps {
   label: string;
@@ -73,11 +74,11 @@ function AnimatedField({
 
   const handleFocus = () => {
     setFocused(true);
-    focusAnim.value = withTiming(1, { duration: 200 });
+    focusAnim.value = withTiming(1, { duration: 180 });
   };
   const handleBlur = () => {
     setFocused(false);
-    if (!value) focusAnim.value = withTiming(0, { duration: 200 });
+    if (!value) focusAnim.value = withTiming(0, { duration: 180 });
   };
 
   const isFloated = focused || !!value;
@@ -90,7 +91,7 @@ function AnimatedField({
       color: interpolateColor(
         focusAnim.value,
         [0, 1],
-        ['#6B7280', '#E8487A']
+        ['#6b7280', '#7C3AED'],
       ),
     };
   });
@@ -98,11 +99,11 @@ function AnimatedField({
   const underlineAnimStyle = useAnimatedStyle(() => ({
     borderBottomColor: hasError
       ? '#ef4444'
-      : interpolateColor(focusAnim.value, [0, 1], ['#EDE9F6', '#E8487A']),
+      : interpolateColor(focusAnim.value, [0, 1], ['#E5E1EE', '#7C3AED']),
     borderBottomWidth: 1.5,
   }));
 
-  const iconColor = hasError ? '#ef4444' : focused ? '#E8487A' : '#C084FC';
+  const iconColor = hasError ? '#ef4444' : focused ? '#7C3AED' : '#9ca3af';
 
   return (
     <View style={fieldStyles.container}>
@@ -122,7 +123,7 @@ function AnimatedField({
             onFocus={handleFocus}
             onBlur={handleBlur}
             placeholder={isFloated ? placeholder : undefined}
-            placeholderTextColor="#C4B5D4"
+            placeholderTextColor="#c4b5d4"
             keyboardType={keyboardType}
             autoCapitalize={autoCapitalize}
             autoCorrect={autoCorrect}
@@ -140,7 +141,7 @@ function AnimatedField({
 const fieldStyles = StyleSheet.create({
   container: {
     width: '100%',
-    marginBottom: 28,
+    marginBottom: 24,
   },
   inputRow: {
     flexDirection: 'row',
@@ -174,32 +175,23 @@ const fieldStyles = StyleSheet.create({
   },
 });
 
-// ─── Spinning Loader ──────────────────────────────────────────────────────────
-
+// ─── Spinner (kept, but now brand purple) ─────────────────────────────────────
 function SpinnerIcon() {
   const rotation = useSharedValue(0);
-
   React.useEffect(() => {
-    rotation.value = withRepeat(
-      withTiming(1, { duration: 600 }),
-      -1,
-      false
-    );
+    rotation.value = withRepeat(withTiming(1, { duration: 600 }), -1, false);
   }, []);
-
   const spinStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${rotation.value * 360}deg` }],
   }));
-
   return (
     <Animated.View style={spinStyle}>
-      <Ionicons name="reload-outline" size={22} color="#ffffff" />
+      <Ionicons name="reload-outline" size={20} color="#7C3AED" />
     </Animated.View>
   );
 }
 
 // ─── Validation ───────────────────────────────────────────────────────────────
-
 function validate(email: string, password: string) {
   const errors: { email?: string; password?: string } = {};
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -210,7 +202,6 @@ function validate(email: string, password: string) {
 }
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
-
 export default function SignInScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -224,19 +215,18 @@ export default function SignInScreen() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [apiError, setApiError] = useState('');
 
-  // Shake animation
+  // Shake animation when validation fails
   const shakeX = useSharedValue(0);
   const formAnimStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: shakeX.value }],
   }));
-
   const triggerShake = () => {
     shakeX.value = withSequence(
       withTiming(-8, { duration: 50 }),
       withTiming(8, { duration: 60 }),
       withTiming(-4, { duration: 60 }),
       withTiming(4, { duration: 60 }),
-      withTiming(0, { duration: 70 })
+      withTiming(0, { duration: 70 }),
     );
   };
 
@@ -277,43 +267,32 @@ export default function SignInScreen() {
     }
   };
 
-  // CRITICAL iOS Safari rule: signInWithPopup MUST be called in the same
-  // synchronous task as the user gesture. Any `await` between click and
-  // popup call breaks the gesture link and the browser blocks the popup.
-  // So this handler is NOT async — it kicks off signInWithPopup directly
-  // and then handles the promise.
+  // iOS Safari: signInWithPopup must run in the same sync task as the user
+  // gesture. Keep this handler non-async.
   const handleGoogleSignIn = () => {
     if (!auth) {
       setApiError('Authentication is not configured.');
       return;
     }
-    console.log('[GoogleSignIn] click → opening popup');
     setGoogleLoading(true);
     setApiError('');
     const provider = buildGoogleProvider();
 
-    // Sync call — keeps the user-gesture chain intact on iOS Safari.
     signInWithPopup(auth, provider)
       .then(async (credential) => {
-        console.log('[GoogleSignIn] popup resolved, uid:', credential.user.uid);
         const destination = await onGoogleCredential(credential);
-        console.log('[GoogleSignIn] destination:', destination);
         if (destination === 'tabs') router.replace('/(tabs)/');
         else if (destination === 'phone') router.replace('/(auth)/phone');
         else router.replace('/(auth)/onboarding');
       })
       .catch((e: any) => {
         const code = e?.code ?? '';
-        console.log('[GoogleSignIn] error:', code, e?.message);
         if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
-          // Don't swallow silently — users assume the button is broken. Tell
-          // them the popup closed and offer a retry.
           setApiError('Sign-in window closed before completing. Please try again.');
           triggerShake();
           return;
         }
         if (code === 'auth/popup-blocked') {
-          // Popup blocked by the browser. Fall back to full-page redirect.
           setApiError('Popup blocked — redirecting to Google…');
           signInWithRedirect(auth!, provider).catch((redirectErr: any) => {
             setApiError(redirectErr?.message ?? 'Redirect sign-in failed.');
@@ -322,11 +301,11 @@ export default function SignInScreen() {
           return;
         }
         if (code === 'auth/unauthorized-domain') {
-          setApiError('This domain is not authorized for Google sign-in. Add it in Firebase Console → Authentication → Settings → Authorized domains.');
+          setApiError('This domain is not authorized for Google sign-in.');
         } else if (code === 'auth/network-request-failed') {
           setApiError('No internet connection. Please try again.');
         } else {
-          setApiError(`${code ? code + ': ' : ''}${e?.message ?? 'Google sign-in failed. Please try again.'}`);
+          setApiError(e?.message ?? 'Google sign-in failed. Please try again.');
         }
         triggerShake();
       })
@@ -339,50 +318,39 @@ export default function SignInScreen() {
         style={styles.flex}
         behavior={Platform.OS === 'ios' || Platform.OS === 'web' ? 'padding' : 'height'}
       >
-        {/* ── Dark Hero Section ── */}
-        <LinearGradient
-          colors={['#1C1033', '#3b1060', '#6d1a7a']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.hero, { paddingTop: insets.top + 12 }]}
+        <ScrollView
+          style={styles.flex}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 24 },
+          ]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          <View style={styles.glowTopRight} pointerEvents="none" />
-          <View style={styles.glowBottomLeft} pointerEvents="none" />
-
+          {/* ── Top bar: back button ── */}
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => router.back()}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <View style={styles.backBtnInner}>
-              <Ionicons name="chevron-back" size={20} color="rgba(255,255,255,0.85)" />
-            </View>
+            <Ionicons name="chevron-back" size={22} color="#6b7280" />
           </TouchableOpacity>
 
-          <View style={styles.heroContent}>
+          {/* ── Title section ── */}
+          <View style={styles.titleBlock}>
             <Image source={LOGO} style={styles.logoImage} resizeMode="contain" />
-            <Text style={styles.wordmark}>MaaMitra</Text>
-            <Text style={styles.heroSubtitle}>WELCOME BACK</Text>
+            <Text style={styles.titleText}>Welcome back</Text>
+            <Text style={styles.subtitleText}>
+              Sign in to continue your journey.
+            </Text>
           </View>
-        </LinearGradient>
 
-        {/* ── Form Bottom Sheet ── */}
-        <ScrollView
-          style={styles.sheetScroll}
-          contentContainerStyle={[styles.sheetContent, { paddingBottom: insets.bottom + 32 }]}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          <View style={styles.handle} />
-
-          <Text style={styles.sheetTitle}>Sign in</Text>
-          <Text style={styles.sheetSubtitle}>Continue your motherhood journey</Text>
-
+          {/* ── Google CTA ── */}
           <TouchableOpacity
             style={styles.googleBtn}
             onPress={handleGoogleSignIn}
             disabled={googleLoading}
-            activeOpacity={0.8}
+            activeOpacity={0.85}
           >
             <Text style={styles.googleG}>G</Text>
             <Text style={styles.googleText}>
@@ -396,11 +364,10 @@ export default function SignInScreen() {
             <View style={styles.dividerLine} />
           </View>
 
-          {/* Animated form container */}
+          {/* ── Animated form ── */}
           <Animated.View style={[styles.form, formAnimStyle]}>
-            {/* Email */}
             <AnimatedField
-              label="Email Address"
+              label="Email address"
               value={email}
               onChangeText={(t) => { setEmail(t); setErrors((e) => ({ ...e, email: undefined })); }}
               iconName="mail-outline"
@@ -412,7 +379,6 @@ export default function SignInScreen() {
             />
             {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
 
-            {/* Password */}
             <AnimatedField
               label="Password"
               value={password}
@@ -434,46 +400,38 @@ export default function SignInScreen() {
                   <Ionicons
                     name={showPassword ? 'eye-outline' : 'eye-off-outline'}
                     size={18}
-                    color="#C4B5D4"
+                    color="#9ca3af"
                   />
                 </TouchableOpacity>
               }
             />
-            {errors.password ? <Text style={[styles.errorText, { marginTop: -20 }]}>{errors.password}</Text> : null}
+            {errors.password ? <Text style={[styles.errorText, { marginTop: -16 }]}>{errors.password}</Text> : null}
 
             {apiError ? (
               <View style={styles.apiErrorBox}>
+                <Ionicons name="alert-circle" size={16} color="#ef4444" style={{ marginRight: 8 }} />
                 <Text style={styles.apiErrorText}>{apiError}</Text>
               </View>
             ) : null}
 
-            {/* CTA Button */}
-            <TouchableOpacity
-              onPress={handleSubmit}
-              disabled={loading}
-              activeOpacity={0.88}
-              style={styles.ctaWrapper}
-            >
-              <LinearGradient
-                colors={['#E8487A', '#7C3AED']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.ctaGradient}
-              >
-                {loading ? (
-                  <SpinnerIcon />
-                ) : (
-                  <Text style={styles.ctaText}>Sign In →</Text>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
+            {loading ? (
+              <View style={styles.loadingBtn}>
+                <SpinnerIcon />
+              </View>
+            ) : (
+              <GradientButton
+                title="Sign in"
+                onPress={handleSubmit}
+                style={styles.cta}
+              />
+            )}
           </Animated.View>
 
           <Link href="/(auth)/sign-up" asChild>
-            <TouchableOpacity style={styles.signUpLink}>
+            <TouchableOpacity style={styles.signUpLink} activeOpacity={0.6}>
               <Text style={styles.signUpText}>
                 Don't have an account?{' '}
-                <Text style={styles.signUpTextBold}>Create one free</Text>
+                <Text style={styles.signUpTextBold}>Create one</Text>
               </Text>
             </TouchableOpacity>
           </Link>
@@ -488,99 +446,117 @@ export default function SignInScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#1C1033' },
+  root: { flex: 1, backgroundColor: '#FAFAFB' },
   flex: { flex: 1 },
-  hero: {
-    paddingHorizontal: 20, paddingBottom: 36,
-    position: 'relative', overflow: 'hidden', minHeight: 220,
+  scrollContent: {
+    paddingHorizontal: 22,
+    alignItems: 'stretch',
   },
-  glowTopRight: {
-    position: 'absolute', width: 220, height: 220, borderRadius: 110,
-    backgroundColor: 'rgba(232,72,122,0.28)', top: -70, right: -50,
+
+  backButton: {
+    alignSelf: 'flex-start',
+    paddingVertical: 4,
+    marginBottom: 8,
   },
-  glowBottomLeft: {
-    position: 'absolute', width: 160, height: 160, borderRadius: 80,
-    backgroundColor: 'rgba(124,58,237,0.22)', bottom: -50, left: -30,
+
+  titleBlock: {
+    alignItems: 'center',
+    marginTop: 12,
+    marginBottom: 28,
   },
-  backButton: { marginBottom: 16 },
-  backBtnInner: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center', justifyContent: 'center',
+  logoImage: { width: 56, height: 56, marginBottom: 12 },
+  titleText: {
+    fontFamily: Fonts.serif,
+    fontSize: 28,
+    color: '#1C1033',
+    letterSpacing: -0.4,
+    marginBottom: 6,
   },
-  heroContent: { alignItems: 'center' },
-  logoImage: { width: 56, height: 56, marginBottom: 8 },
-  wordmark: {
-    fontFamily: Fonts.serif, fontSize: 32, color: '#ffffff', letterSpacing: -0.5,
-    textShadowColor: 'rgba(232,72,122,0.4)',
-    textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 12,
+  subtitleText: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
   },
-  heroSubtitle: {
-    fontFamily: Fonts.sansMedium, fontSize: 10,
-    color: 'rgba(255,255,255,0.5)', letterSpacing: 2, marginTop: 4,
-  },
-  sheetScroll: {
-    flex: 1, backgroundColor: '#FFF8FC',
-    borderTopLeftRadius: 32, borderTopRightRadius: 32, marginTop: -24,
-  },
-  sheetContent: { paddingHorizontal: 24, paddingTop: 16, alignItems: 'center' },
-  handle: { width: 36, height: 4, backgroundColor: '#EDE9F6', borderRadius: 2, marginBottom: 24 },
-  sheetTitle: {
-    fontFamily: Fonts.sansBold, fontSize: 22, color: '#1C1033',
-    alignSelf: 'flex-start', marginBottom: 4,
-  },
-  sheetSubtitle: {
-    fontFamily: Fonts.sansRegular, fontSize: 14, color: '#9CA3AF',
-    alignSelf: 'flex-start', marginBottom: 22,
-  },
+
   googleBtn: {
-    width: '100%', flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'center', gap: 10, backgroundColor: '#ffffff',
-    borderRadius: 16, paddingVertical: 14, paddingHorizontal: 20,
-    borderWidth: 1.5, borderColor: '#EDE9F6', marginBottom: 18,
-    shadowColor: '#7C3AED', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07, shadowRadius: 10, elevation: 3,
-    boxShadow: '0px 2px 10px rgba(124, 58, 237, 0.07)',
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderWidth: 1,
+    borderColor: '#E5E1EE',
+    marginBottom: 20,
   },
-  googleG: { fontSize: 18, fontFamily: Fonts.sansBold, color: '#4285F4' },
-  googleText: { fontFamily: Fonts.sansSemiBold, fontSize: 15, color: '#1C1033' },
+  googleG: { fontSize: 16, fontFamily: Fonts.sansBold, color: '#4285F4' },
+  googleText: { fontFamily: Fonts.sansSemiBold, fontSize: 14, color: '#1C1033' },
+
   divider: {
-    width: '100%', flexDirection: 'row', alignItems: 'center',
-    gap: 12, marginBottom: 20,
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 24,
   },
-  dividerLine: { flex: 1, height: 1, backgroundColor: '#EDE9F6' },
-  dividerText: { fontFamily: Fonts.sansMedium, fontSize: 11, color: '#C4B5D4', letterSpacing: 0.3 },
-  form: { width: '100%', marginBottom: 20 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: '#E5E1EE' },
+  dividerText: {
+    fontFamily: Fonts.sansMedium,
+    fontSize: 11,
+    color: '#9ca3af',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+
+  form: { width: '100%', marginBottom: 18 },
   errorText: {
-    fontFamily: Fonts.sansRegular, color: '#ef4444',
-    fontSize: 12, marginBottom: 8, marginLeft: 30,
+    fontFamily: Fonts.sansMedium,
+    color: '#ef4444',
+    fontSize: 12,
+    marginBottom: 8,
+    marginLeft: 30,
   },
   apiErrorBox: {
-    backgroundColor: '#fff5f5', borderRadius: 12,
-    paddingHorizontal: 14, paddingVertical: 10,
-    borderWidth: 1, borderColor: 'rgba(239,68,68,0.15)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#FECACA',
     marginBottom: 14,
   },
-  apiErrorText: { fontFamily: Fonts.sansMedium, color: '#ef4444', fontSize: 13, textAlign: 'center' },
-
-  // CTA button
-  ctaWrapper: {
-    borderRadius: 18, overflow: 'hidden',
-    marginTop: 8, width: '100%',
-    shadowColor: '#E8487A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3, shadowRadius: 12, elevation: 6,
-    boxShadow: '0px 4px 12px rgba(232, 72, 122, 0.30)',
+  apiErrorText: {
+    flex: 1,
+    fontFamily: Fonts.sansMedium,
+    color: '#b91c1c',
+    fontSize: 13,
   },
-  ctaGradient: {
-    paddingVertical: 17, alignItems: 'center', justifyContent: 'center',
-    minHeight: 56,
-  },
-  ctaText: { fontFamily: Fonts.sansBold, color: '#ffffff', fontSize: 16 },
 
-  signUpLink: { marginBottom: 16, paddingVertical: 4 },
-  signUpText: { fontFamily: Fonts.sansRegular, fontSize: 14, color: '#9CA3AF' },
-  signUpTextBold: { fontFamily: Fonts.sansBold, color: '#E8487A' },
-  footer: { fontFamily: Fonts.sansRegular, fontSize: 10, color: '#C4B5D4', textAlign: 'center' },
+  cta: { marginTop: 6 },
+  loadingBtn: {
+    marginTop: 6,
+    paddingVertical: 15,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F5F0FF',
+  },
+
+  signUpLink: { alignItems: 'center', paddingVertical: 14 },
+  signUpText: { fontFamily: Fonts.sansRegular, fontSize: 14, color: '#6b7280' },
+  signUpTextBold: { fontFamily: Fonts.sansBold, color: '#7C3AED' },
+
+  footer: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: 11,
+    color: '#9ca3af',
+    textAlign: 'center',
+    marginTop: 14,
+  },
 });
