@@ -7,6 +7,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Colors } from '../../constants/theme';
 
 interface DatePickerFieldProps {
   value: string; // ISO date string YYYY-MM-DD, or ''
@@ -43,7 +44,7 @@ export default function DatePickerField({
       <View style={styles.wrapper}>
         {label ? <Text style={styles.label}>{label}</Text> : null}
         <View style={styles.inputRow}>
-          <Ionicons name="calendar-outline" size={20} color="#8b5cf6" style={styles.icon} />
+          <Ionicons name="calendar-outline" size={20} color={Colors.primary} style={styles.icon} />
           <Text style={[styles.displayText, !value && styles.placeholder]}>
             {displayValue || placeholder}
           </Text>
@@ -71,7 +72,7 @@ export default function DatePickerField({
     <View style={styles.wrapper}>
       {label ? <Text style={styles.label}>{label}</Text> : null}
       <View style={styles.inputRow}>
-        <Ionicons name="calendar-outline" size={20} color="#8b5cf6" style={styles.icon} />
+        <Ionicons name="calendar-outline" size={20} color={Colors.primary} style={styles.icon} />
         <TextInput
           style={styles.nativeInput}
           value={value}

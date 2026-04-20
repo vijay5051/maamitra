@@ -413,7 +413,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
-    backgroundColor: 'rgba(124,58,237,0.06)',
+    backgroundColor: Colors.primaryAlpha05,
     borderLeftWidth: 3,
     borderLeftColor: PLUM,
     borderRadius: 10,
@@ -463,7 +463,7 @@ const styles = StyleSheet.create({
     borderColor: MIST,
   },
   pillActive: {
-    backgroundColor: 'rgba(124,58,237,0.1)',
+    backgroundColor: Colors.primaryAlpha08,
     borderColor: PLUM,
   },
   pillText: {
@@ -529,10 +529,10 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginTop: 14,
     padding: 12,
-    backgroundColor: 'rgba(124,58,237,0.04)',
+    backgroundColor: Colors.primaryAlpha05,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(124,58,237,0.1)',
+    borderColor: Colors.primaryAlpha08,
   },
   disclaimerText: {
     fontFamily: Fonts.sansRegular,

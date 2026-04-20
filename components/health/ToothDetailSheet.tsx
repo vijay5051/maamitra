@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
-    backgroundColor: 'rgba(124,58,237,0.06)',
+    backgroundColor: Colors.primaryAlpha05,
     borderRadius: 10,
     padding: 10,
     borderLeftWidth: 3,

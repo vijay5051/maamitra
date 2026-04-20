@@ -446,14 +446,22 @@ export default function HomeTab() {
     const goRoutine = () => router.push({ pathname: '/(tabs)/health', params: { tab: 'routine' } });
     const goVacc    = () => router.push({ pathname: '/(tabs)/health', params: { tab: 'vaccines' } });
 
+    // Tracker tints used to be a rainbow (purple/indigo/teal/amber/blue).
+    // They now all render in the brand accent — icon + soft tile bg both
+    // read through Colors.* so switching the accent colour in Settings
+    // re-skins the whole strip. Vaccines is the one exception: it uses
+    // semantic status colours (overdue=red, due-soon=amber, ok=green)
+    // because those convey meaning beyond the brand.
+    const brandTint = Colors.primary;
+    const brandTintBg = Colors.primaryAlpha08;
     return [
       {
         key: 'weight',
         icon: 'scale-outline',
         label: 'Weight',
         value: w ? `${(w.value ?? 0).toFixed(2)} kg` : 'Log now',
-        tint: '#8B5CF6',
-        tintBg: 'rgba(139,92,246,0.10)',
+        tint: brandTint,
+        tintBg: brandTintBg,
         empty: !w,
         onPress: goGrowth,
       },
@@ -462,8 +470,8 @@ export default function HomeTab() {
         icon: 'resize-outline',
         label: 'Height',
         value: h ? `${(h.value ?? 0).toFixed(1)} cm` : 'Log now',
-        tint: '#6366F1',
-        tintBg: 'rgba(99,102,241,0.10)',
+        tint: brandTint,
+        tintBg: brandTintBg,
         empty: !h,
         onPress: goGrowth,
       },
@@ -472,8 +480,8 @@ export default function HomeTab() {
         icon: 'ellipse-outline',
         label: 'Head',
         value: hd ? `${(hd.value ?? 0).toFixed(1)} cm` : 'Log now',
-        tint: '#14B8A6',
-        tintBg: 'rgba(20,184,166,0.10)',
+        tint: brandTint,
+        tintBg: brandTintBg,
         empty: !hd,
         onPress: goGrowth,
       },
@@ -482,8 +490,8 @@ export default function HomeTab() {
         icon: 'moon-outline',
         label: 'Sleep today',
         value: sleepTodayMins > 0 ? formatDuration(sleepTodayMins) : lastSleep ? 'No entry today' : 'Log sleep',
-        tint: '#3B82F6',
-        tintBg: 'rgba(59,130,246,0.10)',
+        tint: brandTint,
+        tintBg: brandTintBg,
         empty: sleepTodayMins === 0,
         onPress: goRoutine,
       },
@@ -492,8 +500,8 @@ export default function HomeTab() {
         icon: 'sync-outline',
         label: 'Diapers today',
         value: diapersToday > 0 ? `${diapersToday}` : 'Log diaper',
-        tint: '#F59E0B',
-        tintBg: 'rgba(245,158,11,0.10)',
+        tint: brandTint,
+        tintBg: brandTintBg,
         empty: diapersToday === 0,
         onPress: goRoutine,
       },

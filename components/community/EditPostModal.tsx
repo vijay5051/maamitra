@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
     marginRight: 6,
     backgroundColor: '#ffffff',
   },
-  topicChipActive: { borderColor: Colors.primary, backgroundColor: 'rgba(124,58,237,0.06)' },
+  topicChipActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryAlpha05 },
   topicChipText: { fontFamily: Fonts.sansMedium, fontSize: 13, color: '#9CA3AF' },
   topicChipTextActive: { fontFamily: Fonts.sansBold, color: Colors.primary },
   textArea: {

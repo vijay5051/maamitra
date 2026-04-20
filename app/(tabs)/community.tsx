@@ -360,7 +360,7 @@ function NewPostModal({
             </View>
           ) : (
             <TouchableOpacity style={newPostStyles.photoBtn} onPress={handlePickImage} activeOpacity={0.75}>
-              <Ionicons name="camera-outline" size={18} color="#8b5cf6" />
+              <Ionicons name="camera-outline" size={18} color={Colors.primary} />
               <Text style={newPostStyles.photoBtnText}>Add Photo</Text>
             </TouchableOpacity>
           )}
@@ -415,7 +415,7 @@ const newPostStyles = StyleSheet.create({
     marginRight: 6,
     backgroundColor: '#ffffff',
   },
-  topicChipActive: { borderColor: Colors.primary, backgroundColor: 'rgba(124,58,237,0.06)' },
+  topicChipActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryAlpha05 },
   topicChipText: { fontFamily: Fonts.sansMedium, fontSize: 13, color: '#9CA3AF' },
   topicChipTextActive: { fontFamily: Fonts.sansBold, color: Colors.primary },
   textArea: {
@@ -491,11 +491,11 @@ const newPostStyles = StyleSheet.create({
     backgroundColor: '#f9fafb',
   },
   ratioBtnActive: {
-    borderColor: '#8b5cf6',
-    backgroundColor: 'rgba(139,92,246,0.08)',
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primaryAlpha08,
   },
   ratioBtnText: { fontSize: 12, color: '#6b7280', fontWeight: '600' },
-  ratioBtnTextActive: { color: '#8b5cf6' },
+  ratioBtnTextActive: { color: Colors.primary },
   postBtn: { borderRadius: 18, overflow: 'hidden', marginTop: 4 },
   postBtnGrad: { paddingVertical: 16, alignItems: 'center' },
   postBtnText: { fontFamily: Fonts.sansBold, color: '#ffffff', fontSize: 16 },

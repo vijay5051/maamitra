@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
     width: 60, height: 60, borderRadius: 30,
     alignItems: 'center', justifyContent: 'center',
     backgroundColor: Colors.primarySoft, marginBottom: 14,
-    borderWidth: 1, borderColor: 'rgba(124,58,237,0.18)',
+    borderWidth: 1, borderColor: Colors.primaryAlpha20,
   },
   titleText: {
     fontFamily: Fonts.serif,

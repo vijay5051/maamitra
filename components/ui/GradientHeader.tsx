@@ -9,7 +9,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { Fonts } from '../../constants/theme';
+import { Fonts, Colors } from '../../constants/theme';
 
 interface GradientHeaderProps {
   title: string;
@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
     width: 140,
     height: 140,
     borderRadius: 70,
-    backgroundColor: 'rgba(124,58,237,0.2)',
+    backgroundColor: Colors.primaryAlpha20,
     bottom: -50,
     left: -30,
   },

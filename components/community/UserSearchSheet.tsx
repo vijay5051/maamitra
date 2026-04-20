@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
     paddingVertical: Platform.OS === 'web' ? 10 : 12,
     gap: 8,
     borderWidth: 1,
-    borderColor: 'rgba(124,58,237,0.12)',
+    borderColor: Colors.primaryAlpha12,
   },
   searchInput: {
     flex: 1,
@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: 'rgba(124,58,237,0.18)',
+    borderColor: Colors.primaryAlpha20,
   },
   emptyTitle: {
     fontFamily: Fonts.serif,

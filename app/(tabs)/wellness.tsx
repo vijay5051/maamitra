@@ -44,7 +44,7 @@ const MOOD_TINTS: Record<number, string> = {
   5: 'rgba(52,211,153,0.08)',   // Great — sage
   4: 'rgba(96,165,250,0.08)',   // Good  — sky
   3: 'rgba(245,158,11,0.08)',   // Okay  — gold
-  2: 'rgba(124,58,237,0.08)',   // Low   — plum
+  2: Colors.primaryAlpha08,   // Low   — plum
   1: 'rgba(28, 16, 51, 0.048)',   // Tough — rose
 };
 
@@ -421,7 +421,7 @@ const chartStyles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: 'rgba(124,58,237,0.08)',
+    backgroundColor: Colors.primaryAlpha08,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -854,7 +854,7 @@ const condStyles = StyleSheet.create({
     paddingHorizontal: 14,
     backgroundColor: '#ffffff',
   },
-  chipSelected: { borderColor: Colors.primary, backgroundColor: 'rgba(124,58,237,0.06)' },
+  chipSelected: { borderColor: Colors.primary, backgroundColor: Colors.primaryAlpha05 },
   chipText: { fontFamily: Fonts.sansMedium, fontSize: 13, color: '#9CA3AF' },
   chipTextSelected: { fontFamily: Fonts.sansBold, color: Colors.primary },
 });
@@ -1318,7 +1318,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   moodResponse: {
-    backgroundColor: 'rgba(124,58,237,0.06)',
+    backgroundColor: Colors.primaryAlpha05,
     borderRadius: 12,
     padding: 14,
     marginTop: 10,
@@ -1367,7 +1367,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: 'rgba(124,58,237,0.06)',
+    backgroundColor: Colors.primaryAlpha05,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 9,

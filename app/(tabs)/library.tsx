@@ -593,7 +593,7 @@ const articleStyles = StyleSheet.create({
     paddingVertical: 5,
     paddingHorizontal: 10,
     borderRadius: 8,
-    backgroundColor: 'rgba(124,58,237,0.08)',
+    backgroundColor: Colors.primaryAlpha08,
   },
   readBtnText: {
     fontSize: 12,
@@ -878,7 +878,7 @@ const bookStyles = StyleSheet.create({
     gap: 5,
     paddingVertical: 9,
     borderRadius: 10,
-    backgroundColor: 'rgba(124,58,237,0.08)',
+    backgroundColor: Colors.primaryAlpha08,
     borderWidth: 1,
     borderColor: 'rgba(139,92,246,0.2)',
   },
@@ -1461,7 +1461,7 @@ export default function LibraryScreen() {
           >
             {/* Personalisation banner */}
             <LinearGradient
-              colors={['rgba(28, 16, 51, 0.06)', 'rgba(124,58,237,0.06)']}
+              colors={['rgba(28, 16, 51, 0.06)', Colors.primaryAlpha05]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.personalisationBanner}
@@ -1560,7 +1560,7 @@ export default function LibraryScreen() {
             ListHeaderComponent={
               activeKid ? (
                 <LinearGradient
-                  colors={['rgba(28, 16, 51, 0.06)', 'rgba(124,58,237,0.06)']}
+                  colors={['rgba(28, 16, 51, 0.06)', Colors.primaryAlpha05]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.personalisationBanner}
@@ -1800,7 +1800,7 @@ const styles = StyleSheet.create({
     borderColor: '#EDE9F6',
   },
   topicChipActive: {
-    backgroundColor: 'rgba(124,58,237,0.08)',
+    backgroundColor: Colors.primaryAlpha08,
     borderColor: Colors.primary,
   },
   topicChipText: { fontFamily: Fonts.sansMedium, fontSize: 12, color: '#9CA3AF' },
@@ -1825,7 +1825,7 @@ const styles = StyleSheet.create({
   },
   personalisationText: { fontFamily: Fonts.sansSemiBold, fontSize: 13, color: Colors.primary, flex: 1 },
   sectionTitle: { fontFamily: Fonts.sansBold, fontSize: 18, color: '#1C1033', marginBottom: 12 },
-  bookSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(124,58,237,0.06)', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 14 },
+  bookSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.primaryAlpha05, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 14 },
   bookPersonalBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   bookPersonalBadgeText: { fontFamily: Fonts.sansSemiBold, fontSize: 12, color: Colors.primary, flex: 1 },
   categoriesScrollView: {
@@ -1859,9 +1859,9 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingVertical: 7,
     paddingHorizontal: 12,
-    backgroundColor: 'rgba(124,58,237,0.06)',
+    backgroundColor: Colors.primaryAlpha05,
     borderWidth: 1.5,
-    borderColor: 'rgba(124,58,237,0.15)',
+    borderColor: Colors.primaryAlpha12,
   },
   sortBtnText: { fontFamily: Fonts.sansBold, fontSize: 12, color: Colors.primary },
   productsGrid: { paddingHorizontal: 8, paddingTop: 8 },

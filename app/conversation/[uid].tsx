@@ -486,7 +486,7 @@ const styles = StyleSheet.create({
     borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(124,58,237,0.08)',
+    backgroundColor: Colors.primaryAlpha08,
     marginBottom: 2,
   },
   previewRow: {
@@ -499,7 +499,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: '#F8F3FF',
     borderWidth: 1,
-    borderColor: 'rgba(124,58,237,0.15)',
+    borderColor: Colors.primaryAlpha12,
   },
   previewImage: {
     width: 40,

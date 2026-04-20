@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import Card from '../ui/Card';
-import { Colors, Fonts } from '../../constants/theme';
+import { Colors, Fonts, Gradients } from '../../constants/theme';
 import { useActiveKid } from '../../hooks/useActiveKid';
 import {
   DiaperKind,
@@ -35,19 +35,21 @@ interface TrackerMeta {
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
   unit?: string; // canonical unit for numeric trackers
-  tint: string;  // border / icon tint
-  tintBg: string;
 }
 
+// Tracker tints used to be a rainbow (purple/indigo/teal/amber/blue) which
+// made the Health section look off-brand. They now all render in the app's
+// brand accent — icons + tiny backgrounds read directly from `Colors` so
+// switching the accent colour in Settings re-skins the whole Health tab.
 const GROWTH_TRACKERS: TrackerMeta[] = [
-  { key: 'weight', label: 'Weight',             icon: 'scale-outline',       unit: 'kg', tint: '#8B5CF6', tintBg: 'rgba(139,92,246,0.08)' },
-  { key: 'height', label: 'Height',             icon: 'resize-outline',      unit: 'cm', tint: '#6366F1', tintBg: 'rgba(99,102,241,0.08)' },
-  { key: 'head',   label: 'Head circumference', icon: 'ellipse-outline',     unit: 'cm', tint: '#14B8A6', tintBg: 'rgba(20,184,166,0.08)' },
+  { key: 'weight', label: 'Weight',             icon: 'scale-outline',    unit: 'kg' },
+  { key: 'height', label: 'Height',             icon: 'resize-outline',   unit: 'cm' },
+  { key: 'head',   label: 'Head circumference', icon: 'ellipse-outline',  unit: 'cm' },
 ];
 
 const ROUTINE_TRACKERS: TrackerMeta[] = [
-  { key: 'diaper', label: 'Diaper',              icon: 'sync-outline',       tint: '#F59E0B', tintBg: 'rgba(245,158,11,0.08)' },
-  { key: 'sleep',  label: 'Sleep',               icon: 'moon-outline',       tint: '#3B82F6', tintBg: 'rgba(59,130,246,0.08)' },
+  { key: 'diaper', label: 'Diaper',              icon: 'sync-outline' },
+  { key: 'sleep',  label: 'Sleep',               icon: 'moon-outline' },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -241,8 +243,8 @@ function AddEntrySheet({
         <Pressable style={sheetStyles.sheet} onPress={(e) => e.stopPropagation()}>
           <View style={sheetStyles.handle} />
           <View style={sheetStyles.headerRow}>
-            <View style={[sheetStyles.iconWrap, { backgroundColor: tracker.tintBg }]}>
-              <Ionicons name={tracker.icon} size={20} color={tracker.tint} />
+            <View style={[sheetStyles.iconWrap, { backgroundColor: Colors.primaryAlpha08 }]}>
+              <Ionicons name={tracker.icon} size={20} color={Colors.primary} />
             </View>
             <Text style={sheetStyles.title}>Log {tracker.label.toLowerCase()}</Text>
             <TouchableOpacity onPress={onClose} hitSlop={8}>
@@ -328,7 +330,7 @@ function AddEntrySheet({
                         <Ionicons
                           name={d.icon}
                           size={16}
-                          color={active ? '#fff' : tracker.tint}
+                          color={active ? '#fff' : Colors.primary}
                         />
                         <Text style={[inputStyles.diaperChipText, active && inputStyles.diaperChipTextActive]}>
                           {d.label}
@@ -399,7 +401,7 @@ function AddEntrySheet({
             style={{ borderRadius: 12, overflow: 'hidden', opacity: canSave ? 1 : 0.5 }}
           >
             <LinearGradient
-              colors={[Colors.primary, '#8b5cf6']}
+              colors={Gradients.primary}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={sheetStyles.saveBtn}
@@ -466,8 +468,8 @@ function TrackerCard({
   return (
     <Card style={styles.card} shadow="sm">
       <View style={styles.cardHeader}>
-        <View style={[styles.iconWrap, { backgroundColor: meta.tintBg }]}>
-          <Ionicons name={meta.icon} size={20} color={meta.tint} />
+        <View style={[styles.iconWrap, { backgroundColor: Colors.primaryAlpha08 }]}>
+          <Ionicons name={meta.icon} size={20} color={Colors.primary} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.cardTitle}>{meta.label}</Text>
@@ -493,7 +495,7 @@ function TrackerCard({
               ? `${formatDateShort(latest.sleepStart ?? latest.at)} · started ${new Date(latest.sleepStart ?? latest.at).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' })}`
               : formatDateTime(latest.at)}
           </Text>
-          {trendNote ? <Text style={[styles.latestMeta, { color: meta.tint, marginTop: 2 }]}>{trendNote}</Text> : null}
+          {trendNote ? <Text style={[styles.latestMeta, { color: Colors.primary, marginTop: 2 }]}>{trendNote}</Text> : null}
         </View>
       ) : (
         <Text style={styles.emptyLine}>Tap “Add entry” to record your first {meta.label.toLowerCase()} reading.</Text>
@@ -526,7 +528,7 @@ function TrackerCard({
 
       <TouchableOpacity onPress={onAdd} activeOpacity={0.85} style={styles.addBtn}>
         <LinearGradient
-          colors={[Colors.primary, '#8b5cf6']}
+          colors={Gradients.primary}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.addBtnGrad}
@@ -670,13 +672,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 10,
-    backgroundColor: 'rgba(124,58,237,0.06)',
+    backgroundColor: Colors.primaryAlpha05,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: 'rgba(124,58,237,0.12)',
+    borderColor: Colors.primaryAlpha12,
   },
   introText: {
     fontFamily: Fonts.sansRegular,
@@ -719,7 +721,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 5,
     borderWidth: 1,
-    borderColor: 'rgba(124,58,237,0.2)',
+    borderColor: Colors.primaryAlpha20,
   },
   unitSwitchText: {
     fontFamily: Fonts.sansBold,
@@ -886,8 +888,8 @@ const inputStyles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   diaperChipActive: {
-    backgroundColor: '#F59E0B',
-    borderColor: '#F59E0B',
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
   },
   diaperChipText: {
     fontFamily: Fonts.sansBold,

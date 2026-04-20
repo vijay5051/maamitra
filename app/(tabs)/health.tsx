@@ -34,7 +34,7 @@ import VaccineCardComponent from '../../components/health/VaccineCard';
 import TeethTab from '../../components/health/TeethTab';
 import FoodTrackerTab from '../../components/health/FoodTrackerTab';
 import GrowthTab, { RoutineTab } from '../../components/health/GrowthTab';
-import { Fonts } from '../../constants/theme';
+import { Fonts, Gradients } from '../../constants/theme';
 import { Colors } from '../../constants/theme';
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
@@ -62,18 +62,21 @@ interface SubTabMeta {
   icon: keyof typeof Ionicons.glyphMap;
   description: string;
   category: CategoryKey;
-  tint: string;
-  tintBg: string;
 }
 
+// Each card renders in the app's brand accent — icon + soft background both
+// read from `Colors` at render time, so swapping the accent colour in
+// Settings re-skins the whole landing grid without code changes. Category
+// differentiation is conveyed by the icon and the section header, not the
+// fill colour.
 const SUB_TABS: SubTabMeta[] = [
-  { key: 'vaccines', label: 'Vaccines',   icon: 'shield-checkmark-outline', description: 'IAP 2024 schedule · due & upcoming', category: 'baby',     tint: '#8B5CF6', tintBg: 'rgba(139,92,246,0.10)' },
-  { key: 'growth',   label: 'Growth',     icon: 'trending-up-outline',      description: 'Weight, height & head circumference',  category: 'baby',     tint: '#6366F1', tintBg: 'rgba(99,102,241,0.10)' },
-  { key: 'teeth',    label: 'Teeth',      icon: 'happy-outline',            description: 'Eruption & shedding tracker',         category: 'baby',     tint: '#EC4899', tintBg: 'rgba(236,72,153,0.10)' },
-  { key: 'foods',    label: 'Foods',      icon: 'restaurant-outline',       description: '3-day rule for new foods',             category: 'baby',     tint: '#F97316', tintBg: 'rgba(249,115,22,0.10)' },
-  { key: 'routine',  label: 'Routine',    icon: 'time-outline',             description: 'Diaper & sleep log',                   category: 'baby',     tint: '#3B82F6', tintBg: 'rgba(59,130,246,0.10)' },
-  { key: 'myhealth', label: 'My Health',  icon: 'heart-outline',            description: 'FOGSI checklist for mother',           category: 'mother',   tint: '#E11D48', tintBg: 'rgba(225,29,72,0.10)' },
-  { key: 'schemes',  label: 'Schemes',    icon: 'ribbon-outline',           description: 'Government benefits for you',          category: 'benefits', tint: '#059669', tintBg: 'rgba(5,150,105,0.10)' },
+  { key: 'vaccines', label: 'Vaccines',   icon: 'shield-checkmark-outline', description: 'IAP 2024 schedule · due & upcoming', category: 'baby'     },
+  { key: 'growth',   label: 'Growth',     icon: 'trending-up-outline',      description: 'Weight, height & head circumference', category: 'baby'     },
+  { key: 'teeth',    label: 'Teeth',      icon: 'happy-outline',            description: 'Eruption & shedding tracker',         category: 'baby'     },
+  { key: 'foods',    label: 'Foods',      icon: 'restaurant-outline',       description: '3-day rule for new foods',             category: 'baby'     },
+  { key: 'routine',  label: 'Routine',    icon: 'time-outline',             description: 'Diaper & sleep log',                   category: 'baby'     },
+  { key: 'myhealth', label: 'My Health',  icon: 'heart-outline',            description: 'FOGSI checklist for mother',           category: 'mother'   },
+  { key: 'schemes',  label: 'Schemes',    icon: 'ribbon-outline',           description: 'Government benefits for you',          category: 'benefits' },
 ];
 
 const CATEGORY_ORDER: { key: CategoryKey; title: string; subtitle: string }[] = [
@@ -107,8 +110,8 @@ function CategoryGrid({ onPick }: { onPick: (t: SubTab) => void }) {
                   activeOpacity={0.85}
                   style={gridStyles.card}
                 >
-                  <View style={[gridStyles.iconWrap, { backgroundColor: item.tintBg }]}>
-                    <Ionicons name={item.icon} size={22} color={item.tint} />
+                  <View style={[gridStyles.iconWrap, { backgroundColor: Colors.primaryAlpha08 }]}>
+                    <Ionicons name={item.icon} size={22} color={Colors.primary} />
                   </View>
                   <Text style={gridStyles.cardLabel}>{item.label}</Text>
                   <Text style={gridStyles.cardDesc} numberOfLines={2}>
@@ -199,9 +202,9 @@ function SubTabHeader({
         <Ionicons name="chevron-back" size={18} color={Colors.primary} />
         <Text style={headerStyles.backText}>Health</Text>
       </TouchableOpacity>
-      <View style={[headerStyles.iconChip, { backgroundColor: meta.tintBg }]}>
-        <Ionicons name={meta.icon} size={14} color={meta.tint} />
-        <Text style={[headerStyles.iconChipText, { color: meta.tint }]}>{meta.label}</Text>
+      <View style={[headerStyles.iconChip, { backgroundColor: Colors.primaryAlpha08 }]}>
+        <Ionicons name={meta.icon} size={14} color={Colors.primary} />
+        <Text style={[headerStyles.iconChipText, { color: Colors.primary }]}>{meta.label}</Text>
       </View>
     </View>
   );
@@ -591,10 +594,10 @@ const scStyles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 2,
-    boxShadow: '0px 2px 8px rgba(124,58,237,0.06)',
+    boxShadow: `0px 2px 8px ${Colors.primaryAlpha05}`,
   } as any,
   cardRelevant: {
-    borderColor: 'rgba(124,58,237,0.25)',
+    borderColor: Colors.primaryAlpha25,
     backgroundColor: '#FAFAFB',
   },
   eligibleBadge: {
@@ -635,7 +638,7 @@ const scStyles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: 'rgba(124,58,237,0.08)',
+    backgroundColor: Colors.primaryAlpha08,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -656,7 +659,7 @@ const scStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
-    backgroundColor: 'rgba(124,58,237,0.06)',
+    backgroundColor: Colors.primaryAlpha05,
     borderRadius: 10,
     padding: 10,
     marginBottom: 10,
@@ -706,11 +709,11 @@ const scStyles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     borderWidth: 1.5,
-    borderColor: 'rgba(124,58,237,0.25)',
+    borderColor: Colors.primaryAlpha25,
     borderRadius: 12,
     paddingVertical: 10,
     marginTop: 4,
-    backgroundColor: 'rgba(124,58,237,0.04)',
+    backgroundColor: Colors.primaryAlpha05,
   },
   linkBtnText: {
     fontFamily: Fonts.sansBold,
@@ -1269,7 +1272,7 @@ export default function HealthScreen() {
               </View>
               <View style={styles.progressBar}>
                 <LinearGradient
-                  colors={[Colors.primary, '#8b5cf6']}
+                  colors={Gradients.primary}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={[styles.progressFill, { width: `${progressPct}%` as any }]}
@@ -1351,13 +1354,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: 'rgba(124,58,237,0.06)',
+    backgroundColor: Colors.primaryAlpha05,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: 'rgba(124,58,237,0.12)',
+    borderColor: Colors.primaryAlpha12,
   },
   infoBannerEmoji: { fontSize: 20 },
   infoBannerText: {
@@ -1413,9 +1416,9 @@ const styles = StyleSheet.create({
   },
   disclaimerCard: {
     marginTop: 8,
-    backgroundColor: 'rgba(124,58,237,0.04)',
+    backgroundColor: Colors.primaryAlpha05,
     borderWidth: 1,
-    borderColor: 'rgba(124,58,237,0.1)',
+    borderColor: Colors.primaryAlpha08,
   },
   disclaimerRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
   disclaimerText: {

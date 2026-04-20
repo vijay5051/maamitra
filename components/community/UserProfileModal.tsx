@@ -916,7 +916,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   chip: {
-    backgroundColor: 'rgba(124,58,237,0.1)',
+    backgroundColor: Colors.primaryAlpha08,
     borderRadius: 999,
     paddingVertical: 4,
     paddingHorizontal: 12,
@@ -1017,7 +1017,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   miniTopicChip: {
-    backgroundColor: 'rgba(124,58,237,0.08)',
+    backgroundColor: Colors.primaryAlpha08,
     borderRadius: 999,
     paddingVertical: 2,
     paddingHorizontal: 8,

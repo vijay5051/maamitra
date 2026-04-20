@@ -7,7 +7,7 @@ import {
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors } from '../../constants/theme';
+import { Colors, Gradients } from '../../constants/theme';
 
 interface Option {
   label: string;
@@ -53,7 +53,7 @@ function ChipItem({ option, isSelected, onPress }: ChipItemProps) {
       <Animated.View style={{ transform: [{ scale }] }}>
         {isSelected ? (
           <LinearGradient
-            colors={[Colors.primary, '#8b5cf6']}
+            colors={Gradients.primary}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.chip}

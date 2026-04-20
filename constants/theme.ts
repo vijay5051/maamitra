@@ -14,6 +14,15 @@ import { TextStyle, ViewStyle } from 'react-native';
 export const Colors = {
   primary: '#7C3AED',           // brand purple — sole accent
   primarySoft: '#F5F0FF',       // tinted tile bg for icons / active chips
+  // Pre-computed alpha variants of the brand primary. Use these for tinted
+  // fills/borders (instead of hard-coded rgba(124,58,237,…) strings) so
+  // they update when the user picks a new accent colour. Values get
+  // rewritten in setPrimaryAtRuntime() on every theme swap.
+  primaryAlpha05: 'rgba(124,58,237,0.05)',
+  primaryAlpha08: 'rgba(124,58,237,0.08)',
+  primaryAlpha12: 'rgba(124,58,237,0.12)',
+  primaryAlpha20: 'rgba(124,58,237,0.20)',
+  primaryAlpha25: 'rgba(124,58,237,0.25)',
   bgLight: '#FAFAFB',           // page background (neutral, was warm cream)
   bgPink: '#F5F0FF',            // alias retained for older screens — now lilac
   bgTint: '#F5F0FF',            // preferred name for the tinted tile bg
@@ -102,6 +111,25 @@ function tint(hex: string, amount: number): string {
 }
 
 /**
+ * Convert a #RRGGBB hex to a rgba() string with the given alpha (0–1).
+ * Used for brand-tinted surfaces (button hover, chip fill, divider glow)
+ * that must track the user's accent colour at runtime.
+ *
+ * Prefer the `Colors.primaryAlpha*` presets below for hot paths — they're
+ * pre-computed once per theme swap so they don't bust StyleSheet caches.
+ */
+export function withAlpha(hex: string, alpha: number): string {
+  const h = hex.replace('#', '');
+  const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+  const num = parseInt(full, 16);
+  const r = (num >> 16) & 0xff;
+  const g = (num >> 8) & 0xff;
+  const b = num & 0xff;
+  const a = Math.max(0, Math.min(1, alpha));
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+/**
  * Overwrite the module-level Colors.primary / Colors.primarySoft /
  * Colors.secondary and the relevant Gradients entries with values derived
  * from a user-picked accent colour. Safe to call during app bootstrap
@@ -119,6 +147,15 @@ export function setPrimaryAtRuntime(hex: string): void {
   (Colors as any).bgTint = soft;
   (Colors as any).secondary = hex;
   (Colors as any).cloud = soft;
+  // Pre-computed alpha variants — referenced as `Colors.primaryAlpha06`
+  // etc. so styles that need a tinted fill/border don't have to compose
+  // an rgba() string each render. These recompute on every accent swap
+  // and stay in lockstep with `Colors.primary`.
+  (Colors as any).primaryAlpha05 = withAlpha(hex, 0.05);
+  (Colors as any).primaryAlpha08 = withAlpha(hex, 0.08);
+  (Colors as any).primaryAlpha12 = withAlpha(hex, 0.12);
+  (Colors as any).primaryAlpha20 = withAlpha(hex, 0.20);
+  (Colors as any).primaryAlpha25 = withAlpha(hex, 0.25);
   // Tonal gradients take the same accent + a subtle darkening.
   (Gradients as any).primary  = [hex, dark];
   (Gradients as any).avatar   = [hex, dark];
