@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Linking,
   ScrollView,
@@ -6,7 +6,6 @@ import {
   Text,
   TouchableOpacity,
   View,
-  LayoutChangeEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -35,7 +34,6 @@ import VaccineCardComponent from '../../components/health/VaccineCard';
 import TeethTab from '../../components/health/TeethTab';
 import FoodTrackerTab from '../../components/health/FoodTrackerTab';
 import GrowthTab, { RoutineTab } from '../../components/health/GrowthTab';
-import { TabIcon } from '../../components/ui/AppIcon';
 import { Fonts } from '../../constants/theme';
 import { Colors } from '../../constants/theme';
 
@@ -50,140 +48,199 @@ const STONE  = '#6B7280';
 
 type SubTab = 'vaccines' | 'teeth' | 'foods' | 'growth' | 'routine' | 'schemes' | 'myhealth';
 
-const TABS: { key: SubTab; label: string; icon: string }[] = [
-  { key: 'vaccines', label: 'Vaccines',  icon: 'shield-checkmark-outline' },
-  { key: 'teeth',    label: 'Teeth',     icon: 'happy-outline' },
-  { key: 'foods',    label: 'Foods',     icon: 'restaurant-outline' },
-  { key: 'growth',   label: 'Growth',    icon: 'trending-up-outline' },
-  { key: 'routine',  label: 'Routine',   icon: 'time-outline' },
-  { key: 'schemes',  label: 'Schemes',   icon: 'ribbon-outline' },
-  { key: 'myhealth', label: 'My Health', icon: 'heart-outline' },
+// ─── Landing-grid categories ──────────────────────────────────────────────────
+// Seven trackers is too many for a horizontal pill bar. Group them by who the
+// section is for: baby · mother · benefits. Each entry drills into the
+// corresponding sub-screen; deep links (?tab=…) still land on the target
+// directly, skipping the landing page.
+
+type CategoryKey = 'baby' | 'mother' | 'benefits';
+
+interface SubTabMeta {
+  key: SubTab;
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  description: string;
+  category: CategoryKey;
+  tint: string;
+  tintBg: string;
+}
+
+const SUB_TABS: SubTabMeta[] = [
+  { key: 'vaccines', label: 'Vaccines',   icon: 'shield-checkmark-outline', description: 'IAP 2024 schedule · due & upcoming', category: 'baby',     tint: '#8B5CF6', tintBg: 'rgba(139,92,246,0.10)' },
+  { key: 'growth',   label: 'Growth',     icon: 'trending-up-outline',      description: 'Weight, height & head circumference',  category: 'baby',     tint: '#6366F1', tintBg: 'rgba(99,102,241,0.10)' },
+  { key: 'teeth',    label: 'Teeth',      icon: 'happy-outline',            description: 'Eruption & shedding tracker',         category: 'baby',     tint: '#EC4899', tintBg: 'rgba(236,72,153,0.10)' },
+  { key: 'foods',    label: 'Foods',      icon: 'restaurant-outline',       description: '3-day rule for new foods',             category: 'baby',     tint: '#F97316', tintBg: 'rgba(249,115,22,0.10)' },
+  { key: 'routine',  label: 'Routine',    icon: 'time-outline',             description: 'Diaper & sleep log',                   category: 'baby',     tint: '#3B82F6', tintBg: 'rgba(59,130,246,0.10)' },
+  { key: 'myhealth', label: 'My Health',  icon: 'heart-outline',            description: 'FOGSI checklist for mother',           category: 'mother',   tint: '#E11D48', tintBg: 'rgba(225,29,72,0.10)' },
+  { key: 'schemes',  label: 'Schemes',    icon: 'ribbon-outline',           description: 'Government benefits for you',          category: 'benefits', tint: '#059669', tintBg: 'rgba(5,150,105,0.10)' },
 ];
 
-// ─── Sub-tab selector with animated sliding pill ───────────────────────────────
+const CATEGORY_ORDER: { key: CategoryKey; title: string; subtitle: string }[] = [
+  { key: 'baby',     title: "Your baby",     subtitle: 'Track everything day-to-day' },
+  { key: 'mother',   title: 'You',           subtitle: 'Recurring checks for mother' },
+  { key: 'benefits', title: 'Benefits',      subtitle: 'Schemes you may qualify for' },
+];
 
-function SubTabSelector({
-  active,
-  onChange,
-}: {
-  active: SubTab;
-  onChange: (t: SubTab) => void;
-}) {
-  const activeIndex = TABS.findIndex((t) => t.key === active);
-  const pillX = useSharedValue(0);
-  const tabWidth = useSharedValue(0);
-  const prevIndexRef = useRef(activeIndex);
+// ─── Landing grid ─────────────────────────────────────────────────────────────
+// Replaces the old horizontal pill bar. Groups trackers by who the section is
+// for, so the Health screen opens to a scannable category page instead of a
+// cramped 7-across tab strip. Each card drills into the existing sub-screen.
 
-  const handleLayout = (e: LayoutChangeEvent) => {
-    const w = e.nativeEvent.layout.width;
-    // Each tab is flex:1; pill spans one slot with 6px gaps between.
-    // Slots = TABS.length, gaps = TABS.length - 1.
-    const gapCount = Math.max(0, TABS.length - 1);
-    tabWidth.value = (w - gapCount * 6) / TABS.length;
-  };
-
-  useEffect(() => {
-    if (tabWidth.value === 0) return;
-    const slotW = tabWidth.value + 6; // slot width + gap
-    pillX.value = withTiming(activeIndex * slotW, {
-      duration: 280,
-      easing: Easing.out(Easing.cubic),
-    });
-    prevIndexRef.current = activeIndex;
-  }, [activeIndex, tabWidth.value]);
-
-  const pillStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: pillX.value }],
-    width: tabWidth.value,
-  }));
-
+function CategoryGrid({ onPick }: { onPick: (t: SubTab) => void }) {
   return (
-    <View style={subTabStyles.wrapper}>
-      <View style={subTabStyles.track} onLayout={handleLayout}>
-        {/* Animated gradient pill */}
-        <Animated.View style={[subTabStyles.slidingPill, pillStyle]} pointerEvents="none">
-          <LinearGradient
-            colors={[ROSE, PLUM]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={StyleSheet.absoluteFill}
-          />
-        </Animated.View>
+    <View>
+      {CATEGORY_ORDER.map((cat) => {
+        const items = SUB_TABS.filter((t) => t.category === cat.key);
+        if (items.length === 0) return null;
+        return (
+          <View key={cat.key} style={gridStyles.section}>
+            <View style={gridStyles.sectionHeader}>
+              <Text style={gridStyles.sectionTitle}>{cat.title}</Text>
+              <Text style={gridStyles.sectionSub}>{cat.subtitle}</Text>
+            </View>
+            <View style={gridStyles.cardsRow}>
+              {items.map((item) => (
+                <TouchableOpacity
+                  key={item.key}
+                  onPress={() => onPick(item.key)}
+                  activeOpacity={0.85}
+                  style={gridStyles.card}
+                >
+                  <View style={[gridStyles.iconWrap, { backgroundColor: item.tintBg }]}>
+                    <Ionicons name={item.icon} size={22} color={item.tint} />
+                  </View>
+                  <Text style={gridStyles.cardLabel}>{item.label}</Text>
+                  <Text style={gridStyles.cardDesc} numberOfLines={2}>
+                    {item.description}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
 
-        {/* Tab buttons */}
-        {TABS.map((t) => {
-          const isActive = t.key === active;
-          return (
-            <TouchableOpacity
-              key={t.key}
-              onPress={() => onChange(t.key)}
-              activeOpacity={0.8}
-              style={subTabStyles.tab}
-            >
-              <TabIcon name={t.icon} active={isActive} />
-              <Text
-                style={[subTabStyles.tabText, isActive && subTabStyles.tabTextActive]}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                {t.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
+const gridStyles = StyleSheet.create({
+  section: { marginBottom: 18 },
+  sectionHeader: { marginBottom: 10 },
+  sectionTitle: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 13,
+    color: INK,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  sectionSub: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginTop: 2,
+  },
+  cardsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  card: {
+    flexBasis: '48%',
+    flexGrow: 1,
+    minWidth: 150,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: MIST,
+    shadowColor: PLUM,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+    // @ts-ignore — web-only
+    boxShadow: '0px 2px 8px rgba(28,16,51,0.05)',
+  },
+  iconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  cardLabel: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 14,
+    color: INK,
+  },
+  cardDesc: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: 11.5,
+    color: '#9CA3AF',
+    marginTop: 3,
+    lineHeight: 16,
+  },
+});
+
+// ─── In-drill-down breadcrumb header ─────────────────────────────────────────
+
+function SubTabHeader({
+  meta,
+  onBack,
+}: {
+  meta: SubTabMeta;
+  onBack: () => void;
+}) {
+  return (
+    <View style={headerStyles.wrapper}>
+      <TouchableOpacity onPress={onBack} style={headerStyles.backBtn} activeOpacity={0.7}>
+        <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+        <Text style={headerStyles.backText}>Health</Text>
+      </TouchableOpacity>
+      <View style={[headerStyles.iconChip, { backgroundColor: meta.tintBg }]}>
+        <Ionicons name={meta.icon} size={14} color={meta.tint} />
+        <Text style={[headerStyles.iconChipText, { color: meta.tint }]}>{meta.label}</Text>
       </View>
     </View>
   );
 }
 
-const subTabStyles = StyleSheet.create({
+const headerStyles = StyleSheet.create({
   wrapper: {
-    backgroundColor: '#FAFAFB',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#F0EBF8',
+    backgroundColor: '#FAFAFB',
   },
-  track: {
-    flexDirection: 'row',
-    backgroundColor: '#EDE9F6',
-    borderRadius: 12,
-    padding: 3,
-    position: 'relative',
-  },
-  slidingPill: {
-    position: 'absolute',
-    top: 3,
-    left: 3,
-    height: 36,
-    borderRadius: 9,
-    overflow: 'hidden',
-    shadowColor: ROSE,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  tab: {
-    flex: 1,
-    borderRadius: 9,
-    paddingVertical: 8,
-    paddingHorizontal: 4,
+  backBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    backgroundColor: 'transparent',
+    gap: 2,
+    paddingVertical: 4,
+    paddingRight: 6,
   },
-  tabText: {
-    fontFamily: Fonts.sansMedium,
-    color: '#A78BCA',
-    fontSize: 11.5,
-    zIndex: 2,
-  },
-  tabTextActive: {
+  backText: {
     fontFamily: Fonts.sansBold,
-    color: '#ffffff',
+    fontSize: 14,
+    color: Colors.primary,
+  },
+  iconChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+  },
+  iconChipText: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 11.5,
   },
 });
 
@@ -1004,11 +1061,13 @@ export default function HealthScreen() {
   // sub-tab — used by the home Quick Actions deep-link.
   const params     = useLocalSearchParams<{ tab?: string }>();
   const validTabs: SubTab[] = ['vaccines', 'teeth', 'foods', 'growth', 'routine', 'schemes', 'myhealth'];
-  const initialTab: SubTab =
+  // Null => show the category landing grid. A valid ?tab=… deep-links directly
+  // into a sub-screen (used by home Quick Actions) and bypasses the grid.
+  const initialTab: SubTab | null =
     params?.tab && (validTabs as string[]).includes(params.tab)
       ? (params.tab as SubTab)
-      : 'vaccines';
-  const [subTab, setSubTab] = useState<SubTab>(initialTab);
+      : null;
+  const [subTab, setSubTab] = useState<SubTab | null>(initialTab);
   // If the param changes after mount (re-deep-link), follow it.
   useEffect(() => {
     if (params?.tab && (validTabs as string[]).includes(params.tab)) {
@@ -1016,6 +1075,8 @@ export default function HealthScreen() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params?.tab]);
+
+  const activeMeta = subTab ? SUB_TABS.find((t) => t.key === subTab) ?? null : null;
   const vaccines   = useVaccineSchedule();
   const { activeKid } = useActiveKid();
   const motherName = useProfileStore((s) => s.motherName);
@@ -1089,12 +1150,17 @@ export default function HealthScreen() {
         <Text style={styles.headerSub}>{kidSubtitle}</Text>
       </LinearGradient>
 
-      <SubTabSelector active={subTab} onChange={setSubTab} />
+      {activeMeta ? (
+        <SubTabHeader meta={activeMeta} onBack={() => setSubTab(null)} />
+      ) : null}
 
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}
         showsVerticalScrollIndicator={false}
       >
+        {/* ── LANDING CATEGORY GRID ── */}
+        {subTab === null && <CategoryGrid onPick={setSubTab} />}
+
         {/* ── VACCINES ── */}
         {subTab === 'vaccines' && (
           <>
