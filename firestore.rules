@@ -281,5 +281,28 @@ service cloud.firestore {
         shortText(request.resource.data.message, 5000);
       allow update, delete: if isAdmin();
     }
+
+    // ── Tester feedback ──────────────────────────────────────────────────────
+    // One-time survey submissions while MaaMitra is in private beta. Any
+    // signed-in user may submit (we also accept an unauthed uid=null path —
+    // auth is still required for the write itself, but we don't pin the
+    // doc's uid to auth.uid so that a shared-device tester can submit
+    // without first signing in elsewhere). Only admins can read — the
+    // aggregate dashboard lives at /admin/feedback and must stay private
+    // so raw price signal doesn't leak to anyone who discovers the
+    // collection path.
+    match /testerFeedback/{feedbackId} {
+      allow read:   if isAdmin();
+      allow create: if isSignedIn() &&
+        request.resource.data.rating is number &&
+        request.resource.data.rating >= 1 &&
+        request.resource.data.rating <= 5 &&
+        shortText(request.resource.data.priceBand, 40) &&
+        shortText(request.resource.data.wouldPayAnnual, 10) &&
+        (!('note' in request.resource.data) || shortText(request.resource.data.note, 500)) &&
+        (!('userName' in request.resource.data) || shortText(request.resource.data.userName, 120)) &&
+        (!('userEmail' in request.resource.data) || shortText(request.resource.data.userEmail, 200));
+      allow update, delete: if isAdmin();
+    }
   }
 }

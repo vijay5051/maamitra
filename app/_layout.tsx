@@ -1,7 +1,7 @@
 import 'react-native-reanimated';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, usePathname } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -9,6 +9,8 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { useAuthStore } from '../store/useAuthStore';
 import { useAppSettingsStore } from '../store/useAppSettingsStore';
+import { useFeedbackStore } from '../store/useFeedbackStore';
+import FeedbackSurveyModal from '../components/feedback/FeedbackSurveyModal';
 // Importing useThemeStore at the root runs its rehydration (via zustand
 // persist's onRehydrateStorage) which calls setPrimaryAtRuntime() before
 // any screen renders. That's how the user's picked accent colour is
@@ -18,8 +20,12 @@ import '../store/useThemeStore';
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const { initAuth } = useAuthStore();
+  const { initAuth, user } = useAuthStore();
   const { fetchSettings } = useAppSettingsStore();
+  const { markInstalledIfNeeded, shouldAutoPrompt, manualOpen, closeSurvey } = useFeedbackStore();
+  const pathname = usePathname();
+  const [autoSurveyVisible, setAutoSurveyVisible] = useState(false);
+  const surveyVisible = autoSurveyVisible || manualOpen;
 
   // All fonts loaded from local assets — guarantees they're bundled and served
   // correctly by Firebase Hosting (no external font URL requests that can fail).
@@ -36,7 +42,20 @@ export default function RootLayout() {
   useEffect(() => {
     initAuth();
     fetchSettings();
+    markInstalledIfNeeded();
   }, []);
+
+  // Auto-prompt the tester survey once the user is signed in, the cooldown
+  // rules in useFeedbackStore have cleared, and they're NOT in the middle of
+  // auth / onboarding (those routes live under /(auth)/* — we skip them so
+  // the modal doesn't slam a brand-new signup).
+  useEffect(() => {
+    if (!user) return;
+    if (pathname && pathname.startsWith('/(auth)')) return;
+    if (!shouldAutoPrompt()) return;
+    const t = setTimeout(() => setAutoSurveyVisible(true), 1500);
+    return () => clearTimeout(t);
+  }, [user, pathname]);
 
   // Hide native splash as soon as fonts are ready OR if there was an error
   useEffect(() => {
@@ -53,6 +72,10 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <StatusBar style="light" />
         <Stack screenOptions={{ headerShown: false }} />
+        <FeedbackSurveyModal
+          visible={surveyVisible}
+          onClose={() => { setAutoSurveyVisible(false); closeSurvey(); }}
+        />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

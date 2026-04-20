@@ -730,6 +730,60 @@ export async function submitSupportTicket(ticket: SupportTicketPayload): Promise
   });
 }
 
+// ─── Tester feedback ────────────────────────────────────────────────
+// Lightweight survey while MaaMitra is in private beta. Captures what
+// people liked, disliked, wanted, and would pay. Results surface in
+// the admin dashboard; no paywall is live yet so this is the signal
+// we use to decide pricing & which features to gate.
+
+export interface TesterFeedbackPayload {
+  uid: string | null;
+  userName?: string;
+  userEmail?: string;
+  rating: number;                // 1-5 stars
+  loved: string[];               // tag list
+  frustrated: string[];          // tag list
+  priceBand: string;             // e.g. 'free-only' | '<999' | '999-1499' | '1499-1999' | '1999-2499' | '2499+'
+  wouldPayAnnual: 'yes' | 'maybe' | 'no';
+  note?: string;
+  stage?: string;
+  kidsCount?: number;
+  parentGender?: string;
+  appVersion?: string;
+  platform?: string;
+}
+
+export async function submitTesterFeedback(payload: TesterFeedbackPayload): Promise<void> {
+  if (!db) throw new Error('Firebase not configured');
+  await addDoc(collection(db, 'testerFeedback'), {
+    ...payload,
+    createdAt: serverTimestamp(),
+  });
+}
+
+export interface TesterFeedbackEntry extends TesterFeedbackPayload {
+  id: string;
+  createdAt: string;             // ISO, after toDate() conversion
+}
+
+export async function getTesterFeedback(): Promise<TesterFeedbackEntry[]> {
+  if (!db) return [];
+  try {
+    const snap = await getDocs(
+      query(collection(db, 'testerFeedback'), orderBy('createdAt', 'desc')),
+    );
+    return snap.docs.map((d) => {
+      const data = d.data() as any;
+      const ts = data.createdAt;
+      const iso = ts?.toDate ? ts.toDate().toISOString() : (ts ?? '');
+      return { id: d.id, ...data, createdAt: iso } as TesterFeedbackEntry;
+    });
+  } catch (err) {
+    console.error('getTesterFeedback error:', err);
+    return [];
+  }
+}
+
 export async function saveCommunityPost(post: CommunityPostPayload): Promise<void> {
   if (!db) return;
   try {

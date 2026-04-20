@@ -64,6 +64,7 @@ import Reanimated, {
 } from 'react-native-reanimated';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import { useDMStore } from '../../store/useDMStore';
+import { useFeedbackStore } from '../../store/useFeedbackStore';
 
 // ─── Home (landing) tab ───────────────────────────────────────────────
 // Replaces Chat as the post-login landing. AI Chat is the hero (top bar
@@ -1259,6 +1260,15 @@ export default function HomeTab() {
 
             {/* Support */}
             <Text style={styles.sheetSectionLabel}>Support</Text>
+            <ProfileRow
+              icon="chatbubble-ellipses-outline"
+              label="Share feedback"
+              sub="Tell us what you love and what to fix"
+              onPress={() => {
+                setProfileOpen(false);
+                setTimeout(() => useFeedbackStore.getState().openSurvey(), 120);
+              }}
+            />
             <ProfileRow
               icon="help-circle-outline"
               label="Help & support"

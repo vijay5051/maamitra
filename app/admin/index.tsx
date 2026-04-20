@@ -452,6 +452,7 @@ export default function AdminDashboard() {
               <NavTile icon="library-outline"          label="Content library"   sub="Articles, books, products, schemes"                  tint="#06B6D4"         onPress={() => router.push('/admin/content')} />
               <NavTile icon="medkit-outline"           label="Vaccines"          sub="Edit the IAP schedule"                                tint="#10B981"         onPress={() => router.push('/admin/vaccines')} />
               <NavTile icon="notifications-outline"    label="Notifications"     sub="Send push + in-app announcements"                     tint="#F59E0B"         onPress={() => router.push('/admin/notifications')} />
+              <NavTile icon="chatbubble-ellipses-outline" label="Tester feedback" sub="Ratings, pricing signal, loved / frustrated tags"   tint="#EC4899"         onPress={() => router.push('/admin/feedback')} />
               <NavTile icon="settings-outline"         label="App settings"      sub="Feature flags, tabs, theme, copy"                     tint="#6B7280"         onPress={() => router.push('/admin/settings')} />
             </View>
           </View>
