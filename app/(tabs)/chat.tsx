@@ -22,6 +22,7 @@ import { syncAllergies } from '../../services/firebase';
 import { useActiveKid } from '../../hooks/useActiveKid';
 import { useVaccineSchedule } from '../../hooks/useVaccineSchedule';
 import { detectIsFood } from '../../services/claude';
+import { INDIAN_LANGUAGES } from '../../services/voice';
 import { TEETH } from '../../data/teeth';
 import ChatBubble from '../../components/chat/ChatBubble';
 import ChatInput from '../../components/chat/ChatInput';
@@ -246,6 +247,7 @@ export default function ChatScreen() {
   const moodHistory = useWellnessStore((s) => s.moodHistory);
   const teethByKid = useTeethStore((s) => s.byKid);
   const savedAnswers = useChatStore((s) => s.savedAnswers);
+  const voiceLanguage = useChatStore((s) => s.voiceLanguage);
   const vaccineSchedule = useVaccineSchedule();
 
   const buildContext = useCallback(() => {
@@ -323,10 +325,17 @@ export default function ChatScreen() {
       recentMoodAvg,
       recentMoodTrend,
       savedAnswerTopics,
+      // Explicit language preference from the chat → language picker.
+      // The system prompt uses these to force replies in the chosen
+      // language regardless of the input text.
+      preferredLanguageCode: voiceLanguage,
+      preferredLanguageLabel: INDIAN_LANGUAGES.find((l) => l.code === voiceLanguage)?.label,
+      preferredLanguageNative: INDIAN_LANGUAGES.find((l) => l.code === voiceLanguage)?.native,
     };
   }, [
     motherName, profile, activeKid, allergies, healthConditions, parentGender,
     completedVaccines, vaccineSchedule, teethByKid, moodHistory, savedAnswers,
+    voiceLanguage,
   ]);
 
   const handleSend = useCallback(

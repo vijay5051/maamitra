@@ -344,11 +344,11 @@ export default function ChatInput({ onSend, disabled = false, prefill }: ChatInp
         >
           <Pressable style={styles.modalSheet} onPress={() => {}}>
             <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>Voice language</Text>
+            <Text style={styles.modalTitle}>Language</Text>
             <Text style={styles.modalSub}>
-              Picks how your speech is transcribed and how replies are read
-              aloud. The AI itself will always reply in whatever language you
-              type or speak.
+              MaaMitra will reply in this language and use it for voice
+              input + spoken replies. Pick English to let MaaMitra
+              auto-match whatever language you type.
             </Text>
             <FlatList
               data={INDIAN_LANGUAGES}

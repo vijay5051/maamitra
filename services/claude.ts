@@ -41,6 +41,14 @@ export interface ChatContext {
   savedAnswerTopics?: string[];    // e.g. ["Weaning", "Sleep"] — interests
   currentSeason?: string;          // "monsoon", "summer", etc. (India)
   pregnancyWeek?: number;          // calculated from due date
+
+  // Explicit language preference (BCP-47, e.g. "hi-IN") set by the user
+  // via the Chat → language picker. When provided AND non-English, the
+  // AI replies in that language regardless of what the user typed.
+  // English / unset → auto-detect from the user's text (legacy behaviour).
+  preferredLanguageCode?: string;
+  preferredLanguageLabel?: string;  // English name, e.g. "Hindi"
+  preferredLanguageNative?: string; // Native script name, e.g. "हिन्दी"
 }
 
 // Role-aware labels so the AI can address fathers + other caregivers correctly.
@@ -339,7 +347,13 @@ ${ctx.motherName} is ${stageDesc}.${pregnancyWeekLine} ${labels.pronounSubj} ${l
 
 This user is ${labels.parentNoun === 'mother' ? 'a mother' : labels.parentNoun === 'father' ? 'a father' : 'a parent/caregiver'} — address them accordingly. Never assume they are a mother if they are not. Do not use "mama" / "mother" language if the user is a father; use "papa" / "dad" / or simply their name. Use their name warmly and naturally.
 
-LANGUAGE: If the user writes in Hindi, Hinglish, or any other Indian language (Tamil, Bengali, Marathi, Telugu, Gujarati, Punjabi, Kannada, Malayalam, Urdu, etc.) — reply in that same language, using the same script they used. If they mix languages casually, mirror that mix. Default to English only if the user writes in English.
+LANGUAGE: ${
+  ctx.preferredLanguageCode &&
+  ctx.preferredLanguageCode !== 'en-IN' &&
+  ctx.preferredLanguageLabel
+    ? `The user has explicitly set their preferred language to ${ctx.preferredLanguageLabel}${ctx.preferredLanguageNative ? ` (${ctx.preferredLanguageNative})` : ''}. Always reply in ${ctx.preferredLanguageLabel}, using the standard ${ctx.preferredLanguageNative ? `${ctx.preferredLanguageNative} script` : 'script for that language'}, even if their message is in English or mixes languages. Keep the same warm, conversational tone — translate the meaning, don't transliterate. Only fall back to English for medical terms or names that have no natural translation.`
+    : `If the user writes in Hindi, Hinglish, or any other Indian language (Tamil, Bengali, Marathi, Telugu, Gujarati, Punjabi, Kannada, Malayalam, Urdu, etc.) — reply in that same language, using the same script they used. If they mix languages casually, mirror that mix. Default to English only if the user writes in English.`
+}
 
 HOW TO WRITE — READ THIS CAREFULLY:
 Plain conversational text only. Write exactly like a caring friend sending a message — warm, natural sentences that flow together.
