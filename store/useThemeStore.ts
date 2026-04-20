@@ -2,8 +2,22 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
-import { setPrimaryAtRuntime } from '../constants/theme';
+import { setPrimaryAtRuntime, ACCENT_STORAGE_KEY } from '../constants/theme';
 import { saveUserProfile, getUserProfile } from '../services/firebase';
+
+/** Mirror the accent colour into synchronous web localStorage so the
+ *  theme module can self-apply it on the NEXT page load before any
+ *  StyleSheet.create() snapshots the default. AsyncStorage alone is
+ *  not synchronous and rehydrates too late for that. */
+function syncMirrorWrite(hex: string): void {
+  try {
+    if (typeof globalThis !== 'undefined' && (globalThis as any).localStorage) {
+      (globalThis as any).localStorage.setItem(ACCENT_STORAGE_KEY, hex);
+    }
+  } catch (_) {
+    // Private-mode Safari / storage quota / etc. — safe to ignore.
+  }
+}
 
 /**
  * User-pickable accent colour. Persisted locally so the choice survives
@@ -49,6 +63,11 @@ export const useThemeStore = create<ThemeState>()(
       setPrimary: async (hex: string, uid?: string) => {
         if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return;
         setPrimaryAtRuntime(hex);
+        // Sync mirror to localStorage so the NEXT page load (after
+        // reloadForThemeChange) finds it before any StyleSheet.create
+        // snapshots the default. Without this, only the currently-
+        // mounted tab shows the new colour.
+        syncMirrorWrite(hex);
         set({ primary: hex });
         if (uid) {
           try {
@@ -65,6 +84,7 @@ export const useThemeStore = create<ThemeState>()(
           const remote = profile?.accentColor;
           if (typeof remote === 'string' && /^#[0-9a-fA-F]{6}$/.test(remote)) {
             setPrimaryAtRuntime(remote);
+            syncMirrorWrite(remote);
             set({ primary: remote });
           }
         } catch (err) {
@@ -75,6 +95,7 @@ export const useThemeStore = create<ThemeState>()(
 
       reset: async () => {
         setPrimaryAtRuntime(DEFAULT_PRIMARY);
+        syncMirrorWrite(DEFAULT_PRIMARY);
         set({ primary: DEFAULT_PRIMARY });
       },
     }),

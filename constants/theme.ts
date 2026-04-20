@@ -144,6 +144,41 @@ export const ACCENT_PRESETS: ReadonlyArray<{ name: string; hex: string }> = [
   { name: 'Slate',   hex: '#475569' },
 ];
 
+/** Synchronous web-storage key. MUST stay in sync with the mirror write
+ *  done from useThemeStore.setPrimary(). */
+export const ACCENT_STORAGE_KEY = 'maamitra-accent-primary';
+
+// ─── Self-hydration (runs at module evaluation) ──────────────────────────────
+//
+// StyleSheet.create() in every other module snapshots Colors.primary at the
+// moment THAT module is evaluated. If we wait for the async AsyncStorage
+// rehydration (see useThemeStore.onRehydrateStorage) to apply the user's
+// colour, the stylesheets in already-imported tabs have already cached
+// the default — which is exactly why only the first tab showed the new
+// colour in testing.
+//
+// The fix is to do a synchronous read from `localStorage` RIGHT HERE, at
+// the bottom of this module's top-level code. All other modules that
+// `import { Colors } from '../../constants/theme'` will get the mutated
+// Colors object because module evaluation is strictly ordered.
+//
+// localStorage is only available on web. On native, AsyncStorage-backed
+// rehydration via zustand's onRehydrateStorage still runs — native is
+// single-screen-on-mount so the first-render delay isn't visible in
+// the same way.
+try {
+  if (typeof globalThis !== 'undefined' && typeof (globalThis as any).localStorage !== 'undefined') {
+    const ls = (globalThis as any).localStorage;
+    const raw = ls.getItem(ACCENT_STORAGE_KEY);
+    if (typeof raw === 'string' && /^#[0-9a-fA-F]{6}$/.test(raw)) {
+      setPrimaryAtRuntime(raw);
+    }
+  }
+} catch (_) {
+  // localStorage can throw in private-mode Safari / sandboxed iframes.
+  // Falling through leaves the default purple — harmless.
+}
+
 // ─── Border Radius ─────────────────────────────────────────────────────────────
 export const Radius = {
   xs: 8,
