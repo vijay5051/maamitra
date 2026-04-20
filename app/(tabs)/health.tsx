@@ -567,6 +567,8 @@ const scStyles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     marginBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0EDF5',
   },
   iconWrap: {
     width: 44,
@@ -1072,7 +1074,7 @@ export default function HealthScreen() {
     <View style={styles.container}>
       {/* ── Dark Gradient Header ── */}
       <LinearGradient
-        colors={['#1C1033', '#3b1060', '#6d1a7a']}
+        colors={['#FFFFFF', '#FFFFFF', '#FFFFFF']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.header, { paddingTop: insets.top + 14 }]}
@@ -1243,7 +1245,7 @@ const styles = StyleSheet.create({
     width: 180,
     height: 180,
     borderRadius: 90,
-    backgroundColor: 'rgba(28, 16, 51, 0.132)',
+    backgroundColor: 'transparent',
     top: -60,
     right: -40,
   },
@@ -1252,21 +1254,21 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: 'rgba(124,58,237,0.18)',
+    backgroundColor: 'transparent',
     bottom: -40,
     left: -20,
   },
   headerTitle: {
     fontFamily: Fonts.serif,
     fontSize: 26,
-    color: '#ffffff',
+    color: '#1C1033',
     letterSpacing: -0.3,
     marginBottom: 4,
   },
   headerSub: {
     fontFamily: Fonts.sansRegular,
     fontSize: 12,
-    color: 'rgba(255,255,255,0.5)',
+    color: '#6b7280',
   },
   content: { paddingHorizontal: 16, paddingTop: 16 },
   infoBanner: {

@@ -466,7 +466,7 @@ export default function FamilyScreen() {
     <View style={styles.container}>
       {/* ── Dark Gradient Header ── */}
       <LinearGradient
-        colors={['#1C1033', '#3b1060', '#6d1a7a']}
+        colors={['#FFFFFF', '#FFFFFF', '#FFFFFF']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.header, { paddingTop: insets.top + 14 }]}
@@ -501,7 +501,7 @@ export default function FamilyScreen() {
               activeOpacity={0.75}
               accessibilityLabel="Notifications"
             >
-              <Ionicons name="notifications-outline" size={18} color="rgba(255,255,255,0.85)" />
+              <Ionicons name="notifications-outline" size={18} color="#6b7280" />
               {socialUnread > 0 && (
                 <View style={styles.headerBadge}>
                   <Text style={styles.headerBadgeText}>{socialUnread > 9 ? '9+' : socialUnread}</Text>
@@ -514,7 +514,7 @@ export default function FamilyScreen() {
               activeOpacity={0.75}
               accessibilityLabel="Messages"
             >
-              <Ionicons name="chatbubbles-outline" size={18} color="rgba(255,255,255,0.85)" />
+              <Ionicons name="chatbubbles-outline" size={18} color="#6b7280" />
               {unreadDMs > 0 && (
                 <View style={styles.headerBadge}>
                   <Text style={styles.headerBadgeText}>{unreadDMs > 9 ? '9+' : unreadDMs}</Text>
@@ -527,7 +527,7 @@ export default function FamilyScreen() {
               activeOpacity={0.7}
               accessibilityLabel="Settings"
             >
-              <Ionicons name="settings-outline" size={18} color="rgba(255,255,255,0.85)" />
+              <Ionicons name="settings-outline" size={18} color="#6b7280" />
             </TouchableOpacity>
           </View>
         </View>
@@ -775,14 +775,16 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     position: 'relative',
     overflow: 'hidden',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0EDF5',
   },
   glowTopRight: {
     position: 'absolute', width: 200, height: 200, borderRadius: 100,
-    backgroundColor: 'rgba(28, 16, 51, 0.132)', top: -60, right: -50,
+    backgroundColor: 'transparent', top: -60, right: -50,
   },
   glowBottomLeft: {
     position: 'absolute', width: 140, height: 140, borderRadius: 70,
-    backgroundColor: 'rgba(124,58,237,0.18)', bottom: -50, left: -30,
+    backgroundColor: 'transparent', bottom: -50, left: -30,
   },
   headerInner: {
     flexDirection: 'row',
@@ -792,20 +794,20 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: Fonts.serif,
     fontSize: 26,
-    color: '#ffffff',
+    color: '#1C1033',
     letterSpacing: -0.3,
   },
   headerSub: {
     fontFamily: Fonts.sansRegular,
     fontSize: 12,
-    color: 'rgba(255,255,255,0.5)',
+    color: '#6b7280',
     marginTop: 3,
   },
   headerActions: { flexDirection: 'row', gap: 8 },
   headerBtn: {
     width: 36, height: 36, borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: '#F5F0FF',
+    borderWidth: 1, borderColor: '#E5E1EE',
     alignItems: 'center', justifyContent: 'center',
     position: 'relative',
   },

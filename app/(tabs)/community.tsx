@@ -400,6 +400,8 @@ const newPostStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 18,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0EDF5',
   },
   title: { fontFamily: Fonts.sansBold, fontSize: 20, color: '#1C1033' },
   label: { fontFamily: Fonts.sansSemiBold, fontSize: 10, color: '#9CA3AF', letterSpacing: 1, marginBottom: 8 },
@@ -604,7 +606,7 @@ function MyProfileCard({
   return (
     <View style={heroStyles.card}>
       <LinearGradient
-        colors={['#1C1033', '#3b1060', '#6d1a7a']}
+        colors={['#FFFFFF', '#FFFFFF', '#FFFFFF']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
@@ -616,7 +618,7 @@ function MyProfileCard({
 
       {/* Edit button — frosted glass, top-right */}
       <TouchableOpacity style={heroStyles.editBtn} onPress={onEdit} activeOpacity={0.75}>
-        <Ionicons name="create-outline" size={15} color="rgba(255,255,255,0.85)" />
+        <Ionicons name="create-outline" size={15} color="#6b7280" />
         <Text style={heroStyles.editBtnText}>Edit</Text>
       </TouchableOpacity>
 
@@ -733,7 +735,7 @@ const heroStyles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: 'rgba(28, 16, 51, 0.15)',
+    backgroundColor: 'transparent',
     top: -30,
     right: -20,
     opacity: 0.9,
@@ -743,7 +745,7 @@ const heroStyles = StyleSheet.create({
     width: 90,
     height: 90,
     borderRadius: 45,
-    backgroundColor: 'rgba(124,58,237,0.2)',
+    backgroundColor: 'transparent',
     bottom: -20,
     left: -10,
     opacity: 0.8,
@@ -1010,7 +1012,7 @@ export default function CommunityScreen() {
     <View style={styles.container}>
       {/* ── Dark Gradient Header ── */}
       <LinearGradient
-        colors={['#1C1033', '#3b1060', '#6d1a7a']}
+        colors={['#FFFFFF', '#FFFFFF', '#FFFFFF']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.header, { paddingTop: insets.top + 14 }]}
@@ -1027,7 +1029,7 @@ export default function CommunityScreen() {
               activeOpacity={0.75}
               accessibilityLabel="Search people"
             >
-              <Ionicons name="search-outline" size={20} color="rgba(255,255,255,0.9)" />
+              <Ionicons name="search-outline" size={20} color="#374151" />
             </TouchableOpacity>
 
             {/* Messages */}
@@ -1036,7 +1038,7 @@ export default function CommunityScreen() {
               onPress={() => setShowMessages(true)}
               activeOpacity={0.75}
             >
-              <Ionicons name="chatbubbles-outline" size={20} color="rgba(255,255,255,0.9)" />
+              <Ionicons name="chatbubbles-outline" size={20} color="#374151" />
               {unreadDMs > 0 && (
                 <View style={styles.notifBadge}>
                   <Text style={styles.notifBadgeText}>{unreadDMs > 9 ? '9+' : unreadDMs}</Text>
@@ -1050,7 +1052,7 @@ export default function CommunityScreen() {
               onPress={() => setShowNotifications(true)}
               activeOpacity={0.75}
             >
-              <Ionicons name="notifications-outline" size={22} color="rgba(255,255,255,0.9)" />
+              <Ionicons name="notifications-outline" size={22} color="#374151" />
               {unreadCount > 0 && (
                 <View style={styles.notifBadge}>
                   <Text style={styles.notifBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
@@ -1329,18 +1331,18 @@ const styles = StyleSheet.create({
   },
   glowTopRight: {
     position: 'absolute', width: 180, height: 180, borderRadius: 90,
-    backgroundColor: 'rgba(28, 16, 51, 0.132)', top: -60, right: -40,
+    backgroundColor: 'transparent', top: -60, right: -40,
   },
   glowBottomLeft: {
     position: 'absolute', width: 120, height: 120, borderRadius: 60,
-    backgroundColor: 'rgba(124,58,237,0.18)', bottom: -40, left: -20,
+    backgroundColor: 'transparent', bottom: -40, left: -20,
   },
   headerInner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  headerTitle: { fontFamily: Fonts.serif, fontSize: 26, color: '#ffffff', letterSpacing: -0.3 },
+  headerTitle: { fontFamily: Fonts.serif, fontSize: 26, color: '#1C1033', letterSpacing: -0.3 },
   headerRight: {
     flexDirection: 'row',
     alignItems: 'center',
