@@ -22,6 +22,7 @@ import TagPill from '../ui/TagPill';
 import { Post } from '../../store/useCommunityStore';
 import { useSocialStore } from '../../store/useSocialStore';
 import { Colors } from '../../constants/theme';
+import { sharePost } from '../../lib/share';
 
 interface PostCardProps {
   post: Post;                                             // Post from useCommunityStore — now has authorUid field
@@ -157,6 +158,21 @@ export default function PostCard({
     onAddComment(post.id, trimmed);
     setCommentText('');
     setIsSubmitting(false);
+  };
+
+  const handleShare = async () => {
+    const result = await sharePost({
+      postId: post.id,
+      authorName: post.authorName || 'A parent',
+      text: post.text || '',
+    });
+    // Light feedback — the Web Share sheet on mobile already confirms; on
+    // desktop the clipboard fallback benefits from an explicit toast.
+    if (result.method === 'clipboard' && result.ok) {
+      Alert.alert('Link copied', 'Share it in any app or chat.');
+    } else if (result.method === 'none') {
+      Alert.alert('Share unavailable', 'Try again from a mobile browser, or copy the URL from the address bar.');
+    }
   };
 
   // Support both old `userReactions` array and new `reactionsByUser` map
@@ -304,8 +320,17 @@ export default function PostCard({
           <Text style={styles.addReactionText}>+</Text>
         </TouchableOpacity>
 
-        {/* Spacer + comment count */}
+        {/* Spacer + comment count + share */}
         <View style={styles.flex1} />
+        <TouchableOpacity
+          onPress={handleShare}
+          style={styles.shareBtn}
+          accessibilityLabel="Share post"
+          activeOpacity={0.7}
+        >
+          <Ionicons name="share-social-outline" size={16} color="#9ca3af" />
+          <Text style={styles.shareText}>Share</Text>
+        </TouchableOpacity>
         <TouchableOpacity onPress={() => onToggleComments(post.id)} style={styles.commentCountRow}>
           <Ionicons name="chatbubble-outline" size={16} color="#9ca3af" />
           <Text style={styles.commentCount}>{post.commentCount ?? displayedComments?.length ?? 0}</Text>
@@ -625,6 +650,19 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   flex1: { flex: 1 },
+  shareBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginRight: 4,
+  },
+  shareText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#9ca3af',
+  },
   commentCountRow: {
     flexDirection: 'row',
     alignItems: 'center',

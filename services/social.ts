@@ -277,6 +277,49 @@ export async function fetchRecentPosts(
   }
 }
 
+/**
+ * Fetch a single community post by id. Powers the public share route
+ * (/post/[id]) which shows a single post to any signed-in user so they can
+ * share a direct link from the app. Returns null if the post doesn't exist
+ * or Firestore throws.
+ */
+export async function fetchPostById(postId: string): Promise<CommunityPost | null> {
+  if (!db || !postId) return null;
+  try {
+    const ref = doc(db, 'communityPosts', postId);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) return null;
+    const data = snap.data();
+    const createdAt = data.createdAt?.toDate
+      ? data.createdAt.toDate()
+      : data.createdAt instanceof Date
+      ? data.createdAt
+      : new Date();
+    return {
+      id: snap.id,
+      authorUid: data.authorUid ?? '',
+      authorName: data.authorName ?? '',
+      authorInitial: data.authorInitial ?? '',
+      authorPhotoUrl: data.authorPhotoUrl ?? undefined,
+      badge: data.badge ?? '',
+      topic: data.topic ?? '',
+      text: data.text ?? '',
+      imageUri: data.imageUri,
+      imageAspectRatio: data.imageAspectRatio,
+      imageEmoji: data.imageEmoji,
+      imageCaption: data.imageCaption,
+      reactions: data.reactions ?? {},
+      reactionsByUser: data.reactionsByUser ?? {},
+      commentCount: data.commentCount ?? 0,
+      authorFollowersOnly: !!data.authorFollowersOnly,
+      createdAt,
+    } as CommunityPost;
+  } catch (err) {
+    console.error('fetchPostById error:', err);
+    return null;
+  }
+}
+
 export async function fetchUserPosts(uid: string): Promise<CommunityPost[]> {
   if (!db) return [];
   try {

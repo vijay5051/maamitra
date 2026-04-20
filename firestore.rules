@@ -63,11 +63,15 @@ service cloud.firestore {
     }
 
     // ── Community Posts (active collection) ──────────────────────────────────
-    // Anyone signed in can read. Authors own create/delete. Reactions &
-    // comments-count updates are allowed for any signed-in user, but nothing
-    // else about the post (text, authorUid, images…) may be touched.
+    // Public share links (/post/[id]) load a single post for anonymous
+    // visitors to convert to signups. So `get` (direct doc lookup) is open
+    // to everyone, but `list` (feed enumeration) still requires sign-in.
+    // Authors own create/delete. Reactions & comments-count updates are
+    // allowed for any signed-in user, but nothing else about the post
+    // (text, authorUid, images…) may be touched.
     match /communityPosts/{postId} {
-      allow read:   if isSignedIn();
+      allow get:    if true;
+      allow list:   if isSignedIn();
       allow create: if isVerified() &&
         request.resource.data.authorUid == request.auth.uid &&
         shortText(request.resource.data.text, 5000);
