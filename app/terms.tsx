@@ -83,7 +83,7 @@ export default function TermsScreen() {
 
         <H2>8. Intellectual property</H2>
         <P>
-          MaaMitra, its logos, and its software are owned by Maamitra Pvt. Ltd. and protected by
+          MaaMitra, its logos, and its software are owned by Vijay Singh Rathore (operator of MaaMitra) and protected by
           law. Nothing here transfers our IP to you.
         </P>
 
@@ -98,13 +98,13 @@ export default function TermsScreen() {
 
         <H2>11. Limitation of liability</H2>
         <P>
-          To the maximum extent permitted by law, Maamitra Pvt. Ltd. is not liable for indirect,
+          To the maximum extent permitted by law, Vijay Singh Rathore (operator of MaaMitra) is not liable for indirect,
           incidental, or consequential damages. Our total liability for any claim is limited to
           ₹1,000 or the amount you paid us in the 12 months before the claim, whichever is higher.
         </P>
 
         <H2>12. Indemnity</H2>
-        <P>You agree to indemnify Maamitra Pvt. Ltd. against claims arising from your misuse of the service or violation of these Terms.</P>
+        <P>You agree to indemnify Vijay Singh Rathore (operator of MaaMitra) against claims arising from your misuse of the service or violation of these Terms.</P>
 
         <H2>13. Governing law & disputes</H2>
         <P>These Terms are governed by the laws of India. Courts at Jaipur, Rajasthan have exclusive jurisdiction, subject to applicable consumer protection laws.</P>
@@ -113,7 +113,7 @@ export default function TermsScreen() {
         <P>We may update these Terms. Material changes will be notified in-app or by email at least 7 days before they take effect.</P>
 
         <H2>15. Contact</H2>
-        <P>info@maamitra.co.in · Maamitra Pvt. Ltd., Jaipur, Rajasthan, India</P>
+        <P>info@maamitra.co.in · Vijay Singh Rathore, Jaipur, Rajasthan, India</P>
 
         <View style={{ height: 24 }} />
       </View>

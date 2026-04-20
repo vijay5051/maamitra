@@ -143,7 +143,7 @@ export default function WelcomeScreen() {
             <TouchableOpacity onPress={() => Linking.openURL('mailto:info@maamitra.co.in')}><Text style={styles.footerLink}>Contact</Text></TouchableOpacity>
           </View>
           <Text style={styles.footerMeta}>
-            © {new Date().getFullYear()} Maamitra Pvt. Ltd. · Made in India
+            © {new Date().getFullYear()} MaaMitra · Made in India
           </Text>
         </View>
 

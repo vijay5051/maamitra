@@ -36,7 +36,7 @@ export default function PrivacyScreen() {
         <Text style={styles.meta}>Effective: {EFFECTIVE}  ·  Last updated: {EFFECTIVE}</Text>
 
         <P>
-          MaaMitra ("we," "us," "our") is operated by <B>Maamitra Pvt. Ltd.</B>, India. This policy
+          MaaMitra ("we," "us," "our") is an independent service operated by <B>Vijay Singh Rathore</B> (sole proprietor), based in Jaipur, Rajasthan, India. This policy
           explains what personal data we collect when you use the MaaMitra app and website
           (together, "MaaMitra"), how we use it, and your rights under India's Digital Personal
           Data Protection Act, 2023 (DPDP Act) and other applicable laws.
@@ -122,7 +122,7 @@ export default function PrivacyScreen() {
         <H2>11. Grievance Officer (DPDP Act 2023)</H2>
         <P><B>Name:</B> Vijay Singh Rathore</P>
         <P><B>Email:</B> info@maamitra.co.in</P>
-        <P><B>Address:</B> Maamitra Pvt. Ltd., Jaipur, Rajasthan, India</P>
+        <P><B>Address:</B> Vijay Singh Rathore, Jaipur, Rajasthan, India</P>
         <P>We will respond to grievances within 30 days.</P>
 
         <View style={{ height: 24 }} />
