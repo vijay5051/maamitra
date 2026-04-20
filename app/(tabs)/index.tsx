@@ -29,11 +29,13 @@ import { useWellnessStore } from '../../store/useWellnessStore';
 import { useSocialStore } from '../../store/useSocialStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useTeethStore } from '../../store/useTeethStore';
+import { useFoodTrackerStore } from '../../store/useFoodTrackerStore';
 import { useChatStore } from '../../store/useChatStore';
 import { useCommunityStore } from '../../store/useCommunityStore';
 import { useActiveKid } from '../../hooks/useActiveKid';
 import { useVaccineSchedule } from '../../hooks/useVaccineSchedule';
 import { TEETH } from '../../data/teeth';
+import { BABY_FOODS } from '../../data/babyFoods';
 import { type AppNotification, fetchRecentPosts, countProfilesInState } from '../../services/social';
 import { saveUserProfile } from '../../services/firebase';
 import { ARTICLES, type Article } from '../../data/articles';
@@ -108,6 +110,8 @@ export default function HomeTab() {
   // Subscribe to the per-kid teeth map so the home Quick Action card stays
   // in sync the moment the user logs a tooth in Health → Teeth.
   const teethByKid = useTeethStore((s) => s.byKid);
+  // Same for the per-kid food tracker (Health → Foods sub-tab).
+  const foodsByKid = useFoodTrackerStore((s) => s.byKid);
   // Derive todayMood from moodHistory reactively — the store's `todayMood`
   // field is only set when logMood is called in the current session, so it's
   // stale after a fresh login / page reload.
@@ -365,6 +369,7 @@ export default function HomeTab() {
         moodHistory,
         vaccineSchedule,
         teethByKid,
+        foodsByKid,
         router,
         chatThreads,
         savedAnswers,
@@ -372,7 +377,7 @@ export default function HomeTab() {
         profileState: profile?.state,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [activeKid, ageLabel, todayMood, moodHistory, vaccineSchedule, teethByKid, router, chatThreads, savedAnswers, profile?.state]
+    [activeKid, ageLabel, todayMood, moodHistory, vaccineSchedule, teethByKid, foodsByKid, router, chatThreads, savedAnswers, profile?.state]
   );
 
   // Vaccine reminders continue to render inline on the Home body (as
@@ -1186,6 +1191,7 @@ function buildTodayCards({
   moodHistory,
   vaccineSchedule,
   teethByKid,
+  foodsByKid,
   router,
   chatThreads,
   savedAnswers,
@@ -1198,6 +1204,7 @@ function buildTodayCards({
   moodHistory: any[];
   vaccineSchedule: ReturnType<typeof useVaccineSchedule>;
   teethByKid: Record<string, Record<string, { state: string; eruptDate?: string; shedDate?: string }>>;
+  foodsByKid: Record<string, Record<string, { cleared?: boolean; d1Date?: string; d2Date?: string; d3Date?: string; reaction?: string }>>;
   router: ReturnType<typeof useRouter>;
   chatThreads: Array<{ id: string; title: string; messages: any[]; lastMessageAt: Date | string }>;
   savedAnswers: any[];
@@ -1217,6 +1224,8 @@ function buildTodayCards({
     router.push({ pathname: '/(tabs)/health', params: { tab: 'schemes' } });
   const goTeeth = () =>
     router.push({ pathname: '/(tabs)/health', params: { tab: 'teeth' } });
+  const goFoods = () =>
+    router.push({ pathname: '/(tabs)/health', params: { tab: 'foods' } });
 
   if (!todayMood) {
     cards.push({
@@ -1428,6 +1437,92 @@ function buildTodayCards({
     }
 
     if (teethCard) cards.push(teethCard);
+  }
+
+  // ── First-foods card (personalised per kid, 3-day rule) ────────────
+  // Only meaningful for kids 4 mo and up:
+  //   • 4-5 mo               → "Solids soon" anticipation
+  //   • 6 mo, nothing tried  → "Start solids" prompt (key milestone)
+  //   • In-progress 3-day    → "Day X/3: <food>" — keep momentum
+  //   • Cleared >0, age-window → "X foods cleared · Try next" with progress
+  //   • Recent reaction      → flag with warning tint
+  //   • > 24 mo and lots cleared → silent (graduated)
+  if (activeKid && !activeKid.isExpecting && activeKid.dob) {
+    const months = Math.max(
+      0,
+      Math.floor(
+        (Date.now() - new Date(activeKid.dob).getTime()) /
+          (1000 * 60 * 60 * 24 * 30.44),
+      ),
+    );
+    const kidFoods = foodsByKid[activeKid.id] ?? {};
+    const clearedFoods = Object.values(kidFoods).filter((e) => e?.cleared).length;
+    const inProgress = BABY_FOODS.find((f) => {
+      const e = kidFoods[f.id];
+      return e && !e.cleared && (e.d1Date || e.d2Date || e.d3Date);
+    });
+    const recentReaction = BABY_FOODS.find((f) => {
+      const r = kidFoods[f.id]?.reaction;
+      return r === 'rash' || r === 'vomit';
+    });
+
+    let foodsCard: TodayCard | null = null;
+
+    if (months >= 4 && months < 6) {
+      foodsCard = {
+        id: 'foods',
+        icon: 'restaurant-outline',
+        tint: Colors.primary,
+        bg: '#FFF0F5',
+        value: 'Solids soon',
+        label: `${activeKid.name} · ${ageLabel}`,
+        onPress: goFoods,
+      };
+    } else if (months >= 6 && clearedFoods === 0 && !inProgress) {
+      foodsCard = {
+        id: 'foods',
+        icon: 'restaurant-outline',
+        tint: Colors.primary,
+        bg: '#FFF0F5',
+        value: 'Start first foods',
+        label: `${activeKid.name} · ${ageLabel}`,
+        onPress: goFoods,
+      };
+    } else if (recentReaction) {
+      foodsCard = {
+        id: 'foods',
+        icon: 'alert-circle-outline',
+        tint: Colors.error,
+        bg: '#FFF7ED',
+        value: `Reaction: ${recentReaction.name.toLowerCase()}`,
+        label: 'Tap to review',
+        onPress: goFoods,
+      };
+    } else if (inProgress) {
+      const e = kidFoods[inProgress.id]!;
+      const day = [e.d1Date, e.d2Date, e.d3Date].filter(Boolean).length;
+      foodsCard = {
+        id: 'foods',
+        icon: 'restaurant-outline',
+        tint: Colors.primary,
+        bg: '#FFF0F5',
+        value: `Day ${day}/3: ${inProgress.name.split(' ')[0]}`,
+        label: `${activeKid.name} · keep going`,
+        onPress: goFoods,
+      };
+    } else if (clearedFoods > 0 && months <= 24) {
+      foodsCard = {
+        id: 'foods',
+        icon: 'restaurant-outline',
+        tint: Colors.primary,
+        bg: '#FFF0F5',
+        value: `${clearedFoods} foods cleared`,
+        label: 'Try next?',
+        onPress: goFoods,
+      };
+    }
+
+    if (foodsCard) cards.push(foodsCard);
   }
 
   // ── Continue AI chat ────────────────────────────────────────────────

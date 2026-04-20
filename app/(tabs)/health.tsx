@@ -32,6 +32,7 @@ import { syncHealthTracking } from '../../services/firebase';
 import Card from '../../components/ui/Card';
 import VaccineCardComponent from '../../components/health/VaccineCard';
 import TeethTab from '../../components/health/TeethTab';
+import FoodTrackerTab from '../../components/health/FoodTrackerTab';
 import { TabIcon } from '../../components/ui/AppIcon';
 import { Fonts } from '../../constants/theme';
 
@@ -44,11 +45,12 @@ const MIST   = '#EDE9F6';
 const INK    = '#1C1033';
 const STONE  = '#6B7280';
 
-type SubTab = 'vaccines' | 'teeth' | 'schemes' | 'myhealth';
+type SubTab = 'vaccines' | 'teeth' | 'foods' | 'schemes' | 'myhealth';
 
 const TABS: { key: SubTab; label: string; icon: string }[] = [
   { key: 'vaccines', label: 'Vaccines',  icon: 'shield-checkmark-outline' },
   { key: 'teeth',    label: 'Teeth',     icon: 'happy-outline' },
+  { key: 'foods',    label: 'Foods',     icon: 'restaurant-outline' },
   { key: 'schemes',  label: 'Schemes',   icon: 'ribbon-outline' },
   { key: 'myhealth', label: 'My Health', icon: 'heart-outline' },
 ];
@@ -114,7 +116,11 @@ function SubTabSelector({
               style={subTabStyles.tab}
             >
               <TabIcon name={t.icon} active={isActive} />
-              <Text style={[subTabStyles.tabText, isActive && subTabStyles.tabTextActive]}>
+              <Text
+                style={[subTabStyles.tabText, isActive && subTabStyles.tabTextActive]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
                 {t.label}
               </Text>
             </TouchableOpacity>
@@ -157,16 +163,17 @@ const subTabStyles = StyleSheet.create({
     flex: 1,
     borderRadius: 9,
     paddingVertical: 8,
+    paddingHorizontal: 4,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 5,
+    gap: 4,
     backgroundColor: 'transparent',
   },
   tabText: {
     fontFamily: Fonts.sansMedium,
     color: '#A78BCA',
-    fontSize: 12.5,
+    fontSize: 11.5,
     zIndex: 2,
   },
   tabTextActive: {
@@ -989,21 +996,18 @@ export default function HealthScreen() {
   // `?tab=teeth` (or schemes/myhealth/vaccines) opens the screen on that
   // sub-tab — used by the home Quick Actions deep-link.
   const params     = useLocalSearchParams<{ tab?: string }>();
+  const validTabs: SubTab[] = ['vaccines', 'teeth', 'foods', 'schemes', 'myhealth'];
   const initialTab: SubTab =
-    params?.tab === 'teeth' || params?.tab === 'schemes' || params?.tab === 'myhealth'
+    params?.tab && (validTabs as string[]).includes(params.tab)
       ? (params.tab as SubTab)
       : 'vaccines';
   const [subTab, setSubTab] = useState<SubTab>(initialTab);
   // If the param changes after mount (re-deep-link), follow it.
   useEffect(() => {
-    if (
-      params?.tab === 'teeth' ||
-      params?.tab === 'schemes' ||
-      params?.tab === 'myhealth' ||
-      params?.tab === 'vaccines'
-    ) {
+    if (params?.tab && (validTabs as string[]).includes(params.tab)) {
       setSubTab(params.tab as SubTab);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params?.tab]);
   const vaccines   = useVaccineSchedule();
   const { activeKid } = useActiveKid();
@@ -1149,6 +1153,9 @@ export default function HealthScreen() {
 
         {/* ── TEETH ── */}
         {subTab === 'teeth' && <TeethTab />}
+
+        {/* ── FOODS ── */}
+        {subTab === 'foods' && <FoodTrackerTab />}
 
         {/* ── SCHEMES ── */}
         {subTab === 'schemes' && (

@@ -112,6 +112,11 @@ async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
       useTeethStore.getState().hydrate(fullProfile.teethTracking as any);
     }
 
+    // Restore per-kid food tracker into food store
+    if (fullProfile.foodTracking && Object.keys(fullProfile.foodTracking).length > 0) {
+      useFoodTrackerStore.getState().hydrate(fullProfile.foodTracking as any);
+    }
+
     return fullProfile.onboardingComplete;
   } catch (error) {
     console.error('hydrateProfileFromFirestore error:', error);
@@ -285,6 +290,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     useWellnessStore.getState().resetWellness();
     useChatStore.getState().resetAll();
     useTeethStore.getState().resetTeeth();
+    useFoodTrackerStore.getState().resetFoods();
     getSocialStore().getState().reset();
     getCommunityStore().getState().resetCommunity();
     if (!isFirebaseConfigured() || !auth) {
@@ -313,6 +319,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     useWellnessStore.getState().resetWellness();
     useChatStore.getState().resetAll();
     useTeethStore.getState().resetTeeth();
+    useFoodTrackerStore.getState().resetFoods();
     getSocialStore().getState().reset();
     getCommunityStore().getState().resetCommunity();
     await deleteUserAccount(user.uid);
