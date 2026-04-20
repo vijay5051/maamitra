@@ -330,9 +330,13 @@ export default function ChatScreen() {
   ]);
 
   const handleSend = useCallback(
-    async (text: string) => {
+    async (text: string, attachment?: { dataUrl: string; mimeType: string }) => {
       setShowSuggestions(false);
-      const isFood = detectIsFood(text);
+      // Only trigger the allergy-picker guard on food questions that don't
+      // have an image (an image + food text is likely 'what's in this
+      // dish' — the user has already seen the food). Keeps the modal from
+      // getting in the way of vision queries.
+      const isFood = !attachment && detectIsFood(text);
 
       if (isFood && allergies === null) {
         setPendingMessage(text);
@@ -340,7 +344,7 @@ export default function ChatScreen() {
         return;
       }
 
-      await sendMessage(text, buildContext());
+      await sendMessage(text, buildContext(), attachment);
     },
     [allergies, sendMessage, buildContext]
   );

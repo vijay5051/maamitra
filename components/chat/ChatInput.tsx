@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   FlatList,
+  Image,
   Modal,
   Platform,
   Pressable,
@@ -31,10 +32,54 @@ import {
 } from '../../services/voice';
 
 interface ChatInputProps {
-  onSend: (text: string) => void;
+  onSend: (text: string, attachment?: { dataUrl: string; mimeType: string }) => void;
   disabled?: boolean;
   /** When set, prefills the input so the user just has to review + hit send. */
   prefill?: string;
+}
+
+/**
+ * Read a File into a data URL on web. Resizes to max 1600px on the longer
+ * edge and re-encodes at 0.85 JPEG quality so base64 payloads stay small
+ * enough for the Anthropic API without visible quality loss. Falls back
+ * to the raw FileReader result if the Image/Canvas pipeline fails.
+ */
+async function fileToCompressedDataURL(file: File): Promise<{ dataUrl: string; mimeType: string }> {
+  const rawDataUrl = await new Promise<string>((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result || ''));
+    r.onerror = () => reject(new Error('Could not read file'));
+    r.readAsDataURL(file);
+  });
+
+  try {
+    // Use the DOM Image constructor explicitly — `Image` at module scope
+    // has been shadowed by the React Native `Image` component we import.
+    const ImageCtor: any = (window as any).Image;
+    const img: HTMLImageElement = await new Promise((resolve, reject) => {
+      const el = new ImageCtor();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error('Could not decode image'));
+      el.src = rawDataUrl;
+    });
+    const maxEdge = 1600;
+    const longer = Math.max(img.width, img.height);
+    const scale = longer > maxEdge ? maxEdge / longer : 1;
+    const w = Math.round(img.width * scale);
+    const h = Math.round(img.height * scale);
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('canvas ctx unavailable');
+    ctx.drawImage(img, 0, 0, w, h);
+    const compressed = canvas.toDataURL('image/jpeg', 0.85);
+    return { dataUrl: compressed, mimeType: 'image/jpeg' };
+  } catch {
+    // Fall back to the raw file — still works, just heavier.
+    const mime = file.type || 'image/jpeg';
+    return { dataUrl: rawDataUrl, mimeType: mime };
+  }
 }
 
 export default function ChatInput({ onSend, disabled = false, prefill }: ChatInputProps) {
@@ -42,8 +87,13 @@ export default function ChatInput({ onSend, disabled = false, prefill }: ChatInp
   const [listening, setListening] = useState(false);
   const [langPickerOpen, setLangPickerOpen] = useState(false);
   const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [attachment, setAttachment] = useState<{ dataUrl: string; mimeType: string } | null>(null);
+  const [attaching, setAttaching] = useState(false);
   const isSendingRef = useRef(false);
   const sttHandleRef = useRef<STTHandle | null>(null);
+  // Hidden <input type="file"> on web — we programmatically click it
+  // from the attach button so we don't need expo-image-picker.
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const voiceLanguage = useChatStore((s) => s.voiceLanguage);
   const setVoiceLanguage = useChatStore((s) => s.setVoiceLanguage);
@@ -84,11 +134,40 @@ export default function ChatInput({ onSend, disabled = false, prefill }: ChatInp
 
   const handleSend = () => {
     const trimmed = text.trim();
-    if (isSendingRef.current || disabled || !trimmed) return;
+    // Allow sending an image-only message (trimmed may be empty).
+    if (isSendingRef.current || disabled) return;
+    if (!trimmed && !attachment) return;
     isSendingRef.current = true;
-    onSend(trimmed);
+    onSend(trimmed, attachment ?? undefined);
     setText('');
+    setAttachment(null);
     setTimeout(() => { isSendingRef.current = false; }, 300);
+  };
+
+  const handleAttachPress = () => {
+    if (Platform.OS !== 'web') {
+      setVoiceError('Image upload is available on the web app — native support coming soon.');
+      setTimeout(() => setVoiceError(null), 4000);
+      return;
+    }
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: any) => {
+    const file: File | undefined = e?.target?.files?.[0];
+    // Reset the input so selecting the same file twice re-triggers onChange.
+    if (e?.target) e.target.value = '';
+    if (!file) return;
+    setAttaching(true);
+    try {
+      const out = await fileToCompressedDataURL(file);
+      setAttachment(out);
+    } catch (err: any) {
+      setVoiceError(err?.message ?? 'Could not load that image.');
+      setTimeout(() => setVoiceError(null), 4000);
+    } finally {
+      setAttaching(false);
+    }
   };
 
   const handleMicPress = () => {
@@ -125,16 +204,46 @@ export default function ChatInput({ onSend, disabled = false, prefill }: ChatInp
     }
   };
 
-  const canSend = text.trim().length > 0 && !disabled;
+  const canSend = (text.trim().length > 0 || !!attachment) && !disabled;
   const currentLang = INDIAN_LANGUAGES.find((l) => l.code === voiceLanguage) ?? INDIAN_LANGUAGES[0];
 
   return (
     <View style={styles.container}>
       {voiceError ? (
         <View style={styles.errorBanner}>
-          <Ionicons name="mic-off-outline" size={14} color="#b91c1c" />
+          <Ionicons name="alert-circle-outline" size={14} color="#b91c1c" />
           <Text style={styles.errorBannerText}>{voiceError}</Text>
         </View>
+      ) : null}
+
+      {/* Attachment preview strip — shown above the input when an image
+          is picked but not yet sent. Tap the × to drop it. */}
+      {attachment ? (
+        <View style={styles.attachmentPreview}>
+          <Image source={{ uri: attachment.dataUrl }} style={styles.attachmentThumb} />
+          <Text style={styles.attachmentLabel}>Photo ready to send</Text>
+          <TouchableOpacity
+            onPress={() => setAttachment(null)}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+            accessibilityLabel="Remove attachment"
+          >
+            <Ionicons name="close-circle" size={20} color="#9ca3af" />
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
+      {/* Hidden file input — web only. React Native Web renders any props
+          we don't recognise as attributes, but the prop-level TS types
+          don't know about <input>, so we splice it in via a dangerously-
+          typed View-as-div below in the JSX tree. See attach button. */}
+      {Platform.OS === 'web' ? (
+        React.createElement('input', {
+          ref: (el: HTMLInputElement | null) => { fileInputRef.current = el; },
+          type: 'file',
+          accept: 'image/*',
+          onChange: handleFileChange,
+          style: { display: 'none' },
+        })
       ) : null}
 
       <View style={styles.inputRow}>
@@ -150,6 +259,21 @@ export default function ChatInput({ onSend, disabled = false, prefill }: ChatInp
           returnKeyType="default"
           blurOnSubmit={false}
         />
+
+        {/* Attach image — web shows the file picker, native shows a hint */}
+        <TouchableOpacity
+          style={[styles.attachBtn, attaching && { opacity: 0.5 }]}
+          activeOpacity={0.7}
+          onPress={handleAttachPress}
+          disabled={attaching}
+          accessibilityLabel="Attach image"
+        >
+          <Ionicons
+            name={attaching ? 'hourglass-outline' : 'image-outline'}
+            size={18}
+            color="#7C3AED"
+          />
+        </TouchableOpacity>
 
         {/* Language picker — only visible if voice is supported */}
         {sttSupported && (
@@ -305,13 +429,47 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 18,     // +20% from 15 — matches the bumped ChatBubble
     fontFamily: Fonts.sansRegular,
     color: '#1C1033',
-    lineHeight: 20,
-    maxHeight: 120,
+    lineHeight: 24,
+    maxHeight: 140,
     paddingVertical: 4,
     marginRight: 6,
+  },
+  attachBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(124,58,237,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'flex-end',
+    marginRight: 6,
+    marginBottom: 2,
+  },
+  attachmentPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#F8F3FF',
+    borderRadius: 12,
+    padding: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(124,58,237,0.15)',
+  },
+  attachmentThumb: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: '#E5E1EE',
+  },
+  attachmentLabel: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: Fonts.sansMedium,
+    color: '#1C1033',
   },
   langBtn: {
     height: 28,

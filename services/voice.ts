@@ -153,34 +153,132 @@ export interface TTSHandle {
   stop: () => void;
 }
 
+// Pick the most natural-sounding voice available on this device for the
+// requested language. Browser default voices are robotic; we score the
+// installed voices by signals that correlate with neural / premium
+// quality so we pick the best one the user has on hand.
+function pickBestVoice(
+  voices: any[],
+  languageCode: string,
+): any | null {
+  if (!voices || voices.length === 0) return null;
+  const base = languageCode.split('-')[0].toLowerCase();
+  const full = languageCode.toLowerCase();
+
+  // Keywords in voice.name / voice.voiceURI that indicate a higher-quality
+  // engine. Order roughly: newer/fancier first. Platforms where these show
+  // up: macOS "Premium"/"Enhanced" (System Settings → Spoken Content →
+  // System Voice → …), Chrome "Google … (natural)", Edge "Online (Natural)",
+  // iOS 16+ "Enhanced" voices, Android "Network".
+  const NEURAL_HINTS = [
+    'neural',
+    'natural',
+    'premium',
+    'enhanced',
+    'wavenet',
+    'online',
+    'studio',
+    'novo',
+    'polyglot',
+  ];
+
+  const scored = voices
+    // Language filter — exact match scores higher than base match.
+    .map((v) => {
+      const vLang = (v.lang || '').toLowerCase();
+      let langScore = 0;
+      if (vLang === full) langScore = 100;
+      else if (vLang.startsWith(base + '-')) langScore = 60;
+      else if (vLang.startsWith(base)) langScore = 40;
+      else return null;
+
+      const name = `${v.name || ''} ${v.voiceURI || ''}`.toLowerCase();
+      let qualityScore = 0;
+      for (const hint of NEURAL_HINTS) {
+        if (name.includes(hint)) qualityScore += 25;
+      }
+      // Google voices on Chrome desktop are generally much better than
+      // Apple's defaults when no explicit hint is present.
+      if (name.includes('google')) qualityScore += 15;
+      // Microsoft "Online" voices on Edge are neural.
+      if (name.includes('microsoft') && name.includes('online')) qualityScore += 20;
+      // Samantha (macOS), Ava (macOS), Karen (iOS) are the nicer defaults.
+      if (/\b(samantha|ava|karen|serena|allison|fiona|tessa)\b/.test(name)) qualityScore += 10;
+      // Penalise compact / "Lite" / "novelty" voices.
+      if (/\b(compact|lite|novelty|whisper|cellos|bells|junior|bad|hysterical|organ|pipe|trinoids|zarvox)\b/.test(name)) qualityScore -= 40;
+      // Default voices (default:true) are often the robotic baseline —
+      // slight penalty unless their name already scored well.
+      if (v.default) qualityScore -= 5;
+
+      return { v, score: langScore + qualityScore };
+    })
+    .filter(Boolean) as Array<{ v: any; score: number }>;
+
+  if (scored.length === 0) return null;
+  scored.sort((a, b) => b.score - a.score);
+  return scored[0].v;
+}
+
+/**
+ * Some browsers (Chrome, Safari) populate the voice list asynchronously
+ * on first call. This helper waits (up to timeoutMs) until voices become
+ * available so pickBestVoice has something to choose from.
+ */
+async function waitForVoices(timeoutMs: number = 1500): Promise<any[]> {
+  const synth: any = (typeof window !== 'undefined') ? (window as any).speechSynthesis : null;
+  if (!synth) return [];
+  const immediate = synth.getVoices();
+  if (immediate && immediate.length > 0) return immediate;
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (list: any[]) => { if (done) return; done = true; resolve(list); };
+    try {
+      synth.addEventListener?.('voiceschanged', () => {
+        finish(synth.getVoices() || []);
+      }, { once: true });
+    } catch { /* no-op */ }
+    setTimeout(() => finish(synth.getVoices() || []), timeoutMs);
+  });
+}
+
 export function speak(text: string, languageCode: string): TTSHandle | null {
   if (!isSpeechSynthesisSupported()) return null;
-  const synth = (window as any).speechSynthesis;
+  const synth: any = (window as any).speechSynthesis;
   // Cancel any in-flight utterance so taps don't queue up.
   try { synth.cancel(); } catch { /* no-op */ }
 
   const utter = new (window as any).SpeechSynthesisUtterance(text);
   utter.lang = languageCode;
 
-  // Try to pick a voice that matches the language. If the exact tag isn't
-  // installed, fall back to any voice whose lang starts with the base
-  // language code (e.g. 'hi' for 'hi-IN').
-  try {
-    const voices: any[] = synth.getVoices();
-    const base = languageCode.split('-')[0];
-    const match =
-      voices.find((v) => v.lang?.toLowerCase() === languageCode.toLowerCase()) ??
-      voices.find((v) => v.lang?.toLowerCase().startsWith(base));
-    if (match) utter.voice = match;
-  } catch { /* no-op — not all browsers expose voices */ }
+  // Natural-feeling defaults. Rate slightly under 1 reads as considered
+  // rather than monotone; pitch slightly over 1 adds warmth without
+  // sounding chipmunky. Volume left at 1.
+  utter.rate = 0.96;
+  utter.pitch = 1.05;
 
-  utter.rate = 1;
-  utter.pitch = 1;
+  let cancelled = false;
+
+  // Kick off voice selection. If voices aren't ready yet, start speaking
+  // with the default voice so the user isn't waiting silently, then swap
+  // to the better voice as soon as it's available — too late to apply to
+  // the current utterance, but right in time for the next one.
+  const applyVoice = async () => {
+    const voices = await waitForVoices();
+    if (cancelled) return;
+    const best = pickBestVoice(voices, languageCode);
+    if (best && !utter.voice) {
+      // Only assign if speaking hasn't started — some browsers ignore
+      // voice reassignment mid-utterance.
+      try { utter.voice = best; } catch { /* no-op */ }
+    }
+  };
+  applyVoice().catch(() => {});
 
   try { synth.speak(utter); } catch { return null; }
 
   return {
     stop: () => {
+      cancelled = true;
       try { synth.cancel(); } catch { /* no-op */ }
     },
   };

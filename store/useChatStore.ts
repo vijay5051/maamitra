@@ -26,6 +26,15 @@ export interface ChatMessage {
   isEmergency?: boolean;
   tag?: { tag: string; color: string };
   saved?: boolean;
+  /**
+   * Data URL (data:image/jpeg;base64,…) of an image the user attached.
+   * Sent to Claude as a vision-enabled multimodal content part. Not
+   * persisted to Firestore — images stay in-thread for the session to
+   * avoid ballooning the doc size. Re-sent with each turn so the model
+   * keeps seeing them.
+   */
+  imageDataUrl?: string;
+  imageMimeType?: string; // e.g. 'image/jpeg'
 }
 
 export interface SavedAnswer {
@@ -104,7 +113,11 @@ interface ChatState {
   renameThread: (threadId: string, title: string) => void;
 
   // Message actions
-  sendMessage: (text: string, context: ChatContext) => Promise<void>;
+  sendMessage: (
+    text: string,
+    context: ChatContext,
+    attachment?: { dataUrl: string; mimeType: string },
+  ) => Promise<void>;
   saveAnswer: (messageId: string) => void;
   unsaveAnswer: (messageId: string) => void;
   setAllergies: (allergies: string[]) => void;
@@ -172,7 +185,11 @@ export const useChatStore = create<ChatState>()(
         if (updated) syncThreadToFirestore(updated);
       },
 
-      sendMessage: async (text: string, context: ChatContext) => {
+      sendMessage: async (
+        text: string,
+        context: ChatContext,
+        attachment?: { dataUrl: string; mimeType: string },
+      ) => {
         // Ensure we have an active thread
         let { activeThreadId, threads } = get();
         let thread = threads.find((t) => t.id === activeThreadId);
@@ -189,6 +206,8 @@ export const useChatStore = create<ChatState>()(
           content: text,
           timestamp: new Date(),
           isEmergency: detectIsEmergency(text),
+          imageDataUrl: attachment?.dataUrl,
+          imageMimeType: attachment?.mimeType,
         };
 
         // If this is the first user message in a thread still called "New chat",
@@ -210,10 +229,14 @@ export const useChatStore = create<ChatState>()(
           isTyping: true,
         }));
 
-        // Build message history for the API (active thread's messages only)
+        // Build message history for the API (active thread's messages only).
+        // Attachment fields are passed through as sidecars; services/claude.ts
+        // converts them into the Anthropic multimodal content shape.
         const messagesForApi = [...(get().getActiveMessages() ?? [])].map((m) => ({
           role: m.role,
           content: m.content,
+          imageDataUrl: m.imageDataUrl,
+          imageMimeType: m.imageMimeType,
         }));
 
         try {

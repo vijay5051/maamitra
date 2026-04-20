@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  Image,
   Platform,
   StyleSheet,
   Text,
@@ -68,17 +69,28 @@ export default function ChatBubble({ message, onSave, isFirstInGroup = true }: C
   const ttsSupported = isAssistant && isSpeechSynthesisSupported();
 
   if (!isAssistant) {
+    const hasImage = !!message.imageDataUrl;
+    const hasText = !!message.content?.trim();
     return (
       <View style={styles.userOuterRow}>
         <View style={styles.userWrapper}>
-          <LinearGradient
-            colors={['#E8487A', '#7C3AED']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.userBubble}
-          >
-            <Text style={[styles.userText, webTextStyle]}>{message.content}</Text>
-          </LinearGradient>
+          {hasImage ? (
+            <Image
+              source={{ uri: message.imageDataUrl }}
+              style={styles.userImage}
+              resizeMode="cover"
+            />
+          ) : null}
+          {hasText ? (
+            <LinearGradient
+              colors={['#E8487A', '#7C3AED']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={[styles.userBubble, hasImage && { marginTop: 6 }]}
+            >
+              <Text style={[styles.userText, webTextStyle]}>{message.content}</Text>
+            </LinearGradient>
+          ) : null}
           <Text style={styles.timestamp}>{formatTime(message.timestamp)}</Text>
         </View>
       </View>
@@ -174,6 +186,12 @@ const styles = StyleSheet.create({
     marginRight: 12,
     minWidth: 0,
   },
+  userImage: {
+    width: 220,
+    height: 220,
+    borderRadius: 16,
+    backgroundColor: '#EDE9F6',
+  },
   userBubble: {
     borderRadius: 18,
     borderTopRightRadius: 4,
@@ -189,8 +207,8 @@ const styles = StyleSheet.create({
   userText: {
     color: '#ffffff',
     fontFamily: Fonts.sansRegular,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 18,    // +20% from 15 — easier to read on mobile
+    lineHeight: 26,
   },
 
   // Bot bubble
@@ -246,8 +264,8 @@ const styles = StyleSheet.create({
   botText: {
     color: '#1C1033',
     fontFamily: Fonts.sansRegular,
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 18,    // +20% from 15
+    lineHeight: 26,
   },
   tagPill: {
     marginTop: 6,
@@ -259,7 +277,7 @@ const styles = StyleSheet.create({
   saveText: {
     color: '#9ca3af',
     fontFamily: Fonts.sansMedium,
-    fontSize: 12,
+    fontSize: 14,    // +20% so actions don't feel tiny next to the larger body
   },
   actionRow: {
     flexDirection: 'row',
@@ -275,7 +293,7 @@ const styles = StyleSheet.create({
   iconActionText: {
     color: '#7C3AED',
     fontFamily: Fonts.sansMedium,
-    fontSize: 12,
+    fontSize: 14,    // +20%
   },
   timestamp: {
     color: '#C4B5D4',

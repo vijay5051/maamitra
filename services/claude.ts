@@ -449,8 +449,51 @@ export function detectIsYoga(text: string): boolean {
 
 // All Claude API calls are proxied through the Cloudflare Worker so the API
 // key is never exposed in the browser bundle.
+export interface OutgoingMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  /** data URL (data:image/jpeg;base64,…) for a user-attached image. Only
+      meaningful on user messages — Claude replies are always text-only. */
+  imageDataUrl?: string;
+  imageMimeType?: string;
+}
+
+/**
+ * Convert our internal OutgoingMessage shape into the Anthropic Messages
+ * API content shape. Plain text stays a string; messages with an image
+ * become a structured content array with an image source + text block.
+ */
+function toAnthropicMessage(m: OutgoingMessage): { role: 'user' | 'assistant'; content: any } {
+  if (m.imageDataUrl && m.imageMimeType && m.role === 'user') {
+    // data URLs look like "data:image/jpeg;base64,…" — strip the prefix so
+    // we send just the base64 payload Anthropic expects.
+    const base64 = m.imageDataUrl.includes(',')
+      ? m.imageDataUrl.split(',', 2)[1]
+      : m.imageDataUrl;
+    const parts: any[] = [
+      {
+        type: 'image',
+        source: {
+          type: 'base64',
+          media_type: m.imageMimeType,
+          data: base64,
+        },
+      },
+    ];
+    // Only include the text part if the user actually typed something.
+    // Anthropic tolerates empty text but rejects empty content arrays.
+    if (m.content && m.content.trim()) {
+      parts.push({ type: 'text', text: m.content });
+    } else {
+      parts.push({ type: 'text', text: '(image attached)' });
+    }
+    return { role: m.role, content: parts };
+  }
+  return { role: m.role, content: m.content };
+}
+
 export async function sendMessage(
-  messages: Array<{ role: 'user' | 'assistant'; content: string }>,
+  messages: Array<OutgoingMessage>,
   context: ChatContext
 ): Promise<string> {
   if (!WORKER_URL) {
@@ -478,7 +521,7 @@ export async function sendMessage(
       },
       body: JSON.stringify({
         systemPrompt: buildSystemPrompt(context, latestUserMsg?.content),
-        messages: messages.map(m => ({ role: m.role, content: m.content })),
+        messages: messages.map(toAnthropicMessage),
       }),
     });
 
