@@ -23,6 +23,7 @@ import { useProfileStore } from './useProfileStore';
 import { useWellnessStore } from './useWellnessStore';
 import { useChatStore } from './useChatStore';
 import { useTeethStore } from './useTeethStore';
+import { useFoodTrackerStore } from './useFoodTrackerStore';
 
 // Lazy-accessed to avoid circular dependency (useSocialStore imports useAuthStore)
 const getSocialStore = () => require('./useSocialStore').useSocialStore;
@@ -44,10 +45,25 @@ async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
   try {
     const fullProfile = await loadFullProfile(uid);
     if (!fullProfile) {
+      // Firestore returned null. This could be either:
+      //   (a) a truly new account with no doc yet (first-time user), or
+      //   (b) a transient network / App Check failure for an existing user.
+      // If our locally-cached profile was last hydrated for THIS uid, it's
+      // case (b): keep the cache so routing still works. If the cache is
+      // for a different uid (or empty), it's case (a) — the caller will
+      // see `false` and route to onboarding.
+      const cached = useProfileStore.getState().cachedProfileUid;
+      if (cached === uid) {
+        // Returning user, Firestore unreachable — trust the cache.
+        return useProfileStore.getState().onboardingComplete;
+      }
       return false;
     }
     useProfileStore.getState().resetProfile();
-    const { setMotherName, setProfile, addKid, setOnboardingComplete, markVaccineDone } = useProfileStore.getState();
+    const { setMotherName, setProfile, addKid, setOnboardingComplete, markVaccineDone, setCachedProfileUid } = useProfileStore.getState();
+    // Remember this uid so we can trust the persisted cache next time
+    // the same user signs in with a flaky network.
+    setCachedProfileUid(uid);
     setMotherName(fullProfile.motherName);
     if (fullProfile.profile) setProfile(fullProfile.profile as any);
     fullProfile.kids.forEach((kid: any) =>
@@ -152,10 +168,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       throw NOT_CONFIGURED;
     }
     set({ isLoading: true });
-    // Always wipe local profile data before loading a new user's data
-    useProfileStore.getState().resetProfile();
     try {
       const credential = await signInWithEmailAndPassword(auth, email, password);
+      // Only wipe local profile state when a DIFFERENT user is signing
+      // in. For a returning user (same uid as the cached profile), we
+      // keep the cache as a fallback so a transient Firestore failure
+      // during hydrate doesn't flip onboardingComplete back to false
+      // and route them into the onboarding flow by mistake.
+      const cached = useProfileStore.getState().cachedProfileUid;
+      if (cached && cached !== credential.user.uid) {
+        useProfileStore.getState().resetProfile();
+      }
       // CRITICAL: set the user in the store BEFORE awaiting hydrate. This
       // primes onAuthStateChanged's same-uid guard so it doesn't race us
       // by calling resetProfile() + hydrate concurrently. Without this,
@@ -216,8 +239,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (!isFirebaseConfigured() || !auth) {
       throw NOT_CONFIGURED;
     }
-    // Wipe local data before loading new user
-    useProfileStore.getState().resetProfile();
+    // Keep the persisted profile if this is the SAME user returning. Only
+    // reset when the incoming uid differs from the last cached one —
+    // protects onboardingComplete from being lost on a flaky Firestore
+    // read (see signIn for the same pattern).
+    const cachedUid = useProfileStore.getState().cachedProfileUid;
+    if (cachedUid && cachedUid !== credential.user.uid) {
+      useProfileStore.getState().resetProfile();
+    }
     set({ isLoading: true });
     try {
       // Persist the minimal user doc (name/email/createdAt) so the subsequent
@@ -341,9 +370,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
         const providerIds = firebaseUser.providerData.map((p) => p.providerId);
         const isGoogle = providerIds.includes('google.com');
-        // Different uid (or no user in store) — clear any stale profile
-        // data from a previous session/user and hydrate from Firestore.
-        useProfileStore.getState().resetProfile();
+        // Only wipe the persisted profile if the cached uid is for a
+        // DIFFERENT user. When the same user signs back in after a session
+        // (common on app reload) we keep the cache so a flaky Firestore
+        // hydrate doesn't reset onboardingComplete and route to onboarding.
+        const cachedUid = useProfileStore.getState().cachedProfileUid;
+        if (cachedUid && cachedUid !== firebaseUser.uid) {
+          useProfileStore.getState().resetProfile();
+        }
         try {
           // Single Firestore read via hydrate (was previously two — hydrate +
           // getUserProfile for the name). Name is pulled from hydrated state.

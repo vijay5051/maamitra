@@ -97,6 +97,16 @@ interface ProfileState {
   hasSeenIntro: boolean;
   setHasSeenIntro: (v: boolean) => void;
 
+  /**
+   * UID of the last user whose profile was hydrated into this store.
+   * Persisted so returning users don't lose their onboardingComplete state
+   * when Firestore is temporarily unreachable on sign-in. When the
+   * incoming UID matches this, we keep the cached profile as a fallback
+   * and only overlay fresh Firestore data if it comes through.
+   */
+  cachedProfileUid: string | null;
+  setCachedProfileUid: (uid: string | null) => void;
+
   setMotherName: (name: string) => void;
   setProfile: (profile: Profile) => void;
   addKid: (kid: Omit<Kid, 'ageInMonths' | 'ageInWeeks' | 'id'> & { id?: string }) => void;
@@ -141,6 +151,9 @@ export const useProfileStore = create<ProfileState>()(
 
       hasSeenIntro: false,
       setHasSeenIntro: (v: boolean) => set({ hasSeenIntro: v }),
+
+      cachedProfileUid: null,
+      setCachedProfileUid: (uid: string | null) => set({ cachedProfileUid: uid }),
 
       setMotherName: (name) => set({ motherName: name }),
 
@@ -241,6 +254,7 @@ export const useProfileStore = create<ProfileState>()(
           hasSeenIntro: false,
           phone: '',
           phoneVerified: false,
+          cachedProfileUid: null,
         }),
 
       setPhotoUrl: (url) => set({ photoUrl: url }),
