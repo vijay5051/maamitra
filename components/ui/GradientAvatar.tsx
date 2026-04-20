@@ -27,7 +27,7 @@ export default function GradientAvatar({
 
   return (
     <LinearGradient
-      colors={['#7C3AED', '#8b5cf6']}
+      colors={['#7C3AED', '#7C3AED']}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={[

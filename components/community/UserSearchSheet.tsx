@@ -294,8 +294,8 @@ const styles = StyleSheet.create({
   badge: {
     fontSize: 11,
     fontFamily: Fonts.sansMedium,
-    color: '#8b5cf6',
-    backgroundColor: '#faf5ff',
+    color: '#7C3AED',
+    backgroundColor: '#F5F0FF',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 10,

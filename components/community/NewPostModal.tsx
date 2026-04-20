@@ -118,7 +118,7 @@ export default function NewPostModal({
                       style={styles.topicChipWrapper}
                     >
                       <LinearGradient
-                        colors={['#7C3AED', '#8b5cf6']}
+                        colors={['#7C3AED', '#7C3AED']}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
                         style={styles.topicChip}
@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   topicChipUnselected: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#F0EDF5',
     paddingVertical: 7,
     paddingHorizontal: 16,
   },

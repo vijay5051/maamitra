@@ -60,7 +60,7 @@ function CoverImg({ uri, title, size = 64 }: { uri?: string; title: string; size
     return <Image source={{ uri }} style={{ width: size, height: size * 1.3, borderRadius: 8 }} resizeMode="cover" onError={() => setErr(true)} />;
   }
   return (
-    <LinearGradient colors={['#7C3AED', '#8b5cf6']} style={{ width: size, height: size * 1.3, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }}>
+    <LinearGradient colors={['#7C3AED', '#7C3AED']} style={{ width: size, height: size * 1.3, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }}>
       <Text style={{ fontSize: size * 0.4, color: '#fff', fontWeight: '800' }}>{title.charAt(0)}</Text>
     </LinearGradient>
   );
@@ -122,8 +122,8 @@ function ErrorBox({ msg, onManual }: { msg: string; onManual?: () => void }) {
         <Text style={s.errorText}>{msg}</Text>
         {onManual && (
           <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }} onPress={onManual}>
-            <Ionicons name="create-outline" size={13} color="#8b5cf6" />
-            <Text style={{ fontSize: 12, color: '#8b5cf6', fontWeight: '700' }}>Enter details manually →</Text>
+            <Ionicons name="create-outline" size={13} color="#7C3AED" />
+            <Text style={{ fontSize: 12, color: '#7C3AED', fontWeight: '700' }}>Enter details manually →</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -611,7 +611,7 @@ export default function AdminPanel({ visible, onClose }: AdminPanelProps) {
       <View style={s.modal}>
         {/* Header */}
         <View style={s.header}>
-          <LinearGradient colors={['#7C3AED', '#8b5cf6']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
+          <LinearGradient colors={['#7C3AED', '#7C3AED']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
           <View style={s.headerRow}>
             <View>
               <Text style={s.headerTitle}>⚙️ Library Admin</Text>
@@ -657,7 +657,7 @@ const s = StyleSheet.create({
   headerTitle: { color: '#fff', fontSize: 20, fontWeight: '800' },
   headerSub: { color: 'rgba(255,255,255,0.8)', fontSize: 13, marginTop: 2 },
 
-  typeTabs: { flexDirection: 'row', backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#f3e8ff' },
+  typeTabs: { flexDirection: 'row', backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F5F0FF' },
   typeTab: { flex: 1, alignItems: 'center', paddingVertical: 10, gap: 2 },
   typeTabActive: { borderBottomWidth: 2, borderBottomColor: '#7C3AED' },
   typeTabIcon: { fontSize: 20 },
@@ -666,13 +666,13 @@ const s = StyleSheet.create({
 
   sectionWrap: { flex: 1, flexDirection: 'column' },
 
-  subTabs: { flexDirection: 'row', backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#f3e8ff' },
+  subTabs: { flexDirection: 'row', backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F5F0FF' },
   subTab: { flex: 1, paddingVertical: 12, alignItems: 'center' },
   subTabActive: { borderBottomWidth: 2, borderBottomColor: '#7C3AED' },
   subTabText: { fontSize: 13, fontWeight: '600', color: '#9ca3af' },
   subTabTextActive: { color: '#7C3AED' },
 
-  searchBox: { padding: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#f3e8ff' },
+  searchBox: { padding: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F5F0FF' },
   searchLabel: { fontSize: 12, color: '#6b7280', marginBottom: 8 },
   searchRow: { flexDirection: 'row', gap: 10 },
   searchInput: { flex: 1, height: 44, backgroundColor: '#f9fafb', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, paddingHorizontal: 12, fontSize: 14, color: '#1a1a2e' },
@@ -711,7 +711,7 @@ const s = StyleSheet.create({
   chipText: { fontSize: 12, color: '#6b7280', fontWeight: '600' },
   chipTextActive: { color: '#fff' },
   formActions: { flexDirection: 'row', gap: 10, marginTop: 24, marginBottom: 32 },
-  cancelBtn: { flex: 1, height: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f3f4f6', borderWidth: 1, borderColor: '#e5e7eb' },
+  cancelBtn: { flex: 1, height: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0EDF5', borderWidth: 1, borderColor: '#e5e7eb' },
   cancelBtnText: { fontSize: 14, fontWeight: '700', color: '#6b7280' },
   saveBtn: { flex: 2, height: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6, backgroundColor: '#7C3AED' },
   saveBtnDim: { backgroundColor: '#f3a8d0' },

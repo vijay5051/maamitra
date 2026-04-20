@@ -78,7 +78,7 @@ export default function JawChart({ teeth, selectedToothId, onSelect }: Props) {
           y={VIEW_H / 2 - 6}
           fontSize={9}
           fontWeight="700"
-          fill="#C4B5FD"
+          fill="#c9b7f7"
           textAnchor="middle"
         >
           UPPER JAW
@@ -88,7 +88,7 @@ export default function JawChart({ teeth, selectedToothId, onSelect }: Props) {
           y={VIEW_H / 2 + 14}
           fontSize={9}
           fontWeight="700"
-          fill="#C4B5FD"
+          fill="#c9b7f7"
           textAnchor="middle"
         >
           LOWER JAW

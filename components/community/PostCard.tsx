@@ -221,7 +221,7 @@ export default function PostCard({
         </View>
         <View style={styles.postHeaderRight}>
           {post.topic ? (
-            <TagPill label={post.topic} color="#8b5cf6" />
+            <TagPill label={post.topic} color="#7C3AED" />
           ) : null}
           {/* 3-dot menu — own posts only */}
           {isOwnPost && (onDeletePost || onEditPost) && (
@@ -549,7 +549,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
     marginBottom: 12,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#F0EDF5',
   },
   authorPhoto: {
     width: 40,
@@ -590,7 +590,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingVertical: 4,
     paddingHorizontal: 10,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#F0EDF5',
     gap: 4,
   },
   reactionPillActive: {
@@ -613,7 +613,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#F0EDF5',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -712,7 +712,7 @@ const styles = StyleSheet.create({
   },
   commentInput: {
     flex: 1,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#F0EDF5',
     borderRadius: 20,
     paddingVertical: 8,
     paddingHorizontal: 14,

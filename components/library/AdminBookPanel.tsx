@@ -46,7 +46,7 @@ function CoverPreview({ imageUrl, title }: { imageUrl?: string; title: string })
     );
   }
   return (
-    <LinearGradient colors={['#7C3AED', '#8b5cf6']} style={s.coverFallback}>
+    <LinearGradient colors={['#7C3AED', '#7C3AED']} style={s.coverFallback}>
       <Text style={s.coverFallbackText}>{title.charAt(0)}</Text>
     </LinearGradient>
   );
@@ -342,7 +342,7 @@ export default function AdminBookPanel({ visible, onClose }: AdminBookPanelProps
       <View style={s.modal}>
         {/* Header */}
         <View style={s.header}>
-          <LinearGradient colors={['#7C3AED', '#8b5cf6']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
+          <LinearGradient colors={['#7C3AED', '#7C3AED']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
           <View style={s.headerContent}>
             <View>
               <Text style={s.headerTitle}>📚 Book Admin</Text>
@@ -413,7 +413,7 @@ export default function AdminBookPanel({ visible, onClose }: AdminBookPanelProps
                         onPress={() => { setSelected(null); setStep('edit'); }}
                         activeOpacity={0.8}
                       >
-                        <Ionicons name="create-outline" size={13} color="#8b5cf6" />
+                        <Ionicons name="create-outline" size={13} color="#7C3AED" />
                         <Text style={s.manualBtnText}>Enter details manually →</Text>
                       </TouchableOpacity>
                     </View>
@@ -484,14 +484,14 @@ const s = StyleSheet.create({
   headerTitle: { color: '#ffffff', fontSize: 20, fontWeight: '800' },
   headerSub: { color: 'rgba(255,255,255,0.8)', fontSize: 13, marginTop: 2 },
 
-  tabs: { flexDirection: 'row', backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#f3e8ff' },
+  tabs: { flexDirection: 'row', backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#F5F0FF' },
   tab: { flex: 1, paddingVertical: 13, alignItems: 'center' },
   tabActive: { borderBottomWidth: 2, borderBottomColor: '#7C3AED' },
   tabText: { fontSize: 13, fontWeight: '600', color: '#9ca3af' },
   tabTextActive: { color: '#7C3AED' },
 
   // Search box
-  searchBox: { padding: 16, backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#f3e8ff' },
+  searchBox: { padding: 16, backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#F5F0FF' },
   searchLabel: { fontSize: 12, color: '#6b7280', marginBottom: 8 },
   searchRow: { flexDirection: 'row', gap: 10 },
   searchInput: {
@@ -507,7 +507,7 @@ const s = StyleSheet.create({
   errorBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, margin: 16, padding: 12, backgroundColor: '#fef2f2', borderRadius: 10 },
   errorText: { fontSize: 13, color: '#ef4444' },
   manualBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
-  manualBtnText: { fontSize: 12, color: '#8b5cf6', fontWeight: '700' },
+  manualBtnText: { fontSize: 12, color: '#7C3AED', fontWeight: '700' },
 
   resultsList: { flex: 1, paddingHorizontal: 16, paddingTop: 8 },
   resultsHeader: { fontSize: 12, color: '#6b7280', marginBottom: 8, fontWeight: '600' },
@@ -521,7 +521,7 @@ const s = StyleSheet.create({
   resultTitle: { fontSize: 14, fontWeight: '700', color: '#1a1a2e', lineHeight: 19 },
   resultAuthor: { fontSize: 12, color: '#6b7280', marginTop: 2 },
   resultRating: { fontSize: 12, color: '#f59e0b', marginTop: 3 },
-  resultCat: { fontSize: 11, color: '#8b5cf6', marginTop: 2, fontWeight: '600' },
+  resultCat: { fontSize: 11, color: '#7C3AED', marginTop: 2, fontWeight: '600' },
 
   hint: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40, gap: 12 },
   hintEmoji: { fontSize: 48 },
@@ -551,7 +551,7 @@ const s = StyleSheet.create({
   formActions: { flexDirection: 'row', gap: 10, marginTop: 24, marginBottom: 32 },
   cancelBtn: {
     flex: 1, height: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#f3f4f6', borderWidth: 1, borderColor: '#e5e7eb',
+    backgroundColor: '#F0EDF5', borderWidth: 1, borderColor: '#e5e7eb',
   },
   cancelBtnText: { fontSize: 14, fontWeight: '700', color: '#6b7280' },
   saveBtn: {

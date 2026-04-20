@@ -71,7 +71,7 @@ function SettingsRow({
       disabled={!onPress}
     >
       <View style={[s.rowIcon, danger && s.rowIconDanger]}>
-        <Ionicons name={icon as any} size={18} color={danger ? '#ef4444' : '#8b5cf6'} />
+        <Ionicons name={icon as any} size={18} color={danger ? '#ef4444' : '#7C3AED'} />
       </View>
       <View style={s.rowContent}>
         <Text style={[s.rowLabel, danger && s.rowLabelDanger]}>{label}</Text>
@@ -445,7 +445,7 @@ function EditProfileView({ onBack }: { onBack: () => void }) {
         onPress={() => setShowStatePicker(true)}
         activeOpacity={0.75}
       >
-        <Ionicons name="location-outline" size={18} color="#8b5cf6" style={{ marginRight: 8 }} />
+        <Ionicons name="location-outline" size={18} color="#7C3AED" style={{ marginRight: 8 }} />
         <Text style={[s.statePickerText, !state && s.statePickerPlaceholder]}>
           {state || 'Select your state'}
         </Text>
@@ -481,7 +481,7 @@ function EditProfileView({ onBack }: { onBack: () => void }) {
       <MultiChipSelect options={expertiseOptions} selected={expertiseTags} onToggle={toggleExpertise} />
 
       <TouchableOpacity style={s.saveBtn} onPress={handleSave} activeOpacity={0.85}>
-        <LinearGradient colors={['#7C3AED', '#8b5cf6']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.saveBtnGrad}>
+        <LinearGradient colors={['#7C3AED', '#7C3AED']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.saveBtnGrad}>
           <Text style={s.saveBtnText}>{saving ? 'Saving…' : 'Save Changes'}</Text>
         </LinearGradient>
       </TouchableOpacity>
@@ -503,7 +503,7 @@ function EditKidView({ kid, onBack, onRemove }: { kid: Kid; onBack: () => void; 
   const GENDER_OPTIONS = [
     { key: 'boy', label: 'Boy 👦' },
     { key: 'girl', label: 'Girl 👧' },
-    { key: 'surprise', label: 'Surprise 🎁' },
+    { key: 'surprise', label: 'Surprise' },
   ];
 
   const RELATION_OPTIONS: { key: ParentRelation; label: string }[] = [
@@ -561,7 +561,7 @@ function EditKidView({ kid, onBack, onRemove }: { kid: Kid; onBack: () => void; 
       <Text style={s.editSectionTitle}>Child's Gender</Text>
       <ChipSelect
         options={GENDER_OPTIONS.map((g) => g.label)}
-        selected={GENDER_OPTIONS.find((g) => g.key === gender)?.label ?? 'Surprise 🎁'}
+        selected={GENDER_OPTIONS.find((g) => g.key === gender)?.label ?? 'Surprise'}
         onSelect={(v) => { const found = GENDER_OPTIONS.find((g) => g.label === v); if (found) setGender(found.key as 'boy' | 'girl' | 'surprise'); }}
       />
 
@@ -573,7 +573,7 @@ function EditKidView({ kid, onBack, onRemove }: { kid: Kid; onBack: () => void; 
       />
 
       <TouchableOpacity style={s.saveBtn} onPress={handleSave} activeOpacity={0.85}>
-        <LinearGradient colors={['#7C3AED', '#8b5cf6']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.saveBtnGrad}>
+        <LinearGradient colors={['#7C3AED', '#7C3AED']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.saveBtnGrad}>
           <Text style={s.saveBtnText}>{saving ? 'Saving…' : 'Save Changes'}</Text>
         </LinearGradient>
       </TouchableOpacity>
@@ -784,7 +784,7 @@ function ChangePhoneView({
             style={{ marginTop: 20 }}
           >
             <LinearGradient
-              colors={['#7C3AED', '#8b5cf6']}
+              colors={['#7C3AED', '#7C3AED']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={[
@@ -822,11 +822,11 @@ function ChangePhoneView({
 
 const cp = StyleSheet.create({
   currentCard: {
-    backgroundColor: '#faf5ff',
+    backgroundColor: '#F5F0FF',
     borderRadius: 12,
     padding: 14,
     borderWidth: 1,
-    borderColor: '#ede9fe',
+    borderColor: '#EDE9F6',
     marginBottom: 20,
   },
   currentLabel: {
@@ -1125,10 +1125,10 @@ export default function SettingsModal({
   const headerTitle = viewMode === 'change-phone'
     ? (phone ? 'Change Mobile Number' : 'Add Mobile Number')
     : viewMode === 'edit-profile'
-    ? 'Edit Profile ✏️'
+    ? 'Edit profile'
     : viewMode === 'edit-kid'
-    ? `Edit ${editingKid?.name ?? 'Child'} ✏️`
-    : 'Settings ⚙️';
+    ? `Edit ${editingKid?.name ?? 'Child'}`
+    : 'Settings';
 
   const showBack = viewMode !== 'main';
 
@@ -1137,7 +1137,7 @@ export default function SettingsModal({
       <View style={[s.container, { paddingTop: insets.top }]}>
         {/* Header */}
         <LinearGradient
-          colors={['#f472b6', '#a78bfa']}
+          colors={['#7C3AED', '#7C3AED']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={s.header}
@@ -1176,7 +1176,7 @@ export default function SettingsModal({
                 activeOpacity={0.75}
                 style={s.signOutQuickBtn}
               >
-                <Ionicons name="log-out-outline" size={16} color="#8b5cf6" />
+                <Ionicons name="log-out-outline" size={16} color="#7C3AED" />
                 <Text style={s.signOutQuickText}>{loading ? 'Signing out…' : 'Sign Out'}</Text>
               </TouchableOpacity>
             </View>
@@ -1238,16 +1238,25 @@ export default function SettingsModal({
                 <SectionHeader title="My Children" />
                 <View style={s.card}>
                   {kids.map((kid, i) => {
-                    const genderEmoji = kid.gender === 'boy' ? '👦' : kid.gender === 'girl' ? '👧' : '🎁';
                     const _diffMs = kid.dob ? Date.now() - new Date(kid.dob).getTime() : 0;
                     const _months = Math.max(0, Math.floor(_diffMs / (1000 * 60 * 60 * 24 * 30.44)));
                     const ageStr = kid.isExpecting ? 'Expecting' : `${_months}m old`;
+                    // Kid row: neutral icon (outline male/female/heart) instead of
+                    // a cartoonish 👦/👧/🎁 trailing the name.
+                    const kidIcon: 'male-outline' | 'female-outline' | 'heart-outline' | 'happy-outline' =
+                      kid.isExpecting
+                        ? 'heart-outline'
+                        : kid.gender === 'boy'
+                        ? 'male-outline'
+                        : kid.gender === 'girl'
+                        ? 'female-outline'
+                        : 'happy-outline';
                     return (
                       <React.Fragment key={kid.id}>
                         {i > 0 && <View style={s.divider} />}
                         <SettingsRow
-                          icon={kid.isExpecting ? 'heart-outline' : 'happy-outline'}
-                          label={`${kid.name || 'Baby'} ${genderEmoji}`}
+                          icon={kidIcon}
+                          label={kid.name || 'Baby'}
                           value={ageStr}
                           onPress={() => { setEditingKidId(kid.id); setViewMode('edit-kid'); }}
                         />
@@ -1349,7 +1358,7 @@ export default function SettingsModal({
         <View style={s.confirmOverlay}>
           <View style={s.confirmSheet}>
             <View style={s.confirmIconWrap}>
-              <LinearGradient colors={['#7C3AED', '#8b5cf6']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.confirmIconCircle}>
+              <LinearGradient colors={['#7C3AED', '#7C3AED']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.confirmIconCircle}>
                 <Ionicons name="log-out-outline" size={26} color="#ffffff" />
               </LinearGradient>
             </View>
@@ -1359,7 +1368,7 @@ export default function SettingsModal({
               <TouchableOpacity style={s.confirmCancel} onPress={() => setShowSignOutConfirm(false)} activeOpacity={0.8}>
                 <Text style={s.confirmCancelText}>Cancel</Text>
               </TouchableOpacity>
-              <LinearGradient colors={['#7C3AED', '#8b5cf6']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.confirmSignOutBtn}>
+              <LinearGradient colors={['#7C3AED', '#7C3AED']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.confirmSignOutBtn}>
                 <TouchableOpacity style={s.confirmSignOutInner} onPress={handleSignOut} activeOpacity={0.85}>
                   <Text style={s.confirmSignOutText}>Sign Out</Text>
                 </TouchableOpacity>
@@ -1407,8 +1416,8 @@ const s = StyleSheet.create({
     padding: 16,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: '#f3e8ff',
-    shadowColor: '#8b5cf6',
+    borderColor: '#F5F0FF',
+    shadowColor: '#7C3AED',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.07,
     shadowRadius: 8,
@@ -1433,14 +1442,14 @@ const s = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 10,
-    backgroundColor: '#faf5ff',
+    backgroundColor: '#F5F0FF',
     borderWidth: 1,
-    borderColor: '#ede9fe',
+    borderColor: '#EDE9F6',
   },
   signOutQuickText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#8b5cf6',
+    color: '#7C3AED',
   },
 
   sectionHeader: {
@@ -1459,7 +1468,7 @@ const s = StyleSheet.create({
     borderRadius: 14,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#f3e8ff',
+    borderColor: '#F5F0FF',
     overflow: 'hidden',
   },
   dangerCard: {
@@ -1625,7 +1634,7 @@ const s = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#f3e8ff',
+    borderColor: '#F5F0FF',
     marginBottom: 4,
   },
   photoPreviewCircle: {
@@ -1634,13 +1643,13 @@ const s = StyleSheet.create({
     borderRadius: 40,
     overflow: 'hidden',
     borderWidth: 2,
-    borderColor: '#f3e8ff',
+    borderColor: '#F5F0FF',
   },
   photoPlaceholder: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#F0EDF5',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1649,7 +1658,7 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#8b5cf6',
+    backgroundColor: '#7C3AED',
     borderRadius: 12,
     paddingVertical: 10,
     paddingHorizontal: 14,
@@ -1747,7 +1756,7 @@ const s = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: 'center',
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#F0EDF5',
   },
   confirmCancelText: {
     fontSize: 15,

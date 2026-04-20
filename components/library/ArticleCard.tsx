@@ -29,13 +29,13 @@ export default function ArticleCard({ article, onPress }: ArticleCardProps) {
     >
       {/* Top emoji strip */}
       <LinearGradient
-        colors={['#F5F0FF', '#f3e8ff']}
+        colors={['#F5F0FF', '#F5F0FF']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.strip}
       >
         <View style={styles.topicPillWrap}>
-          <TagPill label={article.topic} color="#8b5cf6" />
+          <TagPill label={article.topic} color="#7C3AED" />
         </View>
         <Text style={styles.stripEmoji}>{article.emoji}</Text>
       </LinearGradient>

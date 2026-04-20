@@ -18,7 +18,7 @@ function getStatusColor(status: VaccineWithDate['status']): string {
   if (status === 'done') return '#22c55e';
   if (status === 'overdue') return '#ef4444';
   if (status === 'due-soon') return '#f97316';
-  return '#8b5cf6';
+  return '#7C3AED';
 }
 
 export default function VaccineCard({ vaccine, isLast }: VaccineCardProps) {
@@ -257,7 +257,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#f3f4f6',
+    borderTopColor: '#F0EDF5',
   },
   checkbox: {
     width: 20,
@@ -296,7 +296,7 @@ const styles = StyleSheet.create({
   dateInputWrap: {
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#f3f4f6',
+    borderTopColor: '#F0EDF5',
     gap: 8,
   },
   dateInputLabel: {

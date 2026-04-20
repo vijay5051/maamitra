@@ -30,7 +30,7 @@ export default function SchemeCard({ scheme }: SchemeCardProps) {
       <View style={styles.row}>
         {/* Emoji in gradient circle */}
         <LinearGradient
-          colors={['#7C3AED', '#8b5cf6']}
+          colors={['#7C3AED', '#7C3AED']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.emojiCircle}
@@ -42,7 +42,7 @@ export default function SchemeCard({ scheme }: SchemeCardProps) {
         <View style={styles.content}>
           <Text style={styles.name}>{scheme.name}</Text>
           <Text style={styles.shortDesc} numberOfLines={2}>{scheme.shortDesc}</Text>
-          <TagPill label={scheme.eligibility} color="#8b5cf6" style={styles.pill} />
+          <TagPill label={scheme.eligibility} color="#7C3AED" style={styles.pill} />
         </View>
 
         {/* External link */}
