@@ -11,6 +11,7 @@ import { useEffect } from 'react';
 import { Colors, Fonts, Gradients } from '../../constants/theme';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useProfileStore } from '../../store/useProfileStore';
+import { isAdminEmail } from '../../lib/admin';
 
 const SPRING_CONFIG = { damping: 12, stiffness: 180 };
 
@@ -85,7 +86,7 @@ function AskFab({ focused, onPress }: { focused: boolean; onPress?: () => void }
 
 export default function TabLayout() {
   const router = useRouter();
-  const { isAuthenticated, isLoading } = useAuthStore();
+  const { isAuthenticated, isLoading, user } = useAuthStore();
   const { onboardingComplete } = useProfileStore();
 
   useEffect(() => {
@@ -94,11 +95,18 @@ export default function TabLayout() {
       router.replace('/(auth)/welcome');
       return;
     }
+    // Admin accounts never land in the parent experience — if they somehow
+    // end up inside /(tabs), boot them to the admin dashboard. Avoids the
+    // confusing state where an admin sees the onboarding prompt.
+    if (isAdminEmail(user?.email)) {
+      router.replace('/admin');
+      return;
+    }
     if (!onboardingComplete) {
       router.replace('/(auth)/onboarding');
       return;
     }
-  }, [isLoading, isAuthenticated, onboardingComplete]);
+  }, [isLoading, isAuthenticated, onboardingComplete, user?.email]);
 
   if (isLoading) {
     return (

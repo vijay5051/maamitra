@@ -25,6 +25,7 @@ import { useRouter, Link } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/useAuthStore';
+import { isAdminEmail } from '../../lib/admin';
 import { Fonts } from '../../constants/theme';
 import GradientButton from '../../components/ui/GradientButton';
 import {
@@ -301,6 +302,13 @@ export default function SignUpScreen() {
     setLoading(true);
     try {
       await signUp(email.trim(), password.trim(), name.trim());
+      // Admin email registering via the same form: skip verify-email gate
+      // (we still auto-send the verification mail server-side) and go
+      // straight to /admin so they can work immediately.
+      if (isAdminEmail(email.trim())) {
+        router.replace('/admin');
+        return;
+      }
       router.replace('/(auth)/verify-email');
     } catch (e: any) {
       const code = e?.code ?? '';
@@ -329,6 +337,10 @@ export default function SignUpScreen() {
     signInWithPopup(auth, provider)
       .then(async (credential) => {
         const destination = await onGoogleCredential(credential);
+        if (isAdminEmail(credential.user.email)) {
+          router.replace('/admin');
+          return;
+        }
         if (destination === 'tabs') router.replace('/(tabs)/');
         else if (destination === 'phone') router.replace('/(auth)/phone');
         else router.replace('/(auth)/onboarding');

@@ -24,6 +24,7 @@ import { useArticleStore, DynamicArticle } from '../../store/useArticleStore';
 import { useProductStore, DynamicProduct } from '../../store/useProductStore';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuthStore } from '../../store/useAuthStore';
+import { isAdminEmail } from '../../lib/admin';
 import { PRODUCTS, Product } from '../../data/products';
 import { Article } from '../../data/articles';
 import { MILESTONES } from '../../data/milestones';
@@ -1124,14 +1125,8 @@ const journeyStyles = StyleSheet.create({
 
 // ─── Article Modal ─────────────────────────────────────────────────────────────
 
-// ─── Admin access control ──────────────────────────────────────────────────────
-// Add your admin email(s) here. 'demo@maamitra.app' allows preview testing.
-const ADMIN_EMAILS = new Set([
-  'admin@maamitra.app',
-  'vijay@maamitra.app',
-  process.env.EXPO_PUBLIC_ADMIN_EMAIL ?? '',
-  'demo@maamitra.app', // preview / demo mode
-].filter(Boolean));
+// Admin detection now lives in lib/admin.ts — shared with the admin
+// dashboard and firestore rules so the allow-list stays in one place.
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
@@ -1186,7 +1181,7 @@ export default function LibraryScreen() {
   }, [params?.tab, params?.articleId, params?.topic]);
 
   const user = useAuthStore((s) => s.user);
-  const isAdmin = !!(user?.email && ADMIN_EMAILS.has(user.email));
+  const isAdmin = isAdminEmail(user?.email);
 
   const profile = useProfileStore((s) => s.profile);
 

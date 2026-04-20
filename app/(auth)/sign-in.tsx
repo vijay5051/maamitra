@@ -26,6 +26,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useProfileStore } from '../../store/useProfileStore';
+import { isAdminEmail } from '../../lib/admin';
 import { Fonts } from '../../constants/theme';
 import GradientButton from '../../components/ui/GradientButton';
 import {
@@ -232,6 +233,15 @@ export default function SignInScreen() {
   };
 
   const routeAfterSignIn = () => {
+    // Admin accounts skip onboarding and phone-verify — they go straight
+    // into the management dashboard. Check by email (Firebase custom claim
+    // `admin: true` is the preferred long-term signal, but the email
+    // allow-list in lib/admin.ts doubles as a bootstrap).
+    const currentEmail = useAuthStore.getState().user?.email;
+    if (isAdminEmail(currentEmail)) {
+      router.replace('/admin');
+      return;
+    }
     const { onboardingComplete, phone } = useProfileStore.getState();
     if (!onboardingComplete) router.replace('/(auth)/onboarding');
     else if (!phone) router.replace('/(auth)/phone');
@@ -282,6 +292,11 @@ export default function SignInScreen() {
     signInWithPopup(auth, provider)
       .then(async (credential) => {
         const destination = await onGoogleCredential(credential);
+        // Admin email → admin dashboard, regardless of onboarding state.
+        if (isAdminEmail(credential.user.email)) {
+          router.replace('/admin');
+          return;
+        }
         if (destination === 'tabs') router.replace('/(tabs)/');
         else if (destination === 'phone') router.replace('/(auth)/phone');
         else router.replace('/(auth)/onboarding');

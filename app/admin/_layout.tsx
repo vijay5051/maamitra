@@ -4,22 +4,19 @@ import { TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Colors } from '../../constants/theme';
+import { isAdminEmail } from '../../lib/admin';
 
-// ─── Admin access: add your admin emails here ─────────────────────────────────
-export const ADMIN_EMAILS = new Set([
-  process.env.EXPO_PUBLIC_ADMIN_EMAIL ?? '',
-  'admin@maamitra.app',
-  'vijay@maamitra.app',
-  'demo@maamitra.app', // preview / demo mode
-].filter(Boolean));
+// Re-export the allow-list for callers that used to import it from here.
+// New code should import { isAdminEmail } from '../../lib/admin' directly.
+export { ADMIN_EMAILS } from '../../lib/admin';
 
 export default function AdminLayout() {
   const { user } = useAuthStore();
   const router = useRouter();
 
   useEffect(() => {
-    if (!user || !ADMIN_EMAILS.has(user.email)) {
-      router.replace('/(tabs)/chat');
+    if (!user || !isAdminEmail(user.email)) {
+      router.replace('/(auth)/welcome');
     }
   }, [user]);
 
