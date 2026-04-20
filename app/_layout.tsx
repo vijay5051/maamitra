@@ -11,6 +11,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useAppSettingsStore } from '../store/useAppSettingsStore';
 import { useFeedbackStore } from '../store/useFeedbackStore';
 import FeedbackSurveyModal from '../components/feedback/FeedbackSurveyModal';
+import { hasSubmittedTesterFeedback } from '../services/firebase';
 // Importing useThemeStore at the root runs its rehydration (via zustand
 // persist's onRehydrateStorage) which calls setPrimaryAtRuntime() before
 // any screen renders. That's how the user's picked accent colour is
@@ -59,21 +60,35 @@ export default function RootLayout() {
     if (pathname && pathname.startsWith('/(auth)')) return;
 
     let timer: ReturnType<typeof setTimeout> | null = null;
-    const trigger = () => {
+    let cancelled = false;
+    const trigger = async () => {
       if (!useFeedbackStore.getState().shouldAutoPrompt(user.email)) return;
+      // Server-backed check. Covers iOS Safari incognito + fresh device cases
+      // where the local `submittedAt` flag has been wiped but the user has
+      // already responded on another session.
+      const alreadyOnServer = await hasSubmittedTesterFeedback(user.uid);
+      if (cancelled) return;
+      if (alreadyOnServer) {
+        // Sync to local store so manualOpen / profile-sheet entry still
+        // respect the submitted state across the rest of this session.
+        useFeedbackStore.setState({ submittedAt: new Date().toISOString() });
+        return;
+      }
       timer = setTimeout(() => setAutoSurveyVisible(true), 1500);
     };
 
     if (useFeedbackStore.persist.hasHydrated()) {
-      trigger();
+      void trigger();
     } else {
-      const unsub = useFeedbackStore.persist.onFinishHydration(() => trigger());
+      const unsub = useFeedbackStore.persist.onFinishHydration(() => void trigger());
       return () => {
+        cancelled = true;
         unsub();
         if (timer) clearTimeout(timer);
       };
     }
     return () => {
+      cancelled = true;
       if (timer) clearTimeout(timer);
     };
   }, [user, pathname]);

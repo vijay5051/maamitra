@@ -814,6 +814,36 @@ export async function submitTesterFeedback(payload: TesterFeedbackPayload): Prom
     ...clean,
     createdAt: serverTimestamp(),
   });
+  // Mirror a marker onto the user's own doc so the survey doesn't re-prompt
+  // after localStorage is wiped — iOS Safari incognito, private mode, and
+  // fresh devices all lose the local `submittedAt` flag otherwise.
+  if (payload.uid) {
+    try {
+      await setDoc(
+        doc(db, 'users', payload.uid),
+        { feedbackSubmittedAt: serverTimestamp() },
+        { merge: true },
+      );
+    } catch (err) {
+      console.warn('Could not mirror feedbackSubmittedAt to user doc:', err);
+    }
+  }
+}
+
+/**
+ * Server-backed "has this user already submitted feedback?" check. Used by
+ * the auto-prompt gate so a wiped localStorage (incognito / new device)
+ * doesn't re-ask a user who's already responded.
+ */
+export async function hasSubmittedTesterFeedback(uid: string): Promise<boolean> {
+  if (!db || !uid) return false;
+  try {
+    const snap = await getDoc(doc(db, 'users', uid));
+    return snap.exists() && !!(snap.data() as any)?.feedbackSubmittedAt;
+  } catch (err) {
+    console.warn('hasSubmittedTesterFeedback error:', err);
+    return false;
+  }
 }
 
 export interface TesterFeedbackEntry extends TesterFeedbackPayload {
