@@ -42,6 +42,7 @@ import { ARTICLES, type Article } from '../../data/articles';
 import { GOVERNMENT_SCHEMES } from '../../data/schemes';
 import { YOGA_SESSIONS } from '../../data/yogaSessions';
 import { MILESTONES } from '../../data/milestones';
+import { filterByAudience, parentGenderToAudience } from '../../data/audience';
 import SettingsModal from '../../components/ui/SettingsModal';
 import NotificationsSheet from '../../components/community/NotificationsSheet';
 import ConversationsSheet from '../../components/community/ConversationsSheet';
@@ -230,8 +231,15 @@ export default function HomeTab() {
       return false;
     };
 
-    // Candidates must fit the age range.
-    const candidates = ARTICLES.filter(
+    // Candidates must fit the age range AND the viewer's audience (role).
+    // filterByAudience is a no-op while ENABLE_ROLE_ADAPTIVE_CONTENT is off
+    // in data/audience.ts, so behaviour is unchanged until content starts
+    // getting tagged and the flag flips.
+    const audienceOk = filterByAudience(
+      ARTICLES,
+      parentGenderToAudience(useProfileStore.getState().parentGender),
+    );
+    const candidates = audienceOk.filter(
       (a) => ageMonths >= a.ageMin && ageMonths <= a.ageMax,
     );
     if (candidates.length === 0) return ARTICLES[0] ?? null;
@@ -264,7 +272,13 @@ export default function HomeTab() {
       );
     }
     const diet = profile?.diet;
-    const matches = ARTICLES.filter((a) => ageMonths >= a.ageMin && ageMonths <= a.ageMax)
+    // Role-adaptive: only recommend content for the viewer's audience.
+    const audienceOk = filterByAudience(
+      ARTICLES,
+      parentGenderToAudience(useProfileStore.getState().parentGender),
+    );
+    const matches = audienceOk
+      .filter((a) => ageMonths >= a.ageMin && ageMonths <= a.ageMax)
       .filter((a) => a.id !== suggestedArticle?.id);
     // Diet deprioritisation — vegetarian/vegan parents shouldn't see egg/
     // meat weaning content pushed first.
@@ -776,7 +790,17 @@ export default function HomeTab() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.nearbyTitle}>
-                {momsInState >= 50 ? '50+' : momsInState} {momsInState === 1 ? 'mom' : 'moms'} in {profile.state}
+                {momsInState >= 50 ? '50+' : momsInState}{' '}
+                {(() => {
+                  // Role-aware noun — father users shouldn't see 'moms in
+                  // Maharashtra' either as recipient or as described group.
+                  const pg = useProfileStore.getState().parentGender;
+                  const n = momsInState;
+                  if (pg === 'father') return n === 1 ? 'parent' : 'parents';
+                  if (pg === 'other') return n === 1 ? 'parent' : 'parents';
+                  return n === 1 ? 'mom' : 'moms';
+                })()}{' '}
+                in {profile.state}
               </Text>
               <Text style={styles.nearbySub}>
                 Tap to search and connect

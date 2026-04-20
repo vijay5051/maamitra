@@ -46,6 +46,7 @@ Remember, at this stage, food is for exploration and learning — breast milk or
     emoji: '🥣',
     tag: 'Weaning',
     url: 'https://iapindia.org/pdf/Complementary-Feeding-guidelines.pdf',
+    audience: 'all',
   },
   {
     id: 'a02',
@@ -74,6 +75,7 @@ A Word for Exhausted Mamas: Sleep deprivation is real and hard. Please accept he
     emoji: '😴',
     tag: 'Newborn',
     url: 'https://www.healthychildren.org/English/ages-stages/baby/sleep/Pages/default.aspx',
+    audience: 'all',
   },
   {
     id: 'a03',
@@ -100,6 +102,7 @@ The WHO and IAP both recommend exclusive breastfeeding for 6 months, and continu
     emoji: '🤱',
     tag: 'Breastfeeding',
     url: 'https://www.who.int/health-topics/breastfeeding',
+    audience: 'mother',
   },
   {
     id: 'a04',
@@ -134,6 +137,7 @@ IAP Red Flags to Discuss with Your Paediatrician: Not smiling by 3 months, not b
     emoji: '👶',
     tag: 'Development',
     url: 'https://www.cdc.gov/ncbddd/actearly/milestones/index.html',
+    audience: 'all',
   },
   {
     id: 'a05',
@@ -160,6 +164,7 @@ The 40-Day Tradition: Many Indian communities observe a 40-day period of rest wh
     emoji: '🌸',
     tag: 'Postpartum',
     url: 'https://www.nhp.gov.in/disease/gynaecology-and-obstetrics/post-partum-recovery',
+    audience: 'mother',
   },
   {
     id: 'a06',
@@ -190,6 +195,7 @@ Keep a dedicated vaccination record book and bring it to every paediatric visit.
     emoji: '💉',
     tag: 'Vaccines',
     url: 'https://iapindia.org/vaccination-for-children/',
+    audience: 'all',
   },
   {
     id: 'a07',
@@ -216,6 +222,7 @@ Signs of Iron Deficiency Anaemia: Persistent fatigue, pale skin, shortness of br
     emoji: '🥗',
     tag: 'Nutrition',
     url: 'https://www.myupchar.com/en/diet-fitness/iron-rich-foods',
+    audience: 'mother',
   },
   {
     id: 'a08',
@@ -244,6 +251,7 @@ Asking for help is not weakness. It is wisdom, and it is love.`,
     emoji: '🧠',
     tag: 'Mental Health',
     url: 'https://nimhans.ac.in/mental-health-education/',
+    audience: 'mother',
   },
   {
     id: 'a09',
@@ -272,6 +280,7 @@ Doing a simple 20-minute routine 3-4 times per week can make a profound differen
     emoji: '🧘',
     tag: 'Yoga',
     url: 'https://www.artofliving.org/in-en/yoga/yoga-for-women/yoga-after-delivery',
+    audience: 'mother',
   },
   {
     id: 'a10',
@@ -298,6 +307,7 @@ A Word on Gripe Water and Honey Water: Traditional remedies like gripe water, ho
     emoji: '💧',
     tag: 'Hydration',
     url: 'https://www.who.int/news-room/fact-sheets/detail/infant-and-young-child-feeding',
+    audience: 'all',
   },
   {
     id: 'a11',
@@ -330,6 +340,7 @@ Above all: be patient, be consistent, and be kind to yourself. Sleep deprivation
     emoji: '🌙',
     tag: 'Sleep Training',
     url: 'https://www.healthychildren.org/English/healthy-living/sleep/Pages/Sleep-Training.aspx',
+    audience: 'all',
   },
   {
     id: 'a12',
@@ -356,6 +367,7 @@ Baby massage is a language of love that requires no translation.`,
     emoji: '🤲',
     tag: 'Baby Care',
     url: 'https://parentune.com/parent-article/baby-massage/1',
+    audience: 'all',
   },
   {
     id: 'a13',
@@ -382,6 +394,7 @@ Feeding a toddler is a long game. Keep mealtimes calm, positive, and pressure-fr
     emoji: '🍛',
     tag: 'Toddler',
     url: 'https://www.myupchar.com/en/tips/diet-chart-for-1-year-old-baby',
+    audience: 'all',
   },
   {
     id: 'a14',
@@ -418,6 +431,7 @@ What to Do If You Notice a Red Flag: Document your observations with specific da
     emoji: '🔍',
     tag: 'Development',
     url: 'https://www.cdc.gov/ncbddd/actearly/concerned.html',
+    audience: 'all',
   },
   {
     id: 'a15',
@@ -448,6 +462,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     emoji: '💗',
     tag: 'Self-Care',
     url: 'https://www.nimhans.ac.in/mental-health-education/self-care/',
+    audience: 'mother',
   },
 
   // ─── Pregnancy articles ───────────────────────────────────────────────────────
@@ -465,6 +480,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     tag: 'First Trimester',
     imageUrl: 'https://images.unsplash.com/photo-1609710228159-0fa9bd7e0be54?w=800&h=400&fit=crop&q=80',
     url: 'https://www.nhp.gov.in/healthlyliving/pregnancy-week-by-week',
+    audience: 'mother',
   },
   {
     id: 'a17',
@@ -479,6 +495,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     tag: 'Exercise',
     imageUrl: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=800&h=400&fit=crop&q=80',
     url: 'https://healthline.com/health/pregnancy/yoga',
+    audience: 'mother',
   },
   {
     id: 'a18',
@@ -493,6 +510,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     tag: 'Pregnancy Diet',
     imageUrl: 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=800&h=400&fit=crop&q=80',
     url: 'https://iapindia.org/pdf/maternal-nutrition.pdf',
+    audience: 'mother',
   },
   {
     id: 'a19',
@@ -507,6 +525,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     tag: 'Nausea Relief',
     imageUrl: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=800&h=400&fit=crop&q=80',
     url: 'https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4818021/',
+    audience: 'mother',
   },
   {
     id: 'a20',
@@ -521,6 +540,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     tag: 'Labour Prep',
     imageUrl: 'https://images.unsplash.com/photo-1490013616936-7190dde14f80?w=800&h=400&fit=crop&q=80',
     url: 'https://www.who.int/news-room/fact-sheets/detail/maternal-mortality',
+    audience: 'mother',
   },
 
   // ─── Newborn care ─────────────────────────────────────────────────────────────
@@ -538,6 +558,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     tag: 'Newborn',
     imageUrl: 'https://images.unsplash.com/photo-1476703993599-0035a21b17a9?w=800&h=400&fit=crop&q=80',
     url: 'https://www.who.int/news-room/fact-sheets/detail/kangaroo-mother-care',
+    audience: 'all',
   },
   {
     id: 'a22',
@@ -552,6 +573,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     tag: 'Newborn Care',
     imageUrl: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&h=400&fit=crop&q=80',
     url: 'https://iapindia.org/newborn-care/',
+    audience: 'all',
   },
   {
     id: 'a23',
@@ -566,6 +588,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     tag: 'Newborn',
     imageUrl: 'https://images.unsplash.com/photo-1492633423870-43d1cd2775eb?w=800&h=400&fit=crop&q=80',
     url: 'https://www.healthline.com/health/parenting/baby-crying',
+    audience: 'all',
   },
   {
     id: 'a24',
@@ -580,6 +603,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     tag: 'Newborn Safety',
     imageUrl: 'https://images.unsplash.com/photo-1519689680058-324335c77eba?w=800&h=400&fit=crop&q=80',
     url: 'https://iapindia.org/newborn-care/',
+    audience: 'all',
   },
 
   // ─── Breastfeeding & feeding ──────────────────────────────────────────────────
@@ -597,6 +621,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     tag: 'Breastfeeding',
     imageUrl: 'https://images.unsplash.com/photo-1531983412531-1f49a365ffed?w=800&h=400&fit=crop&q=80',
     url: 'https://www.who.int/health-topics/breastfeeding',
+    audience: 'mother',
   },
   {
     id: 'a26',
@@ -611,6 +636,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     tag: 'Breastfeeding',
     imageUrl: 'https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&h=400&fit=crop&q=80',
     url: 'https://www.ncbi.nlm.nih.gov/pmc/articles/PMC2553152/',
+    audience: 'mother',
   },
   {
     id: 'a27',
@@ -625,6 +651,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     tag: 'Formula',
     imageUrl: 'https://images.unsplash.com/photo-1503449077543-a8bb7eb1d823?w=800&h=400&fit=crop&q=80',
     url: 'https://www.who.int/publications/i/item/9789240018938',
+    audience: 'mother',
   },
 
   // ─── Baby development ─────────────────────────────────────────────────────────
@@ -642,6 +669,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     tag: 'Motor Skills',
     imageUrl: 'https://images.unsplash.com/photo-1503454537195-1dcabb73ffb9?w=800&h=400&fit=crop&q=80',
     url: 'https://healthline.com/health/parenting/tummy-time',
+    audience: 'all',
   },
   {
     id: 'a29',
@@ -656,6 +684,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     tag: 'Language',
     imageUrl: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&h=400&fit=crop&q=80',
     url: 'https://www.unicef.org/parenting/child-development/early-childhood-development',
+    audience: 'all',
   },
   {
     id: 'a30',
@@ -670,6 +699,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     tag: 'Play & Learning',
     imageUrl: 'https://images.unsplash.com/photo-1540479859555-17af45c78602?w=800&h=400&fit=crop&q=80',
     url: 'https://www.unicef.org/parenting/child-development',
+    audience: 'all',
   },
   {
     id: 'a31',
@@ -684,6 +714,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     tag: 'Massage',
     imageUrl: 'https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&h=400&fit=crop&q=80',
     url: 'https://pubmed.ncbi.nlm.nih.gov/10742357/',
+    audience: 'all',
   },
 
   // ─── Postpartum mother ────────────────────────────────────────────────────────
@@ -701,6 +732,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     tag: 'Recovery',
     imageUrl: 'https://images.unsplash.com/photo-1578496780895-4b5f3a748253?w=800&h=400&fit=crop&q=80',
     url: 'https://www.who.int/publications/i/item/9789240045989',
+    audience: 'mother',
   },
   {
     id: 'a33',
@@ -715,6 +747,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     tag: 'Postpartum Mental Health',
     imageUrl: 'https://images.unsplash.com/photo-1544367577-be28eca837f3?w=800&h=400&fit=crop&q=80',
     url: 'https://nimhans.ac.in/mental-health-education/',
+    audience: 'mother',
   },
   {
     id: 'a34',
@@ -729,6 +762,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     tag: 'Postpartum Nutrition',
     imageUrl: 'https://images.unsplash.com/photo-1498837167922-ddd27525d352?w=800&h=400&fit=crop&q=80',
     url: 'https://iapindia.org/pdf/maternal-nutrition.pdf',
+    audience: 'mother',
   },
   {
     id: 'a35',
@@ -743,6 +777,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     tag: 'Pelvic Floor',
     imageUrl: 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=800&h=400&fit=crop&q=80',
     url: 'https://www.physiofirst.org.uk/patients/pelvic-floor',
+    audience: 'mother',
   },
 
   // ─── Sleep ────────────────────────────────────────────────────────────────────
@@ -760,6 +795,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     tag: 'Sleep Training',
     imageUrl: 'https://images.unsplash.com/photo-1541845157-a6d2d100c931?w=800&h=400&fit=crop&q=80',
     url: 'https://healthline.com/health/parenting/sleep-training-methods',
+    audience: 'all',
   },
   {
     id: 'a37',
@@ -774,6 +810,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     tag: 'Bedtime',
     imageUrl: 'https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=800&h=400&fit=crop&q=80',
     url: 'https://www.sleepfoundation.org/baby-sleep/bedtime-routine-for-babies',
+    audience: 'all',
   },
 
   // ─── Toddler ──────────────────────────────────────────────────────────────────
@@ -791,6 +828,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     tag: 'Toddler Behaviour',
     imageUrl: 'https://images.unsplash.com/photo-1533194420-2cf7e7c73bdc?w=800&h=400&fit=crop&q=80',
     url: 'https://www.zerotothree.org/resources/268-toddlers-and-challenging-behavior-why-they-do-it-and-how-to-respond',
+    audience: 'all',
   },
   {
     id: 'a39',
@@ -805,6 +843,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     tag: 'Allergy Prevention',
     imageUrl: 'https://images.unsplash.com/photo-1567946187921-f85d75f17a65?w=800&h=400&fit=crop&q=80',
     url: 'https://iapindia.org/pdf/Complementary-Feeding-guidelines.pdf',
+    audience: 'all',
   },
   {
     id: 'a40',
@@ -819,6 +858,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     tag: 'Screen Time',
     imageUrl: 'https://images.unsplash.com/photo-1484627147104-f5197bcd6651?w=800&h=400&fit=crop&q=80',
     url: 'https://www.who.int/news/item/24-04-2019-to-grow-up-healthy-children-need-to-sit-less-and-play-more',
+    audience: 'all',
   },
   {
     id: 'a41',
@@ -833,6 +873,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     tag: 'Toddler',
     imageUrl: 'https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?w=800&h=400&fit=crop&q=80',
     url: 'https://healthline.com/health/parenting/potty-training-tips',
+    audience: 'all',
   },
 
   // ─── Health & safety ──────────────────────────────────────────────────────────
@@ -850,6 +891,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     tag: 'Safety',
     imageUrl: 'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=800&h=400&fit=crop&q=80',
     url: 'https://www.who.int/news-room/fact-sheets/detail/child-injuries',
+    audience: 'all',
   },
   {
     id: 'a43',
@@ -864,6 +906,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     tag: 'Fever',
     imageUrl: 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=800&h=400&fit=crop&q=80',
     url: 'https://iapindia.org/pdf/ch-Fever.pdf',
+    audience: 'all',
   },
   {
     id: 'a44',
@@ -878,6 +921,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     tag: 'Teething',
     imageUrl: 'https://images.unsplash.com/photo-1504439904031-93ded9f93e4e?w=800&h=400&fit=crop&q=80',
     url: 'https://iapindia.org/dental-care/',
+    audience: 'all',
   },
   {
     id: 'a45',
@@ -892,6 +936,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     tag: 'Skin Health',
     imageUrl: 'https://images.unsplash.com/photo-1559757175-5700dde675bc?w=800&h=400&fit=crop&q=80',
     url: 'https://iapindia.org/pdf/ch-Atopic-Dermatitis.pdf',
+    audience: 'all',
   },
 
   // ─── Planning to conceive ─────────────────────────────────────────────────────
@@ -909,6 +954,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     tag: 'Preconception',
     imageUrl: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=800&h=400&fit=crop&q=80',
     url: 'https://iapindia.org/immunization/preconception/',
+    audience: 'all',
   },
   {
     id: 'a47',
@@ -923,6 +969,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     tag: 'Fertility Nutrition',
     imageUrl: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=800&h=400&fit=crop&q=80',
     url: 'https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6079277/',
+    audience: 'all',
   },
 
   // ─── Vaccination detail ───────────────────────────────────────────────────────
@@ -940,6 +987,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     tag: 'Vaccines',
     imageUrl: 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=800&h=400&fit=crop&q=80',
     url: 'https://iapindia.org/immunization/',
+    audience: 'all',
   },
   {
     id: 'a49',
@@ -954,6 +1002,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     tag: 'Toddler Nutrition',
     imageUrl: 'https://images.unsplash.com/photo-1594608661623-aa0bd3a69d98?w=800&h=400&fit=crop&q=80',
     url: 'https://iapindia.org/pdf/Complementary-Feeding-guidelines.pdf',
+    audience: 'all',
   },
   {
     id: 'a50',
@@ -968,5 +1017,146 @@ You are more than a mother. You are a person who became a mother. Both things ca
     tag: 'Mindful Parenting',
     imageUrl: 'https://images.unsplash.com/photo-1476703993599-0035a21b17a9?w=800&h=400&fit=crop&q=80',
     url: 'https://www.zerotothree.org/resources/1423-mindfulness-for-parents',
+    audience: 'all',
+  },
+  {
+    id: 'a51',
+    title: "Supporting Your Partner Through Pregnancy: A Father's Guide",
+    preview:
+      "Pregnancy is a team sport. While your partner's body is doing the visible work, your steady support — emotional, physical, and practical — shapes her experience more than any book or app. Here's how to show up across all three trimesters.",
+    body: `First Trimester (Weeks 1-12): Be the Calm Anchor\n- Morning sickness is exhausting. Step up on household work without being asked — meals, dishes, laundry.\n- Smells become overwhelming. Cook strong-smelling foods outside or at different times if possible.\n- Fatigue is real. Let her sleep in. Take over errands and household decisions.\n- Go with her to the first few antenatal visits. Meet the doctor, understand the plan, ask questions together.\n\nSecond Trimester (Weeks 13-27): Build Together\n- Energy usually returns. This is the window for setting up the nursery, attending birthing classes together, and making hospital plans.\n- Feel baby's kicks around week 20. This is often the first moment fathers truly feel connected — place your hand on her belly regularly.\n- Talk and sing to the baby. Your voice is familiar to your baby at birth and soothes a crying newborn faster than almost anything else.\n\nThird Trimester (Weeks 28-40): Prepare for the Sprint\n- Pack the hospital bag together. Know where it is.\n- Map the fastest route to the hospital. Have petrol in the car and backup transport lined up.\n- Learn the signs of labour vs. false labour. Know when to call the doctor.\n- Prepare meals in advance and freeze them. The first two weeks at home are chaos.\n- Line up help for the first month — mother-in-law, a cook, a maid, a night nurse. Don't assume you and your partner will manage alone.\n\nCommon Mistakes to Avoid:\n- "You're being emotional" — hormones are real, her feelings are valid, don't dismiss.\n- Disappearing into work as a coping strategy.\n- Comparing her pregnancy to other women's experiences.\n- Making big decisions (house move, job change) without a serious conversation.\n\nThe research is clear: fathers who are actively involved during pregnancy have better mental health postpartum, closer bonds with their babies, and stronger marriages. Being present is the single biggest thing you can do.`,
+    topic: 'Fatherhood',
+    readTime: '6 min',
+    ageMin: 0,
+    ageMax: 0,
+    emoji: '🤝',
+    tag: 'Pregnancy Support',
+    audience: 'father',
+  },
+  {
+    id: 'a52',
+    title: "The First 40 Days: A Father's Survival Guide",
+    preview:
+      "The first 40 days (sawa mahina in many Indian traditions) set the tone for your relationship with your baby — and your marriage. Your job in this window is not fathering in the playful sense yet; it's protecting your partner's recovery and taking on the house.",
+    body: `What Your Partner Is Going Through:\n- Healing from a major physical event (even an uncomplicated delivery)\n- Establishing breastfeeding, which is hard and often painful at first\n- Hormones crashing dramatically in the first 2 weeks (the "baby blues")\n- Sleep-deprived to a degree most people have never experienced\n- Vulnerable to postpartum depression and anxiety (1 in 5 Indian mothers)\n\nYour Job in the First 40 Days:\n\n1. Be the household manager. Groceries, cooking, laundry, dishes, bills, older children — all of this is yours now. Do not ask her what needs to be done. Figure it out.\n\n2. Protect her sleep. Aggressively. Take the baby between feeds so she can sleep in 2-3 hour blocks. If you're formula feeding or have pumped milk, do the night bottle.\n\n3. Manage the visitor flow. Relatives will want to come. Keep visits short, make sure people wash hands before touching the baby, and shield your partner from anyone who stresses her out (including your own mother if needed).\n\n4. Feed her. She needs ~500 extra calories per day if breastfeeding. Keep water, snacks, and meals coming without her having to ask. Traditional postpartum foods (panjiri, gond ke ladoo, methi laddoos) are nutrient-dense — respect the tradition where it helps.\n\n5. Do diapers and baths. These are easy ways to bond with your baby and give your partner a break. You'll get better with practice.\n\n6. Watch for postpartum depression. If she cries constantly after week 2-3, seems hopeless, can't bond with the baby, or talks about not being here — this is an emergency. Call her doctor same day.\n\nWhat NOT to Do:\n- Don't travel for work in the first 40 days unless absolutely unavoidable.\n- Don't compare this baby to your friends' "easy" babies.\n- Don't tell her to "just sleep when the baby sleeps" as if it's a solution.\n- Don't vanish into your phone or work all day and come home expecting her to be grateful.\n\nThe first 40 days are the hardest of your parenting career. Show up and you will never regret it.`,
+    topic: 'Fatherhood',
+    readTime: '6 min',
+    ageMin: 0,
+    ageMax: 2,
+    emoji: '🏡',
+    tag: 'Newborn Support',
+    audience: 'father',
+  },
+  {
+    id: 'a53',
+    title: "How Dads Bond With Babies: The Science",
+    preview:
+      "Bonding isn't only for mothers. Fathers experience hormonal changes too — testosterone drops, oxytocin rises — and the physical, playful way dads interact wires something uniquely valuable into a baby's brain.",
+    body: `The Biology of Fatherhood:\nFathers who spend time with their babies show measurable hormonal changes. Testosterone drops (by as much as 30% in some studies), which makes dads calmer, more nurturing, and more attuned to baby cues. Oxytocin — the bonding hormone — rises with skin-to-skin contact, play, and caregiving.\n\nThese changes happen only with involvement. A father who doesn't engage misses this neurological rewiring.\n\nWhat Fathers Bring That's Different:\n- Different voice pitch: babies turn toward deeper male voices as early as 4 weeks\n- More physical, playful interaction: swinging, bouncing, rough-and-tumble — this builds emotional regulation and risk assessment\n- Less predictable patterns: fathers vary routines more than mothers, which helps babies build cognitive flexibility\n- Different holding patterns: holding baby facing out to see the world (mothers tend to hold face-in)\n\nWhat Helps You Bond:\n\n1. Skin-to-skin contact. Shirtless, baby on your bare chest, blanket over you both. Do this daily in the first 3 months. It's one of the most powerful bonding tools.\n\n2. The 3 Bs: bath, bed, bottle. Claim one of these as "Dad's time" and make it consistent. Bath time is often the easiest and most fun.\n\n3. Wear the baby. A soft-structured carrier or ring sling lets you move around the house and still be close. Babies in carriers cry less.\n\n4. Talk and sing. Babies recognise your voice from the womb. Narrate your day, sing lullabies (your pitch doesn't matter), read aloud. Language exposure from fathers predicts vocabulary growth at 2 years.\n\n5. Play. Once baby is 3-4 months, floor time with you is irreplaceable. Tummy time, peek-a-boo, funny faces — this is real parenting work, not filler.\n\nIf You Don't Feel a Bond Yet:\nUnlike mothers (who have 9 months of direct physical connection), father-infant bonding is usually gradual and takes 3-6 months to deepen. This is normal. Keep showing up with skin-to-skin, play, and caregiving — the feelings will catch up to the actions.\n\nA father who is present in the first year is one of the strongest predictors of a child's future wellbeing. This is not a minor contribution — it is foundational.`,
+    topic: 'Fatherhood',
+    readTime: '7 min',
+    ageMin: 0,
+    ageMax: 12,
+    emoji: '🫂',
+    tag: 'Bonding',
+    audience: 'father',
+  },
+  {
+    id: 'a54',
+    title: "Paternal Postpartum Depression: The Silent Struggle",
+    preview:
+      "Around 10% of new fathers experience postpartum depression — and most never talk about it. In India, where fathers are often expected to just 'get on with it', the silence is even louder. This is what to watch for in yourself.",
+    body: `Yes, Fathers Get Postpartum Depression Too:\nResearch shows 8-13% of new fathers globally experience clinically significant postpartum depression in the first year. In men whose partners have postpartum depression, the rate is around 25%. It's real, it's common, and it's very often missed.\n\nWhy Fathers Get Missed:\n- Male depression often looks like anger, irritability, and withdrawal — not sadness\n- Indian cultural expectations discourage men from naming emotional struggles\n- Fathers are rarely screened by doctors\n- The attention is (rightly) on the mother, so dad's symptoms go unnoticed\n\nSigns to Watch For in Yourself:\n- Persistent irritability or anger out of proportion to situations\n- Working excessive hours to avoid being home\n- Increased alcohol or substance use\n- Loss of interest in things you used to enjoy\n- Feeling emotionally disconnected from your baby or partner\n- Physical symptoms: persistent fatigue, headaches, stomach problems\n- Intrusive thoughts about harm to yourself or others\n- Feeling numb, trapped, or that your family would be better off without you\n\nRisk Factors:\n- Your partner has PPD (single biggest risk factor)\n- History of depression or anxiety in yourself\n- Difficult birth experience\n- Financial stress\n- Lack of social support\n- Sleep deprivation beyond normal newborn levels\n- Feeling incompetent or useless as a father\n\nWhat to Do:\n\n1. Talk to someone. A friend, brother, doctor, therapist — anyone. Naming it to another human cuts its power.\n\n2. See a doctor. A GP can screen you and refer appropriately. Treatment works — therapy, medication, or both.\n\n3. Protect your sleep. Sleep deprivation alone can mimic depression. Split nights with your partner, accept help, say no to optional commitments.\n\n4. Exercise. The evidence for exercise as a depression treatment is very strong. Walking 30 minutes a day counts.\n\n5. Avoid alcohol as a coping mechanism. It makes depression dramatically worse.\n\nWhere to Get Help in India:\n- iCall helpline: 9152987821 (Mon-Sat, 8am-10pm)\n- Vandrevala Foundation: 1860 2662 345 (24/7)\n- NIMHANS helpline: 080 4611 0007 (24/7)\n\nTaking care of your mental health isn't weakness. It's the most important thing you can do for your baby and your partner.`,
+    topic: 'Mental Health',
+    readTime: '7 min',
+    ageMin: 0,
+    ageMax: 12,
+    emoji: '🧠',
+    tag: 'Paternal Mental Health',
+    audience: 'father',
+  },
+  {
+    id: 'a55',
+    title: "Holding and Handling Your Newborn with Confidence",
+    preview:
+      "Your first time holding a newborn feels terrifying. They seem so fragile. Here's a clear, practical guide to picking up, holding, and putting down your baby without fear — plus the specific things new dads worry about.",
+    body: `They Are Tougher Than They Look (But Head Support Is Everything):\nA newborn's neck muscles cannot support their head for the first 3-4 months. Every time you lift, carry, or move your baby, one hand supports the head and neck. That's the single biggest rule.\n\nBasic Hold (Cradle Hold):\n1. Slide one hand under the head and neck\n2. Slide the other hand under the bottom\n3. Lift gently to your chest\n4. Transfer the head to the crook of your elbow, with your forearm supporting the back\n5. Your other hand is free to support the legs or stroke the head\n\nShoulder Hold (Best for Burping and Settling):\n1. Lift baby as above\n2. Rest baby's head on your shoulder, cheek against your neck\n3. One hand supports the bottom, the other pats or rubs the back\n\nFootball Hold (Good for Dads with Bigger Hands):\n1. Tuck baby under your arm with their body along your forearm\n2. Head rests in the palm of your hand\n3. Legs tuck under your armpit\n4. Great for giving bottles and for staying close without tiring your arms\n\nFears Dads Commonly Have (and the Reality):\n\n"Will I drop the baby?"\nWith basic head support, no. Babies are more robust than your fear suggests. Practice will build your confidence within days.\n\n"The soft spot on the head — am I going to damage it?"\nThe fontanelle is covered by a tough, flexible membrane. Normal handling — including washing the head in a bath — will not hurt it. Avoid hard pressing.\n\n"What if I hold the neck too tight?"\nYour support should feel like a gentle cradle, not a grip. If the head flops, you're not supporting enough; if your knuckles are white, you're supporting too hard.\n\n"I'm worried about my rough hands/stubble/cologne."\nWash hands, trim nails, skip strong cologne, and a quick shave helps for cheek-to-cheek snuggles. Baby's skin is delicate but not overly sensitive.\n\nNever Shake a Baby:\nEven gentle shaking can cause shaken baby syndrome — brain haemorrhage, blindness, or death. If frustration or exhaustion ever makes you feel like shaking:\n1. Put baby down safely in the crib\n2. Leave the room\n3. Breathe for 5 minutes\n4. Call someone — your partner, a friend, a helpline\n\nFrustration with a crying baby is normal. Acting on it is not.`,
+    topic: 'Newborn Care',
+    readTime: '6 min',
+    ageMin: 0,
+    ageMax: 4,
+    emoji: '👐',
+    tag: 'Newborn Care',
+    audience: 'father',
+  },
+  {
+    id: 'a56',
+    title: "Bottle-Feeding as a Dad: Bonding Through Feeds",
+    preview:
+      "Feeding is a powerful bonding window — oxytocin, eye contact, and sustained close physical contact. Whether it's expressed breast milk or formula, when dad does bottle feeds, baby gets a second deep attachment relationship.",
+    body: `Why Dads Doing Bottle Feeds Matters:\n- Gives mom a genuine break (the best postpartum gift you can offer)\n- Builds your attachment with the baby through close, sustained contact\n- Lets baby form flexible feeding associations (not just with one parent)\n- Divides night duty and protects everyone's sleep\n\nBefore You Start:\n- Have the bottle ready before you pick up baby (a hungry baby can't wait)\n- Expressed breast milk should be warmed gently in a bowl of warm water, never microwaved (creates hot spots that burn)\n- Formula: follow the tin instructions exactly. Don't add extra scoops. Don't reduce scoops. Powder-to-water ratio is the single most important safety step in formula prep.\n\nThe Feed Itself (Paced Bottle Feeding):\n1. Hold baby in a semi-upright position (not flat on their back — causes choking and ear infections)\n2. Make eye contact. Put your phone in another room.\n3. Touch the nipple to baby's lips and wait for them to open their mouth wide — don't push it in\n4. Keep the bottle horizontal (not tipped high). This slows the flow and mimics breast feeding pacing.\n5. Pause every 1-2 minutes. Take the bottle out, let baby breathe and decide if they want more.\n6. Burp halfway through and at the end.\n7. Stop when baby turns away, shuts their mouth, or slows down. Don't pressure them to finish the bottle.\n\nHow Much, How Often (Rough Guide):\n- 0-1 month: 60-90ml every 2-3 hours\n- 1-3 months: 90-150ml every 3-4 hours\n- 3-6 months: 150-210ml every 4 hours\n- 6+ months: 150-240ml, less frequently as solids begin\n\nThese are averages. Every baby is different. Follow hunger cues, not a clock.\n\nTips from Experienced Dads:\n- Skin-to-skin during bottle feeds (shirt off, baby in just a diaper) is incredibly powerful\n- Take the night shift 2-3 times a week if possible — your partner will feel human again\n- Don't take it personally if baby cries at first. Some babies need a few tries to accept bottle from a non-mom\n- If breastfeeding, introduce bottle around 3-4 weeks, once breastfeeding is established but before 6 weeks (nipple rigidity develops after)\n\nBottle feeds can be one of the most emotionally rewarding parts of your day. Claim them.`,
+    topic: 'Feeding',
+    readTime: '6 min',
+    ageMin: 0,
+    ageMax: 8,
+    emoji: '🍼',
+    tag: 'Feeding',
+    audience: 'father',
+  },
+  {
+    id: 'a57',
+    title: "Splitting Night Duty: How Modern Indian Dads Do It",
+    preview:
+      "Night feeds and wakes break marriages. The partner who sleeps 2 hours while the other sleeps 8 will fracture eventually. Here's how to actually divide the night — and why splitting matters more than 'helping'.",
+    body: `The Myth of "Helping":\nWhen dads say "I help with the baby at night", the word "help" says everything. Helping implies it's her job and you're a bonus. Splitting night duty is co-parenting. The language matters.\n\nOptions That Actually Work:\n\nOption 1: Shift System (Best for Exclusively Bottle-Fed or Pumping)\n- Mom takes 9pm-2am\n- Dad takes 2am-7am\n- Each person gets one solid 5-hour sleep stretch\n- This single change can save a marriage in the newborn phase\n\nOption 2: Breastfeeding Split (When Mom Is Doing the Feeds)\n- Dad does all pre-feed work: bring baby to mom, change diaper, burp, settle back to sleep\n- Mom only does the actual feed\n- Mom's "awake time" drops from 40 min per feed to 15-20 min\n- Dramatically reduces her sleep disruption\n\nOption 3: Every Other Night\n- Dad takes the full night every other night\n- Mom pumps or uses expressed milk\n- Mom gets one genuinely restful night out of two\n- Only works once breastfeeding is established (6-8 weeks+)\n\nOption 4: "On Call" Dad\n- Baby sleeps in a crib next to your bed\n- Dad gets up for every wake, changes diaper, brings to mom if breastfeeding, takes bottle if bottle-fed\n- Mom's only job is the feed itself (if breastfeeding)\n- Dad essentially gives up his nights but mom recovers faster and your marriage survives\n\nMaking Your Option Work:\n- Agree in advance, not during a 3am fight\n- Use separate rooms if needed so the off-duty parent actually sleeps\n- Earplugs and eye masks for the sleeping parent are essential, not optional\n- Accept the phase: this lasts 3-6 months typically, then gradually improves\n\nCommon Dad Objections (and the Reality):\n"I have to work in the morning." — So does she (looking after a newborn is work). Single-income households still need to split.\n"I can't breastfeed." — 90% of what happens around a feed isn't the feed. Do the other 90%.\n"I'm a deeper sleeper, I won't hear the baby." — Train yourself. Baby monitor on your side, vibration feature on your watch, keep the crib on your side of the bed.\n\nThe couples who split night duty emerge from the newborn phase stronger. The couples who don't, rarely do.`,
+    topic: 'Sleep',
+    readTime: '6 min',
+    ageMin: 0,
+    ageMax: 12,
+    emoji: '🌙',
+    tag: 'Sleep',
+    audience: 'father',
+  },
+  {
+    id: 'a58',
+    title: "Diaper Changing Without Drama: A Practical Guide",
+    preview:
+      "You will change around 2,000 diapers in your child's first year. Treating it as real work — not a chore to minimise — changes how your baby sees you and how your partner values your role.",
+    body: `Set Up Your Station:\n- Changing mat + waterproof liner (or a spare towel)\n- Fresh diaper (open and ready, absorbent side up)\n- Wipes or cotton + warm water (cotton is gentler for newborn bottoms, great for the first 6 weeks)\n- Barrier cream (zinc oxide based — Desitin, Siloderm, or Himalaya's diaper rash cream)\n- A change of baby clothes nearby (blowouts happen)\n- Hand sanitiser or wet wipes for your hands\n\nThe Change Itself:\n1. Lay baby on their back on the mat. Keep one hand on them at all times — rolling happens suddenly.\n2. Open the dirty diaper but don't pull it away yet\n3. Use the clean inside front of the dirty diaper to wipe off the majority of poop\n4. Lift baby's legs by gently holding both ankles with one hand (don't pull)\n5. Slide the dirty diaper out and fold it up with the mess inside\n6. Wipe thoroughly, front to back (very important for girls — prevents UTIs)\n7. Let the skin air-dry for 30 seconds (drastically reduces diaper rash)\n8. Apply barrier cream to any redness\n9. Slide the new diaper under and fasten snugly — two fingers should fit at the waist\n10. Wash your hands\n\nThe Boy-Specific Rule:\nBoys pee mid-change. Often. Keep a cloth or second wipe ready to cover as you change. It's not personal.\n\nWhen to Change:\n- Newborns: 8-12 changes a day minimum\n- 3-6 months: 6-8 changes a day\n- Older: 4-6 changes a day\n- Always change after a poop, even if it's been 20 minutes since the last pee change\n- Change before bed and immediately on waking\n\nDiaper Rash Warning Signs:\n- Red, raw skin → more frequent changes + barrier cream + air time\n- Bright red with satellite dots → yeast infection (see paediatrician, needs antifungal)\n- Blood → call paediatrician\n\nCloth vs Disposable:\nBoth work. Cloth is cheaper long-term and greener, but needs a household setup (washing, drying). Disposable is faster for dads still learning. No judgment either way — do what works for your family.\n\nWhy This Matters:\nDiaper changes are 5-minute windows of concentrated connection. You talk, make faces, narrate what you're doing. Over a year, that's 150+ hours of bonding time. Don't rush them, don't outsource them, don't resent them.`,
+    topic: 'Newborn Care',
+    readTime: '6 min',
+    ageMin: 0,
+    ageMax: 24,
+    emoji: '🧷',
+    tag: 'Diapering',
+    audience: 'father',
+  },
+  {
+    id: 'a59',
+    title: "From Partner to Dad: Your Identity Shift",
+    preview:
+      "No one warns you that becoming a dad changes who you are, not just what you do. Many fathers quietly struggle with the loss of their old life while pretending everything's fine. Acknowledging the shift is the first step to thriving in it.",
+    body: `What Actually Changes:\n- Your time is no longer yours\n- Your sleep is no longer yours\n- Your money has a new first priority\n- Your marriage becomes a working partnership, not just a romantic one\n- Your sense of identity — work, hobbies, friends, fitness — gets reshuffled\n- Your parents and in-laws have new expectations of you\n- You become "responsible" in the eyes of the world overnight\n\nWhat Dads Commonly Feel (and Rarely Say):\n\nGrief for your old life. The freedom to say yes to a weekend trip. The evenings at the gym. The spontaneous dinners. This grief is real, and it co-exists with love for your child. Both can be true.\n\nResentment at times. Toward the baby, your partner, or your situation. If you never feel a flash of resentment, you're not paying attention. It passes. Don't act on it, don't deny it.\n\nFeeling invisible. The attention is on the mother and the baby. No one asks how you are. This is normal and largely necessary — but it wears on you if it continues too long.\n\nPressure to "provide". Indian culture often doubles this pressure on fathers. You can carry it without letting it crush you.\n\nFear of being a bad dad. Especially if your own father was absent, angry, or unavailable. This fear is a sign you care — and it's the first step to not repeating the pattern.\n\nHow to Ride the Shift:\n\n1. Keep one anchor. Pick one thing from your old life — exercise 3x a week, a weekly chai with a friend, one hobby — and fiercely protect it. You need a place where you are still you.\n\n2. Talk to another dad. Someone 1-2 years ahead of you. They will normalise everything you're feeling and tell you what actually helped.\n\n3. Have a weekly 20-minute conversation with your partner that isn't about logistics. How are you, really? What do you need this week? Work becomes teamwork when communication is deliberate.\n\n4. Rebuild your friendships slowly. Dad friends are different from single-guy friends. Find a few. It's worth the effort.\n\n5. Reflect on your father. What do you want to take? What do you want to break? Write it down. This isn't therapy-speak, it's the most important parenting work you will do.\n\nThe identity shift takes 1-2 years to fully settle. You won't go back to who you were before — you will become someone new, and if you pay attention, someone better.`,
+    topic: 'Fatherhood',
+    readTime: '7 min',
+    ageMin: 0,
+    ageMax: 24,
+    emoji: '🧭',
+    tag: 'Identity',
+    audience: 'father',
+  },
+  {
+    id: 'a60',
+    title: "Rough-and-Tumble Play: Why Dads Should Lean In",
+    preview:
+      "Dads tend to play rougher — swinging, tossing, chasing, wrestling. This isn't just fun; it builds emotional regulation, body awareness, and risk assessment in ways quieter play can't replicate. Here's how to do it safely and well.",
+    body: `What the Research Shows:\nChildren whose fathers engaged in rough-and-tumble play from infancy show:\n- Better emotional self-regulation\n- Stronger social skills (reading cues, taking turns, handling excitement)\n- Healthier risk assessment (they take appropriate risks, not reckless ones)\n- Lower rates of anxiety disorders\n- Stronger father-child bonds through adolescence\n\nWhat It Looks Like at Each Age:\n\n0-3 months:\n- Gentle bouncing on your knee while supporting the neck\n- "Airplane" — lifting baby above your chest while lying down, with firm two-handed hold\n- Tummy-to-tummy lying with slow rolling side to side\n\n3-6 months:\n- Faster airplane dips (baby will start laughing around 4 months)\n- "This little piggy" with animated voices\n- Lifting baby overhead (they love the view)\n- Gentle wrestle on the bed — letting them land on you\n\n6-12 months:\n- Chasing on hands and knees\n- Hiding and popping out (peek-a-boo at scale)\n- Lifting and spinning\n- Tickle-chase games\n\n12 months+:\n- Full wrestle on a soft surface\n- Shoulder rides\n- "Horse" — crawling with child on your back\n- Chase games where you "just catch" them\n- Throw-and-catch games (small distance, soft objects)\n\nSafety Rules (Important):\n- Never shake. The neck rule still applies in every game for the first 6 months.\n- Support the head fully for all lifting games until 4 months.\n- Watch baby's cues — too much excitement becomes overwhelming. Signs: eyes darting, body arching away, crying. Stop and calm down.\n- Soft surfaces only — bed, carpet, rug. No tile.\n- Remove watches, rings, sharp-edged belt buckles.\n- No rough play right before bed — winds them up, makes sleep harder.\n- No rough play right after a feed — they will vomit.\n\nWhen Your Partner Worries:\nMany mothers watch rough play nervously. This is normal. Explain what you're doing and why, invite her to join, and show her the baby's delighted face. Most of the worry dissolves once she sees the joy in it.\n\nWhen to Pull Back:\n- If baby is crying, not laughing\n- If either of you is tired or frustrated\n- If baby has just eaten\n- If baby is unwell\n- If your partner is truly uncomfortable (it's not the hill to die on — choose another game)\n\nRough-and-tumble play is one of the most distinct things fathers contribute. Lean in — the laughter is priceless and the brain-building is real.`,
+    topic: 'Development',
+    readTime: '7 min',
+    ageMin: 0,
+    ageMax: 60,
+    emoji: '🤸',
+    tag: 'Play',
+    audience: 'father',
   },
 ];

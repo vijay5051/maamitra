@@ -35,6 +35,7 @@ export const GOVERNMENT_SCHEMES: GovernmentScheme[] = [
       'Register at your nearest government Primary Health Centre (PHC) or Anganwadi centre during pregnancy. Carry your BPL card, Aadhaar, and Mamta card. The payment is transferred directly to your bank account after delivery.',
     url: 'https://nhm.gov.in/index1.php?lang=1&level=3&sublinkid=841&lid=309',
     tags: ['pregnant'],
+    audience: 'mother',
   },
   {
     id: 'gs02',
@@ -52,6 +53,7 @@ export const GOVERNMENT_SCHEMES: GovernmentScheme[] = [
       'Apply at your nearest Anganwadi centre or approved health facility within the first trimester. Carry your Aadhaar, bank passbook, and MCP (Mother Child Protection) card. Forms available at AWC, PHC, or online at pmmvy-cas.nic.in.',
     url: 'https://wcd.nic.in/schemes/pradhan-mantri-matru-vandana-yojana',
     tags: ['pregnant', 'newborn'],
+    audience: 'mother',
   },
   {
     id: 'gs03',
@@ -69,6 +71,7 @@ export const GOVERNMENT_SCHEMES: GovernmentScheme[] = [
       'No application needed — screening teams visit Anganwadi centres and schools automatically. For newborns, inform the hospital staff. You can also contact your local DEIC directly or ask your Anganwadi worker to register your child.',
     url: 'https://rbsk.gov.in',
     tags: ['newborn', 'all-kids'],
+    audience: 'all',
   },
   {
     id: 'gs04',
@@ -86,6 +89,7 @@ export const GOVERNMENT_SCHEMES: GovernmentScheme[] = [
       'Visit your nearest Anganwadi centre and register with the Anganwadi Worker (AWW). Carry your Aadhaar and the child\'s birth certificate. Services begin from pregnancy and continue until the child turns 6.',
     url: 'https://poshanabhiyaan.gov.in',
     tags: ['pregnant', 'newborn', 'all-kids'],
+    audience: 'all',
   },
   {
     id: 'gs05',
@@ -103,6 +107,7 @@ export const GOVERNMENT_SCHEMES: GovernmentScheme[] = [
       'Visit your nearest Post Office or banks like SBI, HDFC, ICICI, or PNB. Carry the girl\'s birth certificate, your Aadhaar, PAN, and address proof. Open with a minimum deposit of ₹250.',
     url: 'https://www.indiapost.gov.in/Financial/pages/content/Sukanya.aspx',
     tags: ['girl'],
+    audience: 'all',
   },
   {
     id: 'gs06',
@@ -120,5 +125,6 @@ export const GOVERNMENT_SCHEMES: GovernmentScheme[] = [
       'Ask at your nearest government hospital, PHC, or Anganwadi centre. Supplements are distributed free — no application form required. Your Anganwadi worker or ASHA can deliver to your home in most areas.',
     url: 'https://anemiamuktbharat.info',
     tags: ['pregnant', 'newborn', 'all-kids'],
+    audience: 'all',
   },
 ];

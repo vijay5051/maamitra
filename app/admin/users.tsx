@@ -18,7 +18,7 @@ import {
   View,
 } from 'react-native';
 
-import { AdminUser, getUsers, deleteUserData } from '../../services/firebase';
+import { AdminUser, getUsers, deleteUserData, adminSetUserRole } from '../../services/firebase';
 
 // ─── Avatar ───────────────────────────────────────────────────────────────────
 
@@ -35,7 +35,15 @@ function Avatar({ name, size = 40 }: { name: string; size?: number }) {
 
 // ─── User Row ─────────────────────────────────────────────────────────────────
 
-function UserRow({ user, onDelete }: { user: AdminUser; onDelete: () => void }) {
+function UserRow({
+  user,
+  onDelete,
+  onRoleChange,
+}: {
+  user: AdminUser;
+  onDelete: () => void;
+  onRoleChange: (role: 'mother' | 'father' | 'other') => void;
+}) {
   const [expanded, setExpanded] = useState(false);
   const joinDate = user.createdAt
     ? new Date(user.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -78,6 +86,37 @@ function UserRow({ user, onDelete }: { user: AdminUser; onDelete: () => void }) 
             </Text>
           </View>
 
+          {/* Role reset — the ONLY place parentGender can be changed
+              once a user finishes onboarding. Users can't change it
+              themselves; this is the support-desk escape hatch. */}
+          <View style={styles.roleRow}>
+            <Ionicons name="person-outline" size={13} color="#9ca3af" />
+            <Text style={styles.detailText}>
+              Role: <Text style={styles.roleCurrent}>{user.parentGender || 'unset'}</Text>
+            </Text>
+            <View style={{ flex: 1 }} />
+            {(['mother', 'father', 'other'] as const).map((r) => (
+              <TouchableOpacity
+                key={r}
+                style={[
+                  styles.roleChip,
+                  user.parentGender === r && styles.roleChipActive,
+                ]}
+                onPress={() => onRoleChange(r)}
+                disabled={user.parentGender === r}
+              >
+                <Text
+                  style={[
+                    styles.roleChipText,
+                    user.parentGender === r && styles.roleChipTextActive,
+                  ]}
+                >
+                  {r}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
           <TouchableOpacity style={styles.deleteBtn} onPress={onDelete} activeOpacity={0.8}>
             <Ionicons name="trash-outline" size={14} color="#ef4444" />
             <Text style={styles.deleteBtnText}>Delete User Data</Text>
@@ -111,6 +150,31 @@ export default function UsersScreen() {
     const data = await getUsers();
     setUsers(data.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')));
     setRefreshing(false);
+  }
+
+  async function handleRoleChange(user: AdminUser, newRole: 'mother' | 'father' | 'other') {
+    const prev = user.parentGender;
+    Alert.alert(
+      'Change role?',
+      `Reset ${user.name}'s role from ${prev || 'unset'} to ${newRole}?\n\nThis reshapes their role-adaptive content immediately on next app open.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Confirm',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await adminSetUserRole(user.uid, newRole);
+              setUsers((arr) =>
+                arr.map((u) => (u.uid === user.uid ? { ...u, parentGender: newRole } : u)),
+              );
+            } catch (e: any) {
+              Alert.alert('Failed', e?.message ?? 'Could not update role');
+            }
+          },
+        },
+      ],
+    );
   }
 
   function handleDelete(user: AdminUser) {
@@ -197,7 +261,12 @@ export default function UsersScreen() {
         </View>
       ) : (
         filtered.map((u) => (
-          <UserRow key={u.uid} user={u} onDelete={() => handleDelete(u)} />
+          <UserRow
+            key={u.uid}
+            user={u}
+            onDelete={() => handleDelete(u)}
+            onRoleChange={(role) => handleRoleChange(u, role)}
+          />
         ))
       )}
     </ScrollView>
@@ -256,6 +325,21 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(239,68,68,0.15)',
   },
   deleteBtnText: { fontSize: 13, color: '#ef4444', fontWeight: '700' },
+
+  roleRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2,
+  },
+  roleCurrent: { fontWeight: '700', color: '#1a1a2e' },
+  roleChip: {
+    paddingVertical: 4, paddingHorizontal: 10,
+    borderRadius: 12, backgroundColor: '#f3f4f6',
+    borderWidth: 1, borderColor: '#e5e7eb',
+  },
+  roleChipActive: {
+    backgroundColor: '#ede9fe', borderColor: '#8b5cf6',
+  },
+  roleChipText: { fontSize: 11, color: '#6b7280' },
+  roleChipTextActive: { color: '#7c3aed', fontWeight: '700' },
 
   empty: { alignItems: 'center', paddingVertical: 40, gap: 10 },
   emptyText: { fontSize: 14, color: '#9ca3af' },

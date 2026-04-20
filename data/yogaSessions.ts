@@ -33,6 +33,7 @@ export const YOGA_SESSIONS: YogaSession[] = [
     level: 'Beginner',
     poseCount: 5,
     emoji: '🌅',
+    audience: 'all',
     contraindications: ['Severe back pain', 'Hypertension'],
     poses: [
       {
@@ -91,6 +92,7 @@ export const YOGA_SESSIONS: YogaSession[] = [
     level: 'Gentle',
     poseCount: 6,
     emoji: '💪',
+    audience: 'mother',
     contraindications: ['Diastasis recti', 'C-section recovery', 'Uterine prolapse'],
     poses: [
       {
@@ -158,6 +160,7 @@ export const YOGA_SESSIONS: YogaSession[] = [
     level: 'All Levels',
     poseCount: 6,
     emoji: '👶',
+    audience: 'all',
     contraindications: [],
     poses: [
       {
@@ -225,6 +228,7 @@ export const YOGA_SESSIONS: YogaSession[] = [
     level: 'Beginner',
     poseCount: 6,
     emoji: '🧘',
+    audience: 'all',
     contraindications: ['Severe back pain'],
     poses: [
       {
@@ -292,6 +296,7 @@ export const YOGA_SESSIONS: YogaSession[] = [
     level: 'Restorative',
     poseCount: 5,
     emoji: '🌙',
+    audience: 'all',
     contraindications: ['Hypertension'],
     poses: [
       {
@@ -337,6 +342,133 @@ export const YOGA_SESSIONS: YogaSession[] = [
         instruction:
           "Lie in full Savasana — legs extended, arms slightly away from your body with palms up, eyes closed. Soften your face, unclench your jaw, and release your tongue from the roof of your mouth. Begin to scan your body slowly from the toes upward: bring your awareness to each body part in turn, notice any sensation without judgment, and consciously relax that area before moving on. When you reach the top of your head, let your awareness expand outward to encompass your whole body resting quietly in the dark. Breathe gently and naturally. Let each thought drift past like a cloud without engagement. Tonight's sleep begins right here, right now. Allow yourself to drift.",
         breathCue: 'No controlling. Simply breathe, observe, and let go. Sleep will come when it is ready.',
+        durationSeconds: 120,
+      },
+    ],
+  },
+  {
+    id: 'y06',
+    name: "Dad's Strength & Stability",
+    description:
+      'A grounding sequence targeted at the muscle groups dads tax most during the newborn phase: upper back tension from carrying, tight hip flexors from sitting and driving, and a weakened core from long hours hunched over a feeding bottle or playing on the floor. Builds strength without requiring you to leave the bedroom.',
+    duration: 20,
+    level: 'Beginner',
+    poseCount: 6,
+    emoji: '💪',
+    audience: 'father',
+    contraindications: ['Severe back pain', 'Herniated disc'],
+    poses: [
+      {
+        id: 'y06-p01',
+        emoji: '🐱',
+        name: 'Cat-Cow Flow',
+        instruction:
+          'Come to all fours with wrists under shoulders and knees under hips. Inhale and drop your belly, lift tailbone and gaze (Cow). Exhale and round your spine, tuck chin and tailbone (Cat). Move slowly and deliberately, feeling each vertebra move. This warms up the spine after hours of carrying baby and sitting at a desk.',
+        breathCue: 'Inhale to open into Cow; exhale to round into Cat. Let breath lead.',
+        durationSeconds: 60,
+      },
+      {
+        id: 'y06-p02',
+        emoji: '🏔️',
+        name: 'Downward Dog',
+        instruction:
+          'From all fours, tuck your toes and lift your hips up and back into an inverted V. Press your palms firmly into the mat, lengthen your spine, and let your heels sink toward the floor (they may not reach — this is normal). Bend your knees if your hamstrings are tight. Hold for 5-8 breaths, then lower to your knees. This stretches the entire posterior chain — calves, hamstrings, back — that gets tight from holding and bouncing a baby.',
+        breathCue: 'Inhale to lengthen; exhale to press hips up and back.',
+        durationSeconds: 45,
+      },
+      {
+        id: 'y06-p03',
+        emoji: '⚔️',
+        name: 'Warrior II',
+        instruction:
+          'Step your feet wide apart (about a leg-length). Turn your right foot out 90 degrees and your left foot in slightly. Bend your right knee until it is directly over your right ankle — thigh parallel to the floor if possible. Extend your arms straight out at shoulder height, gazing over your right fingertips. Hold for 5 breaths, then switch sides. Builds leg strength for carrying your baby up stairs, hip mobility, and shoulder endurance.',
+        breathCue: 'Breathe steadily and deeply. Let the inhale expand your chest; let the exhale ground you through the feet.',
+        durationSeconds: 60,
+      },
+      {
+        id: 'y06-p04',
+        emoji: '🦅',
+        name: 'Eagle Arms',
+        instruction:
+          'Sit or stand tall. Extend both arms forward. Cross your right arm over your left at the elbows. Bend both elbows and wrap the forearms so the palms meet (or backs of hands meet if that is as far as you go). Lift the elbows to shoulder height. Breathe into the space between your shoulder blades for 5 breaths — this is where tension from carrying babies concentrates. Switch arm cross and repeat.',
+        breathCue: 'Breathe into your upper back. Exhale to release the tension you are holding there.',
+        durationSeconds: 45,
+      },
+      {
+        id: 'y06-p05',
+        emoji: '🌉',
+        name: 'Glute Bridge',
+        instruction:
+          'Lie on your back with knees bent, feet flat on the floor hip-width apart. On an exhale, press through your heels and lift your hips, creating a line from shoulders to knees. Squeeze your glutes firmly at the top — do not just lift with your lower back. Hold for 3 breaths, then lower slowly. Repeat 8-10 times. Reverses the damage of hours of sitting and rebuilds the glutes, which dads tend to ignore.',
+        breathCue: 'Exhale to lift; breathe normally while holding; inhale to lower slowly.',
+        durationSeconds: 60,
+      },
+      {
+        id: 'y06-p06',
+        emoji: '🪲',
+        name: 'Dead Bug',
+        instruction:
+          'Lie on your back with knees bent at 90 degrees and arms reaching toward the ceiling (tabletop position). Press your lower back into the floor. On an exhale, extend your right arm behind your head and your left leg out parallel to the floor. Keep the lower back glued to the mat. Inhale to return to centre. Switch sides. This builds deep core stability — the single best way to protect your lower back from years of hauling children around.',
+        breathCue: 'Exhale as you extend; inhale to return. Slow and controlled.',
+        durationSeconds: 60,
+      },
+    ],
+  },
+  {
+    id: 'y07',
+    name: 'Tired Dad Reset',
+    description:
+      "A restorative evening sequence for exhausted new dads. These poses decompress the spine, release neck and shoulder tension built up from long days and broken nights, and calm a stressed nervous system. Do it in pajamas. No warm-up needed. Ten minutes will change your night.",
+    duration: 15,
+    level: 'Restorative',
+    poseCount: 5,
+    emoji: '🌙',
+    audience: 'father',
+    contraindications: ['Hypertension'],
+    poses: [
+      {
+        id: 'y07-p01',
+        emoji: '🏔️',
+        name: 'Legs Up the Wall',
+        instruction:
+          'Sit sideways next to a wall. Lie back and swing your legs up so they rest against the wall. Your body forms an L. Rest your arms at your sides, palms up. Close your eyes and simply breathe. This pose reverses the blood pooling in your legs from a long day on your feet, drops your heart rate, and tells your nervous system the day is done. Stay for 5 minutes minimum.',
+        breathCue: 'Long, slow exhales. Let each out-breath be audible if it wants to be.',
+        durationSeconds: 120,
+      },
+      {
+        id: 'y07-p02',
+        emoji: '🧒',
+        name: "Child's Pose",
+        instruction:
+          'Kneel on the floor with big toes together and knees about hip-width apart. Sit back on your heels and fold your torso forward between your thighs. Extend your arms forward or rest them alongside your body. Let your forehead rest on the floor or a cushion. This pose releases the lower back, opens the hips, and calms the mind. Stay for 2-3 minutes.',
+        breathCue: 'Breathe into the back of your ribcage. Feel the breath widen your back with each inhale.',
+        durationSeconds: 90,
+      },
+      {
+        id: 'y07-p03',
+        emoji: '🧎',
+        name: 'Thread the Needle',
+        instruction:
+          'Start on all fours. Slide your right arm under your left arm, lowering your right shoulder and the right side of your head to the floor. Keep your hips stacked over your knees. Feel the stretch deep in the right shoulder blade and upper back — exactly where tension pools from holding baby. Hold for 5-8 breaths, then switch sides. This is the single best stretch for carrier-tension.',
+        breathCue: 'Exhale deeper into the stretch. Breathe into the tight spot, not around it.',
+        durationSeconds: 60,
+      },
+      {
+        id: 'y07-p04',
+        emoji: '🌀',
+        name: 'Supine Spinal Twist',
+        instruction:
+          'Lie on your back with legs extended. Draw your right knee into your chest, then cross it over to the left side of your body, keeping the right shoulder on the floor. Extend your right arm out to the right at shoulder height. Turn your gaze gently right. Hold for 5-8 breaths. The twist releases the entire spine after a day of asymmetric carrying. Switch sides.',
+        breathCue: 'Inhale to lengthen the spine; exhale to soften more deeply into the twist. Never force.',
+        durationSeconds: 60,
+      },
+      {
+        id: 'y07-p05',
+        emoji: '💀',
+        name: 'Savasana',
+        instruction:
+          'Lie flat on your back with legs extended slightly apart and arms resting alongside your body with palms facing up. Close your eyes. Let your feet fall open. Soften your face, unclench your jaw, let your tongue drop from the roof of your mouth. This is the most important pose — the one most dads skip. Five minutes of conscious rest here gives you more recovery than twenty minutes of half-attention elsewhere. Stay until you feel fully settled.',
+        breathCue: 'Simply breathe. There is nothing to fix, nothing to do. You have earned this.',
         durationSeconds: 120,
       },
     ],

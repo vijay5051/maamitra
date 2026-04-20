@@ -799,6 +799,7 @@ export interface AdminUser {
   kidsCount: number;
   state: string;
   photoUrl?: string;
+  parentGender?: string;
 }
 
 export async function getUsers(): Promise<AdminUser[]> {
@@ -816,6 +817,7 @@ export async function getUsers(): Promise<AdminUser[]> {
         kidsCount: Array.isArray(data.kids) ? data.kids.length : 0,
         state: data.profile?.state ?? '',
         photoUrl: data.photoUrl ?? undefined,
+        parentGender: data.parentGender ?? '',
       };
     });
   } catch (error) {
@@ -831,6 +833,25 @@ export async function deleteUserData(uid: string): Promise<void> {
   } catch (error) {
     console.error('deleteUserData error:', error);
   }
+}
+
+/**
+ * Admin-only: overwrite a user's parentGender. Used when a user
+ * signed up with the wrong role (onboarding lock means they can't
+ * self-correct). The role is the axis that drives role-adaptive
+ * content, so resetting it immediately reshapes their experience
+ * on the next app open.
+ */
+export async function adminSetUserRole(
+  uid: string,
+  parentGender: 'mother' | 'father' | 'other',
+): Promise<void> {
+  if (!db) throw new Error('Firestore not configured');
+  await setDoc(
+    doc(db, 'users', uid),
+    { parentGender, updatedAt: serverTimestamp() },
+    { merge: true },
+  );
 }
 
 export async function approveCommunityPost(postId: string): Promise<void> {

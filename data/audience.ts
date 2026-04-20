@@ -37,7 +37,7 @@ export type Audience = 'mother' | 'father' | 'caregiver' | 'all';
  * Kept in code (not Firestore) for now so toggling it requires a deploy
  * — no risk of a misconfigured remote flag wiping half the content.
  */
-export const ENABLE_ROLE_ADAPTIVE_CONTENT = false;
+export const ENABLE_ROLE_ADAPTIVE_CONTENT = true;
 
 /** Map the stored ParentGender ('mother' | 'father' | 'other' | '') to
  *  the Audience enum. Empty / unknown defaults to 'mother' (our default

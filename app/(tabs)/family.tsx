@@ -17,6 +17,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { saveFullProfile } from '../../services/firebase';
 import { useActiveKid } from '../../hooks/useActiveKid';
 import { MILESTONES } from '../../data/milestones';
+import { filterByAudience, parentGenderToAudience } from '../../data/audience';
 import GradientButton from '../../components/ui/GradientButton';
 import DatePickerField from '../../components/ui/DatePickerField';
 import Card from '../../components/ui/Card';
@@ -424,14 +425,19 @@ export default function FamilyScreen() {
 
   const nearestMilestones = (() => {
     if (!activeKid || activeKid.isExpecting) return [];
+    // Audience-filter first (no-op while feature flag is off).
+    const audienceOk = filterByAudience(
+      MILESTONES,
+      parentGenderToAudience(useProfileStore.getState().parentGender),
+    );
     // Show milestones near current age (window: -3m to +12m)
-    const inWindow = MILESTONES.filter(
+    const inWindow = audienceOk.filter(
       (m) => m.ageMonths >= currentAgeMonths - 3 && m.ageMonths <= currentAgeMonths + 12
     ).slice(0, 6);
     // Fallback: if no milestones in window (e.g. older child beyond data range),
     // show the 3 most recent milestones from the dataset
     if (inWindow.length === 0) {
-      return [...MILESTONES]
+      return [...audienceOk]
         .filter((m) => m.ageMonths <= currentAgeMonths)
         .sort((a, b) => b.ageMonths - a.ageMonths)
         .slice(0, 3);
