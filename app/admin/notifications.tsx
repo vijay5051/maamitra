@@ -17,7 +17,7 @@ import {
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { createContent } from '../../services/firebase';
+import { createContent, enqueueBroadcastPush } from '../../services/firebase';
 import { Colors } from '../../constants/theme';
 
 type Audience = 'all' | 'pregnant' | 'newborn' | 'toddler';
@@ -96,8 +96,17 @@ export default function NotificationsScreen() {
               sentAt: new Date().toISOString(),
               status: 'sent',
             };
-            // Save to Firestore — a Cloud Function / backend picks this up and dispatches via Expo Push API
+            // 1. Log entry (for the admin history view).
             await createContent('push_notifications', payload);
+            // 2. Actual dispatch job — the push dispatcher (Cloud Function
+            //    / Worker reading push_queue) picks this up and fans out
+            //    to every matching user's fcmTokens.
+            await enqueueBroadcastPush({
+              title,
+              body,
+              audience,
+              type,
+            });
             setSent((prev) => [
               { ...payload, id: Date.now().toString(), status: 'sent' as const },
               ...prev,

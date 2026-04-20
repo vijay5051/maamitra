@@ -34,6 +34,12 @@ import DatePickerField from './DatePickerField';
 import StateSelectorComponent from '../onboarding/StateSelector';
 import { Fonts, ACCENT_PRESETS } from '../../constants/theme';
 import { useThemeStore, reloadForThemeChange } from '../../store/useThemeStore';
+import {
+  checkPushSupport,
+  currentPushPermission,
+  enablePush,
+  disablePush,
+} from '../../services/push';
 import { Colors } from '../../constants/theme';
 
 type ViewMode = 'main' | 'edit-profile' | 'edit-kid' | 'change-phone';
@@ -127,6 +133,104 @@ function ToggleRow({ label, value, onToggle }: { label: string; value: boolean; 
         <View style={[s.toggleThumb, value && s.toggleThumbOn]} />
       </View>
     </TouchableOpacity>
+  );
+}
+
+// ─── Notifications toggle ────────────────────────────────────────────────────
+// Enables web push for this browser. Asks for OS permission, grabs the
+// FCM token, and persists it to users/{uid}.fcmTokens so the dispatcher
+// can target this device.
+function NotificationsPanel({ uid }: { uid?: string }) {
+  const [supported, setSupported] = useState<boolean | null>(null);
+  const [permission, setPermission] = useState<'unsupported' | 'default' | 'granted' | 'denied'>(
+    'default',
+  );
+  const [busy, setBusy] = useState(false);
+  const [token, setToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    checkPushSupport().then((ok) => {
+      if (cancelled) return;
+      setSupported(ok);
+      setPermission(currentPushPermission() as any);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const enabled = permission === 'granted' && !!token;
+  const blocked = permission === 'denied';
+
+  const handleToggle = async () => {
+    if (!uid) return;
+    if (!supported) {
+      Alert.alert(
+        'Not supported',
+        'Your browser does not support web push. Try Chrome or Safari on iOS 16.4+.',
+      );
+      return;
+    }
+    if (blocked) {
+      Alert.alert(
+        'Permission blocked',
+        'Notifications are blocked in your browser settings. Enable them for this site, then try again.',
+      );
+      return;
+    }
+    setBusy(true);
+    try {
+      if (enabled) {
+        await disablePush(uid, token);
+        setToken(null);
+      } else {
+        const t = await enablePush(uid);
+        if (t) {
+          setToken(t);
+          setPermission('granted');
+        } else {
+          // enablePush returned null — either user denied or env vars missing
+          setPermission(currentPushPermission() as any);
+        }
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (supported === null) return null;
+
+  return (
+    <View style={s.card}>
+      <TouchableOpacity
+        style={s.notifRow}
+        onPress={busy ? undefined : handleToggle}
+        activeOpacity={0.75}
+        disabled={busy}
+      >
+        <View style={s.rowIcon}>
+          <Ionicons name="notifications-outline" size={18} color={Colors.primary} />
+        </View>
+        <View style={s.rowContent}>
+          <Text style={s.rowLabel}>Push notifications</Text>
+          <Text style={s.rowValue}>
+            {!supported
+              ? 'Not supported in this browser'
+              : blocked
+              ? 'Blocked in browser settings'
+              : enabled
+              ? 'Enabled on this device'
+              : 'Off — tap to enable'}
+          </Text>
+        </View>
+        <View
+          style={[s.toggleTrack, enabled && s.toggleTrackOn, (!supported || busy) && { opacity: 0.5 }]}
+        >
+          <View style={[s.toggleThumb, enabled && s.toggleThumbOn]} />
+        </View>
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -1359,7 +1463,14 @@ export default function SettingsModal({
               </View>
             </View>
 
-            {/* ─── 6. Profile visibility ─── */}
+            {/* ─── 6. Notifications ─── */}
+            <SectionHeader
+              title="Notifications"
+              subtitle="Push alerts on reactions, comments, messages, and announcements"
+            />
+            <NotificationsPanel uid={user?.uid} />
+
+            {/* ─── 7. Profile visibility ─── */}
             <View
               onLayout={(e) => {
                 privacyAnchorY.current = e.nativeEvent.layout.y;
@@ -1711,6 +1822,16 @@ const s = StyleSheet.create({
   accentSwatchLabelActive: {
     color: '#1C1033',
     fontFamily: Fonts.sansBold,
+  },
+
+  // Notifications row — same shape as SettingsRow but with a toggle on
+  // the right side so the whole row is tappable.
+  notifRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    gap: 12,
   },
 
   // Edit views

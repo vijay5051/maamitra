@@ -259,7 +259,36 @@ service cloud.firestore {
     match /yoga/{docId}     { allow read: if isSignedIn(); allow write: if isAdmin(); }
     match /vaccines/{docId} { allow read: if isSignedIn(); allow write: if isAdmin(); }
 
-    // ── Push notifications queue (admin only) ────────────────────────────────
+    // ── Push jobs queue ──────────────────────────────────────────────────────
+    // Each doc is a single push job consumed by the external dispatcher
+    // (see functions/ README). Shape:
+    //   { kind: 'personal' | 'broadcast',
+    //     toUid?: string,            // personal only — dispatcher looks up tokens
+    //     audience?: 'all' | 'pregnant' | 'newborn' | 'toddler',
+    //     title, body, data?: {...}, createdAt, status: 'pending' | 'sent' | 'failed',
+    //     fromUid?: string            // author of the event, for abuse tracing }
+    //
+    // Create rules:
+    //   - broadcast jobs: admin only (this is the megaphone).
+    //   - personal jobs: any verified user can enqueue, but only if they
+    //     name themselves as fromUid AND the target is NOT themselves.
+    //     Size caps keep payloads sane.
+    // Read: admin + dispatcher service account (admin covers both in our
+    //     setup). Update: admin (dispatcher marks status). Delete: admin.
+    match /push_queue/{jobId} {
+      allow read:   if isAdmin();
+      allow create: if (isAdmin()) ||
+        (isVerified() &&
+          request.resource.data.kind == 'personal' &&
+          request.resource.data.fromUid == request.auth.uid &&
+          request.resource.data.toUid is string &&
+          request.resource.data.toUid != request.auth.uid &&
+          shortText(request.resource.data.title, 120) &&
+          shortText(request.resource.data.body, 300));
+      allow update, delete: if isAdmin();
+    }
+
+    // ── Push notifications log (admin-authored broadcasts, legacy) ──────────
     match /push_notifications/{docId} {
       allow read, write: if isAdmin();
     }

@@ -888,8 +888,81 @@ export async function createNotification(
       read: false,
       createdAt: serverTimestamp(),
     });
+    // Also enqueue a push job. The dispatcher (Cloud Function / worker
+    // subscribed to push_queue) reads this, looks up the recipient's
+    // fcmTokens, and fires FCM. Fire-and-forget — if the write fails
+    // (rules or network) the in-app notification is still delivered.
+    const push = buildPushFromNotif(toUid, data);
+    if (push) {
+      try {
+        await addDoc(collection(db, 'push_queue'), {
+          kind: 'personal',
+          toUid,
+          fromUid: data.fromUid,
+          ...push,
+          status: 'pending',
+          createdAt: serverTimestamp(),
+        });
+      } catch (_) {
+        // Non-blocking — silent fail is fine here, in-app UI already works.
+      }
+    }
   } catch (error) {
     console.error('createNotification error:', error);
+  }
+}
+
+/**
+ * Map an in-app notification to the (title, body, data) payload the
+ * push dispatcher will send. Returns null for types we'd rather not
+ * push (keeps the notification tray quieter). data.url tells the SW
+ * where to route the user on click.
+ */
+function buildPushFromNotif(
+  _toUid: string,
+  d: {
+    type: NotifType;
+    fromName: string;
+    postId?: string;
+    postText?: string;
+    emoji?: string;
+  },
+): { title: string; body: string; data: Record<string, string> } | null {
+  const snippet = (d.postText ?? '').trim().replace(/\s+/g, ' ').slice(0, 80);
+  const tail = (d.postText ?? '').length > 80 ? '…' : '';
+  switch (d.type) {
+    case 'reaction':
+      return {
+        title: `${d.fromName} reacted ${d.emoji ?? '❤️'}`,
+        body: snippet ? `on your post: "${snippet}${tail}"` : 'on your post',
+        data: { url: d.postId ? `/post/${d.postId}` : '/(tabs)/community', tag: `reaction:${d.postId ?? ''}` },
+      };
+    case 'comment':
+      return {
+        title: `${d.fromName} commented`,
+        body: snippet ? `on your post: "${snippet}${tail}"` : 'on your post',
+        data: { url: d.postId ? `/post/${d.postId}` : '/(tabs)/community', tag: `comment:${d.postId ?? ''}` },
+      };
+    case 'follow_request':
+      return {
+        title: `${d.fromName} wants to follow you`,
+        body: 'Tap to review the request.',
+        data: { url: '/(tabs)/community', tag: 'follow-request' },
+      };
+    case 'follow_accepted':
+      return {
+        title: `${d.fromName} accepted your follow`,
+        body: 'You can now see their posts in your feed.',
+        data: { url: '/(tabs)/community', tag: 'follow-accepted' },
+      };
+    case 'message':
+      return {
+        title: `${d.fromName} sent you a message`,
+        body: 'Open MaaMitra to reply.',
+        data: { url: '/(tabs)/community', tag: 'message' },
+      };
+    default:
+      return null;
   }
 }
 

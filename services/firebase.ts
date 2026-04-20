@@ -1111,6 +1111,37 @@ export async function adminSetUserRole(
   );
 }
 
+/**
+ * Admin-only: enqueue a broadcast push job. The dispatcher (see
+ * functions/README.md) fans this out to every user whose profile
+ * matches the audience, using their stored fcmTokens.
+ */
+export async function enqueueBroadcastPush(opts: {
+  title: string;
+  body: string;
+  audience: 'all' | 'pregnant' | 'newborn' | 'toddler';
+  type?: string;
+  data?: Record<string, string>;
+}): Promise<string | null> {
+  if (!db) return null;
+  try {
+    const ref = await addDoc(collection(db, 'push_queue'), {
+      kind: 'broadcast',
+      audience: opts.audience,
+      title: opts.title,
+      body: opts.body,
+      data: opts.data ?? {},
+      pushType: opts.type ?? 'info',
+      status: 'pending',
+      createdAt: serverTimestamp(),
+    });
+    return ref.id;
+  } catch (error) {
+    console.error('enqueueBroadcastPush error:', error);
+    return null;
+  }
+}
+
 export async function approveCommunityPost(postId: string): Promise<void> {
   if (!db) return;
   try {
