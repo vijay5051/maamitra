@@ -30,7 +30,10 @@ import GradientAvatar from '../../components/ui/GradientAvatar';
 import TagPill from '../../components/ui/TagPill';
 import SettingsModal from '../../components/ui/SettingsModal';
 import PostCardComponent from '../../components/community/PostCard';
-import UserProfileModalComponent from '../../components/community/UserProfileModal';
+import UserProfileModalComponent, {
+  FollowListModal,
+  followEntriesToProfiles,
+} from '../../components/community/UserProfileModal';
 import UserPostsSheet from '../../components/community/UserPostsSheet';
 import EditPostModal from '../../components/community/EditPostModal';
 import NotificationsSheet from '../../components/community/NotificationsSheet';
@@ -566,7 +569,17 @@ const composeStyles = StyleSheet.create({
 
 // ─── My Profile Card — Premium Dark Hero ──────────────────────────────────────
 
-function MyProfileCard({ onEdit, onPostsPress }: { onEdit: () => void; onPostsPress: () => void }) {
+function MyProfileCard({
+  onEdit,
+  onPostsPress,
+  onFollowersPress,
+  onFollowingPress,
+}: {
+  onEdit: () => void;
+  onPostsPress: () => void;
+  onFollowersPress: () => void;
+  onFollowingPress: () => void;
+}) {
   const {
     motherName, photoUrl, parentGender, bio, expertise,
     kids, visibilitySettings, profile,
@@ -652,16 +665,24 @@ function MyProfileCard({ onEdit, onPostsPress }: { onEdit: () => void; onPostsPr
         )}
 
         {/* Followers */}
-        <View style={heroStyles.statBox}>
+        <TouchableOpacity
+          style={heroStyles.statBox}
+          onPress={onFollowersPress}
+          activeOpacity={0.75}
+        >
           <Text style={heroStyles.statNum}>{followersCount}</Text>
           <Text style={heroStyles.statLabel}>Followers</Text>
-        </View>
+        </TouchableOpacity>
 
         {/* Following */}
-        <View style={heroStyles.statBox}>
+        <TouchableOpacity
+          style={heroStyles.statBox}
+          onPress={onFollowingPress}
+          activeOpacity={0.75}
+        >
           <Text style={heroStyles.statNum}>{followingCount}</Text>
           <Text style={heroStyles.statLabel}>Following</Text>
-        </View>
+        </TouchableOpacity>
 
       </View>
 
@@ -897,6 +918,10 @@ export default function CommunityScreen() {
     unreadCount,
     blockedUids,
   } = useSocialStore();
+  // Reuse the same arrays the feed filter already watches (declared below)
+  // for the followers/following list modals — one store subscription, two
+  // consumers.
+  const followers = useSocialStore((s) => s.followers);
 
   // ── Load data on mount ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -940,6 +965,8 @@ export default function CommunityScreen() {
   const [viewingUid, setViewingUid] = useState<string | null>(null);
   const [showOwnPosts, setShowOwnPosts] = useState(false);
   const [showUserSearch, setShowUserSearch] = useState(false);
+  const [showFollowersList, setShowFollowersList] = useState(false);
+  const [showFollowingList, setShowFollowingList] = useState(false);
   // Home's "Find moms" Quick Jump tile deep-links here with ?search=1.
   const routeParams = useLocalSearchParams<{ search?: string }>();
   useEffect(() => {
@@ -1106,6 +1133,8 @@ export default function CommunityScreen() {
             <MyProfileCard
               onEdit={() => setShowSettings(true)}
               onPostsPress={() => setShowOwnPosts(true)}
+              onFollowersPress={() => setShowFollowersList(true)}
+              onFollowingPress={() => setShowFollowingList(true)}
             />
             <ComposeCard onPress={() => setShowNewPost(true)} />
 
@@ -1262,6 +1291,29 @@ export default function CommunityScreen() {
         emojiFilter={reactorsEmoji}
         onClose={() => { setReactorsPost(null); setReactorsEmoji(undefined); }}
         onSelectUser={(uid) => setViewingUid(uid)}
+      />
+
+      {/* Followers / Following lists — opened from the MyProfileCard
+          counts. Tapping a row opens that user's profile. */}
+      <FollowListModal
+        visible={showFollowersList}
+        title="Followers"
+        items={followEntriesToProfiles(followers ?? [])}
+        onClose={() => setShowFollowersList(false)}
+        onViewProfile={(uid) => {
+          setShowFollowersList(false);
+          setViewingUid(uid);
+        }}
+      />
+      <FollowListModal
+        visible={showFollowingList}
+        title="Following"
+        items={followEntriesToProfiles(following ?? [])}
+        onClose={() => setShowFollowingList(false)}
+        onViewProfile={(uid) => {
+          setShowFollowingList(false);
+          setViewingUid(uid);
+        }}
       />
     </View>
   );

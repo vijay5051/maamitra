@@ -88,7 +88,7 @@ function timeAgo(date: Date | string): string {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /** Map FollowEntry (social graph list) → UserPublicProfile shape for FollowListModal */
-function followEntriesToProfiles(entries: FollowEntry[]): UserPublicProfile[] {
+export function followEntriesToProfiles(entries: FollowEntry[]): UserPublicProfile[] {
   return entries.map((e) => ({
     uid: e.uid,
     name: e.name,
@@ -114,7 +114,7 @@ interface FollowListModalProps {
   onViewProfile: (uid: string) => void;
 }
 
-function FollowListModal({ visible, title, items, onClose, onViewProfile }: FollowListModalProps) {
+export function FollowListModal({ visible, title, items, onClose, onViewProfile }: FollowListModalProps) {
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={innerStyles.followListOverlay}>
