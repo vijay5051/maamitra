@@ -56,13 +56,10 @@ function ChildCard({
     ? `${_months}mo`
     : `${Math.floor(_months / 12)}y`;
 
-  // Alternate accent colors per child
-  const accentColors: [string, string][] = [
-    ['#7C3AED', '#7C3AED'],
-    ['#7C3AED', '#60A5FA'],
-    ['#34D399', '#60A5FA'],
-  ];
-  const accent = accentColors[index % accentColors.length];
+  // Single brand accent for every child card — previously rotated through
+  // three gender-coded gradients which read as rainbow noise next to the
+  // rest of the refreshed UI.
+  const accent = '#7C3AED';
 
   return (
     <TouchableOpacity
@@ -70,48 +67,30 @@ function ChildCard({
       activeOpacity={0.8}
       style={[childCardStyles.card, isActive && childCardStyles.cardActive]}
     >
-      {/* Top accent bar */}
-      <LinearGradient
-        colors={accent}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={childCardStyles.accentBar}
-      />
       <View style={[childCardStyles.inner, isActive && childCardStyles.innerActive]}>
-        <View style={[childCardStyles.iconBox, { backgroundColor: `${accent[0]}18` }]}>
+        <View style={[childCardStyles.iconBox, isActive && { backgroundColor: '#F5F0FF' }]}>
           <Ionicons
             name={
               isActuallyExpecting
-                ? 'flower-outline'
+                ? 'heart-outline'
                 : kid.gender === 'boy'
                 ? 'male-outline'
                 : kid.gender === 'girl'
                 ? 'female-outline'
                 : 'help-circle-outline'
             }
-            size={22}
-            color={
-              isActuallyExpecting
-                ? accent[0]
-                : kid.gender === 'boy'
-                ? '#60A5FA'
-                : kid.gender === 'girl'
-                ? '#7C3AED'
-                : '#A78BFA'
-            }
+            size={20}
+            color={isActive ? accent : '#6b7280'}
           />
         </View>
         <Text style={[childCardStyles.name, isActive && childCardStyles.nameActive]}>
           {kid.name}
         </Text>
-        <Text style={{ fontSize: 12 }}>
-          {kid.gender === 'boy' ? '👦' : kid.gender === 'girl' ? '👧' : '🎁'}
-        </Text>
-        <Text style={[childCardStyles.age, isActive && { color: accent[0] }]}>
+        <Text style={[childCardStyles.age, isActive && { color: accent }]}>
           {ageText}
         </Text>
         {isActive && (
-          <View style={[childCardStyles.activeDot, { backgroundColor: accent[0] }]} />
+          <View style={[childCardStyles.activeDot, { backgroundColor: accent }]} />
         )}
       </View>
     </TouchableOpacity>
@@ -122,36 +101,36 @@ const childCardStyles = StyleSheet.create({
   card: {
     width: 100,
     marginRight: 12,
-    borderRadius: 18,
+    borderRadius: 14,
     overflow: 'hidden',
-    borderWidth: 1.5,
-    borderColor: '#EDE9F6',
+    borderWidth: 1,
+    borderColor: '#E5E1EE',
     backgroundColor: '#ffffff',
-    shadowColor: '#7C3AED',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
-    boxShadow: '0px 2px 8px rgba(28, 16, 51, 0.048)',
   } as any,
   cardActive: {
-    borderColor: 'rgba(28, 16, 51, 0.18)',
-    shadowOpacity: 0.18,
-    shadowRadius: 14,
-    elevation: 6,
+    borderColor: '#7C3AED',
+    borderWidth: 1.5,
   },
-  accentBar: { height: 3, width: '100%' },
   inner: {
-    padding: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
     alignItems: 'center',
     backgroundColor: '#ffffff',
   },
-  innerActive: { backgroundColor: 'rgba(28, 16, 51, 0.018)' },
-  iconBox: { width: 42, height: 42, borderRadius: 13, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
+  innerActive: { backgroundColor: '#FAF7FF' },
+  iconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+    backgroundColor: '#F5F0FF',
+  },
   name: { fontFamily: Fonts.sansSemiBold, fontSize: 13, color: '#1C1033', textAlign: 'center' },
   nameActive: { fontFamily: Fonts.sansBold, color: '#1C1033' },
-  age: { fontFamily: Fonts.sansRegular, fontSize: 11, color: '#9CA3AF', marginTop: 2 },
-  activeDot: { width: 6, height: 6, borderRadius: 3, marginTop: 6 },
+  age: { fontFamily: Fonts.sansRegular, fontSize: 11, color: '#9ca3af', marginTop: 2 },
+  activeDot: { width: 5, height: 5, borderRadius: 3, marginTop: 6 },
 });
 
 // ─── MilestoneRow ──────────────────────────────────────────────────────────────

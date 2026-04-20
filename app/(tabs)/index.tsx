@@ -489,39 +489,32 @@ export default function HomeTab() {
           </TouchableOpacity>
         </View>
 
-        {/* HERO: Ask Maamitra AI bar */}
+        {/* HERO: Ask Maamitra AI bar — flat lilac card, brand-purple icon.
+            Previously a gradient-bordered card with a gradient icon tile;
+            simplified to match the rest of the refreshed UI. */}
         <TouchableOpacity
-          activeOpacity={0.9}
+          activeOpacity={0.85}
           style={styles.heroWrap}
           onPress={() => router.push('/(tabs)/chat')}
         >
-          <LinearGradient
-            colors={Gradients.primary}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.heroBorder}
-          >
-            <View style={styles.heroInner}>
-              <View style={styles.heroIcon}>
-                <LinearGradient colors={Gradients.avatar} style={styles.heroIconGrad}>
-                  <Ionicons name="sparkles" size={16} color="#fff" />
-                </LinearGradient>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.heroLabel}>Ask Maamitra</Text>
-                <Text style={styles.heroHint}>
-                  {activeKid?.isExpecting
-                    ? '"What should I eat in trimester 2?"'
-                    : activeKid
-                    ? `"Is ${activeKid.name} ready for solids?"`
-                    : '"What should I ask first?"'}
-                </Text>
-              </View>
-              <View style={styles.micBtn}>
-                <Ionicons name="mic" size={18} color={Colors.primary} />
-              </View>
+          <View style={styles.heroInner}>
+            <View style={styles.heroIconGrad}>
+              <Ionicons name="sparkles" size={16} color="#ffffff" />
             </View>
-          </LinearGradient>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.heroLabel}>Ask Maamitra</Text>
+              <Text style={styles.heroHint}>
+                {activeKid?.isExpecting
+                  ? '"What should I eat in trimester 2?"'
+                  : activeKid
+                  ? `"Is ${activeKid.name} ready for solids?"`
+                  : '"What should I ask first?"'}
+              </Text>
+            </View>
+            <View style={styles.micBtn}>
+              <Ionicons name="mic" size={18} color={Colors.primary} />
+            </View>
+          </View>
         </TouchableOpacity>
 
         {/* Quick actions — 2-column wrap, capped at 6 visible. Compact
@@ -1438,7 +1431,7 @@ function buildTodayCards({
         id: 'teeth',
         icon: 'alert-circle-outline',
         tint: Colors.error,
-        bg: '#FFF7ED',
+        bg: '#F5F0FF',
         value: 'Late tooth?',
         label: `${activeKid.name} · ${ageLabel}`,
         onPress: goTeeth,
@@ -1541,7 +1534,7 @@ function buildTodayCards({
         id: 'foods',
         icon: 'alert-circle-outline',
         tint: Colors.error,
-        bg: '#FFF7ED',
+        bg: '#F5F0FF',
         value: `Reaction: ${recentReaction.name.toLowerCase()}`,
         label: 'Tap to review',
         onPress: goFoods,
@@ -1591,7 +1584,7 @@ function buildTodayCards({
       id: 'continue-chat',
       icon: 'chatbubble-ellipses-outline',
       tint: Colors.primary,
-      bg: '#EDE9F6',
+      bg: '#F5F0FF',
       value: 'Continue',
       label: title,
       onPress: () => onContinueChat(t.id),
@@ -1632,7 +1625,7 @@ function buildTodayCards({
       id: 'scheme',
       icon: 'ribbon-outline',
       tint: Colors.textDark,
-      bg: '#F0FDF4',
+      bg: '#F5F0FF',
       value: candidateScheme.shortName,
       label: profileState ? `Scheme · ${profileState}` : 'A scheme for you',
       onPress: goSchemes,
@@ -1660,8 +1653,8 @@ function buildTodayCards({
       cards.push({
         id: 'yoga',
         icon: 'leaf-outline',
-        tint: '#047857',
-        bg: '#F0FDF4',
+        tint: Colors.primary,
+        bg: '#F5F0FF',
         value: pick.name.length > 20 ? pick.name.slice(0, 18) + '…' : pick.name,
         label: `${pick.duration} min · ${pick.level}`,
         onPress: goWellness,
@@ -1698,7 +1691,7 @@ function buildTodayCards({
         id: 'gentle',
         icon: 'heart-circle-outline',
         tint: Colors.primary,
-        bg: '#FFE7EF',
+        bg: '#F5F0FF',
         value: 'Take a breath',
         label: 'A gentle check-in',
         onPress: goWellness,
@@ -1970,31 +1963,32 @@ const styles = StyleSheet.create({
   heroWrap: {
     marginHorizontal: Spacing.xl,
     marginTop: Spacing.xl,
-    borderRadius: Radius.xl,
-    ...Shadow.md,
+    borderRadius: 14,
   },
-  heroBorder: { padding: 1.5, borderRadius: Radius.xl },
   heroInner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: Radius.xl - 1.5,
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
     paddingVertical: 14,
     paddingHorizontal: 14,
     gap: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
-  heroIcon: { width: 32, height: 32 },
   heroIconGrad: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: Colors.primary,
   },
   heroLabel: {
-    fontFamily: Fonts.sansSemiBold,
+    fontFamily: Fonts.sansBold,
     fontSize: FontSize.md,
     color: Colors.textDark,
+    letterSpacing: 0.1,
   },
   heroHint: {
     fontFamily: Fonts.sansRegular,
@@ -2006,7 +2000,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: Colors.bgPink,
+    backgroundColor: Colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2033,10 +2027,12 @@ const styles = StyleSheet.create({
   },
   todayCard: {
     width: '100%',
-    minHeight: 76,
-    borderRadius: Radius.md,
+    minHeight: 78,
+    borderRadius: 12,
     padding: Spacing.md,
     gap: 3,
+    borderWidth: 1,
+    borderColor: Colors.borderSoft,
   },
   todayVal: {
     fontFamily: Fonts.sansBold,
