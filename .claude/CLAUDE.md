@@ -47,5 +47,5 @@ Do not stop partway. If Firestore/Storage rules changed, deploy those too.
 Tell the user each link in the chain is done.
 
 ## 4. Live demo URL
-Production: https://maa-mitra-7kird8.web.app
+Production: https://maamitra.co.in (fallback: https://maa-mitra-7kird8.web.app)
 Test in that URL after every deploy when possible.

@@ -9,7 +9,7 @@ import { Platform, Share } from 'react-native';
  * The base URL comes from the browser's origin on web; on native we fall
  * back to the hosted URL. Keep this in sync with Firebase Hosting.
  */
-const FALLBACK_BASE = 'https://maa-mitra-7kird8.web.app';
+const FALLBACK_BASE = 'https://maamitra.co.in';
 
 function baseUrl(): string {
   if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location) {

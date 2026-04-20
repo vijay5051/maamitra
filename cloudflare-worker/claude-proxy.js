@@ -37,6 +37,8 @@ const MAX_TOKENS    = 2048;
 const TEMPERATURE   = 0.6;
 
 const ALLOWED_ORIGINS = [
+  'https://maamitra.co.in',
+  'https://www.maamitra.co.in',
   'https://maa-mitra-7kird8.web.app',
   'https://maa-mitra-7kird8.firebaseapp.com',
   'http://localhost:8081',
