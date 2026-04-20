@@ -22,7 +22,7 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   const { initAuth, user } = useAuthStore();
   const { fetchSettings } = useAppSettingsStore();
-  const { markInstalledIfNeeded, shouldAutoPrompt, manualOpen, closeSurvey } = useFeedbackStore();
+  const { markInstalledIfNeeded, manualOpen, closeSurvey } = useFeedbackStore();
   const pathname = usePathname();
   const [autoSurveyVisible, setAutoSurveyVisible] = useState(false);
   const surveyVisible = autoSurveyVisible || manualOpen;
@@ -49,12 +49,33 @@ export default function RootLayout() {
   // rules in useFeedbackStore have cleared, and they're NOT in the middle of
   // auth / onboarding (those routes live under /(auth)/* — we skip them so
   // the modal doesn't slam a brand-new signup).
+  //
+  // The persist layer hydrates asynchronously, so we must wait for it before
+  // reading submittedAt / dismissedAt. Without this gate the survey re-fires
+  // on next sign-in after a successful submit, because the effect reads the
+  // default (null) state before hydration lands.
   useEffect(() => {
     if (!user) return;
     if (pathname && pathname.startsWith('/(auth)')) return;
-    if (!shouldAutoPrompt(user.email)) return;
-    const t = setTimeout(() => setAutoSurveyVisible(true), 1500);
-    return () => clearTimeout(t);
+
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const trigger = () => {
+      if (!useFeedbackStore.getState().shouldAutoPrompt(user.email)) return;
+      timer = setTimeout(() => setAutoSurveyVisible(true), 1500);
+    };
+
+    if (useFeedbackStore.persist.hasHydrated()) {
+      trigger();
+    } else {
+      const unsub = useFeedbackStore.persist.onFinishHydration(() => trigger());
+      return () => {
+        unsub();
+        if (timer) clearTimeout(timer);
+      };
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
   }, [user, pathname]);
 
   // Hide native splash as soon as fonts are ready OR if there was an error
