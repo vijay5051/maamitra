@@ -21,6 +21,7 @@ import GradientAvatar from '../ui/GradientAvatar';
 import TagPill from '../ui/TagPill';
 import { Post } from '../../store/useCommunityStore';
 import { useSocialStore } from '../../store/useSocialStore';
+import { Colors } from '../../constants/theme';
 
 interface PostCardProps {
   post: Post;                                             // Post from useCommunityStore — now has authorUid field
@@ -221,7 +222,7 @@ export default function PostCard({
         </View>
         <View style={styles.postHeaderRight}>
           {post.topic ? (
-            <TagPill label={post.topic} color="#7C3AED" />
+            <TagPill label={post.topic} color={Colors.primary} />
           ) : null}
           {/* 3-dot menu — own posts only */}
           {isOwnPost && (onDeletePost || onEditPost) && (
@@ -322,7 +323,7 @@ export default function PostCard({
             style={styles.reactorsLink}
             activeOpacity={0.7}
           >
-            <Ionicons name="people-outline" size={14} color="#7C3AED" />
+            <Ionicons name="people-outline" size={14} color={Colors.primary} />
             <Text style={styles.reactorsLinkText}>See who reacted</Text>
           </TouchableOpacity>
         )}
@@ -422,7 +423,7 @@ export default function PostCard({
               <Ionicons
                 name="send"
                 size={18}
-                color={commentText.trim() ? '#7C3AED' : '#e5e7eb'}
+                color={commentText.trim() ? Colors.primary : '#e5e7eb'}
               />
             </TouchableOpacity>
           </View>
@@ -438,7 +439,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
-    shadowColor: '#7C3AED',
+    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.07,
     shadowRadius: 8,
@@ -470,7 +471,7 @@ const styles = StyleSheet.create({
   },
   quickFollowText: {
     fontSize: 12,
-    color: '#7C3AED',
+    color: Colors.primary,
     fontWeight: '600',
   },
   authorMeta: {
@@ -595,7 +596,7 @@ const styles = StyleSheet.create({
   },
   reactionPillActive: {
     borderWidth: 1,
-    borderColor: '#7C3AED',
+    borderColor: Colors.primary,
     backgroundColor: 'rgba(28, 16, 51, 0.048)',
   },
   reactionEmoji: {
@@ -607,7 +608,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   reactionCountActive: {
-    color: '#7C3AED',
+    color: Colors.primary,
   },
   addReactionBtn: {
     width: 28,
@@ -646,7 +647,7 @@ const styles = StyleSheet.create({
   },
   reactorsLinkText: {
     fontSize: 12,
-    color: '#7C3AED',
+    color: Colors.primary,
     fontWeight: '500',
   },
   reactionPicker: {

@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import GradientButton from '../ui/GradientButton';
 import { YogaSession, YogaPose } from '../../data/yogaSessions';
+import { Colors } from '../../constants/theme';
 
 interface YogaModalProps {
   session: YogaSession | null;
@@ -315,7 +316,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.25)',
   },
   dotActive: {
-    backgroundColor: '#7C3AED',
+    backgroundColor: Colors.primary,
     width: 20,
     borderRadius: 4,
   },
@@ -334,7 +335,7 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: 2,
-    backgroundColor: '#7C3AED',
+    backgroundColor: Colors.primary,
     borderRadius: 1,
   },
 
@@ -401,7 +402,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   timer: {
-    color: '#7C3AED',
+    color: Colors.primary,
     fontSize: 52,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],

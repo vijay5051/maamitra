@@ -32,6 +32,7 @@ import TypingIndicator from '../../components/ui/TypingIndicator';
 import GradientAvatar from '../../components/ui/GradientAvatar';
 import SettingsModal from '../../components/ui/SettingsModal';
 import { Fonts } from '../../constants/theme';
+import { Colors } from '../../constants/theme';
 
 // ─── Allergy Modal ─────────────────────────────────────────────────────────────
 
@@ -96,7 +97,7 @@ function AllergyModal({
             activeOpacity={0.85}
           >
             <LinearGradient
-              colors={['#7C3AED', '#7C3AED']}
+              colors={[Colors.primary, Colors.primary]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={allergyStyles.doneBtnGrad}
@@ -136,9 +137,9 @@ const allergyStyles = StyleSheet.create({
     paddingHorizontal: 14,
     backgroundColor: '#ffffff',
   },
-  chipSelected: { borderColor: '#7C3AED', backgroundColor: 'rgba(28, 16, 51, 0.048)' },
+  chipSelected: { borderColor: Colors.primary, backgroundColor: 'rgba(28, 16, 51, 0.048)' },
   chipText: { fontFamily: Fonts.sansMedium, fontSize: 14, color: '#9CA3AF' },
-  chipTextSelected: { color: '#7C3AED', fontFamily: Fonts.sansBold },
+  chipTextSelected: { color: Colors.primary, fontFamily: Fonts.sansBold },
   doneBtn: { borderRadius: 18, overflow: 'hidden' },
   doneBtnGrad: { paddingVertical: 16, alignItems: 'center' },
   doneBtnText: { fontFamily: Fonts.sansBold, color: '#ffffff', fontSize: 16 },
@@ -500,7 +501,7 @@ export default function ChatScreen() {
               <Ionicons
                 name="bulb-outline"
                 size={18}
-                color={showSuggestions ? '#7C3AED' : '#A78BCA'}
+                color={showSuggestions ? Colors.primary : '#A78BCA'}
               />
             </TouchableOpacity>
           )}

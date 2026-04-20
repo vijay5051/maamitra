@@ -52,7 +52,7 @@ function MessageBubble({
         ) : null}
         {hasText ? (
           <LinearGradient
-            colors={['#7C3AED', '#7C3AED']}
+            colors={[Colors.primary, Colors.primary]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={[bubbleStyles.myBubble, imageUrl ? { marginTop: 6 } : null]}
@@ -94,7 +94,7 @@ const bubbleStyles = StyleSheet.create({
   myText: { fontFamily: Fonts.sansRegular, fontSize: 15, color: '#ffffff', lineHeight: 21 },
   myTime: { fontFamily: Fonts.sansRegular, fontSize: 10, color: 'rgba(255,255,255,0.6)', marginTop: 4, alignSelf: 'flex-end' },
   otherRow: { alignSelf: 'flex-start', maxWidth: '78%', marginVertical: 3, marginLeft: 12 },
-  otherBubble: { backgroundColor: '#ffffff', borderRadius: 18, borderBottomLeftRadius: 4, paddingVertical: 10, paddingHorizontal: 14, shadowColor: '#7C3AED', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 1 },
+  otherBubble: { backgroundColor: '#ffffff', borderRadius: 18, borderBottomLeftRadius: 4, paddingVertical: 10, paddingHorizontal: 14, shadowColor: Colors.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 1 },
   otherText: { fontFamily: Fonts.sansRegular, fontSize: 15, color: '#1C1033', lineHeight: 21 },
   otherTime: { fontFamily: Fonts.sansRegular, fontSize: 10, color: '#9ca3af', marginTop: 4, alignSelf: 'flex-end' },
   attachedImage: {
@@ -309,7 +309,7 @@ export default function ConversationScreen() {
       >
         {isLoadingMessages ? (
           <View style={styles.centered}>
-            <ActivityIndicator size="large" color="#7C3AED" />
+            <ActivityIndicator size="large" color={Colors.primary} />
           </View>
         ) : activeMessages.length === 0 ? (
           <View style={styles.centered}>
@@ -384,7 +384,7 @@ export default function ConversationScreen() {
             <Ionicons
               name={uploading ? 'hourglass-outline' : 'image-outline'}
               size={20}
-              color={uploading ? '#9ca3af' : '#7C3AED'}
+              color={uploading ? '#9ca3af' : Colors.primary}
             />
           </TouchableOpacity>
           <TextInput
@@ -404,7 +404,7 @@ export default function ConversationScreen() {
             style={[styles.sendBtn, ((!text.trim() && !attachment) || isSending || uploading) && { opacity: 0.4 }]}
           >
             <LinearGradient
-              colors={['#7C3AED', '#7C3AED']}
+              colors={[Colors.primary, Colors.primary]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.sendBtnGrad}

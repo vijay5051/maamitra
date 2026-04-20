@@ -13,6 +13,7 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 import { Fonts } from '../../constants/theme';
+import { Colors } from '../../constants/theme';
 
 // ─── Animated Splash ─────────────────────────────────────────────────────────
 // Shown on every app launch. No video, no Lottie file — pure Reanimated.
@@ -106,7 +107,7 @@ export default function AnimatedSplash({ onDone }: Props) {
       {/* Background: dark plum → rose gradient, fades in */}
       <Animated.View style={[StyleSheet.absoluteFill, bgStyle]}>
         <LinearGradient
-          colors={['#1C1033', '#3b1060', '#6d1a7a', '#7C3AED']}
+          colors={['#1C1033', '#3b1060', '#6d1a7a', Colors.primary]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
@@ -194,7 +195,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     // Subtle outer glow behind the logo
-    shadowColor: '#7C3AED',
+    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.7,
     shadowRadius: 40,

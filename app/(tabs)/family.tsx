@@ -29,6 +29,7 @@ import ContextualAskChip from '../../components/ui/ContextualAskChip';
 import { useSocialStore } from '../../store/useSocialStore';
 import { useDMStore } from '../../store/useDMStore';
 import { Fonts } from '../../constants/theme';
+import { Colors } from '../../constants/theme';
 
 // ─── ChildCard ─────────────────────────────────────────────────────────────────
 
@@ -59,7 +60,7 @@ function ChildCard({
   // Single brand accent for every child card — previously rotated through
   // three gender-coded gradients which read as rainbow noise next to the
   // rest of the refreshed UI.
-  const accent = '#7C3AED';
+  const accent = Colors.primary;
 
   return (
     <TouchableOpacity
@@ -108,7 +109,7 @@ const childCardStyles = StyleSheet.create({
     backgroundColor: '#ffffff',
   } as any,
   cardActive: {
-    borderColor: '#7C3AED',
+    borderColor: Colors.primary,
     borderWidth: 1.5,
   },
   inner: {
@@ -147,7 +148,7 @@ function MilestoneRow({
       <View style={milestoneStyles.dotCol}>
         {reached ? (
           <LinearGradient
-            colors={['#7C3AED', '#7C3AED']}
+            colors={[Colors.primary, Colors.primary]}
             style={milestoneStyles.dotReached}
           />
         ) : (
@@ -158,7 +159,7 @@ function MilestoneRow({
       <View style={milestoneStyles.info}>
         <View style={milestoneStyles.titleRow}>
           <View style={milestoneStyles.iconBox}>
-            <Ionicons name="star" size={12} color="#7C3AED" />
+            <Ionicons name="star" size={12} color={Colors.primary} />
           </View>
           <Text style={milestoneStyles.title}>{milestone.title}</Text>
           {reached && (
@@ -182,7 +183,7 @@ const milestoneStyles = StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
   iconBox: { width: 22, height: 22, borderRadius: 6, backgroundColor: 'rgba(28, 16, 51, 0.06)', alignItems: 'center', justifyContent: 'center', marginRight: 6 },
   title: { fontFamily: Fonts.sansBold, fontSize: 14, color: '#1C1033' },
-  ageLabel: { fontFamily: Fonts.sansSemiBold, fontSize: 11, color: '#7C3AED', marginBottom: 4 },
+  ageLabel: { fontFamily: Fonts.sansSemiBold, fontSize: 11, color: Colors.primary, marginBottom: 4 },
   desc: { fontFamily: Fonts.sansRegular, fontSize: 13, color: '#9CA3AF', lineHeight: 18 },
 });
 
@@ -367,9 +368,9 @@ const addChildStyles = StyleSheet.create({
     borderColor: '#EDE9F6',
     backgroundColor: '#ffffff',
   },
-  stageBtnActive: { borderColor: '#7C3AED', backgroundColor: 'rgba(28, 16, 51, 0.036)' },
+  stageBtnActive: { borderColor: Colors.primary, backgroundColor: 'rgba(28, 16, 51, 0.036)' },
   stageBtnText: { fontFamily: Fonts.sansMedium, fontSize: 14, color: '#9CA3AF' },
-  stageBtnTextActive: { color: '#7C3AED', fontFamily: Fonts.sansBold },
+  stageBtnTextActive: { color: Colors.primary, fontFamily: Fonts.sansBold },
   errorText: { fontFamily: Fonts.sansRegular, color: '#ef4444', fontSize: 12, marginTop: 8 },
 });
 
@@ -571,7 +572,7 @@ export default function FamilyScreen() {
         {kids.length === 0 ? (
           <Card style={styles.emptyCard} shadow="sm">
             <View style={styles.emptyIconBox}>
-              <Ionicons name="happy-outline" size={30} color="#7C3AED" />
+              <Ionicons name="happy-outline" size={30} color={Colors.primary} />
             </View>
             <Text style={styles.emptyText}>
               Add your child to get personalised milestones, vaccine schedules, and more!
@@ -604,7 +605,7 @@ export default function FamilyScreen() {
               activeOpacity={0.75}
             >
               <View style={styles.addKidInner}>
-                <Ionicons name="add" size={26} color="#7C3AED" />
+                <Ionicons name="add" size={26} color={Colors.primary} />
                 <Text style={styles.addKidText}>Add</Text>
               </View>
             </TouchableOpacity>
@@ -625,7 +626,7 @@ export default function FamilyScreen() {
             {/* Progress bar */}
             <View style={styles.milestoneProgressBg}>
               <LinearGradient
-                colors={['#7C3AED', '#7C3AED']}
+                colors={[Colors.primary, Colors.primary]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={[styles.milestoneProgressFill, { width: `${milestoneProgress * 100}%` }]}
@@ -687,7 +688,7 @@ export default function FamilyScreen() {
 
               {/* Current week highlight */}
               <View style={{ backgroundColor: 'rgba(28, 16, 51, 0.048)', borderRadius: 12, padding: 12, marginBottom: 16, borderWidth: 1, borderColor: 'rgba(28, 16, 51, 0.09)' }}>
-                <Text style={{ fontFamily: Fonts.sansBold, fontSize: 13, color: '#7C3AED', marginBottom: 2 }}>
+                <Text style={{ fontFamily: Fonts.sansBold, fontSize: 13, color: Colors.primary, marginBottom: 2 }}>
                   📍 You are at Week {currentWeek}
                 </Text>
                 <Text style={{ fontFamily: Fonts.sansRegular, fontSize: 12, color: '#6B7280' }}>
@@ -708,12 +709,12 @@ export default function FamilyScreen() {
                         width: isCurrent ? 28 : 20,
                         height: isCurrent ? 28 : 20,
                         borderRadius: 14,
-                        backgroundColor: isPast ? '#34D399' : isCurrent ? '#7C3AED' : '#EDE9F6',
+                        backgroundColor: isPast ? '#34D399' : isCurrent ? Colors.primary : '#EDE9F6',
                         alignItems: 'center',
                         justifyContent: 'center',
                         borderWidth: isCurrent ? 2 : 0,
                         borderColor: isCurrent ? '#fff' : 'transparent',
-                        shadowColor: isCurrent ? '#7C3AED' : 'transparent',
+                        shadowColor: isCurrent ? Colors.primary : 'transparent',
                         shadowOpacity: 0.4,
                         shadowRadius: 6,
                         shadowOffset: { width: 0, height: 2 },
@@ -737,7 +738,7 @@ export default function FamilyScreen() {
                           Wk {m.week}
                         </Text>
                         {isCurrent && (
-                          <View style={{ backgroundColor: '#7C3AED', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+                          <View style={{ backgroundColor: Colors.primary, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
                             <Text style={{ fontFamily: Fonts.sansBold, fontSize: 9, color: '#fff' }}>NOW</Text>
                           </View>
                         )}
@@ -818,7 +819,7 @@ const styles = StyleSheet.create({
     minWidth: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: '#7C3AED',
+    backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 4,
@@ -850,7 +851,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(28, 16, 51, 0.12)',
   },
-  progressBadgeText: { fontFamily: Fonts.sansBold, fontSize: 11, color: '#7C3AED' },
+  progressBadgeText: { fontFamily: Fonts.sansBold, fontSize: 11, color: Colors.primary },
   milestoneProgressBg: {
     height: 4, backgroundColor: '#EDE9F6', borderRadius: 2, marginBottom: 12, overflow: 'hidden',
   },
@@ -872,7 +873,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(28, 16, 51, 0.018)',
     gap: 4,
   },
-  addKidText: { fontFamily: Fonts.sansSemiBold, color: '#7C3AED', fontSize: 12 },
+  addKidText: { fontFamily: Fonts.sansSemiBold, color: Colors.primary, fontSize: 12 },
 
   // ── Empty / expecting ──
   emptyCard: { alignItems: 'center', paddingVertical: 32, marginBottom: 20 },

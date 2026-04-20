@@ -24,6 +24,7 @@ import {
 } from '../../services/firebase';
 import GradientButton from '../../components/ui/GradientButton';
 import { Fonts } from '../../constants/theme';
+import { Colors } from '../../constants/theme';
 
 // Indian mobile numbers: 10 digits starting with 6-9.
 function validateIndianMobile(digits: string): string | null {
@@ -167,7 +168,7 @@ export default function PhoneScreen() {
             <Ionicons
               name={isEnterNumber ? 'phone-portrait-outline' : 'chatbubble-ellipses-outline'}
               size={24}
-              color="#7C3AED"
+              color={Colors.primary}
             />
           </View>
 
@@ -390,7 +391,7 @@ const styles = StyleSheet.create({
   resendText: {
     fontFamily: Fonts.sansMedium,
     fontSize: 14,
-    color: '#7C3AED',
+    color: Colors.primary,
   },
   privacyHint: {
     fontFamily: Fonts.sansRegular,

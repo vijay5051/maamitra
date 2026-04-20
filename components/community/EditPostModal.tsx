@@ -12,6 +12,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Fonts } from '../../constants/theme';
+import { Colors } from '../../constants/theme';
 
 const TOPICS = ['Newborn', 'Pregnancy', 'Nutrition', 'Mental Health', 'Milestones', 'Products', 'General'];
 
@@ -106,7 +107,7 @@ export default function EditPostModal({
             activeOpacity={0.85}
           >
             <LinearGradient
-              colors={['#7C3AED', '#7C3AED']}
+              colors={[Colors.primary, Colors.primary]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.saveBtnGrad}
@@ -151,9 +152,9 @@ const styles = StyleSheet.create({
     marginRight: 6,
     backgroundColor: '#ffffff',
   },
-  topicChipActive: { borderColor: '#7C3AED', backgroundColor: 'rgba(124,58,237,0.06)' },
+  topicChipActive: { borderColor: Colors.primary, backgroundColor: 'rgba(124,58,237,0.06)' },
   topicChipText: { fontFamily: Fonts.sansMedium, fontSize: 13, color: '#9CA3AF' },
-  topicChipTextActive: { fontFamily: Fonts.sansBold, color: '#7C3AED' },
+  topicChipTextActive: { fontFamily: Fonts.sansBold, color: Colors.primary },
   textArea: {
     backgroundColor: '#ffffff',
     borderRadius: 14,

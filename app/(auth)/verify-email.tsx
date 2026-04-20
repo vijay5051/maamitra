@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { sendVerificationEmail, checkEmailVerified } from '../../services/firebase';
 import GradientButton from '../../components/ui/GradientButton';
 import { Fonts } from '../../constants/theme';
+import { Colors } from '../../constants/theme';
 
 const RESEND_COOLDOWN = 60; // seconds
 
@@ -66,7 +67,7 @@ export default function VerifyEmailScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 24 }]}>
       <View style={styles.iconCircle}>
-        <Ionicons name="mail-outline" size={28} color="#7C3AED" />
+        <Ionicons name="mail-outline" size={28} color={Colors.primary} />
       </View>
 
       <Text style={styles.title}>Check your email</Text>
@@ -192,7 +193,7 @@ const styles = StyleSheet.create({
   stepNumText: {
     fontFamily: Fonts.sansBold,
     fontSize: 12,
-    color: '#7C3AED',
+    color: Colors.primary,
   },
   stepText: {
     flex: 1,
@@ -232,7 +233,7 @@ const styles = StyleSheet.create({
   resendText: {
     fontFamily: Fonts.sansBold,
     fontSize: 14,
-    color: '#7C3AED',
+    color: Colors.primary,
     textAlign: 'center',
   },
   resendTextDisabled: {
@@ -250,6 +251,6 @@ const styles = StyleSheet.create({
   },
   signInTextBold: {
     fontFamily: Fonts.sansBold,
-    color: '#7C3AED',
+    color: Colors.primary,
   },
 });

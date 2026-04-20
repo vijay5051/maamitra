@@ -9,6 +9,7 @@ import {
 import { useActiveKid } from '../../hooks/useActiveKid';
 import { useProfileStore, calculateAgeInMonths } from '../../store/useProfileStore';
 import { Fonts } from '../../constants/theme';
+import { Colors } from '../../constants/theme';
 
 interface QuickChipsProps {
   onSelect: (text: string) => void;
@@ -205,7 +206,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingVertical: 7,
     paddingHorizontal: 14,
-    shadowColor: '#7C3AED',
+    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.07,
     shadowRadius: 6,
@@ -213,7 +214,7 @@ const styles = StyleSheet.create({
     boxShadow: '0px 2px 6px rgba(28, 16, 51, 0.042)',
   },
   chipText: {
-    color: '#7C3AED',
+    color: Colors.primary,
     fontFamily: Fonts.sansMedium,
     fontSize: 13,
   },

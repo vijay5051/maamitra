@@ -34,6 +34,7 @@ import DatePickerField from './DatePickerField';
 import StateSelectorComponent from '../onboarding/StateSelector';
 import { Fonts, ACCENT_PRESETS } from '../../constants/theme';
 import { useThemeStore, reloadForThemeChange } from '../../store/useThemeStore';
+import { Colors } from '../../constants/theme';
 
 type ViewMode = 'main' | 'edit-profile' | 'edit-kid' | 'change-phone';
 
@@ -78,7 +79,7 @@ function SettingsRow({
       disabled={!onPress}
     >
       <View style={[s.rowIcon, danger && s.rowIconDanger]}>
-        <Ionicons name={icon as any} size={18} color={danger ? '#ef4444' : '#7C3AED'} />
+        <Ionicons name={icon as any} size={18} color={danger ? '#ef4444' : Colors.primary} />
       </View>
       <View style={s.rowContent}>
         <Text style={[s.rowLabel, danger && s.rowLabelDanger]}>{label}</Text>
@@ -497,7 +498,7 @@ function EditProfileView({ onBack }: { onBack: () => void }) {
         onPress={() => setShowStatePicker(true)}
         activeOpacity={0.75}
       >
-        <Ionicons name="location-outline" size={18} color="#7C3AED" style={{ marginRight: 8 }} />
+        <Ionicons name="location-outline" size={18} color={Colors.primary} style={{ marginRight: 8 }} />
         <Text style={[s.statePickerText, !state && s.statePickerPlaceholder]}>
           {state || 'Select your state'}
         </Text>
@@ -533,7 +534,7 @@ function EditProfileView({ onBack }: { onBack: () => void }) {
       <MultiChipSelect options={expertiseOptions} selected={expertiseTags} onToggle={toggleExpertise} />
 
       <TouchableOpacity style={s.saveBtn} onPress={handleSave} activeOpacity={0.85}>
-        <LinearGradient colors={['#7C3AED', '#7C3AED']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.saveBtnGrad}>
+        <LinearGradient colors={[Colors.primary, Colors.primary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.saveBtnGrad}>
           <Text style={s.saveBtnText}>{saving ? 'Saving…' : 'Save Changes'}</Text>
         </LinearGradient>
       </TouchableOpacity>
@@ -625,7 +626,7 @@ function EditKidView({ kid, onBack, onRemove }: { kid: Kid; onBack: () => void; 
       />
 
       <TouchableOpacity style={s.saveBtn} onPress={handleSave} activeOpacity={0.85}>
-        <LinearGradient colors={['#7C3AED', '#7C3AED']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.saveBtnGrad}>
+        <LinearGradient colors={[Colors.primary, Colors.primary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.saveBtnGrad}>
           <Text style={s.saveBtnText}>{saving ? 'Saving…' : 'Save Changes'}</Text>
         </LinearGradient>
       </TouchableOpacity>
@@ -836,7 +837,7 @@ function ChangePhoneView({
             style={{ marginTop: 20 }}
           >
             <LinearGradient
-              colors={['#7C3AED', '#7C3AED']}
+              colors={[Colors.primary, Colors.primary]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={[
@@ -1230,7 +1231,7 @@ export default function SettingsModal({
                 style={s.identityEditBtn}
                 accessibilityLabel="Edit profile"
               >
-                <Ionicons name="create-outline" size={16} color="#7C3AED" />
+                <Ionicons name="create-outline" size={16} color={Colors.primary} />
                 <Text style={s.identityEditText}>Edit</Text>
               </TouchableOpacity>
             </View>
@@ -1456,7 +1457,7 @@ export default function SettingsModal({
         <View style={s.confirmOverlay}>
           <View style={s.confirmSheet}>
             <View style={s.confirmIconWrap}>
-              <LinearGradient colors={['#7C3AED', '#7C3AED']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.confirmIconCircle}>
+              <LinearGradient colors={[Colors.primary, Colors.primary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.confirmIconCircle}>
                 <Ionicons name="log-out-outline" size={26} color="#ffffff" />
               </LinearGradient>
             </View>
@@ -1466,7 +1467,7 @@ export default function SettingsModal({
               <TouchableOpacity style={s.confirmCancel} onPress={() => setShowSignOutConfirm(false)} activeOpacity={0.8}>
                 <Text style={s.confirmCancelText}>Cancel</Text>
               </TouchableOpacity>
-              <LinearGradient colors={['#7C3AED', '#7C3AED']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.confirmSignOutBtn}>
+              <LinearGradient colors={[Colors.primary, Colors.primary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.confirmSignOutBtn}>
                 <TouchableOpacity style={s.confirmSignOutInner} onPress={handleSignOut} activeOpacity={0.85}>
                   <Text style={s.confirmSignOutText}>Sign Out</Text>
                 </TouchableOpacity>
@@ -1528,7 +1529,7 @@ const s = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: '#7C3AED',
+    backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1566,7 +1567,7 @@ const s = StyleSheet.create({
   identityEditText: {
     fontSize: 12,
     fontFamily: Fonts.sansBold,
-    color: '#7C3AED',
+    color: Colors.primary,
   },
   // Legacy aliases kept so no stale reference breaks at runtime if some
   // other file imports them — safe to remove once confirmed unused.
@@ -1584,7 +1585,7 @@ const s = StyleSheet.create({
   signOutQuickText: {
     fontSize: 12,
     fontFamily: Fonts.sansBold,
-    color: '#7C3AED',
+    color: Colors.primary,
   },
 
   // Section header wrapper — title + optional helper subtitle under it.
@@ -1751,11 +1752,11 @@ const s = StyleSheet.create({
     backgroundColor: '#f9fafb',
   },
   chipActive: {
-    borderColor: '#7C3AED',
+    borderColor: Colors.primary,
     backgroundColor: 'rgba(28, 16, 51, 0.048)',
   },
   chipText: { fontSize: 13, color: '#6b7280', fontWeight: '500' },
-  chipTextActive: { color: '#7C3AED', fontWeight: '700' },
+  chipTextActive: { color: Colors.primary, fontWeight: '700' },
 
   saveBtn: {
     borderRadius: 14,
@@ -1859,7 +1860,7 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#7C3AED',
+    backgroundColor: Colors.primary,
     borderRadius: 12,
     paddingVertical: 10,
     paddingHorizontal: 14,
@@ -1891,7 +1892,7 @@ const s = StyleSheet.create({
     backgroundColor: '#e5e7eb',
     padding: 3,
   },
-  toggleTrackOn: { backgroundColor: '#7C3AED' },
+  toggleTrackOn: { backgroundColor: Colors.primary },
   toggleThumb: {
     width: 20,
     height: 20,

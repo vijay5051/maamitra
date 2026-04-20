@@ -8,6 +8,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import GradientAvatar from '../ui/GradientAvatar';
 import { Kid } from '../../store/useProfileStore';
+import { Colors } from '../../constants/theme';
 
 interface ChildCardProps {
   kid: Kid;
@@ -94,7 +95,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 1.5,
     borderColor: 'transparent',
-    shadowColor: '#7C3AED',
+    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
@@ -102,7 +103,7 @@ const styles = StyleSheet.create({
     boxShadow: '0px 2px 8px rgba(28, 16, 51, 0.048)',
   },
   activeCard: {
-    borderColor: '#7C3AED',
+    borderColor: Colors.primary,
   },
   activeBadge: {
     position: 'absolute',
@@ -152,7 +153,7 @@ const styles = StyleSheet.create({
   },
   ageLabel: {
     fontSize: 13,
-    color: '#7C3AED',
+    color: Colors.primary,
     fontWeight: '500',
     marginTop: 3,
   },

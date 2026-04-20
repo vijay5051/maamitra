@@ -23,6 +23,7 @@ import { fetchUrlMeta, PageMeta } from '../../services/metaFetch';
 import { useBookStore, DynamicBook } from '../../store/useBookStore';
 import { useArticleStore, DynamicArticle } from '../../store/useArticleStore';
 import { useProductStore, DynamicProduct } from '../../store/useProductStore';
+import { Colors } from '../../constants/theme';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -60,7 +61,7 @@ function CoverImg({ uri, title, size = 64 }: { uri?: string; title: string; size
     return <Image source={{ uri }} style={{ width: size, height: size * 1.3, borderRadius: 8 }} resizeMode="cover" onError={() => setErr(true)} />;
   }
   return (
-    <LinearGradient colors={['#7C3AED', '#7C3AED']} style={{ width: size, height: size * 1.3, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }}>
+    <LinearGradient colors={[Colors.primary, Colors.primary]} style={{ width: size, height: size * 1.3, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }}>
       <Text style={{ fontSize: size * 0.4, color: '#fff', fontWeight: '800' }}>{title.charAt(0)}</Text>
     </LinearGradient>
   );
@@ -122,8 +123,8 @@ function ErrorBox({ msg, onManual }: { msg: string; onManual?: () => void }) {
         <Text style={s.errorText}>{msg}</Text>
         {onManual && (
           <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }} onPress={onManual}>
-            <Ionicons name="create-outline" size={13} color="#7C3AED" />
-            <Text style={{ fontSize: 12, color: '#7C3AED', fontWeight: '700' }}>Enter details manually →</Text>
+            <Ionicons name="create-outline" size={13} color={Colors.primary} />
+            <Text style={{ fontSize: 12, color: Colors.primary, fontWeight: '700' }}>Enter details manually →</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -265,7 +266,7 @@ function BooksSection() {
                         <Text style={s.resultMeta}>{b.author}</Text>
                         {b.rating > 0 && <Text style={s.resultRating}>⭐ {b.rating.toFixed(1)}</Text>}
                       </View>
-                      <Ionicons name="add-circle" size={22} color="#7C3AED" />
+                      <Ionicons name="add-circle" size={22} color={Colors.primary} />
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
@@ -611,7 +612,7 @@ export default function AdminPanel({ visible, onClose }: AdminPanelProps) {
       <View style={s.modal}>
         {/* Header */}
         <View style={s.header}>
-          <LinearGradient colors={['#7C3AED', '#7C3AED']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
+          <LinearGradient colors={[Colors.primary, Colors.primary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
           <View style={s.headerRow}>
             <View>
               <Text style={s.headerTitle}>⚙️ Library Admin</Text>
@@ -659,24 +660,24 @@ const s = StyleSheet.create({
 
   typeTabs: { flexDirection: 'row', backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F5F0FF' },
   typeTab: { flex: 1, alignItems: 'center', paddingVertical: 10, gap: 2 },
-  typeTabActive: { borderBottomWidth: 2, borderBottomColor: '#7C3AED' },
+  typeTabActive: { borderBottomWidth: 2, borderBottomColor: Colors.primary },
   typeTabIcon: { fontSize: 20 },
   typeTabLabel: { fontSize: 11, color: '#9ca3af', fontWeight: '600' },
-  typeTabLabelActive: { color: '#7C3AED' },
+  typeTabLabelActive: { color: Colors.primary },
 
   sectionWrap: { flex: 1, flexDirection: 'column' },
 
   subTabs: { flexDirection: 'row', backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F5F0FF' },
   subTab: { flex: 1, paddingVertical: 12, alignItems: 'center' },
-  subTabActive: { borderBottomWidth: 2, borderBottomColor: '#7C3AED' },
+  subTabActive: { borderBottomWidth: 2, borderBottomColor: Colors.primary },
   subTabText: { fontSize: 13, fontWeight: '600', color: '#9ca3af' },
-  subTabTextActive: { color: '#7C3AED' },
+  subTabTextActive: { color: Colors.primary },
 
   searchBox: { padding: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F5F0FF' },
   searchLabel: { fontSize: 12, color: '#6b7280', marginBottom: 8 },
   searchRow: { flexDirection: 'row', gap: 10 },
   searchInput: { flex: 1, height: 44, backgroundColor: '#f9fafb', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, paddingHorizontal: 12, fontSize: 14, color: '#1a1a2e' },
-  searchBtn: { width: 44, height: 44, borderRadius: 10, backgroundColor: '#7C3AED', alignItems: 'center', justifyContent: 'center' },
+  searchBtn: { width: 44, height: 44, borderRadius: 10, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
   searchBtnDim: { backgroundColor: '#f3a8d0' },
 
   errorBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, margin: 16, padding: 12, backgroundColor: '#fef2f2', borderRadius: 10 },
@@ -707,13 +708,13 @@ const s = StyleSheet.create({
   textArea: { height: 76, paddingTop: 10, textAlignVertical: 'top' },
   twoCol: { flexDirection: 'row' },
   chip: { borderRadius: 20, paddingVertical: 6, paddingHorizontal: 12, backgroundColor: '#f9fafb', borderWidth: 1, borderColor: '#e5e7eb', marginRight: 6 },
-  chipActive: { backgroundColor: '#7C3AED', borderColor: '#7C3AED' },
+  chipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   chipText: { fontSize: 12, color: '#6b7280', fontWeight: '600' },
   chipTextActive: { color: '#fff' },
   formActions: { flexDirection: 'row', gap: 10, marginTop: 24, marginBottom: 32 },
   cancelBtn: { flex: 1, height: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0EDF5', borderWidth: 1, borderColor: '#e5e7eb' },
   cancelBtnText: { fontSize: 14, fontWeight: '700', color: '#6b7280' },
-  saveBtn: { flex: 2, height: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6, backgroundColor: '#7C3AED' },
+  saveBtn: { flex: 2, height: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6, backgroundColor: Colors.primary },
   saveBtnDim: { backgroundColor: '#f3a8d0' },
   saveBtnText: { fontSize: 14, fontWeight: '700', color: '#fff' },
 

@@ -30,6 +30,7 @@ import {
   startSpeechRecognition,
   type STTHandle,
 } from '../../services/voice';
+import { Colors } from '../../constants/theme';
 
 interface ChatInputProps {
   onSend: (text: string, attachment?: { dataUrl: string; mimeType: string }) => void;
@@ -271,7 +272,7 @@ export default function ChatInput({ onSend, disabled = false, prefill }: ChatInp
           <Ionicons
             name={attaching ? 'hourglass-outline' : 'image-outline'}
             size={18}
-            color="#7C3AED"
+            color={Colors.primary}
           />
         </TouchableOpacity>
 
@@ -303,7 +304,7 @@ export default function ChatInput({ onSend, disabled = false, prefill }: ChatInp
             <Ionicons
               name={listening ? 'stop' : 'mic-outline'}
               size={18}
-              color={listening ? '#ffffff' : '#7C3AED'}
+              color={listening ? '#ffffff' : Colors.primary}
             />
           </TouchableOpacity>
         </View>
@@ -316,7 +317,7 @@ export default function ChatInput({ onSend, disabled = false, prefill }: ChatInp
         >
           {canSend ? (
             <LinearGradient
-              colors={['#7C3AED', '#7C3AED']}
+              colors={[Colors.primary, Colors.primary]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.sendButton}
@@ -372,7 +373,7 @@ export default function ChatInput({ onSend, disabled = false, prefill }: ChatInp
                       <Text style={styles.langRowLabel}>{item.label}</Text>
                     </View>
                     {active && (
-                      <Ionicons name="checkmark-circle" size={20} color="#7C3AED" />
+                      <Ionicons name="checkmark-circle" size={20} color={Colors.primary} />
                     )}
                   </TouchableOpacity>
                 );
@@ -420,7 +421,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingLeft: 16,
     paddingRight: 8,
-    shadowColor: '#7C3AED',
+    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 12,
@@ -485,7 +486,7 @@ const styles = StyleSheet.create({
   langBtnText: {
     fontSize: 11,
     fontFamily: Fonts.sansBold,
-    color: '#7C3AED',
+    color: Colors.primary,
     letterSpacing: 0.5,
   },
   micBtnWrap: {
@@ -503,7 +504,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#7C3AED',
+    backgroundColor: Colors.primary,
   },
   micBtn: {
     width: 32,
@@ -514,7 +515,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   micBtnActive: {
-    backgroundColor: '#7C3AED',
+    backgroundColor: Colors.primary,
   },
   sendButton: {
     width: 38,
@@ -523,7 +524,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'flex-end',
-    shadowColor: '#7C3AED',
+    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 8,
@@ -587,7 +588,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(28, 16, 51, 0.15)',
   },
   langRowActiveText: {
-    color: '#7C3AED',
+    color: Colors.primary,
   },
   langRowNative: {
     fontFamily: Fonts.sansBold,

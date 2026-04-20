@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Colors } from '../../constants/theme';
 
 interface UserMessageProps {
   text: string;
@@ -10,7 +11,7 @@ export default function UserMessage({ text }: UserMessageProps) {
   return (
     <View style={styles.wrapper}>
       <LinearGradient
-        colors={['#7C3AED', '#8b5cf6']}
+        colors={[Colors.primary, '#8b5cf6']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.bubble}

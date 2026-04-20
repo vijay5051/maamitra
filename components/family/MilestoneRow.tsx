@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import TagPill from '../ui/TagPill';
+import { Colors } from '../../constants/theme';
 
 export interface Milestone {
   id: string;
@@ -32,7 +33,7 @@ export default function MilestoneRow({ milestone, isReached }: MilestoneRowProps
           <Text style={[styles.title, isReached && styles.titleReached]}>
             {milestone.title}
           </Text>
-          <TagPill label={milestone.ageLabel} color={isReached ? '#22c55e' : '#7C3AED'} />
+          <TagPill label={milestone.ageLabel} color={isReached ? '#22c55e' : Colors.primary} />
         </View>
         <Text style={styles.description}>{milestone.description}</Text>
         {!isReached && (

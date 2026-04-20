@@ -34,6 +34,7 @@ import {
   fetchUserPosts,
   isEitherBlocked,
 } from '../../services/social';
+import { Colors } from '../../constants/theme';
 
 /** Convert Firestore CommunityPost → store Post shape */
 function toStorePost(fs: CommunityPost): Post {
@@ -428,7 +429,7 @@ export default function UserProfileModal({ uid, visible, onClose, onEditProfile 
     return (
       <TouchableOpacity onPress={handleFollowPress} style={{ flex: 1 }}>
         <LinearGradient
-          colors={['#7C3AED', '#7C3AED']}
+          colors={[Colors.primary, Colors.primary]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.followButtonGradient}
@@ -445,7 +446,7 @@ export default function UserProfileModal({ uid, visible, onClose, onEditProfile 
       return (
         <TouchableOpacity onPress={handleMessagePress} style={{ flex: 1 }}>
           <LinearGradient
-            colors={['#7C3AED', '#7C3AED']}
+            colors={[Colors.primary, Colors.primary]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.messageButtonGradient}
@@ -466,7 +467,7 @@ export default function UserProfileModal({ uid, visible, onClose, onEditProfile 
     if (isLoading) {
       return (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#7C3AED" />
+          <ActivityIndicator size="large" color={Colors.primary} />
         </View>
       );
     }
@@ -520,7 +521,7 @@ export default function UserProfileModal({ uid, visible, onClose, onEditProfile 
               activeOpacity={0.85}
             >
               <LinearGradient
-                colors={['#7C3AED', '#7C3AED']}
+                colors={[Colors.primary, Colors.primary]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.followButtonGradient}
@@ -836,7 +837,7 @@ const styles = StyleSheet.create({
   badgeText: {
     fontFamily: Fonts.sansMedium,
     fontSize: 13,
-    color: '#7C3AED',
+    color: Colors.primary,
   },
   stateRow: {
     flexDirection: 'row',
@@ -923,7 +924,7 @@ const styles = StyleSheet.create({
   chipText: {
     fontFamily: Fonts.sansMedium,
     fontSize: 12,
-    color: '#7C3AED',
+    color: Colors.primary,
   },
   actionsRow: {
     flexDirection: 'row',
@@ -949,12 +950,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: '#7C3AED',
+    borderColor: Colors.primary,
   },
   followButtonOutlineText: {
     fontFamily: Fonts.sansSemiBold,
     fontSize: 15,
-    color: '#7C3AED',
+    color: Colors.primary,
   },
   followButtonGrey: {
     flex: 1,
@@ -1003,7 +1004,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 14,
     marginBottom: 10,
-    shadowColor: '#7C3AED',
+    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.07,
     shadowRadius: 8,
@@ -1024,7 +1025,7 @@ const styles = StyleSheet.create({
   miniTopicText: {
     fontFamily: Fonts.sansMedium,
     fontSize: 11,
-    color: '#7C3AED',
+    color: Colors.primary,
   },
   miniPostTime: {
     fontFamily: Fonts.sansRegular,
@@ -1044,7 +1045,7 @@ const styles = StyleSheet.create({
   seeAllText: {
     fontFamily: Fonts.sansSemiBold,
     fontSize: 13,
-    color: '#7C3AED',
+    color: Colors.primary,
   },
   blockSection: {
     alignItems: 'center',

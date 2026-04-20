@@ -21,6 +21,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { VACCINE_SCHEDULE } from '../../data/vaccines';
 import { getContent, createContent, updateContent, deleteContent, setContentById } from '../../services/firebase';
+import { Colors } from '../../constants/theme';
 
 interface VaccineItem {
   id: string;
@@ -239,7 +240,7 @@ export default function VaccinesScreen() {
   }
 
   const categoryColors: Record<string, string> = {
-    'Birth Doses': '#7C3AED',
+    'Birth Doses': Colors.primary,
     'Primary Series': '#8b5cf6',
     'Booster Doses': '#10b981',
     'Optional': '#f59e0b',
@@ -324,7 +325,7 @@ const styles = StyleSheet.create({
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   name: { fontSize: 14, fontWeight: '700', color: '#1a1a2e', flex: 1 },
   customBadge: { backgroundColor: '#ede9fe', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 },
-  customBadgeText: { fontSize: 10, color: '#7c3aed', fontWeight: '700' },
+  customBadgeText: { fontSize: 10, color: Colors.primary, fontWeight: '700' },
   sub: { fontSize: 12, color: '#9ca3af', marginTop: 3 },
   desc: { fontSize: 12, color: '#6b7280', marginTop: 4, lineHeight: 17 },
   actions: { flexDirection: 'row', gap: 4 },

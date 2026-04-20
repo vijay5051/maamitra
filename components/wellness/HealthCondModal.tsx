@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import GradientButton from '../ui/GradientButton';
+import { Colors } from '../../constants/theme';
 
 interface HealthCondModalProps {
   visible: boolean;
@@ -185,8 +186,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   checkboxSelected: {
-    backgroundColor: '#7C3AED',
-    borderColor: '#7C3AED',
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
   },
   button: {
     marginTop: 28,

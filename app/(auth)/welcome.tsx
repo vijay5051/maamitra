@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import GradientButton from '../../components/ui/GradientButton';
 import { Fonts } from '../../constants/theme';
+import { Colors } from '../../constants/theme';
 
 const LOGO = require('../../assets/logo.png');
 
@@ -72,7 +73,7 @@ export default function WelcomeScreen() {
           {FEATURES.map((f, i) => (
             <View key={i} style={styles.featureCard}>
               <View style={styles.iconBox}>
-                <Ionicons name={f.icon} size={18} color="#7C3AED" />
+                <Ionicons name={f.icon} size={18} color={Colors.primary} />
               </View>
               <Text style={styles.featureTitle}>{f.title}</Text>
               <Text style={styles.featureText}>{f.text}</Text>
@@ -194,7 +195,7 @@ const styles = StyleSheet.create({
   textCtaAction: {
     fontFamily: Fonts.sansBold,
     fontSize: 14,
-    color: '#7C3AED',
+    color: Colors.primary,
   },
 
   footer: {

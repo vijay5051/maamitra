@@ -4,8 +4,9 @@ import Svg, { Circle, G, Line, Text as SvgText } from 'react-native-svg';
 import { TEETH, ToothJaw, ToothRef } from '../../data/teeth';
 import { KidTeethMap, ToothState } from '../../store/useTeethStore';
 import { Fonts } from '../../constants/theme';
+import { Colors } from '../../constants/theme';
 
-const ROSE = '#7C3AED';
+const ROSE = Colors.primary;
 const SAGE = '#34D399';
 const GOLD = '#F59E0B';
 const MIST = '#EDE9F6';

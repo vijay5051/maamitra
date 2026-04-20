@@ -46,6 +46,7 @@ import { EmailVerifyBanner } from '../../components/ui/EmailVerifyBanner';
 import { Fonts } from '../../constants/theme';
 import { uploadPostImage } from '../../services/storage';
 import { useDMStore } from '../../store/useDMStore';
+import { Colors } from '../../constants/theme';
 
 const FILTERS: CommunityFilter[] = ['All', 'Newborn', 'Pregnancy', 'Nutrition', 'Mental Health', 'Milestones', 'Products'];
 const TOPICS = ['Newborn', 'Pregnancy', 'Nutrition', 'Mental Health', 'Milestones', 'Products', 'General'];
@@ -53,8 +54,8 @@ const TOPICS = ['Newborn', 'Pregnancy', 'Nutrition', 'Mental Health', 'Milestone
 // ─── Topic color map ──────────────────────────────────────────────────────────
 
 const TOPIC_COLORS: Record<string, string> = {
-  Newborn: '#7C3AED',
-  Pregnancy: '#7C3AED',
+  Newborn: Colors.primary,
+  Pregnancy: Colors.primary,
   Nutrition: '#34D399',
   'Mental Health': '#60A5FA',
   Milestones: '#F59E0B',
@@ -147,7 +148,7 @@ function AnimatedHeartButton({
         <Ionicons
           name={hasReacted ? 'heart' : 'heart-outline'}
           size={13}
-          color={hasReacted ? '#7C3AED' : '#7C3AED'}
+          color={hasReacted ? Colors.primary : Colors.primary}
         />
         <Text style={heartStyles.text}>React</Text>
       </Animated.View>
@@ -172,7 +173,7 @@ const heartStyles = StyleSheet.create({
   text: {
     fontFamily: Fonts.sansSemiBold,
     fontSize: 12,
-    color: '#7C3AED',
+    color: Colors.primary,
   },
 });
 
@@ -371,7 +372,7 @@ function NewPostModal({
             disabled={isUploading}
           >
             <LinearGradient
-              colors={['#7C3AED', '#7C3AED']}
+              colors={[Colors.primary, Colors.primary]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={newPostStyles.postBtnGrad}
@@ -414,9 +415,9 @@ const newPostStyles = StyleSheet.create({
     marginRight: 6,
     backgroundColor: '#ffffff',
   },
-  topicChipActive: { borderColor: '#7C3AED', backgroundColor: 'rgba(124,58,237,0.06)' },
+  topicChipActive: { borderColor: Colors.primary, backgroundColor: 'rgba(124,58,237,0.06)' },
   topicChipText: { fontFamily: Fonts.sansMedium, fontSize: 13, color: '#9CA3AF' },
-  topicChipTextActive: { fontFamily: Fonts.sansBold, color: '#7C3AED' },
+  topicChipTextActive: { fontFamily: Fonts.sansBold, color: Colors.primary },
   textArea: {
     backgroundColor: '#ffffff',
     borderRadius: 14,
@@ -443,7 +444,7 @@ const newPostStyles = StyleSheet.create({
     marginBottom: 12,
     backgroundColor: '#ffffff',
   },
-  photoBtnText: { fontFamily: Fonts.sansSemiBold, fontSize: 14, color: '#7C3AED' },
+  photoBtnText: { fontFamily: Fonts.sansSemiBold, fontSize: 14, color: Colors.primary },
   imageCropWrap: {
     marginBottom: 12,
     gap: 8,
@@ -537,7 +538,7 @@ const composeStyles = StyleSheet.create({
     padding: 14,
     borderWidth: 1,
     borderColor: '#EDE9F6',
-    shadowColor: '#7C3AED',
+    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -609,7 +610,7 @@ function MyProfileCard({
           glass" white-on-white style made it disappear once the card went
           light. */}
       <TouchableOpacity style={heroStyles.editBtn} onPress={onEdit} activeOpacity={0.75}>
-        <Ionicons name="create-outline" size={14} color="#7C3AED" />
+        <Ionicons name="create-outline" size={14} color={Colors.primary} />
         <Text style={heroStyles.editBtnText}>Edit</Text>
       </TouchableOpacity>
 
@@ -627,7 +628,7 @@ function MyProfileCard({
             />
           ) : (
             <LinearGradient
-              colors={['#7C3AED', '#7C3AED']}
+              colors={[Colors.primary, Colors.primary]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={heroStyles.avatarFallback}
@@ -703,7 +704,7 @@ function MyProfileCard({
       {/* Complete profile link */}
       {!isProfileComplete && (
         <TouchableOpacity style={heroStyles.completeLink} onPress={onEdit} activeOpacity={0.75}>
-          <Ionicons name="sparkles-outline" size={13} color="#7C3AED" />
+          <Ionicons name="sparkles-outline" size={13} color={Colors.primary} />
           <Text style={heroStyles.completeLinkText}>Complete your profile</Text>
         </TouchableOpacity>
       )}
@@ -741,7 +742,7 @@ const heroStyles = StyleSheet.create({
   editBtnText: {
     fontFamily: Fonts.sansBold,
     fontSize: 12,
-    color: '#7C3AED',
+    color: Colors.primary,
   },
   topRow: {
     flexDirection: 'row',
@@ -846,7 +847,7 @@ const heroStyles = StyleSheet.create({
   tagText: {
     fontFamily: Fonts.sansMedium,
     fontSize: 11,
-    color: '#7C3AED',
+    color: Colors.primary,
   },
   completeLink: {
     flexDirection: 'row',
@@ -857,7 +858,7 @@ const heroStyles = StyleSheet.create({
   completeLinkText: {
     fontFamily: Fonts.sansBold,
     fontSize: 13,
-    color: '#7C3AED',
+    color: Colors.primary,
   },
 });
 
@@ -1100,8 +1101,8 @@ export default function CommunityScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            tintColor="#7C3AED"
-            colors={['#7C3AED', '#7C3AED']}
+            tintColor={Colors.primary}
+            colors={[Colors.primary, Colors.primary]}
           />
         }
         ListHeaderComponent={
@@ -1132,7 +1133,7 @@ export default function CommunityScreen() {
                   >
                     {activeFilter === f ? (
                       <LinearGradient
-                        colors={['#7C3AED', '#7C3AED']}
+                        colors={[Colors.primary, Colors.primary]}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
                         style={{ height: 32, borderRadius: 16, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' }}
@@ -1141,7 +1142,7 @@ export default function CommunityScreen() {
                       </LinearGradient>
                     ) : (
                       <View style={{ height: 32, borderRadius: 16, paddingHorizontal: 14, backgroundColor: '#EDE9F6', alignItems: 'center', justifyContent: 'center' }}>
-                        <Text style={{ fontFamily: Fonts.sansMedium, fontSize: 12, color: '#7C3AED' }}>{f}</Text>
+                        <Text style={{ fontFamily: Fonts.sansMedium, fontSize: 12, color: Colors.primary }}>{f}</Text>
                       </View>
                     )}
                   </TouchableOpacity>
@@ -1228,7 +1229,7 @@ export default function CommunityScreen() {
         onEndReachedThreshold={0.4}
         ListFooterComponent={isLoadingMore ? (
           <View style={styles.footerLoader}>
-            <ActivityIndicator size="small" color="#7C3AED" />
+            <ActivityIndicator size="small" color={Colors.primary} />
           </View>
         ) : null}
         showsVerticalScrollIndicator={false}
@@ -1339,7 +1340,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -4,
     right: -4,
-    backgroundColor: '#7C3AED',
+    backgroundColor: Colors.primary,
     borderRadius: 9,
     minWidth: 18,
     height: 18,
@@ -1386,8 +1387,8 @@ const styles = StyleSheet.create({
     borderColor: '#EDE9F6',
   },
   filterChipActive: {
-    backgroundColor: '#7C3AED',
-    borderColor: '#7C3AED',
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
   },
   filterChipText: { fontFamily: Fonts.sansMedium, fontSize: 13, color: '#6B7280' },
   filterChipTextActive: { fontFamily: Fonts.sansBold, color: '#ffffff' },

@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { Fonts } from '../../constants/theme';
+import { Colors } from '../../constants/theme';
 
 type PillSize = 'sm' | 'md';
 
@@ -22,7 +23,7 @@ function hexToRgba(hex: string, alpha: number): string {
 
 export default function TagPill({
   label,
-  color = '#7C3AED',
+  color = Colors.primary,
   bgColor,
   style,
   size = 'sm',

@@ -14,6 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import GradientButton from '../ui/GradientButton';
 import DatePickerField from '../ui/DatePickerField';
 import { Kid } from '../../store/useProfileStore';
+import { Colors } from '../../constants/theme';
 
 interface AddChildModalProps {
   visible: boolean;
@@ -50,7 +51,7 @@ function OptionChip({ label, emoji, selected, onPress }: OptionChipProps) {
     return (
       <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={styles.chipWrapper}>
         <LinearGradient
-          colors={['#7C3AED', '#7C3AED']}
+          colors={[Colors.primary, Colors.primary]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.chip}
@@ -288,7 +289,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#e5e7eb',
   },
   dotActive: {
-    backgroundColor: '#7C3AED',
+    backgroundColor: Colors.primary,
     width: 20,
   },
   content: {

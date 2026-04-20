@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Colors } from '../../constants/theme';
 
 interface JourneyEvent {
   emoji: string;
@@ -33,7 +34,7 @@ export default function JourneyItem({ event, isLast }: JourneyItemProps) {
           </View>
         ) : (
           <LinearGradient
-            colors={['#7C3AED', '#7C3AED']}
+            colors={[Colors.primary, Colors.primary]}
             style={styles.circleGradient}
           >
             <Text style={styles.circleEmoji}>{event.emoji}</Text>
@@ -132,6 +133,6 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
   },
   dateUpcoming: {
-    color: '#7C3AED',
+    color: Colors.primary,
   },
 });

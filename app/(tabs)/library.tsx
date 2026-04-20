@@ -32,6 +32,7 @@ import Card from '../../components/ui/Card';
 import TagPill from '../../components/ui/TagPill';
 import { TabIcon } from '../../components/ui/AppIcon';
 import { Fonts } from '../../constants/theme';
+import { Colors } from '../../constants/theme';
 
 type SubTab = 'read' | 'books' | 'products' | 'saved' | 'journey';
 type SortMode = 'Featured' | 'Price ↑' | 'Price ↓' | 'Top Rated';
@@ -68,7 +69,7 @@ function dynamicToBook(d: DynamicBook): Book {
     reviews: d.reviews,
     topic: d.topic,
     brief: d.description,
-    coverColors: ['#7C3AED', '#7C3AED'],
+    coverColors: [Colors.primary, Colors.primary],
     url: d.url,
     sampleUrl: d.sampleUrl,
     imageUrl: d.imageUrl,
@@ -126,7 +127,7 @@ const BOOKS: Book[] = [
     topic: 'Pregnancy',
     brief: 'The world\'s bestselling pregnancy guide — week-by-week breakdowns, symptoms, nutrition, and birth prep trusted by millions of Indian mothers.',
     badge: 'Bestseller',
-    coverColors: ['#7C3AED', '#f472b6'],
+    coverColors: [Colors.primary, '#f472b6'],
     url: 'https://www.amazon.in/dp/0761187480',
     sampleUrl: 'https://books.google.com/books?id=WhatToExpect',
     ageMin: -9,
@@ -142,7 +143,7 @@ const BOOKS: Book[] = [
     topic: 'Breastfeeding',
     brief: 'The gold standard breastfeeding guide — latch, supply, pumping, and returning to work, written with warmth and evidence-based care.',
     badge: 'IAP Recommended',
-    coverColors: ['#7C3AED', '#a78bfa'],
+    coverColors: [Colors.primary, '#a78bfa'],
     url: 'https://www.amazon.in/dp/0345518446',
     sampleUrl: 'https://www.llli.org/breastfeeding-info/',
     ageMin: -1,
@@ -202,7 +203,7 @@ const BOOKS: Book[] = [
     reviews: 2100,
     topic: 'Self-Care',
     brief: 'A powerful guide for overwhelmed mothers on reclaiming balance, setting boundaries, and practising self-care without guilt.',
-    coverColors: ['#7C3AED', '#7C3AED'],
+    coverColors: [Colors.primary, Colors.primary],
     url: 'https://www.amazon.in/s?k=Nurturing+Soul+Family+Trudeau',
     ageMin: 0,
     ageMax: 999,
@@ -293,7 +294,7 @@ function SubTabSelector({ active, onChange }: { active: SubTab; onChange: (t: Su
             >
               {isActive && (
                 <LinearGradient
-                  colors={['#7C3AED', '#7C3AED']}
+                  colors={[Colors.primary, Colors.primary]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={[StyleSheet.absoluteFill, { borderRadius: 20 }]}
@@ -368,8 +369,8 @@ function getTopicIcon(topic: string): string {
 
 function getArticleGradient(topic: string): [string, string] {
   const map: Record<string, [string, string]> = {
-    Feeding: ['#7C3AED', '#f472b6'],
-    Sleep: ['#7C3AED', '#a78bfa'],
+    Feeding: [Colors.primary, '#f472b6'],
+    Sleep: [Colors.primary, '#a78bfa'],
     Development: ['#f59e0b', '#fbbf24'],
     Postpartum: ['#10b981', '#34d399'],
     Vaccination: ['#3b82f6', '#60a5fa'],
@@ -378,7 +379,7 @@ function getArticleGradient(topic: string): [string, string] {
     Yoga: ['#a855f7', '#c084fc'],
     'Baby Care': ['#f97316', '#fb923c'],
   };
-  return map[topic] ?? ['#7C3AED', '#7C3AED'];
+  return map[topic] ?? [Colors.primary, Colors.primary];
 }
 
 // ─── Article Card (rich preview) ──────────────────────────────────────────────
@@ -469,7 +470,7 @@ function ArticleCard({
             style={articleStyles.readBtn}
             activeOpacity={0.75}
           >
-            <Ionicons name={expanded ? 'chevron-up' : 'book-outline'} size={14} color="#7C3AED" />
+            <Ionicons name={expanded ? 'chevron-up' : 'book-outline'} size={14} color={Colors.primary} />
             <Text style={articleStyles.readBtnText}>{expanded ? 'Show less' : 'Read inside'}</Text>
           </TouchableOpacity>
 
@@ -480,7 +481,7 @@ function ArticleCard({
               activeOpacity={0.75}
             >
               <Text style={articleStyles.openBtnText}>Open article</Text>
-              <Ionicons name="open-outline" size={13} color="#7C3AED" />
+              <Ionicons name="open-outline" size={13} color={Colors.primary} />
             </TouchableOpacity>
           )}
         </View>
@@ -495,7 +496,7 @@ const articleStyles = StyleSheet.create({
     borderRadius: 16,
     marginBottom: 14,
     overflow: 'hidden',
-    shadowColor: '#7C3AED',
+    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -596,7 +597,7 @@ const articleStyles = StyleSheet.create({
   readBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#7C3AED',
+    color: Colors.primary,
   },
   openBtn: {
     flexDirection: 'row',
@@ -610,7 +611,7 @@ const articleStyles = StyleSheet.create({
   openBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#7C3AED',
+    color: Colors.primary,
   },
 });
 
@@ -667,7 +668,7 @@ function BookCard({ book, highlighted }: { book: Book; highlighted?: boolean }) 
     <View style={[bookStyles.card, highlighted && bookStyles.cardHighlighted]}>
       {highlighted && (
         <View style={bookStyles.forYouBadge}>
-          <Ionicons name="sparkles" size={11} color="#7C3AED" />
+          <Ionicons name="sparkles" size={11} color={Colors.primary} />
           <Text style={bookStyles.forYouText}>Recommended for you</Text>
         </View>
       )}
@@ -692,7 +693,7 @@ function BookCard({ book, highlighted }: { book: Book; highlighted?: boolean }) 
             </View>
           )}
 
-          <TagPill label={book.topic} color="#7C3AED" style={bookStyles.topicPill} />
+          <TagPill label={book.topic} color={Colors.primary} style={bookStyles.topicPill} />
         </View>
       </View>
 
@@ -714,7 +715,7 @@ function BookCard({ book, highlighted }: { book: Book; highlighted?: boolean }) 
             activeOpacity={0.8}
             onPress={() => Linking.openURL(book.sampleUrl!)}
           >
-            <Ionicons name="book-outline" size={13} color="#7C3AED" />
+            <Ionicons name="book-outline" size={13} color={Colors.primary} />
             <Text style={bookStyles.sampleBtnText}>Read sample</Text>
           </TouchableOpacity>
         )}
@@ -737,7 +738,7 @@ const bookStyles = StyleSheet.create({
     borderRadius: 16,
     padding: 14,
     marginBottom: 14,
-    shadowColor: '#7C3AED',
+    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.09,
     shadowRadius: 8,
@@ -764,7 +765,7 @@ const bookStyles = StyleSheet.create({
   forYouText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#7C3AED',
+    color: Colors.primary,
   },
   row: {
     flexDirection: 'row',
@@ -859,7 +860,7 @@ const bookStyles = StyleSheet.create({
   },
   briefMore: {
     fontSize: 12,
-    color: '#7C3AED',
+    color: Colors.primary,
     fontWeight: '600',
     marginTop: 2,
   },
@@ -883,7 +884,7 @@ const bookStyles = StyleSheet.create({
   sampleBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#7C3AED',
+    color: Colors.primary,
   },
   buyBtn: {
     flex: 1,
@@ -893,7 +894,7 @@ const bookStyles = StyleSheet.create({
     gap: 5,
     paddingVertical: 9,
     borderRadius: 10,
-    backgroundColor: '#7C3AED',
+    backgroundColor: Colors.primary,
   },
   buyBtnFull: {
     flex: 1,
@@ -922,7 +923,7 @@ function ProductCard({ product }: { product: Product }) {
             onError={() => setImgError(true)}
           />
         ) : (
-          <Ionicons name="bag-handle-outline" size={32} color="#7C3AED" />
+          <Ionicons name="bag-handle-outline" size={32} color={Colors.primary} />
         )}
       </View>
       {product.badge ? (
@@ -959,7 +960,7 @@ const productCardStyles = StyleSheet.create({
     borderRadius: 14,
     padding: 12,
     margin: 4,
-    shadowColor: '#7C3AED',
+    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.07,
     shadowRadius: 8,
@@ -989,7 +990,7 @@ const productCardStyles = StyleSheet.create({
     alignSelf: 'flex-start',
     marginBottom: 6,
   },
-  badgeText: { fontSize: 10, color: '#7C3AED', fontWeight: '700' },
+  badgeText: { fontSize: 10, color: Colors.primary, fontWeight: '700' },
   name: { fontSize: 12, fontWeight: '600', color: '#1a1a2e', marginBottom: 6, lineHeight: 17 },
   priceRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
   price: { fontSize: 14, fontWeight: '800', color: '#1a1a2e' },
@@ -998,7 +999,7 @@ const productCardStyles = StyleSheet.create({
   rating: { fontSize: 12, color: '#f59e0b', fontWeight: '600' },
   reviews: { fontSize: 11, color: '#9ca3af' },
   buyBtn: { backgroundColor: 'rgba(28, 16, 51, 0.036)', borderRadius: 8, paddingVertical: 6, paddingHorizontal: 10, borderWidth: 1, borderColor: '#f9a8d4', alignItems: 'center' },
-  buyBtnText: { fontSize: 12, fontWeight: '700', color: '#7C3AED' },
+  buyBtnText: { fontSize: 12, fontWeight: '700', color: Colors.primary },
 });
 
 // ─── Journey Item ──────────────────────────────────────────────────────────────
@@ -1036,9 +1037,9 @@ function JourneyItem({ event, isLast }: { event: JourneyEvent; isLast: boolean }
       statusColor = '#16a34a';
       statusBg = '#dcfce7';
     } else if (isToday) {
-      dotColor = '#7C3AED';
+      dotColor = Colors.primary;
       statusLabel = 'Due Today 🔔';
-      statusColor = '#7C3AED';
+      statusColor = Colors.primary;
       statusBg = 'rgba(28, 16, 51, 0.06)';
     } else if (isPast) {
       dotColor = '#f97316';
@@ -1054,9 +1055,9 @@ function JourneyItem({ event, isLast }: { event: JourneyEvent; isLast: boolean }
   } else {
     // Birth / milestone / pregnancy events — date-based status
     const isCompleted = isPast || isToday;
-    dotColor = isCompleted ? '#22c55e' : isToday ? '#7C3AED' : '#e5e7eb';
+    dotColor = isCompleted ? '#22c55e' : isToday ? Colors.primary : '#e5e7eb';
     statusLabel = isPast ? 'Done ✓' : isToday ? 'Today 🎉' : 'Upcoming';
-    statusColor = isPast ? '#16a34a' : isToday ? '#7C3AED' : '#9ca3af';
+    statusColor = isPast ? '#16a34a' : isToday ? Colors.primary : '#9ca3af';
     statusBg = isPast ? '#dcfce7' : isToday ? 'rgba(28, 16, 51, 0.06)' : '#f3f4f6';
   }
 
@@ -1071,7 +1072,7 @@ function JourneyItem({ event, isLast }: { event: JourneyEvent; isLast: boolean }
       <View style={journeyStyles.card}>
         <View style={journeyStyles.cardHeader}>
           <View style={[journeyStyles.iconBox, { backgroundColor: dotColor === '#22c55e' ? 'rgba(34,197,94,0.1)' : dotColor === '#e5e7eb' ? 'rgba(28, 16, 51, 0.042)' : `${dotColor}18` }]}>
-            <Ionicons name={JOURNEY_ICONS[event.type] as any} size={16} color={dotColor === '#e5e7eb' ? '#7C3AED' : dotColor} />
+            <Ionicons name={JOURNEY_ICONS[event.type] as any} size={16} color={dotColor === '#e5e7eb' ? Colors.primary : dotColor} />
           </View>
           <View style={journeyStyles.headerText}>
             <Text style={journeyStyles.title}>{event.title}</Text>
@@ -1100,7 +1101,7 @@ const journeyStyles = StyleSheet.create({
     marginBottom: 10,
     borderWidth: 1,
     borderColor: '#EDE9F6',
-    shadowColor: '#7C3AED',
+    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
     shadowRadius: 6,
@@ -1111,7 +1112,7 @@ const journeyStyles = StyleSheet.create({
   iconBox: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   headerText: { flex: 1 },
   title: { fontSize: 14, fontWeight: '700', color: '#1a1a2e', marginBottom: 2 },
-  date: { fontSize: 12, color: '#7C3AED', fontWeight: '600' },
+  date: { fontSize: 12, color: Colors.primary, fontWeight: '600' },
   statusBadge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start' },
   statusText: { fontSize: 11, fontWeight: '700' },
   detail: { fontSize: 13, color: '#6b7280', lineHeight: 19 },
@@ -1470,7 +1471,7 @@ export default function LibraryScreen() {
               end={{ x: 1, y: 0 }}
               style={styles.personalisationBanner}
             >
-              <Ionicons name="sparkles" size={16} color="#7C3AED" />
+              <Ionicons name="sparkles" size={16} color={Colors.primary} />
               <Text style={styles.personalisationText}>
                 {activeKid && !activeKid.isExpecting
                   ? `Showing content for ${activeKid.name} · ${ageLabel}`
@@ -1513,7 +1514,7 @@ export default function LibraryScreen() {
         >
           {activeKid && (
             <View style={styles.bookSectionHeader}>
-              <Ionicons name="sparkles" size={13} color="#7C3AED" />
+              <Ionicons name="sparkles" size={13} color={Colors.primary} />
               <Text style={styles.bookPersonalBadgeText}>
                 {activeKid.isExpecting ? 'Curated for your pregnancy' : `Curated for ${activeKid.name} · ${ageLabel}`}
               </Text>
@@ -1549,7 +1550,7 @@ export default function LibraryScreen() {
             ))}
             {/* Sort button */}
             <TouchableOpacity style={styles.sortBtn} onPress={() => setShowSortModal(true)} activeOpacity={0.75}>
-              <Ionicons name="funnel-outline" size={14} color="#7C3AED" />
+              <Ionicons name="funnel-outline" size={14} color={Colors.primary} />
               <Text style={styles.sortBtnText}>{sortMode}</Text>
             </TouchableOpacity>
           </ScrollView>
@@ -1569,7 +1570,7 @@ export default function LibraryScreen() {
                   end={{ x: 1, y: 0 }}
                   style={styles.personalisationBanner}
                 >
-                  <Ionicons name="sparkles" size={16} color="#7C3AED" />
+                  <Ionicons name="sparkles" size={16} color={Colors.primary} />
                   <Text style={styles.personalisationText}>
                     {activeKid.isExpecting
                       ? `${recommendedCount} picks for your pregnancy`
@@ -1622,7 +1623,7 @@ export default function LibraryScreen() {
                       {opt}
                     </Text>
                     {opt === sortMode && (
-                      <Ionicons name="checkmark" size={18} color="#7C3AED" />
+                      <Ionicons name="checkmark" size={18} color={Colors.primary} />
                     )}
                   </TouchableOpacity>
                 ))}
@@ -1805,10 +1806,10 @@ const styles = StyleSheet.create({
   },
   topicChipActive: {
     backgroundColor: 'rgba(124,58,237,0.08)',
-    borderColor: '#7C3AED',
+    borderColor: Colors.primary,
   },
   topicChipText: { fontFamily: Fonts.sansMedium, fontSize: 12, color: '#9CA3AF' },
-  topicChipTextActive: { fontFamily: Fonts.sansBold, color: '#7C3AED' },
+  topicChipTextActive: { fontFamily: Fonts.sansBold, color: Colors.primary },
   emptySearch: {
     alignItems: 'center',
     paddingVertical: 40,
@@ -1816,7 +1817,7 @@ const styles = StyleSheet.create({
   },
   emptySearchEmoji: { fontSize: 36 },
   emptySearchText: { fontFamily: Fonts.sansRegular, fontSize: 14, color: '#9CA3AF', textAlign: 'center' },
-  emptySearchReset: { fontFamily: Fonts.sansBold, fontSize: 13, color: '#7C3AED', marginTop: 4 },
+  emptySearchReset: { fontFamily: Fonts.sansBold, fontSize: 13, color: Colors.primary, marginTop: 4 },
 
   personalisationBanner: {
     flexDirection: 'row',
@@ -1827,11 +1828,11 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     marginBottom: 18,
   },
-  personalisationText: { fontFamily: Fonts.sansSemiBold, fontSize: 13, color: '#7C3AED', flex: 1 },
+  personalisationText: { fontFamily: Fonts.sansSemiBold, fontSize: 13, color: Colors.primary, flex: 1 },
   sectionTitle: { fontFamily: Fonts.sansBold, fontSize: 18, color: '#1C1033', marginBottom: 12 },
   bookSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(124,58,237,0.06)', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 14 },
   bookPersonalBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  bookPersonalBadgeText: { fontFamily: Fonts.sansSemiBold, fontSize: 12, color: '#7C3AED', flex: 1 },
+  bookPersonalBadgeText: { fontFamily: Fonts.sansSemiBold, fontSize: 12, color: Colors.primary, flex: 1 },
   categoriesScrollView: {
     flexGrow: 0,
     flexShrink: 0,
@@ -1853,9 +1854,9 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#EDE9F6',
   },
-  catChipActive: { backgroundColor: 'rgba(28, 16, 51, 0.048)', borderColor: '#7C3AED' },
+  catChipActive: { backgroundColor: 'rgba(28, 16, 51, 0.048)', borderColor: Colors.primary },
   catChipText: { fontFamily: Fonts.sansMedium, fontSize: 13, color: '#9CA3AF' },
-  catChipTextActive: { fontFamily: Fonts.sansBold, color: '#7C3AED' },
+  catChipTextActive: { fontFamily: Fonts.sansBold, color: Colors.primary },
   sortBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1867,7 +1868,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: 'rgba(124,58,237,0.15)',
   },
-  sortBtnText: { fontFamily: Fonts.sansBold, fontSize: 12, color: '#7C3AED' },
+  sortBtnText: { fontFamily: Fonts.sansBold, fontSize: 12, color: Colors.primary },
   productsGrid: { paddingHorizontal: 8, paddingTop: 8 },
   productRow: { gap: 8, paddingHorizontal: 8, marginBottom: 8 },
   productSectionDivider: {
@@ -1908,12 +1909,12 @@ const styles = StyleSheet.create({
     borderBottomColor: '#EDE9F6',
   },
   sortOptionText: { fontFamily: Fonts.sansRegular, fontSize: 14, color: '#9CA3AF' },
-  sortOptionTextActive: { fontFamily: Fonts.sansBold, color: '#7C3AED' },
+  sortOptionTextActive: { fontFamily: Fonts.sansBold, color: Colors.primary },
   emptyState: { flex: 1, alignItems: 'center', paddingTop: 80, paddingHorizontal: 32 },
   emptyEmoji: { fontSize: 56, marginBottom: 16 },
   emptyTitle: { fontFamily: Fonts.sansBold, fontSize: 18, color: '#1C1033', marginBottom: 8 },
   emptyText: { fontFamily: Fonts.sansRegular, fontSize: 14, color: '#9CA3AF', textAlign: 'center', lineHeight: 22 },
-  emptyHighlight: { fontFamily: Fonts.sansBold, color: '#7C3AED' },
+  emptyHighlight: { fontFamily: Fonts.sansBold, color: Colors.primary },
   savedCard: { marginBottom: 12 },
   savedCardHeader: {
     flexDirection: 'row',

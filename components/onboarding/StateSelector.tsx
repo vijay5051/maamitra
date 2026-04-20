@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { INDIAN_STATES } from '../../data/states';
+import { Colors } from '../../constants/theme';
 
 interface StateSelectorProps {
   onSelect: (state: string) => void;
@@ -60,7 +61,7 @@ export default function StateSelector({ onSelect, selected }: StateSelectorProps
               style={[styles.stateRow, isSelected && styles.stateRowSelected]}
             >
               <Text style={[styles.stateText, isSelected && styles.stateTextSelected]}>{item}</Text>
-              <Ionicons name="chevron-forward" size={16} color={isSelected ? '#7C3AED' : '#d1d5db'} />
+              <Ionicons name="chevron-forward" size={16} color={isSelected ? Colors.primary : '#d1d5db'} />
             </TouchableOpacity>
           );
         }}
@@ -118,7 +119,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   stateTextSelected: {
-    color: '#7C3AED',
+    color: Colors.primary,
     fontWeight: '700',
   },
 });

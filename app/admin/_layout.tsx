@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/useAuthStore';
+import { Colors } from '../../constants/theme';
 
 // ─── Admin access: add your admin emails here ─────────────────────────────────
 export const ADMIN_EMAILS = new Set([
@@ -26,7 +27,7 @@ export default function AdminLayout() {
     <Stack
       screenOptions={({ navigation }: any) => ({
         headerStyle: { backgroundColor: '#fff' },
-        headerTintColor: '#7C3AED',
+        headerTintColor: Colors.primary,
         headerTitleStyle: { fontWeight: '700', color: '#1a1a2e' },
         headerShadowVisible: false,
         // Explicit back button — ensures it's visible on web where the default
@@ -38,7 +39,7 @@ export default function AdminLayout() {
                 style={{ paddingHorizontal: 8, paddingVertical: 6 }}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Ionicons name="chevron-back" size={26} color="#7C3AED" />
+                <Ionicons name="chevron-back" size={26} color={Colors.primary} />
               </TouchableOpacity>
             )
           : undefined,

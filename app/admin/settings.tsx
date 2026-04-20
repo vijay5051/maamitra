@@ -51,7 +51,7 @@ function ToggleRow({
     <View style={styles.toggleRow}>
       <View style={styles.toggleLeft}>
         <View style={styles.toggleIcon}>
-          <Ionicons name={icon as any} size={16} color="#7C3AED" />
+          <Ionicons name={icon as any} size={16} color={Colors.primary} />
         </View>
         <Text style={styles.toggleLabel}>{label}</Text>
       </View>
@@ -59,7 +59,7 @@ function ToggleRow({
         value={value}
         onValueChange={onChange}
         trackColor={{ false: '#e5e7eb', true: '#fbcfe8' }}
-        thumbColor={value ? '#7C3AED' : '#9ca3af'}
+        thumbColor={value ? Colors.primary : '#9ca3af'}
         ios_backgroundColor="#e5e7eb"
       />
     </View>
@@ -81,12 +81,12 @@ function ColorRow({
     <View style={styles.colorRow}>
       <Text style={styles.colorLabel}>{label}</Text>
       <View style={styles.colorRight}>
-        <View style={[styles.colorCircle, { backgroundColor: value || '#7C3AED' }]} />
+        <View style={[styles.colorCircle, { backgroundColor: value || Colors.primary }]} />
         <TextInput
           style={styles.colorInput}
           value={value}
           onChangeText={onChange}
-          placeholder="#7C3AED"
+          placeholder={Colors.primary}
           placeholderTextColor="#d1d5db"
           autoCapitalize="none"
           autoCorrect={false}
@@ -120,11 +120,11 @@ function TabConfigRow({
     <View style={styles.tabConfigRow}>
       <View style={styles.tabConfigOrder}>
         <TouchableOpacity onPress={onMoveUp} disabled={index === 0} style={styles.arrowBtn}>
-          <Ionicons name="chevron-up" size={14} color={index === 0 ? '#d1d5db' : '#7C3AED'} />
+          <Ionicons name="chevron-up" size={14} color={index === 0 ? '#d1d5db' : Colors.primary} />
         </TouchableOpacity>
         <Text style={styles.tabConfigIndex}>{index + 1}</Text>
         <TouchableOpacity onPress={onMoveDown} disabled={index === total - 1} style={styles.arrowBtn}>
-          <Ionicons name="chevron-down" size={14} color={index === total - 1 ? '#d1d5db' : '#7C3AED'} />
+          <Ionicons name="chevron-down" size={14} color={index === total - 1 ? '#d1d5db' : Colors.primary} />
         </TouchableOpacity>
       </View>
       <TextInput
@@ -138,7 +138,7 @@ function TabConfigRow({
         value={tab.visible}
         onValueChange={onVisibleChange}
         trackColor={{ false: '#e5e7eb', true: '#fbcfe8' }}
-        thumbColor={tab.visible ? '#7C3AED' : '#9ca3af'}
+        thumbColor={tab.visible ? Colors.primary : '#9ca3af'}
         ios_backgroundColor="#e5e7eb"
         style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
       />
@@ -211,7 +211,7 @@ export default function AdminSettings() {
 
   // Theme
   const [primaryColor, setPrimaryColor] = useState<string>(
-    (settingsStore as any).primaryColor ?? '#7C3AED'
+    (settingsStore as any).primaryColor ?? Colors.primary
   );
   const [secondaryColor, setSecondaryColor] = useState<string>(
     (settingsStore as any).secondaryColor ?? '#8b5cf6'
@@ -319,7 +319,7 @@ export default function AdminSettings() {
         <View style={styles.divider} />
         <TouchableOpacity
           style={styles.resetBtn}
-          onPress={() => { setPrimaryColor('#7C3AED'); setSecondaryColor('#8b5cf6'); }}
+          onPress={() => { setPrimaryColor(Colors.primary); setSecondaryColor('#8b5cf6'); }}
         >
           <Ionicons name="refresh" size={14} color="#9ca3af" />
           <Text style={styles.resetBtnText}>Reset to Defaults</Text>
@@ -368,7 +368,7 @@ export default function AdminSettings() {
       {/* Section 5: Admin Account */}
       <Section title="Admin Account">
         <View style={styles.adminEmailRow}>
-          <Ionicons name="shield-checkmark-outline" size={16} color="#7C3AED" />
+          <Ionicons name="shield-checkmark-outline" size={16} color={Colors.primary} />
           <Text style={styles.adminEmail}>{user?.email ?? adminEmail ?? 'admin'}</Text>
         </View>
         <View style={styles.divider} />
@@ -438,7 +438,7 @@ const styles = StyleSheet.create({
 
   tabConfigRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 10, gap: 10 },
   tabConfigOrder: { alignItems: 'center', width: 36 },
-  tabConfigIndex: { fontSize: 12, fontWeight: '700', color: '#7C3AED' },
+  tabConfigIndex: { fontSize: 12, fontWeight: '700', color: Colors.primary },
   arrowBtn: { padding: 2 },
   tabConfigLabel: {
     flex: 1,
@@ -471,7 +471,7 @@ const styles = StyleSheet.create({
   signOutRowText: { fontSize: 14, color: '#ef4444', fontWeight: '600' },
 
   saveAllBtn: {
-    backgroundColor: '#7C3AED',
+    backgroundColor: Colors.primary,
     borderRadius: 16,
     paddingVertical: 16,
     alignItems: 'center',
@@ -479,7 +479,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     marginTop: 8,
-    shadowColor: '#7C3AED',
+    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -491,3 +491,4 @@ const styles = StyleSheet.create({
 
 // Platform import for fontFamily
 import { Platform } from 'react-native';
+import { Colors } from '../../constants/theme';

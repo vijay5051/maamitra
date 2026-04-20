@@ -8,6 +8,7 @@ import { useProfileStore } from '../../store/useProfileStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useActiveKid } from '../../hooks/useActiveKid';
 import { syncCompletedVaccines } from '../../services/firebase';
+import { Colors } from '../../constants/theme';
 
 interface VaccineCardProps {
   vaccine: VaccineWithDate;
@@ -18,7 +19,7 @@ function getStatusColor(status: VaccineWithDate['status']): string {
   if (status === 'done') return '#22c55e';
   if (status === 'overdue') return '#ef4444';
   if (status === 'due-soon') return '#f97316';
-  return '#7C3AED';
+  return Colors.primary;
 }
 
 export default function VaccineCard({ vaccine, isLast }: VaccineCardProps) {
@@ -200,7 +201,7 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     marginBottom: 12,
     borderLeftWidth: 3,
-    shadowColor: '#7C3AED',
+    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.07,
     shadowRadius: 6,

@@ -17,6 +17,7 @@ import GradientAvatar from '../ui/GradientAvatar';
 import { Fonts } from '../../constants/theme';
 import { useSocialStore } from '../../store/useSocialStore';
 import { type AppNotification } from '../../services/social';
+import { Colors } from '../../constants/theme';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -195,7 +196,7 @@ export default function NotificationsSheet({ visible, onClose, onViewProfile }: 
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
       <View style={styles.emptyIconBox}>
-        <Ionicons name="notifications-outline" size={26} color="#7C3AED" />
+        <Ionicons name="notifications-outline" size={26} color={Colors.primary} />
       </View>
       <Text style={styles.emptyTitle}>No notifications yet</Text>
       <Text style={styles.emptySubtext}>When people interact with your posts or send follow requests, they'll show up here.</Text>
@@ -230,7 +231,7 @@ export default function NotificationsSheet({ visible, onClose, onViewProfile }: 
         {/* Content */}
         {isLoadingNotifs ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#7C3AED" />
+            <ActivityIndicator size="large" color={Colors.primary} />
           </View>
         ) : (
           <FlatList
@@ -311,7 +312,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   badge: {
-    backgroundColor: '#7C3AED',
+    backgroundColor: Colors.primary,
     borderRadius: 999,
     minWidth: 22,
     height: 22,
@@ -383,7 +384,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   acceptBtn: {
-    backgroundColor: '#7C3AED',
+    backgroundColor: Colors.primary,
     borderRadius: 999,
     paddingVertical: 6,
     paddingHorizontal: 16,
@@ -422,7 +423,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#7C3AED',
+    backgroundColor: Colors.primary,
     marginTop: 6,
     flexShrink: 0,
   },

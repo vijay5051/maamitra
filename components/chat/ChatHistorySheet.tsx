@@ -13,6 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useChatStore, type ChatThread } from '../../store/useChatStore';
 import { Fonts } from '../../constants/theme';
+import { Colors } from '../../constants/theme';
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
@@ -105,7 +106,7 @@ function ThreadRow({
         <Ionicons
           name={isActive ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline'}
           size={20}
-          color={isActive ? '#7C3AED' : '#7C3AED'}
+          color={isActive ? Colors.primary : Colors.primary}
         />
       </View>
 
@@ -185,7 +186,7 @@ export default function ChatHistorySheet({ visible, onClose }: Props) {
         {/* New chat button */}
         <TouchableOpacity style={styles.newChatBtn} onPress={handleNewChat} activeOpacity={0.85}>
           <LinearGradient
-            colors={['#7C3AED', '#7C3AED']}
+            colors={[Colors.primary, Colors.primary]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.newChatGrad}
@@ -312,7 +313,7 @@ const styles = StyleSheet.create({
   },
   titleActive: {
     fontFamily: Fonts.sansBold,
-    color: '#7C3AED',
+    color: Colors.primary,
   },
   time: {
     fontFamily: Fonts.sansRegular,

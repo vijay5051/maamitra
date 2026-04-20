@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import TagPill from '../ui/TagPill';
+import { Colors } from '../../constants/theme';
 
 export interface Article {
   id: string;
@@ -35,7 +36,7 @@ export default function ArticleCard({ article, onPress }: ArticleCardProps) {
         style={styles.strip}
       >
         <View style={styles.topicPillWrap}>
-          <TagPill label={article.topic} color="#7C3AED" />
+          <TagPill label={article.topic} color={Colors.primary} />
         </View>
         <Text style={styles.stripEmoji}>{article.emoji}</Text>
       </LinearGradient>
@@ -50,7 +51,7 @@ export default function ArticleCard({ article, onPress }: ArticleCardProps) {
         </Text>
         <View style={styles.footer}>
           {article.tag ? (
-            <TagPill label={article.tag} color="#7C3AED" size="sm" />
+            <TagPill label={article.tag} color={Colors.primary} size="sm" />
           ) : (
             <View />
           )}
@@ -67,7 +68,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     marginBottom: 14,
-    shadowColor: '#7C3AED',
+    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,

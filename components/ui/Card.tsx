@@ -5,6 +5,7 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
+import { Colors } from '../../constants/theme';
 
 type ShadowSize = 'sm' | 'md' | 'lg';
 
@@ -21,7 +22,7 @@ function getShadow(shadow?: ShadowSize) {
   if (!shadow) return {};
   const map: Record<ShadowSize, object> = {
     sm: {
-      shadowColor: '#7C3AED',
+      shadowColor: Colors.primary,
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.07,
       shadowRadius: 8,
@@ -29,7 +30,7 @@ function getShadow(shadow?: ShadowSize) {
       boxShadow: '0px 2px 8px rgba(28, 16, 51, 0.042)',
     },
     md: {
-      shadowColor: '#7C3AED',
+      shadowColor: Colors.primary,
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.10,
       shadowRadius: 14,
@@ -37,7 +38,7 @@ function getShadow(shadow?: ShadowSize) {
       boxShadow: '0px 4px 14px rgba(28, 16, 51, 0.06)',
     },
     lg: {
-      shadowColor: '#7C3AED',
+      shadowColor: Colors.primary,
       shadowOffset: { width: 0, height: 8 },
       shadowOpacity: 0.14,
       shadowRadius: 20,

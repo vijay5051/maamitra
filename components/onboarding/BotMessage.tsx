@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Platform, StyleSheet, Text, View } from 'react-native';
 import GradientAvatar from '../ui/GradientAvatar';
+import { Colors } from '../../constants/theme';
 
 const webTextStyle = Platform.OS === 'web'
   ? ({ wordBreak: 'break-word', overflowWrap: 'anywhere' } as any)
@@ -66,7 +67,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 4,
     paddingVertical: 12,
     paddingHorizontal: 14,
-    shadowColor: '#7C3AED',
+    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,

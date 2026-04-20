@@ -34,6 +34,7 @@ import { filterByAudience, parentGenderToAudience } from '../../data/audience';
 import YogaModalComponent from '../../components/wellness/YogaModal';
 import ContextualAskChip from '../../components/ui/ContextualAskChip';
 import { Fonts } from '../../constants/theme';
+import { Colors } from '../../constants/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -140,7 +141,7 @@ const moodStyles = StyleSheet.create({
     color: '#9CA3AF',
   },
   moodLabelSelected: {
-    color: '#7C3AED',
+    color: Colors.primary,
     fontFamily: Fonts.sansBold,
   },
 });
@@ -264,7 +265,7 @@ function MoodChart() {
             style={chartStyles.navBtn}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name="chevron-back" size={16} color="#7C3AED" />
+            <Ionicons name="chevron-back" size={16} color={Colors.primary} />
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => shiftWeek(7)}
@@ -272,7 +273,7 @@ function MoodChart() {
             style={[chartStyles.navBtn, isThisWeek && { opacity: 0.3 }]}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name="chevron-forward" size={16} color="#7C3AED" />
+            <Ionicons name="chevron-forward" size={16} color={Colors.primary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -286,7 +287,7 @@ function MoodChart() {
               <View style={[chartStyles.barTrack, { height: barMaxHeight }]}>
                 {entry ? (
                   <LinearGradient
-                    colors={isToday ? ['#7C3AED', '#7C3AED'] : ['#F4B3CC', '#C9A8E0']}
+                    colors={isToday ? [Colors.primary, Colors.primary] : ['#F4B3CC', '#C9A8E0']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 0, y: 1 }}
                     style={[
@@ -324,14 +325,14 @@ function MoodChart() {
         activeOpacity={0.75}
         style={chartStyles.calToggle}
       >
-        <Ionicons name="calendar-outline" size={14} color="#7C3AED" />
+        <Ionicons name="calendar-outline" size={14} color={Colors.primary} />
         <Text style={chartStyles.calToggleText}>
           {showCalendar ? 'Hide full history' : 'View full history'}
         </Text>
         <Ionicons
           name={showCalendar ? 'chevron-up' : 'chevron-down'}
           size={14}
-          color="#7C3AED"
+          color={Colors.primary}
         />
       </TouchableOpacity>
 
@@ -340,7 +341,7 @@ function MoodChart() {
           {/* Month header */}
           <View style={chartStyles.calHeaderRow}>
             <TouchableOpacity onPress={() => shiftCalMonth(-1)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="chevron-back" size={18} color="#7C3AED" />
+              <Ionicons name="chevron-back" size={18} color={Colors.primary} />
             </TouchableOpacity>
             <Text style={chartStyles.calMonthLabel}>{calMonthLabel}</Text>
             <TouchableOpacity
@@ -348,7 +349,7 @@ function MoodChart() {
               disabled={isFutureMonth}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Ionicons name="chevron-forward" size={18} color={isFutureMonth ? '#D1D5DB' : '#7C3AED'} />
+              <Ionicons name="chevron-forward" size={18} color={isFutureMonth ? '#D1D5DB' : Colors.primary} />
             </TouchableOpacity>
           </View>
 
@@ -435,7 +436,7 @@ const chartStyles = StyleSheet.create({
   calToggleText: {
     fontFamily: Fonts.sansSemiBold,
     fontSize: 13,
-    color: '#7C3AED',
+    color: Colors.primary,
   },
   calendarWrap: {
     marginTop: 8,
@@ -485,7 +486,7 @@ const chartStyles = StyleSheet.create({
   },
   calCellToday: {
     borderWidth: 1.5,
-    borderColor: '#7C3AED',
+    borderColor: Colors.primary,
   },
   calCellDay: {
     fontFamily: Fonts.sansMedium,
@@ -493,7 +494,7 @@ const chartStyles = StyleSheet.create({
     color: '#6B7280',
   },
   calCellDayToday: {
-    color: '#7C3AED',
+    color: Colors.primary,
     fontFamily: Fonts.sansBold,
   },
   calCellEmoji: {
@@ -541,7 +542,7 @@ const chartStyles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   barDayLabelToday: {
-    color: '#7C3AED',
+    color: Colors.primary,
     fontFamily: Fonts.sansBold,
   },
   barDateLabel: {
@@ -550,7 +551,7 @@ const chartStyles = StyleSheet.create({
     color: '#9CA3AF',
   },
   barDateLabelToday: {
-    color: '#7C3AED',
+    color: Colors.primary,
     fontFamily: Fonts.sansBold,
   },
   summaryCard: {
@@ -568,7 +569,7 @@ const chartStyles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: 3,
-    backgroundColor: '#7C3AED',
+    backgroundColor: Colors.primary,
     borderTopLeftRadius: 12,
     borderBottomLeftRadius: 12,
   },
@@ -585,10 +586,10 @@ const chartStyles = StyleSheet.create({
 // Flattened from a rotating rose/purple/green/blue palette to a single
 // tonal brand-purple. Every card reads consistently now.
 const YOGA_CARD_GRADIENTS: [string, string][] = [
-  ['#7C3AED', '#6d28d9'],
-  ['#7C3AED', '#6d28d9'],
-  ['#7C3AED', '#6d28d9'],
-  ['#F59E0B', '#7C3AED'],
+  [Colors.primary, '#6d28d9'],
+  [Colors.primary, '#6d28d9'],
+  [Colors.primary, '#6d28d9'],
+  ['#F59E0B', Colors.primary],
 ];
 
 function YogaGallery({
@@ -853,9 +854,9 @@ const condStyles = StyleSheet.create({
     paddingHorizontal: 14,
     backgroundColor: '#ffffff',
   },
-  chipSelected: { borderColor: '#7C3AED', backgroundColor: 'rgba(124,58,237,0.06)' },
+  chipSelected: { borderColor: Colors.primary, backgroundColor: 'rgba(124,58,237,0.06)' },
   chipText: { fontFamily: Fonts.sansMedium, fontSize: 13, color: '#9CA3AF' },
-  chipTextSelected: { fontFamily: Fonts.sansBold, color: '#7C3AED' },
+  chipTextSelected: { fontFamily: Fonts.sansBold, color: Colors.primary },
 });
 
 // ─── Mental Tips ──────────────────────────────────────────────────────────────
@@ -1003,7 +1004,7 @@ function PullQuoteTip({ tip }: { tip: { icon: keyof typeof Ionicons.glyphMap; te
   return (
     <View style={tipStyles.card}>
       <View style={tipStyles.iconBox}>
-        <Ionicons name={tip.icon} size={18} color="#7C3AED" />
+        <Ionicons name={tip.icon} size={18} color={Colors.primary} />
       </View>
       <Text style={tipStyles.tipText}>{tip.text}</Text>
     </View>
@@ -1046,7 +1047,7 @@ const tipStyles = StyleSheet.create({
 function MoodDividerLine() {
   return (
     <LinearGradient
-      colors={['#7C3AED', 'transparent']}
+      colors={[Colors.primary, 'transparent']}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 0 }}
       style={dividerStyles.line}
@@ -1221,7 +1222,7 @@ export default function WellnessScreen() {
           activeOpacity={0.8}
         >
           <View style={styles.condBannerLeft}>
-            <Ionicons name="options-outline" size={14} color="#7C3AED" />
+            <Ionicons name="options-outline" size={14} color={Colors.primary} />
             <Text style={styles.condBannerText}>
               {healthConditions === null
                 ? 'Personalise sessions for your health conditions'
@@ -1322,7 +1323,7 @@ const styles = StyleSheet.create({
     padding: 14,
     marginTop: 10,
     borderLeftWidth: 3,
-    borderLeftColor: '#7C3AED',
+    borderLeftColor: Colors.primary,
   },
   moodResponseText: {
     fontFamily: Fonts.sansRegular,
@@ -1373,5 +1374,5 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   condBannerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
-  condBannerText: { fontFamily: Fonts.sansRegular, fontSize: 12, color: '#7C3AED', flex: 1 },
+  condBannerText: { fontFamily: Fonts.sansRegular, fontSize: 12, color: Colors.primary, flex: 1 },
 });

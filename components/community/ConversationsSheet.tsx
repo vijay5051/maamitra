@@ -18,6 +18,7 @@ import { Fonts } from '../../constants/theme';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useDMStore } from '../../store/useDMStore';
 import type { DMConversation } from '../../services/messages';
+import { Colors } from '../../constants/theme';
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
@@ -138,7 +139,7 @@ export default function ConversationsSheet({ visible, onClose }: Props) {
         {/* Content */}
         {isLoadingConversations ? (
           <View style={styles.centered}>
-            <ActivityIndicator size="large" color="#7C3AED" />
+            <ActivityIndicator size="large" color={Colors.primary} />
           </View>
         ) : (
           <FlatList
@@ -154,7 +155,7 @@ export default function ConversationsSheet({ visible, onClose }: Props) {
             ListEmptyComponent={
               <View style={styles.empty}>
                 <View style={styles.emptyIconBox}>
-                  <Ionicons name="chatbubbles-outline" size={26} color="#7C3AED" />
+                  <Ionicons name="chatbubbles-outline" size={26} color={Colors.primary} />
                 </View>
                 <Text style={styles.emptyTitle}>No messages yet</Text>
                 <Text style={styles.emptySubtext}>
@@ -254,7 +255,7 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#7C3AED',
+    backgroundColor: Colors.primary,
     flexShrink: 0,
   },
   empty: {

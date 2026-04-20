@@ -13,6 +13,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import GradientAvatar from '../ui/GradientAvatar';
 import GradientButton from '../ui/GradientButton';
+import { Colors } from '../../constants/theme';
 
 interface NewPostModalProps {
   visible: boolean;
@@ -118,7 +119,7 @@ export default function NewPostModal({
                       style={styles.topicChipWrapper}
                     >
                       <LinearGradient
-                        colors={['#7C3AED', '#7C3AED']}
+                        colors={[Colors.primary, Colors.primary]}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
                         style={styles.topicChip}

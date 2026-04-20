@@ -19,6 +19,7 @@ import DatePickerField from '../../components/ui/DatePickerField';
 import StateSelectorComponent from '../../components/onboarding/StateSelector';
 import { saveFullProfile } from '../../services/firebase';
 import { Fonts } from '../../constants/theme';
+import { Colors } from '../../constants/theme';
 
 // ─── Domain types ─────────────────────────────────────────────────────────────
 
@@ -108,13 +109,13 @@ function ChipGroup<T extends string>({
               <Ionicons
                 name={opt.icon}
                 size={18}
-                color={active ? '#7C3AED' : '#6b7280'}
+                color={active ? Colors.primary : '#6b7280'}
                 style={styles.chipIcon}
               />
             ) : null}
             <Text style={[styles.chipText, active ? styles.chipTextActive : null]}>{opt.label}</Text>
             {active ? (
-              <Ionicons name="checkmark-circle" size={16} color="#7C3AED" style={styles.chipCheck} />
+              <Ionicons name="checkmark-circle" size={16} color={Colors.primary} style={styles.chipCheck} />
             ) : null}
           </TouchableOpacity>
         );
@@ -612,7 +613,7 @@ export default function OnboardingScreen() {
                 activeOpacity={0.85}
                 style={styles.addChildBtn}
               >
-                <Ionicons name="add-circle-outline" size={20} color="#7C3AED" />
+                <Ionicons name="add-circle-outline" size={20} color={Colors.primary} />
                 <Text style={styles.addChildBtnText}>
                   {extraKids.length === 0 ? 'Add another child' : 'Add one more'}
                 </Text>
@@ -703,7 +704,7 @@ const styles = StyleSheet.create({
   headerStepCount: {
     fontFamily: Fonts.sansBold,
     fontSize: 13,
-    color: '#7C3AED',
+    color: Colors.primary,
     letterSpacing: 0.3,
   },
   headerStepCountDim: {
@@ -722,10 +723,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#EDE9F6',
   },
   stepRailBarActive: {
-    backgroundColor: '#7C3AED',
+    backgroundColor: Colors.primary,
   },
   stepRailBarDone: {
-    backgroundColor: '#7C3AED',
+    backgroundColor: Colors.primary,
     opacity: 0.5,
   },
   headerSectionLabel: {
@@ -849,7 +850,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   chipActive: {
-    borderColor: '#7C3AED',
+    borderColor: Colors.primary,
     backgroundColor: '#FAF7FF',
     borderWidth: 1.5,
   },
@@ -882,7 +883,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     marginTop: 14,
     borderLeftWidth: 3,
-    borderLeftColor: '#7C3AED',
+    borderLeftColor: Colors.primary,
   },
   lockNoticeText: {
     flex: 1,
@@ -946,7 +947,7 @@ const styles = StyleSheet.create({
   addChildBtnText: {
     fontFamily: Fonts.sansBold,
     fontSize: 14,
-    color: '#7C3AED',
+    color: Colors.primary,
   },
   finishHint: {
     fontFamily: Fonts.sansRegular,
@@ -986,7 +987,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 14,
     borderRadius: 10,
-    backgroundColor: '#7C3AED',
+    backgroundColor: Colors.primary,
   },
   nextBtnDisabled: {
     opacity: 0.5,

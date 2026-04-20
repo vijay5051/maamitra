@@ -3,9 +3,10 @@ import { StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Fonts } from '../../constants/theme';
+import { Colors } from '../../constants/theme';
 
-const ROSE = '#7C3AED';
-const PLUM = '#7C3AED';
+const ROSE = Colors.primary;
+const PLUM = Colors.primary;
 const MIST = '#EDE9F6';
 const INK  = '#1C1033';
 const STONE = '#6B7280';

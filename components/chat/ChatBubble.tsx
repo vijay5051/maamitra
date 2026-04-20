@@ -19,6 +19,7 @@ import {
   speak,
   type TTSHandle,
 } from '../../services/voice';
+import { Colors } from '../../constants/theme';
 
 interface ChatBubbleProps {
   message: ChatMessage;
@@ -83,7 +84,7 @@ export default function ChatBubble({ message, onSave, isFirstInGroup = true }: C
           ) : null}
           {hasText ? (
             <LinearGradient
-              colors={['#7C3AED', '#7C3AED']}
+              colors={[Colors.primary, Colors.primary]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={[styles.userBubble, hasImage && { marginTop: 6 }]}
@@ -114,7 +115,7 @@ export default function ChatBubble({ message, onSave, isFirstInGroup = true }: C
           <View style={[styles.botBubble, emergencyStyle]}>
             {/* Rose left border strip */}
             <LinearGradient
-              colors={message.isEmergency ? ['#ef4444', '#ef4444'] : ['#7C3AED', '#7C3AED']}
+              colors={message.isEmergency ? ['#ef4444', '#ef4444'] : [Colors.primary, Colors.primary]}
               start={{ x: 0, y: 0 }}
               end={{ x: 0, y: 1 }}
               style={styles.leftBorderStrip}
@@ -139,9 +140,9 @@ export default function ChatBubble({ message, onSave, isFirstInGroup = true }: C
                 <Ionicons
                   name={speaking ? 'stop-circle' : 'volume-medium-outline'}
                   size={16}
-                  color={speaking ? '#7C3AED' : '#7C3AED'}
+                  color={speaking ? Colors.primary : Colors.primary}
                 />
-                <Text style={[styles.iconActionText, speaking && { color: '#7C3AED' }]}>
+                <Text style={[styles.iconActionText, speaking && { color: Colors.primary }]}>
                   {speaking ? 'Stop' : 'Listen'}
                 </Text>
               </TouchableOpacity>
@@ -197,7 +198,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 4,
     paddingVertical: 11,
     paddingHorizontal: 14,
-    shadowColor: '#7C3AED',
+    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.28,
     shadowRadius: 12,
@@ -291,7 +292,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   iconActionText: {
-    color: '#7C3AED',
+    color: Colors.primary,
     fontFamily: Fonts.sansMedium,
     fontSize: 14,    // +20%
   },

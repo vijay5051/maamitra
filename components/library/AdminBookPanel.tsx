@@ -15,6 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { fetchBookByUrl, searchBooks, FetchedBook } from '../../services/bookFetch';
 import { useBookStore, DynamicBook } from '../../store/useBookStore';
+import { Colors } from '../../constants/theme';
 
 // ─── Topic options ─────────────────────────────────────────────────────────────
 const TOPICS = [
@@ -46,7 +47,7 @@ function CoverPreview({ imageUrl, title }: { imageUrl?: string; title: string })
     );
   }
   return (
-    <LinearGradient colors={['#7C3AED', '#7C3AED']} style={s.coverFallback}>
+    <LinearGradient colors={[Colors.primary, Colors.primary]} style={s.coverFallback}>
       <Text style={s.coverFallbackText}>{title.charAt(0)}</Text>
     </LinearGradient>
   );
@@ -73,7 +74,7 @@ function ResultItem({
           <Text style={s.resultCat}>{book.categories[0]}</Text>
         )}
       </View>
-      <Ionicons name="add-circle" size={22} color="#7C3AED" />
+      <Ionicons name="add-circle" size={22} color={Colors.primary} />
     </TouchableOpacity>
   );
 }
@@ -342,7 +343,7 @@ export default function AdminBookPanel({ visible, onClose }: AdminBookPanelProps
       <View style={s.modal}>
         {/* Header */}
         <View style={s.header}>
-          <LinearGradient colors={['#7C3AED', '#7C3AED']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
+          <LinearGradient colors={[Colors.primary, Colors.primary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
           <View style={s.headerContent}>
             <View>
               <Text style={s.headerTitle}>📚 Book Admin</Text>
@@ -413,7 +414,7 @@ export default function AdminBookPanel({ visible, onClose }: AdminBookPanelProps
                         onPress={() => { setSelected(null); setStep('edit'); }}
                         activeOpacity={0.8}
                       >
-                        <Ionicons name="create-outline" size={13} color="#7C3AED" />
+                        <Ionicons name="create-outline" size={13} color={Colors.primary} />
                         <Text style={s.manualBtnText}>Enter details manually →</Text>
                       </TouchableOpacity>
                     </View>
@@ -486,9 +487,9 @@ const s = StyleSheet.create({
 
   tabs: { flexDirection: 'row', backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#F5F0FF' },
   tab: { flex: 1, paddingVertical: 13, alignItems: 'center' },
-  tabActive: { borderBottomWidth: 2, borderBottomColor: '#7C3AED' },
+  tabActive: { borderBottomWidth: 2, borderBottomColor: Colors.primary },
   tabText: { fontSize: 13, fontWeight: '600', color: '#9ca3af' },
-  tabTextActive: { color: '#7C3AED' },
+  tabTextActive: { color: Colors.primary },
 
   // Search box
   searchBox: { padding: 16, backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#F5F0FF' },
@@ -499,7 +500,7 @@ const s = StyleSheet.create({
     borderRadius: 10, paddingHorizontal: 12, fontSize: 14, color: '#1a1a2e',
   },
   searchBtn: {
-    width: 44, height: 44, borderRadius: 10, backgroundColor: '#7C3AED',
+    width: 44, height: 44, borderRadius: 10, backgroundColor: Colors.primary,
     alignItems: 'center', justifyContent: 'center',
   },
   searchBtnDisabled: { backgroundColor: '#f3a8d0' },
@@ -507,7 +508,7 @@ const s = StyleSheet.create({
   errorBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, margin: 16, padding: 12, backgroundColor: '#fef2f2', borderRadius: 10 },
   errorText: { fontSize: 13, color: '#ef4444' },
   manualBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
-  manualBtnText: { fontSize: 12, color: '#7C3AED', fontWeight: '700' },
+  manualBtnText: { fontSize: 12, color: Colors.primary, fontWeight: '700' },
 
   resultsList: { flex: 1, paddingHorizontal: 16, paddingTop: 8 },
   resultsHeader: { fontSize: 12, color: '#6b7280', marginBottom: 8, fontWeight: '600' },
@@ -521,7 +522,7 @@ const s = StyleSheet.create({
   resultTitle: { fontSize: 14, fontWeight: '700', color: '#1a1a2e', lineHeight: 19 },
   resultAuthor: { fontSize: 12, color: '#6b7280', marginTop: 2 },
   resultRating: { fontSize: 12, color: '#f59e0b', marginTop: 3 },
-  resultCat: { fontSize: 11, color: '#7C3AED', marginTop: 2, fontWeight: '600' },
+  resultCat: { fontSize: 11, color: Colors.primary, marginTop: 2, fontWeight: '600' },
 
   hint: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40, gap: 12 },
   hintEmoji: { fontSize: 48 },
@@ -544,7 +545,7 @@ const s = StyleSheet.create({
     borderRadius: 20, paddingVertical: 6, paddingHorizontal: 12,
     backgroundColor: '#f9fafb', borderWidth: 1, borderColor: '#e5e7eb', marginRight: 6,
   },
-  chipActive: { backgroundColor: '#7C3AED', borderColor: '#7C3AED' },
+  chipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   chipText: { fontSize: 12, color: '#6b7280', fontWeight: '600' },
   chipTextActive: { color: '#ffffff' },
 
@@ -556,7 +557,7 @@ const s = StyleSheet.create({
   cancelBtnText: { fontSize: 14, fontWeight: '700', color: '#6b7280' },
   saveBtn: {
     flex: 2, height: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center',
-    flexDirection: 'row', gap: 6, backgroundColor: '#7C3AED',
+    flexDirection: 'row', gap: 6, backgroundColor: Colors.primary,
   },
   saveBtnDisabled: { backgroundColor: '#f3a8d0' },
   saveBtnText: { fontSize: 14, fontWeight: '700', color: '#ffffff' },

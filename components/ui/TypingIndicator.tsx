@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, View } from 'react-native';
+import { Colors } from '../../constants/theme';
 
 const DOT_SIZE = 8;
 const DELAYS = [0, 150, 300];
@@ -64,7 +65,7 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 16,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    shadowColor: '#7C3AED',
+    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 6,

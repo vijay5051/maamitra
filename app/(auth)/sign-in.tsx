@@ -34,6 +34,7 @@ import {
   signInWithRedirect,
   buildGoogleProvider,
 } from '../../services/firebase';
+import { Colors } from '../../constants/theme';
 
 // ─── Animated Field ───────────────────────────────────────────────────────────
 // Floating-label TextInput. Label lifts and colours to brand purple on focus.
@@ -91,7 +92,7 @@ function AnimatedField({
       color: interpolateColor(
         focusAnim.value,
         [0, 1],
-        ['#6b7280', '#7C3AED'],
+        ['#6b7280', Colors.primary],
       ),
     };
   });
@@ -99,11 +100,11 @@ function AnimatedField({
   const underlineAnimStyle = useAnimatedStyle(() => ({
     borderBottomColor: hasError
       ? '#ef4444'
-      : interpolateColor(focusAnim.value, [0, 1], ['#E5E1EE', '#7C3AED']),
+      : interpolateColor(focusAnim.value, [0, 1], ['#E5E1EE', Colors.primary]),
     borderBottomWidth: 1.5,
   }));
 
-  const iconColor = hasError ? '#ef4444' : focused ? '#7C3AED' : '#9ca3af';
+  const iconColor = hasError ? '#ef4444' : focused ? Colors.primary : '#9ca3af';
 
   return (
     <View style={fieldStyles.container}>
@@ -186,7 +187,7 @@ function SpinnerIcon() {
   }));
   return (
     <Animated.View style={spinStyle}>
-      <Ionicons name="reload-outline" size={20} color="#7C3AED" />
+      <Ionicons name="reload-outline" size={20} color={Colors.primary} />
     </Animated.View>
   );
 }
@@ -550,7 +551,7 @@ const styles = StyleSheet.create({
 
   signUpLink: { alignItems: 'center', paddingVertical: 14 },
   signUpText: { fontFamily: Fonts.sansRegular, fontSize: 14, color: '#6b7280' },
-  signUpTextBold: { fontFamily: Fonts.sansBold, color: '#7C3AED' },
+  signUpTextBold: { fontFamily: Fonts.sansBold, color: Colors.primary },
 
   footer: {
     fontFamily: Fonts.sansRegular,

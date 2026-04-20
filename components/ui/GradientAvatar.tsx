@@ -1,6 +1,7 @@
 import React from 'react';
 import { Image, Text, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Colors } from '../../constants/theme';
 
 const LOGO = require('../../assets/logo.png');
 
@@ -27,7 +28,7 @@ export default function GradientAvatar({
 
   return (
     <LinearGradient
-      colors={['#7C3AED', '#7C3AED']}
+      colors={[Colors.primary, Colors.primary]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={[

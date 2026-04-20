@@ -4,13 +4,14 @@
  * Usage:
  *   <AppIcon name="heart-outline" variant="gradient" size={20} />
  *   <AppIcon name="book-outline"  variant="soft"     size={18} />
- *   <AppIcon name="shield-checkmark-outline" variant="plain" color="#7C3AED" size={22} />
+ *   <AppIcon name="shield-checkmark-outline" variant="plain" color={Colors.primary} size={22} />
  */
 
 import React from 'react';
 import { View, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Colors } from '../../constants/theme';
 
 export type IconVariant = 'gradient' | 'soft' | 'white' | 'plain';
 
@@ -27,8 +28,8 @@ interface AppIconProps {
   style?: ViewStyle;
 }
 
-const DEFAULT_GRADIENT: [string, string] = ['#7C3AED', '#7C3AED'];
-const DEFAULT_COLOR = '#7C3AED';
+const DEFAULT_GRADIENT: [string, string] = [Colors.primary, Colors.primary];
+const DEFAULT_COLOR = Colors.primary;
 
 export function AppIcon({
   name,

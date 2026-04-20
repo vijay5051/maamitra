@@ -22,6 +22,7 @@ import {
   type CommunityPost,
 } from '../../services/social';
 import PostCardComponent from './PostCard';
+import { Colors } from '../../constants/theme';
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
@@ -249,7 +250,7 @@ export default function UserPostsSheet({ uid, name, visible, onClose, onEditPost
 
         {isLoading ? (
           <View style={styles.centered}>
-            <ActivityIndicator size="large" color="#7C3AED" />
+            <ActivityIndicator size="large" color={Colors.primary} />
           </View>
         ) : (
           <FlatList

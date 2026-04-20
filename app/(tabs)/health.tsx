@@ -36,10 +36,11 @@ import TeethTab from '../../components/health/TeethTab';
 import FoodTrackerTab from '../../components/health/FoodTrackerTab';
 import { TabIcon } from '../../components/ui/AppIcon';
 import { Fonts } from '../../constants/theme';
+import { Colors } from '../../constants/theme';
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
-const ROSE   = '#7C3AED';
-const PLUM   = '#7C3AED';
+const ROSE   = Colors.primary;
+const PLUM   = Colors.primary;
 const GOLD   = '#F59E0B';
 const SAGE   = '#34D399';
 const MIST   = '#EDE9F6';
@@ -487,7 +488,7 @@ function SchemeCard({
 
           <View style={scStyles.detailBlock}>
             <View style={scStyles.detailLabelRow}>
-              <Ionicons name="gift-outline" size={14} color="#7C3AED" />
+              <Ionicons name="gift-outline" size={14} color={Colors.primary} />
               <Text style={scStyles.detailLabel}>What you get</Text>
             </View>
             <Text style={scStyles.detailText}>{scheme.benefit}</Text>
@@ -1103,7 +1104,7 @@ export default function HealthScreen() {
 
             {!activeKid ? (
               <Card style={styles.noKidCard} shadow="sm">
-                <Ionicons name="heart-outline" size={40} color="#7C3AED" style={{ marginBottom: 12, opacity: 0.8 }} />
+                <Ionicons name="heart-outline" size={40} color={Colors.primary} style={{ marginBottom: 12, opacity: 0.8 }} />
                 <Text style={styles.noKidText}>
                   Add your baby to see their personalised vaccine schedule.
                 </Text>
@@ -1113,7 +1114,7 @@ export default function HealthScreen() {
                   activeOpacity={0.85}
                 >
                   <LinearGradient
-                    colors={['#7C3AED', '#7C3AED']}
+                    colors={[Colors.primary, Colors.primary]}
                     start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                     style={styles.noKidBtnGrad}
                   >
@@ -1134,7 +1135,7 @@ export default function HealthScreen() {
                 ].map((v) => (
                   <View key={v.name} style={{ backgroundColor: '#fff', borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: '#EDE9F6' }}>
                     <Text style={{ fontFamily: Fonts.sansSemiBold, fontSize: 13, color: '#1C1033' }}>{v.name}</Text>
-                    <Text style={{ fontFamily: Fonts.sansRegular, fontSize: 12, color: '#7C3AED', marginTop: 2 }}>When: {v.timing}</Text>
+                    <Text style={{ fontFamily: Fonts.sansRegular, fontSize: 12, color: Colors.primary, marginTop: 2 }}>When: {v.timing}</Text>
                     <Text style={{ fontFamily: Fonts.sansRegular, fontSize: 12, color: '#6b7280', marginTop: 2 }}>{v.note}</Text>
                   </View>
                 ))}
@@ -1193,7 +1194,7 @@ export default function HealthScreen() {
               </View>
               <View style={styles.progressBar}>
                 <LinearGradient
-                  colors={['#7C3AED', '#8b5cf6']}
+                  colors={[Colors.primary, '#8b5cf6']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={[styles.progressFill, { width: `${progressPct}%` as any }]}

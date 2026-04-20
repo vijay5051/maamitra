@@ -7,6 +7,7 @@ import {
   View,
 } from 'react-native';
 import { MOOD_DATA } from '../../store/useWellnessStore';
+import { Colors } from '../../constants/theme';
 
 interface MoodSelectorProps {
   selected?: number;
@@ -110,7 +111,7 @@ const styles = StyleSheet.create({
   },
   emojiWrapperSelected: {
     backgroundColor: '#ffffff',
-    shadowColor: '#7C3AED',
+    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 10,
@@ -127,7 +128,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   labelSelected: {
-    color: '#7C3AED',
+    color: Colors.primary,
     fontWeight: '700',
   },
 });

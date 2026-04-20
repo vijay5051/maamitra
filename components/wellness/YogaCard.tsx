@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import TagPill from '../ui/TagPill';
 import { YogaSession } from '../../data/yogaSessions';
 import { Fonts } from '../../constants/theme';
+import { Colors } from '../../constants/theme';
 
 interface YogaCardProps {
   session: YogaSession;
@@ -35,7 +36,7 @@ export default function YogaCard({ session, onPress }: YogaCardProps) {
     <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={styles.card}>
       <View style={styles.topRow}>
         <View style={styles.iconBox}>
-          <Ionicons name={iconForSession(session)} size={22} color="#7C3AED" />
+          <Ionicons name={iconForSession(session)} size={22} color={Colors.primary} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.name}>{session.name}</Text>
@@ -48,8 +49,8 @@ export default function YogaCard({ session, onPress }: YogaCardProps) {
       </Text>
 
       <View style={styles.tagsRow}>
-        <TagPill label={`${minutes} min`} color="#7C3AED" />
-        <TagPill label={`${session.poses.length} poses`} color="#7C3AED" />
+        <TagPill label={`${minutes} min`} color={Colors.primary} />
+        <TagPill label={`${session.poses.length} poses`} color={Colors.primary} />
       </View>
 
       <View style={styles.startBtn}>
@@ -110,7 +111,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    backgroundColor: '#7C3AED',
+    backgroundColor: Colors.primary,
     paddingVertical: 12,
     borderRadius: 10,
     marginTop: 2,

@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Fonts } from '../../constants/theme';
+import { Colors } from '../../constants/theme';
 
 /**
  * Primary CTA button for the whole app. Previously rendered a saturated
@@ -31,7 +32,7 @@ interface GradientButtonProps {
   loading?: boolean;
 }
 
-const BRAND = '#7C3AED';
+const BRAND = Colors.primary;
 const BRAND_DIM = '#c9b7f7';
 
 export default function GradientButton({

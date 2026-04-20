@@ -779,7 +779,7 @@ export default function HomeTab() {
             }
           >
             <View style={styles.nearbyIconWrap}>
-              <Ionicons name="people-outline" size={22} color="#7C3AED" />
+              <Ionicons name="people-outline" size={22} color={Colors.primary} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.nearbyTitle}>
@@ -830,7 +830,7 @@ export default function HomeTab() {
                   }
                 >
                   <View style={styles.recReadIconBox}>
-                    <Ionicons name="book-outline" size={16} color="#7C3AED" />
+                    <Ionicons name="book-outline" size={16} color={Colors.primary} />
                   </View>
                   <Text style={styles.recReadTopic} numberOfLines={1}>
                     {(a.topic || 'Article').toUpperCase()}

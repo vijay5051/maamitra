@@ -18,6 +18,7 @@ import { Fonts } from '../../constants/theme';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useSocialStore } from '../../store/useSocialStore';
 import { searchPublicProfiles, UserPublicProfile } from '../../services/social';
+import { Colors } from '../../constants/theme';
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
@@ -165,7 +166,7 @@ export default function UserSearchSheet({ visible, onClose, onSelectUser }: Prop
         {/* Body */}
         {loading ? (
           <View style={styles.centered}>
-            <ActivityIndicator size="large" color="#7C3AED" />
+            <ActivityIndicator size="large" color={Colors.primary} />
           </View>
         ) : (
           <FlatList
@@ -294,7 +295,7 @@ const styles = StyleSheet.create({
   badge: {
     fontSize: 11,
     fontFamily: Fonts.sansMedium,
-    color: '#7C3AED',
+    color: Colors.primary,
     backgroundColor: '#F5F0FF',
     paddingHorizontal: 8,
     paddingVertical: 3,

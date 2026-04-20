@@ -12,9 +12,10 @@ import { useTeethStore } from '../../store/useTeethStore';
 import { useActiveKid } from '../../hooks/useActiveKid';
 import { calculateAgeInMonths } from '../../store/useProfileStore';
 import { Fonts } from '../../constants/theme';
+import { Colors } from '../../constants/theme';
 
-const ROSE = '#7C3AED';
-const PLUM = '#7C3AED';
+const ROSE = Colors.primary;
+const PLUM = Colors.primary;
 const SAGE = '#34D399';
 const GOLD = '#F59E0B';
 const MIST = '#EDE9F6';

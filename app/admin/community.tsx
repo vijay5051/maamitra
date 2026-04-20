@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { Colors } from '../../constants/theme';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -206,7 +207,7 @@ const editStyles = StyleSheet.create({
   chip: { marginRight: 8, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f3f4f6' },
   chipActive: { backgroundColor: '#ede9fe', borderWidth: 1, borderColor: '#8b5cf6' },
   chipText: { fontSize: 13, color: '#6b7280', fontWeight: '600' },
-  chipTextActive: { color: '#7c3aed', fontWeight: '700' },
+  chipTextActive: { color: Colors.primary, fontWeight: '700' },
 });
 
 // ─── Filter Tab ───────────────────────────────────────────────────────────────
@@ -359,7 +360,7 @@ export default function AdminCommunity() {
       {/* List */}
       {loading ? (
         <View style={styles.centered}>
-          <ActivityIndicator color="#7C3AED" size="large" />
+          <ActivityIndicator color={Colors.primary} size="large" />
           <Text style={styles.loadingText}>Loading posts...</Text>
         </View>
       ) : (
@@ -371,8 +372,8 @@ export default function AdminCommunity() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => loadPosts(true)}
-              tintColor="#7C3AED"
-              colors={['#7C3AED']}
+              tintColor={Colors.primary}
+              colors={[Colors.primary]}
             />
           }
         >
@@ -438,7 +439,7 @@ const styles = StyleSheet.create({
   },
   filterTabActive: { backgroundColor: '#EDE9F6' },
   filterTabText: { fontSize: 13, fontWeight: '600', color: '#6b7280' },
-  filterTabTextActive: { color: '#7C3AED' },
+  filterTabTextActive: { color: Colors.primary },
   filterCount: {
     minWidth: 20,
     height: 20,
@@ -490,7 +491,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: { fontSize: 14, fontWeight: '800', color: '#7C3AED' },
+  avatarText: { fontSize: 14, fontWeight: '800', color: Colors.primary },
   postAuthor: { fontSize: 14, fontWeight: '700', color: '#1a1a2e' },
   postAuthorEmail: { fontSize: 11, color: '#9ca3af' },
 

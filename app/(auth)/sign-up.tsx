@@ -33,6 +33,7 @@ import {
   signInWithRedirect,
   buildGoogleProvider,
 } from '../../services/firebase';
+import { Colors } from '../../constants/theme';
 
 // ─── Password strength (tonal, not rainbow) ──────────────────────────────────
 // Previously: red → orange → blue → green traffic-light colours competing
@@ -48,7 +49,7 @@ function getPasswordStrength(password: string): number {
   return Math.min(score, 4);
 }
 const STRENGTH_LABELS = ['', 'Weak', 'Fair', 'Good', 'Strong'];
-const STRENGTH_FILL = '#7C3AED';
+const STRENGTH_FILL = Colors.primary;
 
 // ─── Animated Field ───────────────────────────────────────────────────────────
 interface AnimatedFieldProps {
@@ -101,18 +102,18 @@ function AnimatedField({
     return {
       transform: [{ translateY: interpolate(progress, [0, 1], [0, -22]) }],
       fontSize: interpolate(progress, [0, 1], [15, 12]),
-      color: interpolateColor(focusAnim.value, [0, 1], ['#6b7280', '#7C3AED']),
+      color: interpolateColor(focusAnim.value, [0, 1], ['#6b7280', Colors.primary]),
     };
   });
 
   const underlineAnimStyle = useAnimatedStyle(() => ({
     borderBottomColor: hasError
       ? '#ef4444'
-      : interpolateColor(focusAnim.value, [0, 1], ['#E5E1EE', '#7C3AED']),
+      : interpolateColor(focusAnim.value, [0, 1], ['#E5E1EE', Colors.primary]),
     borderBottomWidth: 1.5,
   }));
 
-  const iconColor = hasError ? '#ef4444' : focused ? '#7C3AED' : '#9ca3af';
+  const iconColor = hasError ? '#ef4444' : focused ? Colors.primary : '#9ca3af';
 
   return (
     <View style={fieldStyles.container}>
@@ -225,7 +226,7 @@ const strStyles = StyleSheet.create({
   label: {
     fontFamily: Fonts.sansMedium,
     fontSize: 11,
-    color: '#7C3AED',
+    color: Colors.primary,
     marginTop: 2,
   },
 });
@@ -241,7 +242,7 @@ function SpinnerIcon() {
   }));
   return (
     <Animated.View style={spinStyle}>
-      <Ionicons name="reload-outline" size={20} color="#7C3AED" />
+      <Ionicons name="reload-outline" size={20} color={Colors.primary} />
     </Animated.View>
   );
 }
@@ -606,7 +607,7 @@ const styles = StyleSheet.create({
 
   signInLink: { alignItems: 'center', paddingVertical: 14 },
   signInText: { fontFamily: Fonts.sansRegular, fontSize: 14, color: '#6b7280' },
-  signInTextBold: { fontFamily: Fonts.sansBold, color: '#7C3AED' },
+  signInTextBold: { fontFamily: Fonts.sansBold, color: Colors.primary },
 
   footer: {
     fontFamily: Fonts.sansRegular,

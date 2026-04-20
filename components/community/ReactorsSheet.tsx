@@ -19,6 +19,7 @@ import {
   CommunityPost,
   ReactorEntry,
 } from '../../services/social';
+import { Colors } from '../../constants/theme';
 
 interface Props {
   visible: boolean;
@@ -114,7 +115,7 @@ export default function ReactorsSheet({ visible, post, emojiFilter, onClose, onS
 
         {loading ? (
           <View style={styles.centered}>
-            <ActivityIndicator size="large" color="#7C3AED" />
+            <ActivityIndicator size="large" color={Colors.primary} />
           </View>
         ) : (
           <FlatList

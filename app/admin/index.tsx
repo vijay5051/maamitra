@@ -18,6 +18,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/useAuthStore';
+import { Colors } from '../../constants/theme';
 
 interface Stats {
   totalUsers: number;
@@ -163,7 +164,7 @@ export default function AdminDashboard() {
       style={s.container}
       contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 32 }]}
       showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor="#7C3AED" />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={Colors.primary} />}
     >
       {/* Header */}
       <LinearGradient colors={['#F5F0FF', '#ede9fe']} style={[s.header, { paddingTop: insets.top + 8 }]}>
@@ -180,11 +181,11 @@ export default function AdminDashboard() {
 
       {/* Stats */}
       {loading ? (
-        <ActivityIndicator color="#7C3AED" style={{ marginVertical: 24 }} />
+        <ActivityIndicator color={Colors.primary} style={{ marginVertical: 24 }} />
       ) : (
         <View style={s.statsGrid}>
           <StatCard value={stats.totalUsers}     label="Users"     icon="people-outline"         color="#8b5cf6" />
-          <StatCard value={stats.totalPosts}     label="Posts"     icon="chatbubbles-outline"     color="#7C3AED" />
+          <StatCard value={stats.totalPosts}     label="Posts"     icon="chatbubbles-outline"     color={Colors.primary} />
           <StatCard value={stats.pendingApproval} label="Pending"  icon="time-outline"            color="#f59e0b" />
           <StatCard value={stats.postsToday}     label="Today"     icon="today-outline"           color="#10b981" />
           <StatCard value={stats.totalContent}   label="Content"   icon="library-outline"         color="#06b6d4" />
@@ -196,7 +197,7 @@ export default function AdminDashboard() {
       <View style={s.card}>
         <QuickAction label="Users"          icon="people-outline"           color="#8b5cf6" onPress={() => router.push('/admin/users')} />
         <View style={s.divider} />
-        <QuickAction label="Community Posts" icon="chatbubbles-outline"     color="#7C3AED" onPress={() => router.push('/admin/community')} />
+        <QuickAction label="Community Posts" icon="chatbubbles-outline"     color={Colors.primary} onPress={() => router.push('/admin/community')} />
         <View style={s.divider} />
         <QuickAction label="Content Library" icon="library-outline"         color="#06b6d4" onPress={() => router.push('/admin/content')} />
         <View style={s.divider} />
@@ -323,7 +324,7 @@ const s = StyleSheet.create({
   },
   postHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   postAuthorRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  authorDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#7C3AED' },
+  authorDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: Colors.primary },
   postAuthor: { fontSize: 13, fontWeight: '700', color: '#1a1a2e' },
   postDate: { fontSize: 11, color: '#9ca3af' },
   postText: { fontSize: 13, color: '#4b5563', lineHeight: 19, marginBottom: 6 },

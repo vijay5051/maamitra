@@ -19,12 +19,13 @@ import {
 } from 'react-native';
 
 import { AdminUser, getUsers, deleteUserData, adminSetUserRole } from '../../services/firebase';
+import { Colors } from '../../constants/theme';
 
 // ─── Avatar ───────────────────────────────────────────────────────────────────
 
 function Avatar({ name, size = 40 }: { name: string; size?: number }) {
   const initial = (name ?? '?').charAt(0).toUpperCase();
-  const colors = ['#7C3AED', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b'];
+  const colors = [Colors.primary, '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b'];
   const bg = colors[initial.charCodeAt(0) % colors.length];
   return (
     <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2, backgroundColor: bg }]}>
@@ -210,7 +211,7 @@ export default function UsersScreen() {
       style={styles.container}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor="#7C3AED" />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={Colors.primary} />}
     >
       {/* Stats bar */}
       <View style={styles.statsRow}>
@@ -253,7 +254,7 @@ export default function UsersScreen() {
 
       {/* List */}
       {loading ? (
-        <ActivityIndicator color="#7C3AED" style={{ marginTop: 40 }} />
+        <ActivityIndicator color={Colors.primary} style={{ marginTop: 40 }} />
       ) : filtered.length === 0 ? (
         <View style={styles.empty}>
           <Ionicons name="people-outline" size={40} color="#d1d5db" />
@@ -339,7 +340,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ede9fe', borderColor: '#8b5cf6',
   },
   roleChipText: { fontSize: 11, color: '#6b7280' },
-  roleChipTextActive: { color: '#7c3aed', fontWeight: '700' },
+  roleChipTextActive: { color: Colors.primary, fontWeight: '700' },
 
   empty: { alignItems: 'center', paddingVertical: 40, gap: 10 },
   emptyText: { fontSize: 14, color: '#9ca3af' },
