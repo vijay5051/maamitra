@@ -248,17 +248,23 @@ export async function markConversationRead(convId: string, myUid: string): Promi
   }
 }
 
-/** Count conversations with unread messages for a user */
+/** Count conversations with unread messages for a user.
+ *  Firestore rejects two `array-contains` filters on the same query
+ *  ('A maximum of 1 ARRAY_CONTAINS filter is allowed per disjunction'),
+ *  so we query by participant membership only and then filter unread
+ *  on the client. */
 export async function getUnreadDMCount(myUid: string): Promise<number> {
   if (!db) return 0;
   try {
     const q = query(
       collection(db, 'conversations'),
       where('participants', 'array-contains', myUid),
-      where('unreadBy', 'array-contains', myUid),
     );
     const snap = await getDocs(q);
-    return snap.size;
+    return snap.docs.filter((d) => {
+      const unreadBy: string[] = d.data().unreadBy ?? [];
+      return unreadBy.includes(myUid);
+    }).length;
   } catch (error) {
     console.error('getUnreadDMCount error:', error);
     return 0;

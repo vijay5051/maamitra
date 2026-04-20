@@ -171,8 +171,13 @@ service cloud.firestore {
 
     // ── Conversations (Direct Messages) ──────────────────────────────────────
     // Only participants can read or modify a conversation and its messages.
+    // `resource == null` guards protect reads on non-existent docs — without
+    // them, a rule that reads resource.data.* blows up and Firestore returns
+    // PERMISSION_DENIED for what should be a simple 'doc doesn't exist yet'.
     match /conversations/{convId} {
-      allow read:   if isParticipant(resource.data.participants);
+      allow read:   if isSignedIn() && (
+        resource == null || isParticipant(resource.data.participants)
+      );
       allow create: if isVerified() &&
         request.auth.uid in request.resource.data.participants &&
         request.resource.data.participants.size() == 2;
@@ -180,14 +185,17 @@ service cloud.firestore {
       allow delete: if isAdmin();
 
       match /messages/{msgId} {
+        // Guard the get() with exists() so a missing parent conversation
+        // doesn't throw during rule evaluation. If the parent isn't there,
+        // there's nothing to read anyway — return empty set cleanly.
         allow read: if isSignedIn() &&
+          exists(/databases/$(database)/documents/conversations/$(convId)) &&
           request.auth.uid in get(/databases/$(database)/documents/conversations/$(convId)).data.participants;
         // services/messages.ts writes senderUid/senderName/senderPhoto —
-        // the rule previously looked for authorUid, which never exists
-        // on these docs, so every create was silently rejected with
-        // PERMISSION_DENIED and the user saw 'unable to send messages'.
+        // match those field names.
         allow create: if isVerified() &&
           request.resource.data.senderUid == request.auth.uid &&
+          exists(/databases/$(database)/documents/conversations/$(convId)) &&
           request.auth.uid in get(/databases/$(database)/documents/conversations/$(convId)).data.participants &&
           shortText(request.resource.data.text, 4000);
         allow update: if isSignedIn() &&

@@ -17,7 +17,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useDMStore } from '../../store/useDMStore';
+import { useProfileStore } from '../../store/useProfileStore';
 import { getPublicProfile, type UserPublicProfile } from '../../services/social';
+import { getOrCreateConversation } from '../../services/messages';
 import GradientAvatar from '../../components/ui/GradientAvatar';
 import { Fonts, Colors } from '../../constants/theme';
 
@@ -85,12 +87,39 @@ export default function ConversationScreen() {
   const [profile, setProfile] = useState<UserPublicProfile | null>(null);
   const listRef = useRef<FlatList>(null);
 
-  // Load other user's profile + messages
+  // Load other user's profile + eagerly create the conversation doc if
+  // it doesn't exist yet, then load messages. Without the eager create
+  // the messages read rule fails — the rule does `get(conv).data.
+  // participants` and errors out when the conv doc is missing.
   useEffect(() => {
     if (!otherUid) return;
-    getPublicProfile(otherUid).then(setProfile);
-    loadMessages(otherUid);
-    markRead(otherUid);
+    let cancelled = false;
+    (async () => {
+      const otherProfile = await getPublicProfile(otherUid);
+      if (cancelled) return;
+      setProfile(otherProfile);
+
+      const myUid = useAuthStore.getState().user?.uid;
+      if (!myUid) return;
+      const myName = useProfileStore.getState().motherName || 'User';
+      const myPhoto = useProfileStore.getState().photoUrl || '';
+      try {
+        await getOrCreateConversation(
+          myUid,
+          myName,
+          myPhoto,
+          otherUid,
+          otherProfile?.name || 'User',
+          otherProfile?.photoUrl || '',
+        );
+      } catch (e) {
+        console.error('Failed to prepare conversation:', e);
+      }
+      if (cancelled) return;
+      loadMessages(otherUid);
+      markRead(otherUid);
+    })();
+    return () => { cancelled = true; };
   }, [otherUid]);
 
   // Scroll to bottom when new messages arrive
