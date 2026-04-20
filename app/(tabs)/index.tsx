@@ -30,6 +30,7 @@ import { useSocialStore } from '../../store/useSocialStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useTeethStore } from '../../store/useTeethStore';
 import { useFoodTrackerStore } from '../../store/useFoodTrackerStore';
+import { useGrowthStore, sleepDurationMinutes, formatDuration } from '../../store/useGrowthStore';
 import { useChatStore } from '../../store/useChatStore';
 import { useCommunityStore } from '../../store/useCommunityStore';
 import { useActiveKid } from '../../hooks/useActiveKid';
@@ -401,6 +402,113 @@ export default function HomeTab() {
     [activeKid, ageLabel, todayMood, moodHistory, vaccineSchedule, teethByKid, foodsByKid, router, chatThreads, savedAnswers, profile?.state, profile?.diet]
   );
 
+  // ─── Baby health at-a-glance ──────────────────────────────────────────
+  // Reads the new useGrowthStore (weight/height/head/diaper/sleep) and the
+  // vaccine schedule to surface the most recent real data for the active
+  // kid. Returns up to five mini-cards; each deep-links to the right
+  // sub-tab in Health. Empty values render as an "Add" CTA.
+  const growthByKid = useGrowthStore((s) => s.byKid);
+  const babyHealthStrip = useMemo(() => {
+    if (!activeKid || activeKid.isExpecting) return [] as Array<{
+      key: string; icon: string; label: string; value: string; tint: string; tintBg: string;
+      empty?: boolean; onPress: () => void;
+    }>;
+    const kid = growthByKid[activeKid.id] ?? {};
+    const latest = (arr?: any[]) => (arr && arr.length > 0 ? arr[0] : null);
+
+    const w = latest(kid.weight);
+    const h = latest(kid.height);
+    const hd = latest(kid.head);
+    const sleeps = kid.sleep ?? [];
+    const diapers = kid.diaper ?? [];
+
+    // "Today" window for routine metrics — counts diapers since midnight,
+    // sleep hours from events that OVERLAP today.
+    const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+    const diapersToday = diapers.filter((d: any) => new Date(d.at).getTime() >= startOfToday.getTime()).length;
+    const sleepTodayMins = sleeps.reduce((sum: number, e: any) => {
+      const endT = new Date(e.sleepEnd ?? e.at).getTime();
+      if (endT < startOfToday.getTime()) return sum;
+      return sum + sleepDurationMinutes(e);
+    }, 0);
+    const lastSleep = latest(sleeps);
+
+    // Vaccine summary — first overdue or due-soon wins; else "up to date".
+    const overdue = vaccineSchedule.filter((v) => v.status === 'overdue');
+    const dueSoon = vaccineSchedule.filter((v) => v.status === 'due-soon');
+    const vaccineLabel =
+      overdue.length > 0 ? `${overdue.length} overdue`
+      : dueSoon.length > 0 ? `${dueSoon.length} due soon`
+      : 'Up to date';
+    const vaccineTint = overdue.length > 0 ? Colors.error : dueSoon.length > 0 ? Colors.warning : Colors.success;
+
+    const goGrowth  = () => router.push({ pathname: '/(tabs)/health', params: { tab: 'growth' } });
+    const goRoutine = () => router.push({ pathname: '/(tabs)/health', params: { tab: 'routine' } });
+    const goVacc    = () => router.push({ pathname: '/(tabs)/health', params: { tab: 'vaccines' } });
+
+    return [
+      {
+        key: 'weight',
+        icon: 'scale-outline',
+        label: 'Weight',
+        value: w ? `${(w.value ?? 0).toFixed(2)} kg` : 'Log now',
+        tint: '#8B5CF6',
+        tintBg: 'rgba(139,92,246,0.10)',
+        empty: !w,
+        onPress: goGrowth,
+      },
+      {
+        key: 'height',
+        icon: 'resize-outline',
+        label: 'Height',
+        value: h ? `${(h.value ?? 0).toFixed(1)} cm` : 'Log now',
+        tint: '#6366F1',
+        tintBg: 'rgba(99,102,241,0.10)',
+        empty: !h,
+        onPress: goGrowth,
+      },
+      {
+        key: 'head',
+        icon: 'ellipse-outline',
+        label: 'Head',
+        value: hd ? `${(hd.value ?? 0).toFixed(1)} cm` : 'Log now',
+        tint: '#14B8A6',
+        tintBg: 'rgba(20,184,166,0.10)',
+        empty: !hd,
+        onPress: goGrowth,
+      },
+      {
+        key: 'sleep',
+        icon: 'moon-outline',
+        label: 'Sleep today',
+        value: sleepTodayMins > 0 ? formatDuration(sleepTodayMins) : lastSleep ? 'No entry today' : 'Log sleep',
+        tint: '#3B82F6',
+        tintBg: 'rgba(59,130,246,0.10)',
+        empty: sleepTodayMins === 0,
+        onPress: goRoutine,
+      },
+      {
+        key: 'diaper',
+        icon: 'sync-outline',
+        label: 'Diapers today',
+        value: diapersToday > 0 ? `${diapersToday}` : 'Log diaper',
+        tint: '#F59E0B',
+        tintBg: 'rgba(245,158,11,0.10)',
+        empty: diapersToday === 0,
+        onPress: goRoutine,
+      },
+      {
+        key: 'vaccines',
+        icon: 'shield-checkmark-outline',
+        label: 'Vaccines',
+        value: vaccineLabel,
+        tint: vaccineTint,
+        tintBg: `${vaccineTint}1A`,
+        onPress: goVacc,
+      },
+    ];
+  }, [activeKid, growthByKid, vaccineSchedule, router]);
+
   // Vaccine reminders continue to render inline on the Home body (as
   // Today/Quick-Action cards). We no longer merge them into a bespoke
   // Inbox modal — the bell icon opens the shared NotificationsSheet used
@@ -519,9 +627,10 @@ export default function HomeTab() {
           </View>
         </TouchableOpacity>
 
-        {/* Quick actions — 2-column wrap, capped at 6 visible. Compact
-            cards so the section doesn't dominate the home screen. */}
-        <Text style={styles.sectionLabel}>QUICK ACTIONS</Text>
+        {/* ═══ FOR TODAY ═══ Urgent/actionable cards. Was "QUICK ACTIONS"
+            — renamed so it's clear this is the "do this today" bucket and
+            doesn't collide with the "Explore" shortcut grid further down. */}
+        <Text style={styles.groupLabel}>For today</Text>
         <View style={styles.todayGrid}>
           {(quickActionsExpanded ? todayCards : todayCards.slice(0, 6)).map((c, i) => (
             // Outer wrapper handles the mount animation (fade + slide up,
@@ -562,13 +671,11 @@ export default function HomeTab() {
           </TouchableOpacity>
         )}
 
-        {/* Family snapshot */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Family</Text>
-          <TouchableOpacity onPress={() => router.push('/(tabs)/family')}>
-            <Text style={styles.sectionLink}>See all</Text>
-          </TouchableOpacity>
-        </View>
+        {/* ═══ YOUR BABY ═══ Family snapshot + health-at-a-glance strip.
+            Grouped under one label so it's the single place on Home where
+            you see the active kid and their latest measurements. Tapping
+            any stat deep-links into the matching Health sub-tab. */}
+        <Text style={styles.groupLabel}>{activeKid ? `${activeKid.name}'s corner` : 'Your baby'}</Text>
         <TouchableOpacity
           activeOpacity={0.9}
           onPress={() => router.push('/(tabs)/family')}
@@ -596,7 +703,41 @@ export default function HomeTab() {
           </View>
         </TouchableOpacity>
 
-        {/* Community highlight — only shown when a real post exists */}
+        {/* Health at a glance — horizontal scroll of mini stat cards.
+            Empty-state values ("Log now") are visually muted so they don't
+            masquerade as real data. Hidden for expecting kids (no baby
+            measurements yet). */}
+        {babyHealthStrip.length > 0 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.babyHealthScroll}
+            style={{ marginTop: 10, marginHorizontal: -Spacing.md }}
+          >
+            {babyHealthStrip.map((stat) => (
+              <TouchableOpacity
+                key={stat.key}
+                activeOpacity={0.85}
+                onPress={stat.onPress}
+                style={[styles.babyHealthCard, stat.empty && styles.babyHealthCardEmpty]}
+              >
+                <View style={[styles.babyHealthIcon, { backgroundColor: stat.tintBg }]}>
+                  <Ionicons name={stat.icon as any} size={16} color={stat.tint} />
+                </View>
+                <Text style={[styles.babyHealthValue, stat.empty && styles.babyHealthValueEmpty]} numberOfLines={1}>
+                  {stat.value}
+                </Text>
+                <Text style={styles.babyHealthLabel} numberOfLines={1}>{stat.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
+
+        {/* ═══ COMMUNITY ═══ Latest post + local-parents chip. Only renders
+            when there's real content — no placeholder cards. */}
+        {(latestPost || (profile?.state && momsInState > 0)) && (
+          <Text style={styles.groupLabel}>Community</Text>
+        )}
         {latestPost && (() => {
           const created = latestPost.createdAt instanceof Date
             ? latestPost.createdAt
@@ -664,36 +805,36 @@ export default function HomeTab() {
           );
         })()}
 
-        {/* Suggested read — personalized by kid age */}
+        {/* ═══ DISCOVER ═══ Reading picks — the hero suggested article +
+            a horizontal carousel of age/diet-filtered reads. Only rendered
+            when there's at least one article to show. */}
+        {(suggestedArticle || recommendedArticles.length > 0) && (
+          <Text style={styles.groupLabel}>Discover</Text>
+        )}
         {suggestedArticle && (
-          <>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Suggested for you</Text>
-            </View>
-            <TouchableOpacity
-              activeOpacity={0.9}
-              style={styles.readCard}
-              onPress={() =>
-                router.push({
-                  pathname: '/(tabs)/library',
-                  params: { tab: 'read', articleId: suggestedArticle.id },
-                })
-              }
+          <TouchableOpacity
+            activeOpacity={0.9}
+            style={styles.readCard}
+            onPress={() =>
+              router.push({
+                pathname: '/(tabs)/library',
+                params: { tab: 'read', articleId: suggestedArticle.id },
+              })
+            }
+          >
+            <LinearGradient
+              colors={['#FAFAFB', '#F5F0FF']}
+              style={styles.readInner}
             >
-              <LinearGradient
-                colors={['#FAFAFB', '#F5F0FF']}
-                style={styles.readInner}
-              >
-                <View style={styles.readBadge}>
-                  <Text style={styles.readBadgeTxt}>
-                    {(suggestedArticle.readTime || '5 min').toUpperCase()} READ
-                  </Text>
-                </View>
-                <Text style={styles.readTitle}>{suggestedArticle.title}</Text>
-                <Text style={styles.readSub}>From the Maamitra Library</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </>
+              <View style={styles.readBadge}>
+                <Text style={styles.readBadgeTxt}>
+                  {(suggestedArticle.readTime || '5 min').toUpperCase()} READ
+                </Text>
+              </View>
+              <Text style={styles.readTitle}>{suggestedArticle.title}</Text>
+              <Text style={styles.readSub}>Hand-picked for you · from the Library</Text>
+            </LinearGradient>
+          </TouchableOpacity>
         )}
 
         {/* ── Your week — compact digest of real signals from the past 7d.
@@ -805,11 +946,13 @@ export default function HomeTab() {
           </TouchableOpacity>
         )}
 
-        {/* ── Recommended reads — 3–5 age + diet-filtered articles. */}
+        {/* Recommended reads — 3–5 age + diet-filtered articles. Sits
+            under the "Discover" group label above alongside the hero
+            suggested article. */}
         {recommendedArticles.length > 0 && (
           <>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Recommended reads</Text>
+              <Text style={styles.sectionTitle}>More reads for you</Text>
               <TouchableOpacity onPress={() => router.push('/(tabs)/library')}>
                 <Text style={styles.sectionLink}>Library</Text>
               </TouchableOpacity>
@@ -850,28 +993,13 @@ export default function HomeTab() {
           </>
         )}
 
-        {/* ── Quick Jump — icon grid to reach the most commonly-buried
-            surfaces in one tap. Every icon is a real destination; if a
-            feature doesn't exist yet (e.g. user search needs the
-            community sheet), we open the parent tab. */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Quick jump</Text>
-        </View>
+        {/* ═══ EXPLORE ═══ Shortcut grid for buried surfaces. Trimmed from
+            six tiles to four — "Articles" and "Saved" dropped because they
+            duplicate the Library tab which is always one tap away via the
+            profile sheet. Remaining tiles reach places that don't live on
+            the bottom bar at all. */}
+        <Text style={styles.groupLabel}>Explore</Text>
         <View style={styles.jumpGrid}>
-          <JumpTile
-            icon="newspaper-outline"
-            label="Articles"
-            onPress={() =>
-              router.push({ pathname: '/(tabs)/library', params: { tab: 'read' } })
-            }
-          />
-          <JumpTile
-            icon="bookmark-outline"
-            label="Saved"
-            onPress={() =>
-              router.push({ pathname: '/(tabs)/library', params: { tab: 'saved' } })
-            }
-          />
           <JumpTile
             icon="ribbon-outline"
             label="Schemes"
@@ -887,7 +1015,7 @@ export default function HomeTab() {
             }
           />
           <JumpTile
-            icon="checkmark-done-outline"
+            icon="heart-outline"
             label="My health"
             onPress={() =>
               router.push({ pathname: '/(tabs)/health', params: { tab: 'myhealth' } })
@@ -2116,6 +2244,64 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
     marginTop: Spacing.xxl,
     marginLeft: Spacing.xl,
+  },
+  // Group-level label — sits above a cluster of related cards to make it
+  // obvious which section-header belongs to which bucket. Heavier weight
+  // and darker colour than the old all-caps `sectionLabel`.
+  groupLabel: {
+    fontFamily: Fonts.serif,
+    fontSize: 20,
+    color: Colors.textDark,
+    letterSpacing: -0.2,
+    marginTop: Spacing.xxl,
+    marginBottom: Spacing.sm,
+    marginHorizontal: Spacing.xl,
+  },
+  // Baby health at-a-glance — horizontal strip of mini cards that each
+  // drill into a Health sub-tab. Cards have a soft lilac border and a
+  // tinted icon chip whose colour matches the corresponding tracker.
+  babyHealthScroll: {
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: 4,
+    gap: 8,
+  },
+  babyHealthCard: {
+    width: 120,
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: Colors.borderSoft,
+    gap: 6,
+    // @ts-ignore — web-only
+    boxShadow: '0px 2px 6px rgba(28,16,51,0.04)',
+  },
+  babyHealthCardEmpty: {
+    backgroundColor: '#FAFAFB',
+    borderStyle: 'dashed',
+    borderColor: Colors.border,
+  },
+  babyHealthIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  babyHealthValue: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 14,
+    color: Colors.textDark,
+    letterSpacing: -0.2,
+  },
+  babyHealthValueEmpty: {
+    color: Colors.textLight,
+    fontFamily: Fonts.sansSemiBold,
+  },
+  babyHealthLabel: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: 11,
+    color: Colors.textMuted,
   },
   todayGrid: {
     flexDirection: 'row',
