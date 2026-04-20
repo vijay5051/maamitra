@@ -376,7 +376,7 @@ function NewPostModal({
               end={{ x: 1, y: 0 }}
               style={newPostStyles.postBtnGrad}
             >
-              <Text style={newPostStyles.postBtnText}>{isUploading ? 'Uploading…' : 'Post to Connect'}</Text>
+              <Text style={newPostStyles.postBtnText}>{isUploading ? 'Uploading…' : 'Post to Community'}</Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>
@@ -1018,7 +1018,7 @@ export default function CommunityScreen() {
         <View style={styles.glowTopRight} pointerEvents="none" />
         <View style={styles.glowBottomLeft} pointerEvents="none" />
         <View style={styles.headerInner}>
-          <Text style={styles.headerTitle}>Connect</Text>
+          <Text style={styles.headerTitle}>Community</Text>
           <View style={styles.headerRight}>
             {/* Search people */}
             <TouchableOpacity

@@ -178,12 +178,12 @@ export default function TabLayout() {
       <Tabs.Screen
         name="community"
         options={{
-          title: 'Connect',
+          title: 'Community',
           tabBarIcon: ({ focused }) => (
             <TabIcon
               name={focused ? 'heart-circle' : 'heart-circle-outline'}
               focused={focused}
-              label="Connect"
+              label="Community"
             />
           ),
         }}

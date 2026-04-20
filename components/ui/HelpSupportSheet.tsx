@@ -57,7 +57,7 @@ const FAQ: Array<{ q: string; a: string }> = [
   },
   {
     q: 'How do I report a post or comment?',
-    a: 'Tap the three-dot menu on any post in the Connect tab to report or block. Our team reviews reports within 24 hours.',
+    a: 'Tap the three-dot menu on any post in the Community tab to report or block. Our team reviews reports within 24 hours.',
   },
 ];
 

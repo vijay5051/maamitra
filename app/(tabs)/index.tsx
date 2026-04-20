@@ -1047,7 +1047,7 @@ export default function HomeTab() {
         scrollToPrivacy={settingsView === 'privacy'}
       />
 
-      {/* Community notifications — same sheet used in the Connect tab. */}
+      {/* Community notifications — same sheet used in the Community tab. */}
       <NotificationsSheet
         visible={notifsOpen}
         onClose={() => setNotifsOpen(false)}

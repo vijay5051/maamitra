@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Colors, Fonts, FontSize, Gradients, Radius, Shadow, Spacing } from '../../constants/theme';
 
-// Small pill shown at the top of Family / Wellness / Connect / etc. that gives
+// Small pill shown at the top of Family / Wellness / Community / etc. that gives
 // the user a one-tap way to ask Maamitra about what they're currently looking
 // at. The prompt passes through to chat via a query param so chat.tsx can
 // prefill the input. Design goal: make the AI feel omnipresent — users should
