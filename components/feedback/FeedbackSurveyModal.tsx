@@ -141,6 +141,7 @@ export default function FeedbackSurveyModal({ visible, onClose }: Props) {
       markSubmitted();
       setThanks(true);
     } catch (e) {
+      console.error('submitTesterFeedback failed:', e);
       setError('Could not submit. Please try again.');
     } finally {
       setSubmitting(false);

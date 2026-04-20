@@ -755,8 +755,16 @@ export interface TesterFeedbackPayload {
 
 export async function submitTesterFeedback(payload: TesterFeedbackPayload): Promise<void> {
   if (!db) throw new Error('Firebase not configured');
+  // Firestore web SDK rejects `undefined` values (throws "Unsupported field
+  // value: undefined"). Our payload has several optional fields that are
+  // undefined when not set (userName, note, stage, parentGender, …) so we
+  // strip them here before the write.
+  const clean: Record<string, any> = {};
+  Object.entries(payload).forEach(([k, v]) => {
+    if (v !== undefined) clean[k] = v;
+  });
   await addDoc(collection(db, 'testerFeedback'), {
-    ...payload,
+    ...clean,
     createdAt: serverTimestamp(),
   });
 }
