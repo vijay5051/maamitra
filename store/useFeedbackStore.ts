@@ -21,6 +21,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const AUTO_PROMPT_AFTER_DAYS = 3;
 const DISMISS_COOLDOWN_DAYS = 7;
 
+// Allowlisted tester emails bypass the install-age and dismiss cooldown
+// gates so we can exercise the survey flow on demand during beta. The
+// submittedAt block still applies — once they've submitted, subsequent
+// opens must go through the manual entry in profile sheet → Share
+// feedback. Clear localStorage (`maamitra-feedback`) to re-test.
+const TESTER_EMAILS = new Set<string>([
+  'rocking.vsr@gmail.com',
+]);
+
+export function isTester(email?: string | null): boolean {
+  return !!email && TESTER_EMAILS.has(email.toLowerCase());
+}
+
 interface FeedbackState {
   installedAt: string | null;
   submittedAt: string | null;
@@ -33,7 +46,7 @@ interface FeedbackState {
   markDismissed: () => void;
   openSurvey: () => void;
   closeSurvey: () => void;
-  shouldAutoPrompt: () => boolean;
+  shouldAutoPrompt: (email?: string | null) => boolean;
 }
 
 function daysSince(iso: string | null): number {
@@ -62,9 +75,12 @@ export const useFeedbackStore = create<FeedbackState>()(
       openSurvey: () => set({ manualOpen: true }),
       closeSurvey: () => set({ manualOpen: false }),
 
-      shouldAutoPrompt: () => {
+      shouldAutoPrompt: (email) => {
         const s = get();
         if (s.submittedAt) return false;
+        // Testers skip the install-age and dismiss cooldown entirely so we
+        // can re-trigger the modal on demand during beta.
+        if (isTester(email)) return true;
         if (daysSince(s.installedAt) < AUTO_PROMPT_AFTER_DAYS) return false;
         if (s.dismissedAt && daysSince(s.dismissedAt) < DISMISS_COOLDOWN_DAYS) return false;
         return true;

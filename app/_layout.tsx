@@ -52,7 +52,7 @@ export default function RootLayout() {
   useEffect(() => {
     if (!user) return;
     if (pathname && pathname.startsWith('/(auth)')) return;
-    if (!shouldAutoPrompt()) return;
+    if (!shouldAutoPrompt(user.email)) return;
     const t = setTimeout(() => setAutoSurveyVisible(true), 1500);
     return () => clearTimeout(t);
   }, [user, pathname]);
