@@ -372,6 +372,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           // (covers the boot path where signIn didn't run but we were
           // already in state). No re-hydrate needed.
           if (get().isLoading) set({ isLoading: false });
+          // Make sure social subscriptions are live even on the
+          // same-user fast path (e.g. after a token refresh).
+          try { getSocialStore().getState().subscribeAll(firebaseUser.uid); } catch {}
           return;
         }
 
@@ -398,6 +401,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             isGoogleSignIn: isGoogle,
           };
           set({ user: authUser, isAuthenticated: true, isLoading: false });
+          // Open real-time social listeners (notifications, followers,
+          // following, incoming + outgoing requests). Critical for the
+          // 'Requested → Following' UI transition and for live
+          // notification badges.
+          try { getSocialStore().getState().subscribeAll(firebaseUser.uid); } catch {}
         } catch {
           // Even on error, try to hydrate then set authenticated
           await hydrateProfileFromFirestore(firebaseUser.uid);

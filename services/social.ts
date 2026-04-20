@@ -32,7 +32,9 @@ import {
   runTransaction,
   arrayUnion,
   arrayRemove,
+  onSnapshot,
   type DocumentSnapshot,
+  type Unsubscribe,
 } from 'firebase/firestore';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -1087,4 +1089,161 @@ export async function fetchPostReactors(
     emojis: e.emojis,
     profile: byUid.get(e.uid) ?? null,
   }));
+}
+
+// ─── Real-time subscriptions ─────────────────────────────────────────────────
+// Instagram/Facebook-level UX needs live updates: when target accepts your
+// follow request, your button flips from "Requested" to "Following" without
+// the user lifting a finger. Each helper below returns an Unsubscribe the
+// store cleans up on sign-out or uid change.
+
+export function subscribeNotifications(
+  uid: string,
+  cb: (items: AppNotification[]) => void,
+): Unsubscribe | null {
+  if (!db) return null;
+  const q = query(
+    collection(db, 'notifications', uid, 'items'),
+    orderBy('createdAt', 'desc'),
+    limit(60),
+  );
+  return onSnapshot(
+    q,
+    (snap) => {
+      const items = snap.docs.map((d) => {
+        const data = d.data();
+        return {
+          id: d.id,
+          type: data.type,
+          fromUid: data.fromUid,
+          fromName: data.fromName,
+          fromPhotoUrl: data.fromPhotoUrl,
+          postId: data.postId,
+          postText: data.postText,
+          commentId: data.commentId,
+          text: data.text,
+          emoji: data.emoji,
+          requestId: data.requestId,
+          createdAt: firestoreDate(data.createdAt),
+          read: data.read === true,
+        } as AppNotification;
+      });
+      cb(items);
+    },
+    (err) => {
+      console.warn('subscribeNotifications error:', err);
+    },
+  );
+}
+
+export function subscribeFollowers(
+  uid: string,
+  cb: (items: FollowEntry[]) => void,
+): Unsubscribe | null {
+  if (!db) return null;
+  const q = query(collection(db, 'follows'), where('toUid', '==', uid));
+  return onSnapshot(
+    q,
+    (snap) => {
+      cb(
+        snap.docs.map((d) => {
+          const data = d.data();
+          return {
+            uid: data.fromUid,
+            name: data.fromName,
+            photoUrl: data.fromPhotoUrl,
+            followedAt: firestoreDate(data.createdAt),
+          } as FollowEntry;
+        }),
+      );
+    },
+    (err) => console.warn('subscribeFollowers error:', err),
+  );
+}
+
+export function subscribeFollowing(
+  uid: string,
+  cb: (items: FollowEntry[]) => void,
+): Unsubscribe | null {
+  if (!db) return null;
+  const q = query(collection(db, 'follows'), where('fromUid', '==', uid));
+  return onSnapshot(
+    q,
+    (snap) => {
+      cb(
+        snap.docs.map((d) => {
+          const data = d.data();
+          return {
+            uid: data.toUid,
+            name: data.toName,
+            photoUrl: data.toPhotoUrl,
+            followedAt: firestoreDate(data.createdAt),
+          } as FollowEntry;
+        }),
+      );
+    },
+    (err) => console.warn('subscribeFollowing error:', err),
+  );
+}
+
+export function subscribeIncomingRequests(
+  uid: string,
+  cb: (items: FollowRequest[]) => void,
+): Unsubscribe | null {
+  if (!db) return null;
+  // We deliberately do NOT filter on status==pending in the query so we
+  // only need a single-field index. Filter on the client.
+  const q = query(collection(db, 'followRequests'), where('toUid', '==', uid));
+  return onSnapshot(
+    q,
+    (snap) => {
+      cb(
+        snap.docs
+          .map((d) => {
+            const data = d.data();
+            return {
+              id: d.id,
+              fromUid: data.fromUid,
+              fromName: data.fromName,
+              fromPhotoUrl: data.fromPhotoUrl,
+              toUid: data.toUid,
+              status: data.status ?? 'pending',
+              createdAt: firestoreDate(data.createdAt),
+            } as FollowRequest;
+          })
+          .filter((r) => r.status === 'pending'),
+      );
+    },
+    (err) => console.warn('subscribeIncomingRequests error:', err),
+  );
+}
+
+export function subscribeOutgoingRequests(
+  uid: string,
+  cb: (items: FollowRequest[]) => void,
+): Unsubscribe | null {
+  if (!db) return null;
+  const q = query(collection(db, 'followRequests'), where('fromUid', '==', uid));
+  return onSnapshot(
+    q,
+    (snap) => {
+      cb(
+        snap.docs
+          .map((d) => {
+            const data = d.data();
+            return {
+              id: d.id,
+              fromUid: data.fromUid,
+              fromName: data.fromName,
+              fromPhotoUrl: data.fromPhotoUrl,
+              toUid: data.toUid,
+              status: data.status ?? 'pending',
+              createdAt: firestoreDate(data.createdAt),
+            } as FollowRequest;
+          })
+          .filter((r) => r.status === 'pending'),
+      );
+    },
+    (err) => console.warn('subscribeOutgoingRequests error:', err),
+  );
 }

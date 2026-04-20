@@ -137,6 +137,7 @@ export default function NotificationsSheet({ visible, onClose, onViewProfile }: 
     unreadCount,
     isLoadingNotifs,
     loadNotifications,
+    markRead,
     markAllRead,
     acceptRequest,
     declineRequest,
@@ -241,6 +242,11 @@ export default function NotificationsSheet({ visible, onClose, onViewProfile }: 
                 onAccept={() => handleAccept(item)}
                 onDecline={() => handleDecline(item)}
                 onPress={() => {
+                  // Mark this specific notification as read immediately on tap
+                  // (previous behaviour was to batch mark-all-read on a 1.5s
+                  // timer, which meant new notifications arriving after open
+                  // weren't marked and the unread dot flickered).
+                  if (!item.read) markRead(item.id);
                   if (item.fromUid && item.fromUid.trim().length > 0) {
                     onViewProfile(item.fromUid);
                   }

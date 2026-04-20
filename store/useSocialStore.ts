@@ -4,6 +4,7 @@ import { useProfileStore } from './useProfileStore';
 import { useCommunityStore } from './useCommunityStore';
 import * as SocialService from '../services/social';
 import type { FollowEntry, FollowRequest, AppNotification } from '../services/social';
+import type { Unsubscribe } from 'firebase/firestore';
 
 interface SocialState {
   // Social graph
@@ -43,9 +44,31 @@ interface SocialState {
   markRead: (notifId: string) => Promise<void>;
   markAllRead: () => Promise<void>;
 
+  /** Start real-time listeners for everything — notifications, followers,
+   *  following, incoming & outgoing requests. Idempotent: calling twice
+   *  tears down the first set before opening the second. Returns an
+   *  unsubscribe function. */
+  subscribeAll: (uid: string) => () => void;
+  unsubscribeAll: () => void;
+
   syncPublicProfile: () => Promise<void>;
 
   reset: () => void;
+}
+
+// Stash the current set of Firestore listeners outside the zustand state
+// so zustand doesn't try to serialize them. Keyed on uid so we can detect
+// a switch between users.
+let _subs: {
+  uid: string | null;
+  unsubs: Array<Unsubscribe | null | undefined>;
+} = { uid: null, unsubs: [] };
+
+function tearDownSubs() {
+  for (const u of _subs.unsubs) {
+    try { u?.(); } catch { /* no-op */ }
+  }
+  _subs = { uid: null, unsubs: [] };
 }
 
 const initialState = {
@@ -253,7 +276,16 @@ export const useSocialStore = create<SocialState>((set, get) => ({
   },
 
   getFollowStatus: (targetUid: string) => {
-    return get().followStatusCache[targetUid] ?? 'none';
+    // DERIVED from live state — no more stale cache. Subscriptions on
+    // follows + outgoingRequests keep these arrays current; this function
+    // is always correct without any cache invalidation dance.
+    const { following, outgoingRequests, followStatusCache } = get();
+    if (following.some((f) => f.uid === targetUid)) return 'following';
+    if (outgoingRequests.some((r) => r.toUid === targetUid && r.status === 'pending'))
+      return 'pending_outgoing';
+    // Fall back to explicit cache entry if present (set by loadFollowStatus
+    // for users whose profiles we visit before subscriptions have loaded).
+    return followStatusCache[targetUid] ?? 'none';
   },
 
   isBlocked: (targetUid: string) => {
@@ -328,6 +360,51 @@ export const useSocialStore = create<SocialState>((set, get) => ({
     }
   },
 
+  subscribeAll: (uid: string) => {
+    // Re-subscribing for the same uid is a no-op (idempotent).
+    if (_subs.uid === uid && _subs.unsubs.length > 0) {
+      return () => tearDownSubs();
+    }
+    // Different uid or first subscribe: tear down anything stale first.
+    tearDownSubs();
+
+    const unsubs: Array<Unsubscribe | null | undefined> = [];
+
+    unsubs.push(
+      SocialService.subscribeNotifications(uid, (notifications) => {
+        const unreadCount = notifications.filter((n) => !n.read).length;
+        set({ notifications, unreadCount });
+      }),
+    );
+    unsubs.push(
+      SocialService.subscribeFollowers(uid, (followers) => {
+        set({ followers, followersCount: followers.length });
+      }),
+    );
+    unsubs.push(
+      SocialService.subscribeFollowing(uid, (following) => {
+        set({ following, followingCount: following.length });
+      }),
+    );
+    unsubs.push(
+      SocialService.subscribeIncomingRequests(uid, (incomingRequests) => {
+        set({ incomingRequests });
+      }),
+    );
+    unsubs.push(
+      SocialService.subscribeOutgoingRequests(uid, (outgoingRequests) => {
+        set({ outgoingRequests });
+      }),
+    );
+
+    _subs = { uid, unsubs };
+    return () => tearDownSubs();
+  },
+
+  unsubscribeAll: () => {
+    tearDownSubs();
+  },
+
   syncPublicProfile: async () => {
     const uid = useAuthStore.getState().user?.uid;
     if (!uid) return;
@@ -364,5 +441,10 @@ export const useSocialStore = create<SocialState>((set, get) => ({
     }
   },
 
-  reset: () => set(initialState),
+  reset: () => {
+    // Always tear down listeners on sign-out so the previous user's
+    // Firestore streams don't hold open or leak into the next session.
+    tearDownSubs();
+    set(initialState);
+  },
 }));
