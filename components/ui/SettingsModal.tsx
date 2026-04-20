@@ -32,6 +32,7 @@ import {
 import { uploadAvatar } from '../../services/storage';
 import DatePickerField from './DatePickerField';
 import StateSelectorComponent from '../onboarding/StateSelector';
+import { Fonts } from '../../constants/theme';
 
 type ViewMode = 'main' | 'edit-profile' | 'edit-kid' | 'change-phone';
 
@@ -46,8 +47,13 @@ interface SettingsModalProps {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function SectionHeader({ title }: { title: string }) {
-  return <Text style={s.sectionHeader}>{title}</Text>;
+function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }) {
+  return (
+    <View style={s.sectionHeaderWrap}>
+      <Text style={s.sectionHeader}>{title}</Text>
+      {subtitle ? <Text style={s.sectionSubtitle}>{subtitle}</Text> : null}
+    </View>
+  );
 }
 
 function SettingsRow({
@@ -1135,29 +1141,31 @@ export default function SettingsModal({
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={handleClose}>
       <View style={[s.container, { paddingTop: insets.top }]}>
-        {/* Header */}
-        <LinearGradient
-          colors={['#7C3AED', '#7C3AED']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={s.header}
-        >
+        {/* Light header — matches the rest of the refreshed UI. */}
+        <View style={s.header}>
           <TouchableOpacity onPress={showBack ? handleBack : handleClose} style={s.closeBtn}>
-            <Ionicons name={showBack ? 'arrow-back' : 'close'} size={24} color="#ffffff" />
+            <Ionicons name={showBack ? 'arrow-back' : 'close'} size={20} color="#6b7280" />
           </TouchableOpacity>
           <Text style={s.headerTitle}>{headerTitle}</Text>
           <View style={s.closeBtn} />
-        </LinearGradient>
+        </View>
 
-        {/* Main settings view */}
+        {/* Main settings view — reorganised into four logical sections:
+              1. Identity   — who you are + quick edit
+              2. Account    — email, mobile, change flows
+              3. About you  — state, diet, family, children
+              4. Profile visibility  — two grouped card blocks
+              5. Sign out + Delete account at the bottom (irreversible zone)
+            Duplicate "Sign Out" that used to sit both in the identity
+            card AND in an Account section is collapsed to one clean
+            action pair at the bottom. */}
         {viewMode === 'main' && (
           <ScrollView
             ref={mainScrollRef}
             contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 32 }]}
             showsVerticalScrollIndicator={false}
           >
-            {/* Profile card — prominent Sign Out top-right so it's
-                never hidden behind scroll through Profile/Kids/Privacy. */}
+            {/* ─── 1. Identity card ─── */}
             <View style={s.profileCard}>
               {photoUrl ? (
                 <RNImage source={{ uri: photoUrl }} style={s.avatar} />
@@ -1167,29 +1175,23 @@ export default function SettingsModal({
                 </View>
               )}
               <View style={s.profileInfo}>
-                <Text style={s.profileName}>{motherName || user?.name || 'Mom'}</Text>
-                <Text style={s.profileEmail}>{user?.email || 'demo@maamitra.app'}</Text>
+                <Text style={s.profileName} numberOfLines={1}>{motherName || user?.name || 'Mom'}</Text>
+                <Text style={s.profileEmail} numberOfLines={1}>{user?.email || '—'}</Text>
               </View>
               <TouchableOpacity
-                onPress={loading ? undefined : () => setShowSignOutConfirm(true)}
-                disabled={loading}
+                onPress={() => setViewMode('edit-profile')}
                 activeOpacity={0.75}
-                style={s.signOutQuickBtn}
+                style={s.identityEditBtn}
+                accessibilityLabel="Edit profile"
               >
-                <Ionicons name="log-out-outline" size={16} color="#7C3AED" />
-                <Text style={s.signOutQuickText}>{loading ? 'Signing out…' : 'Sign Out'}</Text>
+                <Ionicons name="create-outline" size={16} color="#7C3AED" />
+                <Text style={s.identityEditText}>Edit</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Profile & Kids */}
-            <SectionHeader title="Profile" />
+            {/* ─── 2. Account ─── */}
+            <SectionHeader title="Account" subtitle="Login details" />
             <View style={s.card}>
-              <SettingsRow
-                icon="person-outline"
-                label="Name"
-                value={motherName || user?.name || '—'}
-              />
-              <View style={s.divider} />
               <SettingsRow
                 icon="mail-outline"
                 label="Email"
@@ -1198,51 +1200,68 @@ export default function SettingsModal({
               <View style={s.divider} />
               <SettingsRow
                 icon="call-outline"
-                label={phoneVerified ? 'Mobile ✓' : 'Mobile'}
+                label={phoneVerified ? 'Mobile (verified)' : 'Mobile'}
                 value={phone || 'Not added'}
                 onPress={() => setViewMode('change-phone')}
               />
-              {profile && (
+            </View>
+
+            {/* ─── 3. About you ─── */}
+            <SectionHeader title="About you" subtitle="Used to tailor your content" />
+            <View style={s.card}>
+              <SettingsRow
+                icon="person-outline"
+                label="Name"
+                value={motherName || user?.name || '—'}
+                onPress={() => setViewMode('edit-profile')}
+              />
+              {profile?.state ? (
                 <>
                   <View style={s.divider} />
                   <SettingsRow
                     icon="location-outline"
                     label="State"
-                    value={profile.state || '—'}
+                    value={profile.state}
+                    onPress={() => setViewMode('edit-profile')}
                   />
+                </>
+              ) : null}
+              {profile?.diet ? (
+                <>
                   <View style={s.divider} />
                   <SettingsRow
                     icon="restaurant-outline"
                     label="Diet"
-                    value={profile.diet ? profile.diet.charAt(0).toUpperCase() + profile.diet.slice(1) : '—'}
+                    value={profile.diet.charAt(0).toUpperCase() + profile.diet.slice(1)}
+                    onPress={() => setViewMode('edit-profile')}
                   />
+                </>
+              ) : null}
+              {profile?.familyType ? (
+                <>
                   <View style={s.divider} />
                   <SettingsRow
                     icon="home-outline"
                     label="Family"
-                    value={profile.familyType ? profile.familyType.charAt(0).toUpperCase() + profile.familyType.slice(1) : '—'}
+                    value={profile.familyType.charAt(0).toUpperCase() + profile.familyType.slice(1)}
+                    onPress={() => setViewMode('edit-profile')}
                   />
                 </>
-              )}
-              <View style={s.divider} />
-              <SettingsRow
-                icon="create-outline"
-                label="Edit Profile"
-                onPress={() => setViewMode('edit-profile')}
-              />
+              ) : null}
             </View>
 
-            {/* Kids */}
+            {/* ─── 4. Children ─── */}
             {kids.length > 0 && (
               <>
-                <SectionHeader title="My Children" />
+                <SectionHeader
+                  title="Children"
+                  subtitle={kids.length === 1 ? '1 child' : `${kids.length} children`}
+                />
                 <View style={s.card}>
                   {kids.map((kid, i) => {
                     const _diffMs = kid.dob ? Date.now() - new Date(kid.dob).getTime() : 0;
                     const _months = Math.max(0, Math.floor(_diffMs / (1000 * 60 * 60 * 24 * 30.44)));
                     const ageStr = kid.isExpecting ? 'Expecting' : `${_months}m old`;
-                    // Kid row: neutral icon (outline male/female/heart) instead of
-                    // a cartoonish 👦/👧/🎁 trailing the name.
                     const kidIcon: 'male-outline' | 'female-outline' | 'heart-outline' | 'happy-outline' =
                       kid.isExpecting
                         ? 'heart-outline'
@@ -1267,23 +1286,26 @@ export default function SettingsModal({
               </>
             )}
 
-            {/* Privacy */}
+            {/* ─── 5. Profile visibility ─── */}
             <View
               onLayout={(e) => {
                 privacyAnchorY.current = e.nativeEvent.layout.y;
               }}
             >
-              <SectionHeader title="Privacy — What Others Can See" />
+              <SectionHeader
+                title="Profile visibility"
+                subtitle="Control what other parents can see"
+              />
             </View>
             <View style={s.card}>
               <ToggleRow
-                label="Number of kids"
+                label="Number of children"
                 value={visibilitySettings.showKids}
                 onToggle={() => handlePrivacyToggle('showKids')}
               />
               <View style={s.divider} />
               <ToggleRow
-                label="State / location"
+                label="State"
                 value={visibilitySettings.showState}
                 onToggle={() => handlePrivacyToggle('showState')}
               />
@@ -1305,35 +1327,39 @@ export default function SettingsModal({
                 value={visibilitySettings.showPostCount}
                 onToggle={() => handlePrivacyToggle('showPostCount')}
               />
-              <View style={s.divider} />
+            </View>
+
+            <SectionHeader
+              title="Post visibility"
+              subtitle="Controls who can see every new post"
+            />
+            <View style={s.card}>
               <ToggleRow
-                label="Posts visible only to followers"
+                label="Only followers see my posts"
                 value={visibilitySettings.postsFollowersOnly}
                 onToggle={() => handlePrivacyToggle('postsFollowersOnly')}
               />
             </View>
 
-            {/* Account */}
-            <SectionHeader title="Account" />
+            {/* ─── 6. Sign out + Delete account (irreversible zone) ─── */}
+            <SectionHeader title="Danger zone" />
             <View style={s.card}>
               <SettingsRow
                 icon="log-out-outline"
-                label={loading ? 'Signing out…' : 'Sign Out'}
+                label={loading ? 'Signing out…' : 'Sign out'}
                 onPress={loading ? undefined : () => setShowSignOutConfirm(true)}
               />
-            </View>
-
-            <View style={[s.card, s.dangerCard]}>
+              <View style={s.divider} />
               <SettingsRow
                 icon="trash-outline"
-                label="Delete Account"
+                label="Delete account"
                 onPress={loading ? undefined : handleDeleteAccount}
                 danger
               />
             </View>
 
-            {/* App info */}
-            <Text style={s.version}>MaaMitra v1.0 · Made with 💕 in India</Text>
+            {/* App info — plain, no emoji */}
+            <Text style={s.version}>MaaMitra v1.0 · Made in India</Text>
           </ScrollView>
         )}
 
@@ -1395,15 +1421,23 @@ export default function SettingsModal({
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fdf6ff' },
+  container: { flex: 1, backgroundColor: '#FAFAFB' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingVertical: 14,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0EDF5',
   },
-  headerTitle: { color: '#ffffff', fontSize: 18, fontWeight: '700' },
+  headerTitle: {
+    color: '#1C1033',
+    fontSize: 18,
+    fontFamily: Fonts.sansBold,
+    letterSpacing: -0.2,
+  },
   closeBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
   content: { paddingHorizontal: 16, paddingTop: 20 },
 
@@ -1412,16 +1446,11 @@ const s = StyleSheet.create({
     alignItems: 'center',
     gap: 14,
     backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 24,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 22,
     borderWidth: 1,
-    borderColor: '#F5F0FF',
-    shadowColor: '#7C3AED',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
-    shadowRadius: 8,
-    elevation: 2,
+    borderColor: '#F0EDF5',
   },
   avatar: {
     width: 52,
@@ -1431,44 +1460,88 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: { color: '#ffffff', fontSize: 22, fontWeight: '700' },
+  avatarText: {
+    color: '#ffffff',
+    fontSize: 20,
+    fontFamily: Fonts.sansBold,
+  },
   profileInfo: { flex: 1 },
-  profileName: { fontSize: 17, fontWeight: '700', color: '#1a1a2e' },
-  profileEmail: { fontSize: 13, color: '#6b7280', marginTop: 2 },
+  profileName: {
+    fontSize: 16,
+    fontFamily: Fonts.sansBold,
+    color: '#1C1033',
+    letterSpacing: -0.1,
+  },
+  profileEmail: {
+    fontSize: 13,
+    fontFamily: Fonts.sansRegular,
+    color: '#6b7280',
+    marginTop: 2,
+  },
+  // Identity-card Edit chip (replaces the old quick Sign Out chip which
+  // duplicated the Sign Out row at the bottom).
+  identityEditBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#F5F0FF',
+    borderWidth: 1,
+    borderColor: '#EDE9F6',
+  },
+  identityEditText: {
+    fontSize: 12,
+    fontFamily: Fonts.sansBold,
+    color: '#7C3AED',
+  },
+  // Legacy aliases kept so no stale reference breaks at runtime if some
+  // other file imports them — safe to remove once confirmed unused.
   signOutQuickBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 10,
+    borderRadius: 8,
     backgroundColor: '#F5F0FF',
     borderWidth: 1,
     borderColor: '#EDE9F6',
   },
   signOutQuickText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontFamily: Fonts.sansBold,
     color: '#7C3AED',
   },
 
+  // Section header wrapper — title + optional helper subtitle under it.
+  sectionHeaderWrap: {
+    marginTop: 8,
+    marginBottom: 8,
+    paddingLeft: 4,
+  },
   sectionHeader: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#9ca3af',
+    fontSize: 11,
+    fontFamily: Fonts.sansBold,
+    color: '#6b7280',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
-    marginBottom: 8,
-    marginTop: 4,
-    paddingLeft: 4,
+  },
+  sectionSubtitle: {
+    fontSize: 12,
+    fontFamily: Fonts.sansRegular,
+    color: '#9ca3af',
+    marginTop: 3,
+    letterSpacing: 0,
   },
 
   card: {
     backgroundColor: '#ffffff',
-    borderRadius: 14,
-    marginBottom: 16,
+    borderRadius: 12,
+    marginBottom: 18,
     borderWidth: 1,
-    borderColor: '#F5F0FF',
+    borderColor: '#F0EDF5',
     overflow: 'hidden',
   },
   dangerCard: {
@@ -1486,7 +1559,7 @@ const s = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 10,
-    backgroundColor: 'rgba(139,92,246,0.08)',
+    backgroundColor: '#F5F0FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1494,21 +1567,32 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(239,68,68,0.08)',
   },
   rowContent: { flex: 1 },
-  rowLabel: { fontSize: 15, fontWeight: '600', color: '#1a1a2e' },
+  rowLabel: {
+    fontSize: 15,
+    fontFamily: Fonts.sansSemiBold,
+    color: '#1C1033',
+  },
   rowLabelDanger: { color: '#ef4444' },
-  rowValue: { fontSize: 13, color: '#6b7280', marginTop: 2 },
+  rowValue: {
+    fontSize: 13,
+    fontFamily: Fonts.sansRegular,
+    color: '#6b7280',
+    marginTop: 2,
+  },
 
   divider: {
     height: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#F0EDF5',
     marginLeft: 60,
   },
 
   version: {
     textAlign: 'center',
-    fontSize: 12,
-    color: '#d1d5db',
-    marginTop: 8,
+    fontSize: 11,
+    fontFamily: Fonts.sansRegular,
+    color: '#9ca3af',
+    marginTop: 12,
+    letterSpacing: 0.2,
   },
 
   // Edit views

@@ -194,7 +194,9 @@ export default function NotificationsSheet({ visible, onClose, onViewProfile }: 
 
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
-      <Text style={styles.emptyEmoji}>🔔</Text>
+      <View style={styles.emptyIconBox}>
+        <Ionicons name="notifications-outline" size={26} color="#7C3AED" />
+      </View>
       <Text style={styles.emptyTitle}>No notifications yet</Text>
       <Text style={styles.emptySubtext}>When people interact with your posts or send follow requests, they'll show up here.</Text>
     </View>
@@ -208,11 +210,8 @@ export default function NotificationsSheet({ visible, onClose, onViewProfile }: 
       onRequestClose={onClose}
     >
       <View style={styles.container}>
-        {/* Header */}
-        <LinearGradient
-          colors={['#1C1033', '#3b1060', '#6d1a7a']}
-          style={styles.header}
-        >
+        {/* Light header — was a dark purple→plum gradient. */}
+        <View style={styles.header}>
           <View style={styles.headerRow}>
             <View style={styles.headerTitleRow}>
               <Text style={styles.headerTitle}>Notifications</Text>
@@ -223,10 +222,10 @@ export default function NotificationsSheet({ visible, onClose, onViewProfile }: 
               )}
             </View>
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-              <Ionicons name="close" size={22} color="rgba(255,255,255,0.9)" />
+              <Ionicons name="close" size={20} color="#6b7280" />
             </TouchableOpacity>
           </View>
-        </LinearGradient>
+        </View>
 
         {/* Content */}
         {isLoadingNotifs ? (
@@ -289,8 +288,11 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingTop: Platform.OS === 'ios' ? 16 : 24,
-    paddingBottom: 20,
+    paddingBottom: 16,
     paddingHorizontal: 20,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0EDF5',
   },
   headerRow: {
     flexDirection: 'row',
@@ -304,8 +306,9 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontFamily: Fonts.serif,
-    fontSize: 22,
-    color: '#ffffff',
+    fontSize: 24,
+    color: '#1C1033',
+    letterSpacing: -0.3,
   },
   badge: {
     backgroundColor: '#7C3AED',
@@ -324,8 +327,10 @@ const styles = StyleSheet.create({
   closeButton: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 10,
+    backgroundColor: '#F5F0FF',
+    borderWidth: 1,
+    borderColor: '#E5E1EE',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -426,21 +431,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 40,
-    gap: 12,
+    gap: 10,
   },
-  emptyEmoji: {
-    fontSize: 48,
+  emptyIconBox: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: '#F5F0FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
   },
   emptyTitle: {
-    fontFamily: Fonts.sansSemiBold,
-    fontSize: 17,
+    fontFamily: Fonts.sansBold,
+    fontSize: 16,
     color: '#1C1033',
     textAlign: 'center',
+    letterSpacing: -0.1,
   },
   emptySubtext: {
     fontFamily: Fonts.sansRegular,
     fontSize: 14,
-    color: '#9ca3af',
+    color: '#6b7280',
     textAlign: 'center',
     lineHeight: 20,
   },
