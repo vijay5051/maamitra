@@ -1,3 +1,5 @@
+import type { Audience } from './audience';
+
 export interface GovernmentScheme {
   id: string;
   emoji: string;
@@ -11,6 +13,9 @@ export interface GovernmentScheme {
   url: string;
   // relevance tags: 'pregnant' | 'newborn' | 'girl' | 'all-kids' | 'all'
   tags: string[];
+  /** Parent-role audience. Most schemes apply to mothers directly
+   *  (maternity benefits) — tag accordingly as content is curated. */
+  audience?: Audience;
 }
 
 export const GOVERNMENT_SCHEMES: GovernmentScheme[] = [

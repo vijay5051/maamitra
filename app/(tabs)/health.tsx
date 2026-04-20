@@ -25,6 +25,7 @@ import Animated, {
 import Svg, { Circle } from 'react-native-svg';
 import { useVaccineSchedule } from '../../hooks/useVaccineSchedule';
 import { GOVERNMENT_SCHEMES } from '../../data/schemes';
+import { filterByAudience, parentGenderToAudience } from '../../data/audience';
 import { useActiveKid } from '../../hooks/useActiveKid';
 import { useProfileStore } from '../../store/useProfileStore';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -1161,7 +1162,10 @@ export default function HealthScreen() {
         {subTab === 'schemes' && (
           <>
             <Text style={styles.schemesHeader}>Government Benefits for You 🇮🇳</Text>
-            {GOVERNMENT_SCHEMES.map((s) => (
+            {filterByAudience(
+              GOVERNMENT_SCHEMES,
+              parentGenderToAudience(useProfileStore.getState().parentGender),
+            ).map((s) => (
               <SchemeCard
                 key={s.id}
                 scheme={s}

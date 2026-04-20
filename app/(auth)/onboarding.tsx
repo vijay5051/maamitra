@@ -407,6 +407,16 @@ export default function OnboardingScreen() {
                   }}
                   columns={2}
                 />
+                {/* Role is content-defining AND locked. Making this
+                    explicit now prevents a confused user from setting
+                    it wrong and getting stuck in the wrong content
+                    variant forever. */}
+                <View style={styles.lockNotice}>
+                  <Ionicons name="lock-closed-outline" size={13} color="#6d1a7a" />
+                  <Text style={styles.lockNoticeText}>
+                    This shapes your whole experience — content, tips, and guides — and can't be changed later. Pick carefully.
+                  </Text>
+                </View>
                 <InputError msg={errors.relation} />
               </View>
             </View>
@@ -872,6 +882,24 @@ const styles = StyleSheet.create({
   chipTextActive: {
     color: '#7C3AED',
     fontFamily: Fonts.sansBold,
+  },
+
+  lockNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    backgroundColor: '#FFF0F5',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginTop: 12,
+  },
+  lockNoticeText: {
+    flex: 1,
+    fontFamily: Fonts.sansMedium,
+    fontSize: 12,
+    color: '#6d1a7a',
+    lineHeight: 16,
   },
 
   // Step 4 — extra kids

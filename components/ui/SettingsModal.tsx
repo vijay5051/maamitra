@@ -351,7 +351,9 @@ function EditProfileView({ onBack }: { onBack: () => void }) {
     if (name.trim()) setMotherName(name.trim());
     if (profile) setProfile({ ...profile, state: state.trim() || profile.state, diet: diet as any, familyType: familyType as any });
     setPhotoUrl(photo.trim());
-    setParentGender(gender);
+    // parentGender is NOT written here — it's locked at signup. Writing it
+    // back would let UI state drift overwrite the locked value if anything
+    // ever sets `gender` to something different.
     setBio(bioText.trim());
     setExpertise(expertiseTags);
     // Persist ALL profile fields to Firestore so nothing is lost on next login.
@@ -369,7 +371,11 @@ function EditProfileView({ onBack }: { onBack: () => void }) {
         visibilitySettings: st.visibilitySettings,
         // These were previously omitted — Firestore was overwriting them with ''
         photoUrl: photo.trim(),
-        parentGender: gender,
+        // parentGender preserved from the already-hydrated store — this
+        // screen never changes it, but saveFullProfile expects a value so
+        // we read it from the live state (which was set at signup and
+        // hasn't been touched since).
+        parentGender: st.parentGender,
         bio: bioText.trim(),
         expertise: expertiseTags,
       }).catch(console.error);
@@ -415,12 +421,23 @@ function EditProfileView({ onBack }: { onBack: () => void }) {
       <Text style={s.editSectionTitle}>Your Name</Text>
       <TextInput style={s.textInput} value={name} onChangeText={setName} placeholder="Your name" placeholderTextColor="#9ca3af" />
 
+      {/* Role is LOCKED at signup — the whole app is shaped around it
+          (content, AI framing, schemes, yoga picks). Showing it read-only
+          rather than editable so users can't accidentally switch roles
+          and end up in a half-correct experience. If a user genuinely
+          set the wrong role, they can reach out via Help & Support and
+          we can reset it from the admin tool. */}
       <Text style={s.editSectionTitle}>I Am a</Text>
-      <ChipSelect
-        options={GENDER_OPTIONS.map((g) => g.label)}
-        selected={GENDER_OPTIONS.find((g) => g.key === gender)?.label ?? ''}
-        onSelect={(v) => { const found = GENDER_OPTIONS.find((g) => g.label === v); if (found) setGender(found.key); }}
-      />
+      <View style={s.lockedRoleBox}>
+        <Text style={s.lockedRoleValue}>
+          {GENDER_OPTIONS.find((g) => g.key === gender)?.label ?? '—'}
+        </Text>
+        <Ionicons name="lock-closed" size={14} color="#9ca3af" />
+      </View>
+      <Text style={s.lockedRoleHint}>
+        Your role shapes the whole app and can't be changed here. Contact
+        support if it was set incorrectly.
+      </Text>
 
       <Text style={s.editSectionTitle}>State</Text>
       <TouchableOpacity
@@ -1565,6 +1582,29 @@ const s = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
+  },
+  lockedRoleBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F3F0F8',
+    borderWidth: 1,
+    borderColor: '#EDE9F6',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    gap: 8,
+  },
+  lockedRoleValue: {
+    fontSize: 15,
+    color: '#4b3a72',
+    fontWeight: '600',
+  },
+  lockedRoleHint: {
+    fontSize: 12,
+    color: '#9ca3af',
+    marginTop: 6,
+    lineHeight: 16,
   },
   statePickerText: {
     flex: 1,

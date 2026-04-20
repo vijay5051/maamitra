@@ -1,3 +1,5 @@
+import type { Audience } from './audience';
+
 export interface Article {
   id: string;
   title: string;
@@ -11,6 +13,9 @@ export interface Article {
   tag: string;
   url?: string;     // External resource link
   imageUrl?: string; // Cover image (dynamic articles from admin)
+  /** Who this article is written for. Untagged = everyone. See
+   *  data/audience.ts for how filtering is applied. */
+  audience?: Audience;
 }
 
 export const ARTICLES: Article[] = [

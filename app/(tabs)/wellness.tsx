@@ -30,6 +30,7 @@ import { syncWellnessData } from '../../services/firebase';
 import Card from '../../components/ui/Card';
 import GradientButton from '../../components/ui/GradientButton';
 import { YOGA_SESSIONS, YogaSession } from '../../data/yogaSessions';
+import { filterByAudience, parentGenderToAudience } from '../../data/audience';
 import YogaModalComponent from '../../components/wellness/YogaModal';
 import ContextualAskChip from '../../components/ui/ContextualAskChip';
 import { Fonts } from '../../constants/theme';
@@ -967,11 +968,20 @@ export default function WellnessScreen() {
     }
   };
 
+  // First filter by audience (role-adaptive), then by health conditions.
+  // When ENABLE_ROLE_ADAPTIVE_CONTENT is false in data/audience.ts the
+  // audience filter is a no-op, so behaviour is unchanged until content
+  // starts getting tagged.
+  const parentGenderForAudience = useProfileStore((s) => s.parentGender);
+  const audienceFiltered = filterByAudience(
+    YOGA_SESSIONS,
+    parentGenderToAudience(parentGenderForAudience),
+  );
   const filteredSessions = healthConditions !== null
-    ? YOGA_SESSIONS.filter(
+    ? audienceFiltered.filter(
         (s) => !s.contraindications.some((c) => healthConditions.includes(c))
       )
-    : YOGA_SESSIONS;
+    : audienceFiltered;
 
   const moodCardTint = selectedMoodScore ? MOOD_TINTS[selectedMoodScore] : 'transparent';
 

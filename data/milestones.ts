@@ -1,3 +1,5 @@
+import type { Audience } from './audience';
+
 export interface Milestone {
   id: string;
   ageMonths: number;
@@ -6,6 +8,9 @@ export interface Milestone {
   title: string;
   description: string;
   category: string;
+  /** Parent-role audience. Most milestones are universal — tag father/
+   *  mother only for bonding / feeding milestones that read differently. */
+  audience?: Audience;
 }
 
 export const MILESTONES: Milestone[] = [

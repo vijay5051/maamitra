@@ -1,3 +1,5 @@
+import type { Audience } from './audience';
+
 export interface YogaPose {
   id: string;
   emoji: string;
@@ -17,6 +19,8 @@ export interface YogaSession {
   emoji: string;
   contraindications: string[];
   poses: YogaPose[];
+  /** Who this session is written for. Untagged = everyone. */
+  audience?: Audience;
 }
 
 export const YOGA_SESSIONS: YogaSession[] = [
