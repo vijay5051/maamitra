@@ -1,51 +1,59 @@
 import { TextStyle, ViewStyle } from 'react-native';
 
 // ─── Colors ────────────────────────────────────────────────────────────────────
-// Design rule (2026 simplification):
-//   - Use `primary` (rose) as the ONLY accent color for interactive elements,
-//     active states, badges, and highlights.
-//   - Neutrals (bgLight, bgPink, white, textDark, textMuted, border) handle
-//     everything else. Whitespace > color for hierarchy.
-//   - Colors marked DEPRECATED should not be used in new code. Status/semantic
-//     colors (success/warning/error) remain — reserve them for their meaning.
+// Design rule (2026 refresh):
+//   - `primary` is the ONLY accent colour — used for interactive elements,
+//     active states, badges, and highlights. Everything else is neutral.
+//   - Primary is now brand purple (was rose pink). The whole app inherits
+//     this at once through the theme module; individual screens don't need
+//     to be touched unless they hard-coded the old rose.
+//   - `bgLight` is the page background; `bgTint` (was bgPink) is a subtle
+//     lilac for pills, tiles, and highlighted cards.
+//   - Status / semantic colours (success/warning/error) remain — reserve
+//     them for their meanings (success = green, error = red, etc.).
 export const Colors = {
-  primary: '#E8487A',           // rose — sole accent
-  bgLight: '#FFF8FC',           // page background
-  bgPink: '#FFF0F5',            // soft highlight / pill bg
+  primary: '#7C3AED',           // brand purple — sole accent
+  primarySoft: '#F5F0FF',       // tinted tile bg for icons / active chips
+  bgLight: '#FAFAFB',           // page background (neutral, was warm cream)
+  bgPink: '#F5F0FF',            // alias retained for older screens — now lilac
+  bgTint: '#F5F0FF',            // preferred name for the tinted tile bg
   white: '#ffffff',
   textDark: '#1C1033',          // ink-plum
   textMuted: '#9ca3af',
   textLight: '#6b7280',
-  success: '#22c55e',           // reserved for positive confirmation
-  warning: '#f59e0b',           // reserved for caution states
-  error: '#ef4444',             // reserved for destructive / errors
-  border: '#EDE9F6',
+  success: '#22c55e',
+  warning: '#f59e0b',
+  error: '#ef4444',
+  border: '#E5E1EE',            // 1px dividers (was EDE9F6 — tuned)
+  borderSoft: '#F0EDF5',        // even quieter dividers
   cardBg: '#ffffff',
   overlay: 'rgba(0,0,0,0.5)',
 
   // ─── DEPRECATED — do not use in new code ─────────────────────────
-  // Kept only for backward compatibility with existing screens. When touching
-  // a file, replace these with primary/neutrals. They will be removed once
-  // every screen is migrated.
+  // Kept only for backward compatibility. Touching a file? Replace these
+  // with primary/neutrals. They'll be removed once every screen is migrated.
   secondary: '#7C3AED',
   gold: '#F59E0B',
   sage: '#34D399',
   sky: '#60A5FA',
   stone: '#6B7280',
-  cloud: '#F8F4FF',
+  cloud: '#F5F0FF',
 } as const;
 
 // ─── Gradients ─────────────────────────────────────────────────────────────────
+// Most screens should prefer a solid `Colors.primary` over these gradients.
+// Kept as tuples for backward compatibility; values are now tonal variations
+// of brand purple rather than the old rose→purple rainbow.
 export const Gradients = {
-  primary: ['#E8487A', '#7C3AED'] as const,
-  header: ['#1C1033', '#3b1060', '#6d1a7a'] as const,   // dark hero header
-  avatar: ['#E8487A', '#7C3AED'] as const,
-  warmPink: ['#FFF0F5', '#FCE7F3'] as const,
-  softPurple: ['#FFF8FC', '#EDE9F6'] as const,
+  primary: ['#7C3AED', '#6d28d9'] as const,               // brand-only, subtle depth
+  header: ['#1C1033', '#3b1060', '#6d1a7a'] as const,      // dark hero header kept
+  avatar: ['#7C3AED', '#6d28d9'] as const,
+  warmPink: ['#F5F0FF', '#EDE9F6'] as const,               // renamed in spirit — lilac now
+  softPurple: ['#FAFAFB', '#F5F0FF'] as const,
   dark: ['#1C1033', '#4c1d95'] as const,
-  momCard: ['#1C1033', '#3b1060'] as const,              // family mom card
-  childRose: ['#E8487A', '#7C3AED'] as const,
-  childPurple: ['#7C3AED', '#60A5FA'] as const,
+  momCard: ['#1C1033', '#3b1060'] as const,
+  childRose: ['#7C3AED', '#6d28d9'] as const,
+  childPurple: ['#7C3AED', '#6d28d9'] as const,
 } as const;
 
 // ─── Border Radius ─────────────────────────────────────────────────────────────
@@ -71,38 +79,39 @@ export const Spacing = {
 } as const;
 
 // ─── Shadows ───────────────────────────────────────────────────────────────────
+// Shadows — neutral dark (not pink) so cards feel premium, not toyish.
 export const Shadow = {
   sm: {
-    shadowColor: '#E8487A',
+    shadowColor: '#1C1033',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.05,
     shadowRadius: 8,
-    elevation: 3,
-    boxShadow: '0px 2px 8px rgba(232, 72, 122, 0.08)',
+    elevation: 2,
+    boxShadow: '0px 2px 8px rgba(28, 16, 51, 0.05)',
   } as ViewStyle,
   md: {
-    shadowColor: '#E8487A',
+    shadowColor: '#1C1033',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.14,
+    shadowOpacity: 0.08,
     shadowRadius: 12,
-    elevation: 6,
-    boxShadow: '0px 4px 12px rgba(232, 72, 122, 0.14)',
+    elevation: 4,
+    boxShadow: '0px 4px 12px rgba(28, 16, 51, 0.08)',
   } as ViewStyle,
   lg: {
-    shadowColor: '#7C3AED',
+    shadowColor: '#1C1033',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.20,
+    shadowOpacity: 0.10,
     shadowRadius: 20,
-    elevation: 10,
-    boxShadow: '0px 8px 20px rgba(124, 58, 237, 0.20)',
+    elevation: 8,
+    boxShadow: '0px 8px 20px rgba(28, 16, 51, 0.10)',
   } as ViewStyle,
   card: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 4,
-    boxShadow: '0px 2px 12px rgba(0, 0, 0, 0.06)',
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 3,
+    boxShadow: '0px 2px 10px rgba(0, 0, 0, 0.04)',
   } as ViewStyle,
 } as const;
 

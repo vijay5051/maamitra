@@ -52,7 +52,7 @@ function MessageBubble({
         ) : null}
         {hasText ? (
           <LinearGradient
-            colors={['#E8487A', '#7C3AED']}
+            colors={['#7C3AED', '#7C3AED']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={[bubbleStyles.myBubble, imageUrl ? { marginTop: 6 } : null]}
@@ -94,7 +94,7 @@ const bubbleStyles = StyleSheet.create({
   myText: { fontFamily: Fonts.sansRegular, fontSize: 15, color: '#ffffff', lineHeight: 21 },
   myTime: { fontFamily: Fonts.sansRegular, fontSize: 10, color: 'rgba(255,255,255,0.6)', marginTop: 4, alignSelf: 'flex-end' },
   otherRow: { alignSelf: 'flex-start', maxWidth: '78%', marginVertical: 3, marginLeft: 12 },
-  otherBubble: { backgroundColor: '#ffffff', borderRadius: 18, borderBottomLeftRadius: 4, paddingVertical: 10, paddingHorizontal: 14, shadowColor: '#E8487A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 1 },
+  otherBubble: { backgroundColor: '#ffffff', borderRadius: 18, borderBottomLeftRadius: 4, paddingVertical: 10, paddingHorizontal: 14, shadowColor: '#7C3AED', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 1 },
   otherText: { fontFamily: Fonts.sansRegular, fontSize: 15, color: '#1C1033', lineHeight: 21 },
   otherTime: { fontFamily: Fonts.sansRegular, fontSize: 10, color: '#9ca3af', marginTop: 4, alignSelf: 'flex-end' },
   attachedImage: {
@@ -309,7 +309,7 @@ export default function ConversationScreen() {
       >
         {isLoadingMessages ? (
           <View style={styles.centered}>
-            <ActivityIndicator size="large" color="#E8487A" />
+            <ActivityIndicator size="large" color="#7C3AED" />
           </View>
         ) : activeMessages.length === 0 ? (
           <View style={styles.centered}>
@@ -404,7 +404,7 @@ export default function ConversationScreen() {
             style={[styles.sendBtn, ((!text.trim() && !attachment) || isSending || uploading) && { opacity: 0.4 }]}
           >
             <LinearGradient
-              colors={['#E8487A', '#7C3AED']}
+              colors={['#7C3AED', '#7C3AED']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.sendBtnGrad}
@@ -423,7 +423,7 @@ export default function ConversationScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFF8FC' },
+  container: { flex: 1, backgroundColor: '#FAFAFB' },
   flex1: { flex: 1 },
   header: {
     flexDirection: 'row',
@@ -457,7 +457,7 @@ const styles = StyleSheet.create({
     gap: 8,
     borderTopWidth: 1,
     borderTopColor: '#EDE9F6',
-    backgroundColor: '#FFF8FC',
+    backgroundColor: '#FAFAFB',
   },
   input: {
     flex: 1,

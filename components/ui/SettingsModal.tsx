@@ -481,7 +481,7 @@ function EditProfileView({ onBack }: { onBack: () => void }) {
       <MultiChipSelect options={expertiseOptions} selected={expertiseTags} onToggle={toggleExpertise} />
 
       <TouchableOpacity style={s.saveBtn} onPress={handleSave} activeOpacity={0.85}>
-        <LinearGradient colors={['#ec4899', '#8b5cf6']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.saveBtnGrad}>
+        <LinearGradient colors={['#7C3AED', '#8b5cf6']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.saveBtnGrad}>
           <Text style={s.saveBtnText}>{saving ? 'Saving…' : 'Save Changes'}</Text>
         </LinearGradient>
       </TouchableOpacity>
@@ -573,7 +573,7 @@ function EditKidView({ kid, onBack, onRemove }: { kid: Kid; onBack: () => void; 
       />
 
       <TouchableOpacity style={s.saveBtn} onPress={handleSave} activeOpacity={0.85}>
-        <LinearGradient colors={['#ec4899', '#8b5cf6']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.saveBtnGrad}>
+        <LinearGradient colors={['#7C3AED', '#8b5cf6']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.saveBtnGrad}>
           <Text style={s.saveBtnText}>{saving ? 'Saving…' : 'Save Changes'}</Text>
         </LinearGradient>
       </TouchableOpacity>
@@ -784,7 +784,7 @@ function ChangePhoneView({
             style={{ marginTop: 20 }}
           >
             <LinearGradient
-              colors={['#ec4899', '#8b5cf6']}
+              colors={['#7C3AED', '#8b5cf6']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={[
@@ -1349,7 +1349,7 @@ export default function SettingsModal({
         <View style={s.confirmOverlay}>
           <View style={s.confirmSheet}>
             <View style={s.confirmIconWrap}>
-              <LinearGradient colors={['#ec4899', '#8b5cf6']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.confirmIconCircle}>
+              <LinearGradient colors={['#7C3AED', '#8b5cf6']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.confirmIconCircle}>
                 <Ionicons name="log-out-outline" size={26} color="#ffffff" />
               </LinearGradient>
             </View>
@@ -1359,7 +1359,7 @@ export default function SettingsModal({
               <TouchableOpacity style={s.confirmCancel} onPress={() => setShowSignOutConfirm(false)} activeOpacity={0.8}>
                 <Text style={s.confirmCancelText}>Cancel</Text>
               </TouchableOpacity>
-              <LinearGradient colors={['#ec4899', '#8b5cf6']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.confirmSignOutBtn}>
+              <LinearGradient colors={['#7C3AED', '#8b5cf6']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.confirmSignOutBtn}>
                 <TouchableOpacity style={s.confirmSignOutInner} onPress={handleSignOut} activeOpacity={0.85}>
                   <Text style={s.confirmSignOutText}>Sign Out</Text>
                 </TouchableOpacity>
@@ -1418,7 +1418,7 @@ const s = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: '#ec4899',
+    backgroundColor: '#7C3AED',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1541,11 +1541,11 @@ const s = StyleSheet.create({
     backgroundColor: '#f9fafb',
   },
   chipActive: {
-    borderColor: '#ec4899',
-    backgroundColor: 'rgba(236,72,153,0.08)',
+    borderColor: '#7C3AED',
+    backgroundColor: 'rgba(28, 16, 51, 0.048)',
   },
   chipText: { fontSize: 13, color: '#6b7280', fontWeight: '500' },
-  chipTextActive: { color: '#ec4899', fontWeight: '700' },
+  chipTextActive: { color: '#7C3AED', fontWeight: '700' },
 
   saveBtn: {
     borderRadius: 14,
@@ -1681,7 +1681,7 @@ const s = StyleSheet.create({
     backgroundColor: '#e5e7eb',
     padding: 3,
   },
-  toggleTrackOn: { backgroundColor: '#ec4899' },
+  toggleTrackOn: { backgroundColor: '#7C3AED' },
   toggleThumb: {
     width: 20,
     height: 20,

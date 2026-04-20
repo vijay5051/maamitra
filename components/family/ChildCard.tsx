@@ -94,15 +94,15 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 1.5,
     borderColor: 'transparent',
-    shadowColor: '#ec4899',
+    shadowColor: '#7C3AED',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 2,
-    boxShadow: '0px 2px 8px rgba(236, 72, 153, 0.08)',
+    boxShadow: '0px 2px 8px rgba(28, 16, 51, 0.048)',
   },
   activeCard: {
-    borderColor: '#ec4899',
+    borderColor: '#7C3AED',
   },
   activeBadge: {
     position: 'absolute',
@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
   },
   ageLabel: {
     fontSize: 13,
-    color: '#ec4899',
+    color: '#7C3AED',
     fontWeight: '500',
     marginTop: 3,
   },

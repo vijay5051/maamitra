@@ -51,7 +51,7 @@ function ToggleRow({
     <View style={styles.toggleRow}>
       <View style={styles.toggleLeft}>
         <View style={styles.toggleIcon}>
-          <Ionicons name={icon as any} size={16} color="#ec4899" />
+          <Ionicons name={icon as any} size={16} color="#7C3AED" />
         </View>
         <Text style={styles.toggleLabel}>{label}</Text>
       </View>
@@ -59,7 +59,7 @@ function ToggleRow({
         value={value}
         onValueChange={onChange}
         trackColor={{ false: '#e5e7eb', true: '#fbcfe8' }}
-        thumbColor={value ? '#ec4899' : '#9ca3af'}
+        thumbColor={value ? '#7C3AED' : '#9ca3af'}
         ios_backgroundColor="#e5e7eb"
       />
     </View>
@@ -81,12 +81,12 @@ function ColorRow({
     <View style={styles.colorRow}>
       <Text style={styles.colorLabel}>{label}</Text>
       <View style={styles.colorRight}>
-        <View style={[styles.colorCircle, { backgroundColor: value || '#ec4899' }]} />
+        <View style={[styles.colorCircle, { backgroundColor: value || '#7C3AED' }]} />
         <TextInput
           style={styles.colorInput}
           value={value}
           onChangeText={onChange}
-          placeholder="#ec4899"
+          placeholder="#7C3AED"
           placeholderTextColor="#d1d5db"
           autoCapitalize="none"
           autoCorrect={false}
@@ -120,11 +120,11 @@ function TabConfigRow({
     <View style={styles.tabConfigRow}>
       <View style={styles.tabConfigOrder}>
         <TouchableOpacity onPress={onMoveUp} disabled={index === 0} style={styles.arrowBtn}>
-          <Ionicons name="chevron-up" size={14} color={index === 0 ? '#d1d5db' : '#ec4899'} />
+          <Ionicons name="chevron-up" size={14} color={index === 0 ? '#d1d5db' : '#7C3AED'} />
         </TouchableOpacity>
         <Text style={styles.tabConfigIndex}>{index + 1}</Text>
         <TouchableOpacity onPress={onMoveDown} disabled={index === total - 1} style={styles.arrowBtn}>
-          <Ionicons name="chevron-down" size={14} color={index === total - 1 ? '#d1d5db' : '#ec4899'} />
+          <Ionicons name="chevron-down" size={14} color={index === total - 1 ? '#d1d5db' : '#7C3AED'} />
         </TouchableOpacity>
       </View>
       <TextInput
@@ -138,7 +138,7 @@ function TabConfigRow({
         value={tab.visible}
         onValueChange={onVisibleChange}
         trackColor={{ false: '#e5e7eb', true: '#fbcfe8' }}
-        thumbColor={tab.visible ? '#ec4899' : '#9ca3af'}
+        thumbColor={tab.visible ? '#7C3AED' : '#9ca3af'}
         ios_backgroundColor="#e5e7eb"
         style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
       />
@@ -211,7 +211,7 @@ export default function AdminSettings() {
 
   // Theme
   const [primaryColor, setPrimaryColor] = useState<string>(
-    (settingsStore as any).primaryColor ?? '#ec4899'
+    (settingsStore as any).primaryColor ?? '#7C3AED'
   );
   const [secondaryColor, setSecondaryColor] = useState<string>(
     (settingsStore as any).secondaryColor ?? '#8b5cf6'
@@ -319,7 +319,7 @@ export default function AdminSettings() {
         <View style={styles.divider} />
         <TouchableOpacity
           style={styles.resetBtn}
-          onPress={() => { setPrimaryColor('#ec4899'); setSecondaryColor('#8b5cf6'); }}
+          onPress={() => { setPrimaryColor('#7C3AED'); setSecondaryColor('#8b5cf6'); }}
         >
           <Ionicons name="refresh" size={14} color="#9ca3af" />
           <Text style={styles.resetBtnText}>Reset to Defaults</Text>
@@ -368,7 +368,7 @@ export default function AdminSettings() {
       {/* Section 5: Admin Account */}
       <Section title="Admin Account">
         <View style={styles.adminEmailRow}>
-          <Ionicons name="shield-checkmark-outline" size={16} color="#ec4899" />
+          <Ionicons name="shield-checkmark-outline" size={16} color="#7C3AED" />
           <Text style={styles.adminEmail}>{user?.email ?? adminEmail ?? 'admin'}</Text>
         </View>
         <View style={styles.divider} />
@@ -414,7 +414,7 @@ const styles = StyleSheet.create({
 
   toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14 },
   toggleLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  toggleIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#fce7f3', alignItems: 'center', justifyContent: 'center' },
+  toggleIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#EDE9F6', alignItems: 'center', justifyContent: 'center' },
   toggleLabel: { fontSize: 14, color: '#1a1a2e', fontWeight: '500' },
 
   colorRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14 },
@@ -438,7 +438,7 @@ const styles = StyleSheet.create({
 
   tabConfigRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 10, gap: 10 },
   tabConfigOrder: { alignItems: 'center', width: 36 },
-  tabConfigIndex: { fontSize: 12, fontWeight: '700', color: '#ec4899' },
+  tabConfigIndex: { fontSize: 12, fontWeight: '700', color: '#7C3AED' },
   arrowBtn: { padding: 2 },
   tabConfigLabel: {
     flex: 1,
@@ -471,7 +471,7 @@ const styles = StyleSheet.create({
   signOutRowText: { fontSize: 14, color: '#ef4444', fontWeight: '600' },
 
   saveAllBtn: {
-    backgroundColor: '#ec4899',
+    backgroundColor: '#7C3AED',
     borderRadius: 16,
     paddingVertical: 16,
     alignItems: 'center',
@@ -479,12 +479,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     marginTop: 8,
-    shadowColor: '#ec4899',
+    shadowColor: '#7C3AED',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
-    boxShadow: '0px 4px 8px rgba(236, 72, 153, 0.30)',
+    boxShadow: '0px 4px 8px rgba(28, 16, 51, 0.18)',
   },
   saveAllText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });

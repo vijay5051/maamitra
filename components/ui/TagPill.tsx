@@ -22,7 +22,7 @@ function hexToRgba(hex: string, alpha: number): string {
 
 export default function TagPill({
   label,
-  color = '#E8487A',
+  color = '#7C3AED',
   bgColor,
   style,
   size = 'sm',

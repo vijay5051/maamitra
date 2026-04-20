@@ -118,7 +118,7 @@ export default function NewPostModal({
                       style={styles.topicChipWrapper}
                     >
                       <LinearGradient
-                        colors={['#ec4899', '#8b5cf6']}
+                        colors={['#7C3AED', '#8b5cf6']}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
                         style={styles.topicChip}

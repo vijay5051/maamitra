@@ -60,7 +60,7 @@ function CoverImg({ uri, title, size = 64 }: { uri?: string; title: string; size
     return <Image source={{ uri }} style={{ width: size, height: size * 1.3, borderRadius: 8 }} resizeMode="cover" onError={() => setErr(true)} />;
   }
   return (
-    <LinearGradient colors={['#ec4899', '#8b5cf6']} style={{ width: size, height: size * 1.3, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }}>
+    <LinearGradient colors={['#7C3AED', '#8b5cf6']} style={{ width: size, height: size * 1.3, borderRadius: 8, alignItems: 'center', justifyContent: 'center' }}>
       <Text style={{ fontSize: size * 0.4, color: '#fff', fontWeight: '800' }}>{title.charAt(0)}</Text>
     </LinearGradient>
   );
@@ -72,7 +72,7 @@ function SquareCover({ uri, emoji, size = 52 }: { uri?: string; emoji: string; s
     return <Image source={{ uri }} style={{ width: size, height: size, borderRadius: 8 }} resizeMode="cover" onError={() => setErr(true)} />;
   }
   return (
-    <View style={{ width: size, height: size, borderRadius: 8, backgroundColor: '#fdf2f8', alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ width: size, height: size, borderRadius: 8, backgroundColor: '#F5F0FF', alignItems: 'center', justifyContent: 'center' }}>
       <Text style={{ fontSize: size * 0.55 }}>{emoji}</Text>
     </View>
   );
@@ -265,7 +265,7 @@ function BooksSection() {
                         <Text style={s.resultMeta}>{b.author}</Text>
                         {b.rating > 0 && <Text style={s.resultRating}>⭐ {b.rating.toFixed(1)}</Text>}
                       </View>
-                      <Ionicons name="add-circle" size={22} color="#ec4899" />
+                      <Ionicons name="add-circle" size={22} color="#7C3AED" />
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
@@ -611,7 +611,7 @@ export default function AdminPanel({ visible, onClose }: AdminPanelProps) {
       <View style={s.modal}>
         {/* Header */}
         <View style={s.header}>
-          <LinearGradient colors={['#ec4899', '#8b5cf6']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
+          <LinearGradient colors={['#7C3AED', '#8b5cf6']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
           <View style={s.headerRow}>
             <View>
               <Text style={s.headerTitle}>⚙️ Library Admin</Text>
@@ -659,24 +659,24 @@ const s = StyleSheet.create({
 
   typeTabs: { flexDirection: 'row', backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#f3e8ff' },
   typeTab: { flex: 1, alignItems: 'center', paddingVertical: 10, gap: 2 },
-  typeTabActive: { borderBottomWidth: 2, borderBottomColor: '#ec4899' },
+  typeTabActive: { borderBottomWidth: 2, borderBottomColor: '#7C3AED' },
   typeTabIcon: { fontSize: 20 },
   typeTabLabel: { fontSize: 11, color: '#9ca3af', fontWeight: '600' },
-  typeTabLabelActive: { color: '#ec4899' },
+  typeTabLabelActive: { color: '#7C3AED' },
 
   sectionWrap: { flex: 1, flexDirection: 'column' },
 
   subTabs: { flexDirection: 'row', backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#f3e8ff' },
   subTab: { flex: 1, paddingVertical: 12, alignItems: 'center' },
-  subTabActive: { borderBottomWidth: 2, borderBottomColor: '#ec4899' },
+  subTabActive: { borderBottomWidth: 2, borderBottomColor: '#7C3AED' },
   subTabText: { fontSize: 13, fontWeight: '600', color: '#9ca3af' },
-  subTabTextActive: { color: '#ec4899' },
+  subTabTextActive: { color: '#7C3AED' },
 
   searchBox: { padding: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#f3e8ff' },
   searchLabel: { fontSize: 12, color: '#6b7280', marginBottom: 8 },
   searchRow: { flexDirection: 'row', gap: 10 },
   searchInput: { flex: 1, height: 44, backgroundColor: '#f9fafb', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, paddingHorizontal: 12, fontSize: 14, color: '#1a1a2e' },
-  searchBtn: { width: 44, height: 44, borderRadius: 10, backgroundColor: '#ec4899', alignItems: 'center', justifyContent: 'center' },
+  searchBtn: { width: 44, height: 44, borderRadius: 10, backgroundColor: '#7C3AED', alignItems: 'center', justifyContent: 'center' },
   searchBtnDim: { backgroundColor: '#f3a8d0' },
 
   errorBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, margin: 16, padding: 12, backgroundColor: '#fef2f2', borderRadius: 10 },
@@ -707,13 +707,13 @@ const s = StyleSheet.create({
   textArea: { height: 76, paddingTop: 10, textAlignVertical: 'top' },
   twoCol: { flexDirection: 'row' },
   chip: { borderRadius: 20, paddingVertical: 6, paddingHorizontal: 12, backgroundColor: '#f9fafb', borderWidth: 1, borderColor: '#e5e7eb', marginRight: 6 },
-  chipActive: { backgroundColor: '#ec4899', borderColor: '#ec4899' },
+  chipActive: { backgroundColor: '#7C3AED', borderColor: '#7C3AED' },
   chipText: { fontSize: 12, color: '#6b7280', fontWeight: '600' },
   chipTextActive: { color: '#fff' },
   formActions: { flexDirection: 'row', gap: 10, marginTop: 24, marginBottom: 32 },
   cancelBtn: { flex: 1, height: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f3f4f6', borderWidth: 1, borderColor: '#e5e7eb' },
   cancelBtnText: { fontSize: 14, fontWeight: '700', color: '#6b7280' },
-  saveBtn: { flex: 2, height: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6, backgroundColor: '#ec4899' },
+  saveBtn: { flex: 2, height: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6, backgroundColor: '#7C3AED' },
   saveBtnDim: { backgroundColor: '#f3a8d0' },
   saveBtnText: { fontSize: 14, fontWeight: '700', color: '#fff' },
 

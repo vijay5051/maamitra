@@ -6,5 +6,5 @@
 // - assets/favicon.png (32x32) - Web favicon
 //
 // Generate these at: https://icon.kitchen/
-// Use the MaaMitra gradient: #ec4899 to #8b5cf6 with 🤱 emoji centered
+// Use the MaaMitra gradient: #7C3AED to #8b5cf6 with 🤱 emoji centered
 export {};

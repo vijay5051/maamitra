@@ -140,7 +140,7 @@ export default function ConversationsSheet({ visible, onClose }: Props) {
         {/* Content */}
         {isLoadingConversations ? (
           <View style={styles.centered}>
-            <ActivityIndicator size="large" color="#E8487A" />
+            <ActivityIndicator size="large" color="#7C3AED" />
           </View>
         ) : (
           <FlatList
@@ -176,7 +176,7 @@ export default function ConversationsSheet({ visible, onClose }: Props) {
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFF8FC' },
+  container: { flex: 1, backgroundColor: '#FAFAFB' },
   header: {
     paddingTop: Platform.OS === 'ios' ? 16 : 24,
     paddingBottom: 20,
@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(0,0,0,0.04)',
   },
   rowUnread: {
-    backgroundColor: 'rgba(232,72,122,0.04)',
+    backgroundColor: 'rgba(28, 16, 51, 0.024)',
   },
   avatar: { width: 48, height: 48, borderRadius: 24 },
   rowContent: { flex: 1, gap: 3 },
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#E8487A',
+    backgroundColor: '#7C3AED',
     flexShrink: 0,
   },
   empty: {

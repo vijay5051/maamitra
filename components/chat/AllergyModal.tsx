@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#fdf2f8',
+    backgroundColor: '#F5F0FF',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -186,8 +186,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   checkboxSelected: {
-    backgroundColor: '#ec4899',
-    borderColor: '#ec4899',
+    backgroundColor: '#7C3AED',
+    borderColor: '#7C3AED',
   },
   button: {
     marginTop: 28,

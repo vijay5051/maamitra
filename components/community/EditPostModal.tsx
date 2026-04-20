@@ -106,7 +106,7 @@ export default function EditPostModal({
             activeOpacity={0.85}
           >
             <LinearGradient
-              colors={['#E8487A', '#7C3AED']}
+              colors={['#7C3AED', '#7C3AED']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.saveBtnGrad}
@@ -127,7 +127,7 @@ export default function EditPostModal({
 const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   sheet: {
-    backgroundColor: '#FFF8FC',
+    backgroundColor: '#FAFAFB',
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     paddingHorizontal: 24,

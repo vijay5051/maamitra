@@ -114,7 +114,7 @@ export default function ReactorsSheet({ visible, post, emojiFilter, onClose, onS
 
         {loading ? (
           <View style={styles.centered}>
-            <ActivityIndicator size="large" color="#E8487A" />
+            <ActivityIndicator size="large" color="#7C3AED" />
           </View>
         ) : (
           <FlatList
@@ -146,7 +146,7 @@ export default function ReactorsSheet({ visible, post, emojiFilter, onClose, onS
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFF8FC' },
+  container: { flex: 1, backgroundColor: '#FAFAFB' },
   header: {
     paddingTop: Platform.OS === 'ios' ? 16 : 24,
     paddingBottom: 20,

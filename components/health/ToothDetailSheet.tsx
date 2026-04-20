@@ -14,7 +14,7 @@ import { eruptionWindowLabel, shedWindowLabel, ToothRef } from '../../data/teeth
 import { ToothEntry, ToothState } from '../../store/useTeethStore';
 import { Fonts } from '../../constants/theme';
 
-const ROSE = '#E8487A';
+const ROSE = '#7C3AED';
 const PLUM = '#7C3AED';
 const SAGE = '#34D399';
 const GOLD = '#F59E0B';
@@ -148,7 +148,7 @@ export default function ToothDetailSheet({
               const active = state === opt.key;
               const tint = opt.key === 'erupted' ? SAGE : opt.key === 'shed' ? GOLD : MIST;
               const textColor = opt.disabled ? '#C9C2DA' : active ? '#ffffff' : INK;
-              const bg = active ? tint : '#FFF8FC';
+              const bg = active ? tint : '#FAFAFB';
               const border = active ? tint : '#E5DCEF';
               return (
                 <TouchableOpacity

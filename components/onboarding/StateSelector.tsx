@@ -60,7 +60,7 @@ export default function StateSelector({ onSelect, selected }: StateSelectorProps
               style={[styles.stateRow, isSelected && styles.stateRowSelected]}
             >
               <Text style={[styles.stateText, isSelected && styles.stateTextSelected]}>{item}</Text>
-              <Ionicons name="chevron-forward" size={16} color={isSelected ? '#ec4899' : '#d1d5db'} />
+              <Ionicons name="chevron-forward" size={16} color={isSelected ? '#7C3AED' : '#d1d5db'} />
             </TouchableOpacity>
           );
         }}
@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderWidth: 1,
-    borderColor: 'rgba(236,72,153,0.15)',
+    borderColor: 'rgba(28, 16, 51, 0.09)',
   },
   searchIcon: {
     marginRight: 8,
@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
     minHeight: 44,
   },
   stateRowSelected: {
-    backgroundColor: '#fdf2f8',
+    backgroundColor: '#F5F0FF',
   },
   stateText: {
     fontSize: 15,
@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   stateTextSelected: {
-    color: '#ec4899',
+    color: '#7C3AED',
     fontWeight: '700',
   },
 });

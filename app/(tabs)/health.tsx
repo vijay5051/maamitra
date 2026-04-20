@@ -38,7 +38,7 @@ import { TabIcon } from '../../components/ui/AppIcon';
 import { Fonts } from '../../constants/theme';
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
-const ROSE   = '#E8487A';
+const ROSE   = '#7C3AED';
 const PLUM   = '#7C3AED';
 const GOLD   = '#F59E0B';
 const SAGE   = '#34D399';
@@ -134,7 +134,7 @@ function SubTabSelector({
 
 const subTabStyles = StyleSheet.create({
   wrapper: {
-    backgroundColor: '#FFF8FC',
+    backgroundColor: '#FAFAFB',
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderBottomWidth: 1,
@@ -487,7 +487,7 @@ function SchemeCard({
 
           <View style={scStyles.detailBlock}>
             <View style={scStyles.detailLabelRow}>
-              <Ionicons name="gift-outline" size={14} color="#ec4899" />
+              <Ionicons name="gift-outline" size={14} color="#7C3AED" />
               <Text style={scStyles.detailLabel}>What you get</Text>
             </View>
             <Text style={scStyles.detailText}>{scheme.benefit}</Text>
@@ -534,7 +534,7 @@ const scStyles = StyleSheet.create({
   } as any,
   cardRelevant: {
     borderColor: 'rgba(124,58,237,0.25)',
-    backgroundColor: '#FFF8FC',
+    backgroundColor: '#FAFAFB',
   },
   eligibleBadge: {
     alignSelf: 'flex-start',
@@ -901,7 +901,7 @@ const hStyles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: 'rgba(232,72,122,0.09)',
+    backgroundColor: 'rgba(28, 16, 51, 0.054)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1101,7 +1101,7 @@ export default function HealthScreen() {
 
             {!activeKid ? (
               <Card style={styles.noKidCard} shadow="sm">
-                <Ionicons name="heart-outline" size={40} color="#E8487A" style={{ marginBottom: 12, opacity: 0.8 }} />
+                <Ionicons name="heart-outline" size={40} color="#7C3AED" style={{ marginBottom: 12, opacity: 0.8 }} />
                 <Text style={styles.noKidText}>
                   Add your baby to see their personalised vaccine schedule.
                 </Text>
@@ -1111,7 +1111,7 @@ export default function HealthScreen() {
                   activeOpacity={0.85}
                 >
                   <LinearGradient
-                    colors={['#E8487A', '#7C3AED']}
+                    colors={['#7C3AED', '#7C3AED']}
                     start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                     style={styles.noKidBtnGrad}
                   >
@@ -1132,7 +1132,7 @@ export default function HealthScreen() {
                 ].map((v) => (
                   <View key={v.name} style={{ backgroundColor: '#fff', borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: '#EDE9F6' }}>
                     <Text style={{ fontFamily: Fonts.sansSemiBold, fontSize: 13, color: '#1C1033' }}>{v.name}</Text>
-                    <Text style={{ fontFamily: Fonts.sansRegular, fontSize: 12, color: '#E8487A', marginTop: 2 }}>When: {v.timing}</Text>
+                    <Text style={{ fontFamily: Fonts.sansRegular, fontSize: 12, color: '#7C3AED', marginTop: 2 }}>When: {v.timing}</Text>
                     <Text style={{ fontFamily: Fonts.sansRegular, fontSize: 12, color: '#6b7280', marginTop: 2 }}>{v.note}</Text>
                   </View>
                 ))}
@@ -1191,7 +1191,7 @@ export default function HealthScreen() {
               </View>
               <View style={styles.progressBar}>
                 <LinearGradient
-                  colors={['#ec4899', '#8b5cf6']}
+                  colors={['#7C3AED', '#8b5cf6']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={[styles.progressFill, { width: `${progressPct}%` as any }]}
@@ -1231,7 +1231,7 @@ export default function HealthScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFF8FC' },
+  container: { flex: 1, backgroundColor: '#FAFAFB' },
   header: {
     paddingHorizontal: 20,
     paddingBottom: 20,
@@ -1243,7 +1243,7 @@ const styles = StyleSheet.create({
     width: 180,
     height: 180,
     borderRadius: 90,
-    backgroundColor: 'rgba(232,72,122,0.22)',
+    backgroundColor: 'rgba(28, 16, 51, 0.132)',
     top: -60,
     right: -40,
   },

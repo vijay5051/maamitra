@@ -218,7 +218,7 @@ const fStyles = StyleSheet.create({
   headerBtn: { padding: 4 },
   headerTitle: { fontSize: 16, fontWeight: '700', color: '#1a1a2e' },
   saveBtn: {
-    backgroundColor: '#ec4899', borderRadius: 20,
+    backgroundColor: '#7C3AED', borderRadius: 20,
     paddingHorizontal: 18, paddingVertical: 8,
   },
   saveBtnDim: { opacity: 0.4 },
@@ -403,7 +403,7 @@ export default function ContentScreen() {
           />
         </View>
         <TouchableOpacity style={styles.addBtn} onPress={openAdd} activeOpacity={0.85}>
-          <LinearGradient colors={['#ec4899', '#8b5cf6']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.addBtnGrad}>
+          <LinearGradient colors={['#7C3AED', '#8b5cf6']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.addBtnGrad}>
             <Ionicons name="add" size={18} color="#fff" />
             <Text style={styles.addBtnText}>Add</Text>
           </LinearGradient>
@@ -417,10 +417,10 @@ export default function ContentScreen() {
       <ScrollView
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={doRefresh} tintColor="#ec4899" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={doRefresh} tintColor="#7C3AED" />}
       >
         {loading ? (
-          <ActivityIndicator color="#ec4899" style={{ marginTop: 40 }} />
+          <ActivityIndicator color="#7C3AED" style={{ marginTop: 40 }} />
         ) : filtered.length === 0 ? (
           <View style={styles.empty}>
             <Ionicons name={TAB_META[tab].icon as any} size={36} color="#d1d5db" />
@@ -473,9 +473,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20,
     backgroundColor: '#f3f4f6',
   },
-  tabActive: { backgroundColor: '#fdf2f8', borderWidth: 1, borderColor: '#ec4899' },
+  tabActive: { backgroundColor: '#F5F0FF', borderWidth: 1, borderColor: '#7C3AED' },
   tabText: { fontSize: 13, fontWeight: '600', color: '#6b7280' },
-  tabTextActive: { color: '#ec4899' },
+  tabTextActive: { color: '#7C3AED' },
 
   actionRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 12 },
   searchWrap: {
@@ -498,7 +498,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: '#f3f4f6',
   },
   itemEmoji: {
-    width: 44, height: 44, borderRadius: 12, backgroundColor: '#fdf2f8',
+    width: 44, height: 44, borderRadius: 12, backgroundColor: '#F5F0FF',
     alignItems: 'center', justifyContent: 'center',
   },
   itemInfo: { flex: 1 },
@@ -510,7 +510,7 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', paddingVertical: 48, gap: 10 },
   emptyText: { fontSize: 15, color: '#9ca3af' },
   emptyAdd: { marginTop: 6 },
-  emptyAddText: { fontSize: 14, color: '#ec4899', fontWeight: '700' },
+  emptyAddText: { fontSize: 14, color: '#7C3AED', fontWeight: '700' },
 
   toast: {
     position: 'absolute', bottom: 30, left: 20, right: 20,

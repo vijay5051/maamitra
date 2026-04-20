@@ -16,7 +16,7 @@ import { FoodRef } from '../../data/babyFoods';
 import { FoodEntry, FoodReaction } from '../../store/useFoodTrackerStore';
 import { Fonts } from '../../constants/theme';
 
-const ROSE = '#E8487A';
+const ROSE = '#7C3AED';
 const PLUM = '#7C3AED';
 const SAGE = '#34D399';
 const GOLD = '#F59E0B';
@@ -193,7 +193,7 @@ export default function FoodDetailSheet({
                     style={[
                       styles.reactionChip,
                       {
-                        backgroundColor: active ? opt.color : '#FFF8FC',
+                        backgroundColor: active ? opt.color : '#FAFAFB',
                         borderColor: active ? opt.color : '#E5DCEF',
                       },
                     ]}
@@ -352,7 +352,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1.5,
     borderColor: '#E5DCEF',
-    backgroundColor: '#FFF8FC',
+    backgroundColor: '#FAFAFB',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -385,7 +385,7 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
   },
   noteInput: {
-    backgroundColor: '#FFF8FC',
+    backgroundColor: '#FAFAFB',
     borderWidth: 1,
     borderColor: MIST,
     borderRadius: 10,

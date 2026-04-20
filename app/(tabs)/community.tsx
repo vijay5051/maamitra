@@ -53,7 +53,7 @@ const TOPICS = ['Newborn', 'Pregnancy', 'Nutrition', 'Mental Health', 'Milestone
 // ─── Topic color map ──────────────────────────────────────────────────────────
 
 const TOPIC_COLORS: Record<string, string> = {
-  Newborn: '#E8487A',
+  Newborn: '#7C3AED',
   Pregnancy: '#7C3AED',
   Nutrition: '#34D399',
   'Mental Health': '#60A5FA',
@@ -147,7 +147,7 @@ function AnimatedHeartButton({
         <Ionicons
           name={hasReacted ? 'heart' : 'heart-outline'}
           size={13}
-          color={hasReacted ? '#E8487A' : '#E8487A'}
+          color={hasReacted ? '#7C3AED' : '#7C3AED'}
         />
         <Text style={heartStyles.text}>React</Text>
       </Animated.View>
@@ -158,11 +158,11 @@ function AnimatedHeartButton({
 const heartStyles = StyleSheet.create({
   pill: {
     borderWidth: 1.5,
-    borderColor: 'rgba(232,72,122,0.25)',
+    borderColor: 'rgba(28, 16, 51, 0.15)',
     borderRadius: 12,
     paddingVertical: 4,
     paddingHorizontal: 10,
-    backgroundColor: 'rgba(232,72,122,0.04)',
+    backgroundColor: 'rgba(28, 16, 51, 0.024)',
   },
   inner: {
     flexDirection: 'row',
@@ -172,7 +172,7 @@ const heartStyles = StyleSheet.create({
   text: {
     fontFamily: Fonts.sansSemiBold,
     fontSize: 12,
-    color: '#E8487A',
+    color: '#7C3AED',
   },
 });
 
@@ -371,7 +371,7 @@ function NewPostModal({
             disabled={isUploading}
           >
             <LinearGradient
-              colors={['#E8487A', '#7C3AED']}
+              colors={['#7C3AED', '#7C3AED']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={newPostStyles.postBtnGrad}
@@ -388,7 +388,7 @@ function NewPostModal({
 const newPostStyles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   sheet: {
-    backgroundColor: '#FFF8FC',
+    backgroundColor: '#FAFAFB',
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     paddingHorizontal: 24,
@@ -535,7 +535,7 @@ const composeStyles = StyleSheet.create({
     padding: 14,
     borderWidth: 1,
     borderColor: '#EDE9F6',
-    shadowColor: '#E8487A',
+    shadowColor: '#7C3AED',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -634,7 +634,7 @@ function MyProfileCard({
             />
           ) : (
             <LinearGradient
-              colors={['#E8487A', '#7C3AED']}
+              colors={['#7C3AED', '#7C3AED']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={heroStyles.avatarFallback}
@@ -710,7 +710,7 @@ function MyProfileCard({
       {/* Complete profile link */}
       {!isProfileComplete && (
         <TouchableOpacity style={heroStyles.completeLink} onPress={onEdit} activeOpacity={0.75}>
-          <Ionicons name="sparkles-outline" size={13} color="#E8487A" />
+          <Ionicons name="sparkles-outline" size={13} color="#7C3AED" />
           <Text style={heroStyles.completeLinkText}>Complete your profile</Text>
         </TouchableOpacity>
       )}
@@ -733,7 +733,7 @@ const heroStyles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: 'rgba(232,72,122,0.25)',
+    backgroundColor: 'rgba(28, 16, 51, 0.15)',
     top: -30,
     right: -20,
     opacity: 0.9,
@@ -879,7 +879,7 @@ const heroStyles = StyleSheet.create({
   completeLinkText: {
     fontFamily: Fonts.sansSemiBold,
     fontSize: 13,
-    color: '#E8487A',
+    color: '#7C3AED',
   },
 });
 
@@ -1122,8 +1122,8 @@ export default function CommunityScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            tintColor="#E8487A"
-            colors={['#E8487A', '#7C3AED']}
+            tintColor="#7C3AED"
+            colors={['#7C3AED', '#7C3AED']}
           />
         }
         ListHeaderComponent={
@@ -1154,7 +1154,7 @@ export default function CommunityScreen() {
                   >
                     {activeFilter === f ? (
                       <LinearGradient
-                        colors={['#E8487A', '#7C3AED']}
+                        colors={['#7C3AED', '#7C3AED']}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 0 }}
                         style={{ height: 32, borderRadius: 16, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' }}
@@ -1173,7 +1173,7 @@ export default function CommunityScreen() {
               {/* Fade overlay on right edge */}
               <View style={styles.filterFadeRight} pointerEvents="none">
                 <LinearGradient
-                  colors={['rgba(255,248,252,0)', '#FFF8FC']}
+                  colors={['rgba(255,248,252,0)', '#FAFAFB']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={StyleSheet.absoluteFill}
@@ -1250,7 +1250,7 @@ export default function CommunityScreen() {
         onEndReachedThreshold={0.4}
         ListFooterComponent={isLoadingMore ? (
           <View style={styles.footerLoader}>
-            <ActivityIndicator size="small" color="#E8487A" />
+            <ActivityIndicator size="small" color="#7C3AED" />
           </View>
         ) : null}
         showsVerticalScrollIndicator={false}
@@ -1320,7 +1320,7 @@ export default function CommunityScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFF8FC' },
+  container: { flex: 1, backgroundColor: '#FAFAFB' },
   header: {
     paddingHorizontal: 16,
     paddingBottom: 16,
@@ -1329,7 +1329,7 @@ const styles = StyleSheet.create({
   },
   glowTopRight: {
     position: 'absolute', width: 180, height: 180, borderRadius: 90,
-    backgroundColor: 'rgba(232,72,122,0.22)', top: -60, right: -40,
+    backgroundColor: 'rgba(28, 16, 51, 0.132)', top: -60, right: -40,
   },
   glowBottomLeft: {
     position: 'absolute', width: 120, height: 120, borderRadius: 60,
@@ -1361,7 +1361,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -4,
     right: -4,
-    backgroundColor: '#E8487A',
+    backgroundColor: '#7C3AED',
     borderRadius: 9,
     minWidth: 18,
     height: 18,
@@ -1384,7 +1384,7 @@ const styles = StyleSheet.create({
   },
   postBtnText: { fontFamily: Fonts.sansBold, color: '#ffffff', fontSize: 14 },
   filtersWrap: {
-    backgroundColor: '#FFF8FC',
+    backgroundColor: '#FAFAFB',
     borderBottomWidth: 1,
     borderBottomColor: '#EDE9F6',
     flexShrink: 0,
@@ -1408,8 +1408,8 @@ const styles = StyleSheet.create({
     borderColor: '#EDE9F6',
   },
   filterChipActive: {
-    backgroundColor: '#E8487A',
-    borderColor: '#E8487A',
+    backgroundColor: '#7C3AED',
+    borderColor: '#7C3AED',
   },
   filterChipText: { fontFamily: Fonts.sansMedium, fontSize: 13, color: '#6B7280' },
   filterChipTextActive: { fontFamily: Fonts.sansBold, color: '#ffffff' },

@@ -21,20 +21,20 @@ function getShadow(shadow?: ShadowSize) {
   if (!shadow) return {};
   const map: Record<ShadowSize, object> = {
     sm: {
-      shadowColor: '#E8487A',
+      shadowColor: '#7C3AED',
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.07,
       shadowRadius: 8,
       elevation: 3,
-      boxShadow: '0px 2px 8px rgba(232, 72, 122, 0.07)',
+      boxShadow: '0px 2px 8px rgba(28, 16, 51, 0.042)',
     },
     md: {
-      shadowColor: '#E8487A',
+      shadowColor: '#7C3AED',
       shadowOffset: { width: 0, height: 4 },
       shadowOpacity: 0.10,
       shadowRadius: 14,
       elevation: 5,
-      boxShadow: '0px 4px 14px rgba(232, 72, 122, 0.10)',
+      boxShadow: '0px 4px 14px rgba(28, 16, 51, 0.06)',
     },
     lg: {
       shadowColor: '#7C3AED',

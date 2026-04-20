@@ -33,7 +33,7 @@ const TYPE_OPTIONS: { key: NotifType; label: string; emoji: string; color: strin
   { key: 'info',        label: 'Info',        emoji: '💬', color: '#6b7280' },
   { key: 'reminder',    label: 'Reminder',    emoji: '⏰', color: '#8b5cf6' },
   { key: 'alert',       label: 'Alert',       emoji: '🚨', color: '#ef4444' },
-  { key: 'celebration', label: 'Celebration', emoji: '🎉', color: '#ec4899' },
+  { key: 'celebration', label: 'Celebration', emoji: '🎉', color: '#7C3AED' },
 ];
 
 const QUICK_TEMPLATES = [
@@ -185,7 +185,7 @@ export default function NotificationsScreen() {
               onPress={() => setAudience(a.key)}
               activeOpacity={0.75}
             >
-              <View style={[styles.audienceIcon, audience === a.key && { backgroundColor: '#ec4899' }]}>
+              <View style={[styles.audienceIcon, audience === a.key && { backgroundColor: '#7C3AED' }]}>
                 <Ionicons name={a.icon as any} size={16} color={audience === a.key ? '#fff' : '#9ca3af'} />
               </View>
               <View style={styles.audienceInfo}>
@@ -210,7 +210,7 @@ export default function NotificationsScreen() {
         <Switch
           value={scheduleEnabled}
           onValueChange={setScheduleEnabled}
-          trackColor={{ false: '#e5e7eb', true: '#ec4899' }}
+          trackColor={{ false: '#e5e7eb', true: '#7C3AED' }}
           thumbColor="#fff"
         />
       </View>
@@ -236,7 +236,7 @@ export default function NotificationsScreen() {
         activeOpacity={0.85}
       >
         <LinearGradient
-          colors={['#ec4899', '#8b5cf6']}
+          colors={['#7C3AED', '#8b5cf6']}
           start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
           style={styles.sendBtnGrad}
         >
@@ -305,8 +305,8 @@ const styles = StyleSheet.create({
   audienceLabel: { fontSize: 14, fontWeight: '700', color: '#1a1a2e' },
   audienceDesc: { fontSize: 12, color: '#9ca3af', marginTop: 1 },
   radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: '#d1d5db', alignItems: 'center', justifyContent: 'center' },
-  radioActive: { borderColor: '#ec4899' },
-  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#ec4899' },
+  radioActive: { borderColor: '#7C3AED' },
+  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#7C3AED' },
   divider: { height: 1, backgroundColor: '#f9fafb' },
 
   scheduleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },

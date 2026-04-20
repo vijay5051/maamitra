@@ -249,7 +249,7 @@ export default function UserPostsSheet({ uid, name, visible, onClose, onEditPost
 
         {isLoading ? (
           <View style={styles.centered}>
-            <ActivityIndicator size="large" color="#E8487A" />
+            <ActivityIndicator size="large" color="#7C3AED" />
           </View>
         ) : (
           <FlatList
@@ -293,7 +293,7 @@ export default function UserPostsSheet({ uid, name, visible, onClose, onEditPost
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFF8FC' },
+  container: { flex: 1, backgroundColor: '#FAFAFB' },
   header: {
     paddingTop: Platform.OS === 'ios' ? 16 : 24,
     paddingBottom: 20,

@@ -686,7 +686,7 @@ export default function HomeTab() {
               }
             >
               <LinearGradient
-                colors={['#FFF8FC', '#FFF0F5']}
+                colors={['#FAFAFB', '#F5F0FF']}
                 style={styles.readInner}
               >
                 <View style={styles.readBadge}>
@@ -860,8 +860,8 @@ export default function HomeTab() {
           <JumpTile
             icon="newspaper-outline"
             label="Articles"
-            bg="#FFF0F5"
-            tint="#E8487A"
+            bg="#F5F0FF"
+            tint="#7C3AED"
             onPress={() =>
               router.push({ pathname: '/(tabs)/library', params: { tab: 'read' } })
             }
@@ -905,8 +905,8 @@ export default function HomeTab() {
           <JumpTile
             icon="search-outline"
             label="Find moms"
-            bg="#FDF2F8"
-            tint="#E8487A"
+            bg="#F5F0FF"
+            tint="#7C3AED"
             onPress={() =>
               // Community tab reads ?search=1 and auto-opens UserSearchSheet.
               router.push({ pathname: '/(tabs)/community', params: { search: '1' } })
@@ -1277,7 +1277,7 @@ function buildTodayCards({
       id: 'mood',
       icon: 'happy-outline',
       tint: Colors.primary,
-      bg: '#FFF0F5',
+      bg: '#F5F0FF',
       value: 'Log mood',
       label: 'Not logged yet',
       onPress: goWellness,
@@ -1287,7 +1287,7 @@ function buildTodayCards({
       id: 'mood',
       icon: 'happy-outline',
       tint: Colors.primary,
-      bg: '#FFF0F5',
+      bg: '#F5F0FF',
       value: `${todayMood.emoji} ${todayMood.label}`,
       label: "Today's mood",
       onPress: goWellness,
@@ -1299,7 +1299,7 @@ function buildTodayCards({
       id: 'pregnancy',
       icon: 'heart-outline',
       tint: Colors.primary,
-      bg: '#FFF0F5',
+      bg: '#F5F0FF',
       value: 'Pregnancy tips',
       label: 'For this trimester',
       onPress: () => goLibraryTopic('Pregnancy'),
@@ -1417,7 +1417,7 @@ function buildTodayCards({
         id: 'teeth',
         icon: 'happy-outline',
         tint: Colors.primary,
-        bg: '#FFF0F5',
+        bg: '#F5F0FF',
         value: 'First tooth soon',
         label: `${activeKid.name} · ${ageLabel}`,
         onPress: goTeeth,
@@ -1427,7 +1427,7 @@ function buildTodayCards({
         id: 'teeth',
         icon: 'happy-outline',
         tint: Colors.primary,
-        bg: '#FFF0F5',
+        bg: '#F5F0FF',
         value: 'Log first tooth',
         label: `${activeKid.name} · ${ageLabel}`,
         onPress: goTeeth,
@@ -1453,7 +1453,7 @@ function buildTodayCards({
         id: 'teeth',
         icon: 'happy-outline',
         tint: Colors.primary,
-        bg: '#FFF0F5',
+        bg: '#F5F0FF',
         value: `${eruptedCount}/${TEETH.length} teeth`,
         label: nextTooth ? `Next: ${nextTooth.shortName.toLowerCase()}` : `${activeKid.name} · ${ageLabel}`,
         onPress: goTeeth,
@@ -1464,7 +1464,7 @@ function buildTodayCards({
         id: 'teeth',
         icon: 'sparkles-outline',
         tint: Colors.primary,
-        bg: '#FFF0F5',
+        bg: '#F5F0FF',
         value: 'Shedding soon',
         label: `${activeKid.name} · ${ageLabel}`,
         onPress: goTeeth,
@@ -1474,7 +1474,7 @@ function buildTodayCards({
         id: 'teeth',
         icon: 'sparkles-outline',
         tint: Colors.primary,
-        bg: '#FFF0F5',
+        bg: '#F5F0FF',
         value: `${shedCount}/${TEETH.length} shed`,
         label: `${activeKid.name} · ${ageLabel}`,
         onPress: goTeeth,
@@ -1521,7 +1521,7 @@ function buildTodayCards({
         id: 'foods',
         icon: 'restaurant-outline',
         tint: Colors.primary,
-        bg: '#FFF0F5',
+        bg: '#F5F0FF',
         value: 'Solids soon',
         label: `${activeKid.name} · ${ageLabel}`,
         onPress: goFoods,
@@ -1531,7 +1531,7 @@ function buildTodayCards({
         id: 'foods',
         icon: 'restaurant-outline',
         tint: Colors.primary,
-        bg: '#FFF0F5',
+        bg: '#F5F0FF',
         value: 'Start first foods',
         label: `${activeKid.name} · ${ageLabel}`,
         onPress: goFoods,
@@ -1553,7 +1553,7 @@ function buildTodayCards({
         id: 'foods',
         icon: 'restaurant-outline',
         tint: Colors.primary,
-        bg: '#FFF0F5',
+        bg: '#F5F0FF',
         value: `Day ${day}/3: ${inProgress.name.split(' ')[0]}`,
         label: `${activeKid.name} · keep going`,
         onPress: goFoods,
@@ -1563,7 +1563,7 @@ function buildTodayCards({
         id: 'foods',
         icon: 'restaurant-outline',
         tint: Colors.primary,
-        bg: '#FFF0F5',
+        bg: '#F5F0FF',
         value: `${clearedFoods} foods cleared`,
         label: 'Try next?',
         onPress: goFoods,
@@ -1606,7 +1606,7 @@ function buildTodayCards({
       id: 'saved',
       icon: 'bookmark-outline',
       tint: Colors.primary,
-      bg: '#FFF0F5',
+      bg: '#F5F0FF',
       value: `${savedAnswers.length} saved`,
       label: 'AI answers',
       onPress: goSavedAnswers,
@@ -1679,7 +1679,7 @@ function buildTodayCards({
         id: 'milestone',
         icon: 'sparkles-outline',
         tint: Colors.primary,
-        bg: '#FFF0F5',
+        bg: '#F5F0FF',
         value: upcoming.title.length > 22 ? upcoming.title.slice(0, 20) + '…' : upcoming.title,
         label: `${upcoming.emoji} ${upcoming.ageLabel}`,
         onPress: goFamily,
@@ -2061,7 +2061,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     marginTop: Spacing.sm,
     borderRadius: 18,
-    backgroundColor: 'rgba(232,72,122,0.08)',
+    backgroundColor: 'rgba(28, 16, 51, 0.048)',
   },
   quickActionsExpanderText: {
     fontFamily: Fonts.sansBold,

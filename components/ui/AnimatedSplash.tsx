@@ -106,7 +106,7 @@ export default function AnimatedSplash({ onDone }: Props) {
       {/* Background: dark plum → rose gradient, fades in */}
       <Animated.View style={[StyleSheet.absoluteFill, bgStyle]}>
         <LinearGradient
-          colors={['#1C1033', '#3b1060', '#6d1a7a', '#E8487A']}
+          colors={['#1C1033', '#3b1060', '#6d1a7a', '#7C3AED']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     // Subtle outer glow behind the logo
-    shadowColor: '#E8487A',
+    shadowColor: '#7C3AED',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.7,
     shadowRadius: 40,

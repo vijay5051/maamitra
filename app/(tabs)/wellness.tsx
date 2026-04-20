@@ -44,7 +44,7 @@ const MOOD_TINTS: Record<number, string> = {
   4: 'rgba(96,165,250,0.08)',   // Good  — sky
   3: 'rgba(245,158,11,0.08)',   // Okay  — gold
   2: 'rgba(124,58,237,0.08)',   // Low   — plum
-  1: 'rgba(232,72,122,0.08)',   // Tough — rose
+  1: 'rgba(28, 16, 51, 0.048)',   // Tough — rose
 };
 
 // ─── MoodEmojiItem ─────────────────────────────────────────────────────────────
@@ -140,7 +140,7 @@ const moodStyles = StyleSheet.create({
     color: '#9CA3AF',
   },
   moodLabelSelected: {
-    color: '#E8487A',
+    color: '#7C3AED',
     fontFamily: Fonts.sansBold,
   },
 });
@@ -286,7 +286,7 @@ function MoodChart() {
               <View style={[chartStyles.barTrack, { height: barMaxHeight }]}>
                 {entry ? (
                   <LinearGradient
-                    colors={isToday ? ['#E8487A', '#7C3AED'] : ['#F4B3CC', '#C9A8E0']}
+                    colors={isToday ? ['#7C3AED', '#7C3AED'] : ['#F4B3CC', '#C9A8E0']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 0, y: 1 }}
                     style={[
@@ -485,7 +485,7 @@ const chartStyles = StyleSheet.create({
   },
   calCellToday: {
     borderWidth: 1.5,
-    borderColor: '#E8487A',
+    borderColor: '#7C3AED',
   },
   calCellDay: {
     fontFamily: Fonts.sansMedium,
@@ -493,7 +493,7 @@ const chartStyles = StyleSheet.create({
     color: '#6B7280',
   },
   calCellDayToday: {
-    color: '#E8487A',
+    color: '#7C3AED',
     fontFamily: Fonts.sansBold,
   },
   calCellEmoji: {
@@ -541,7 +541,7 @@ const chartStyles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   barDayLabelToday: {
-    color: '#E8487A',
+    color: '#7C3AED',
     fontFamily: Fonts.sansBold,
   },
   barDateLabel: {
@@ -550,7 +550,7 @@ const chartStyles = StyleSheet.create({
     color: '#9CA3AF',
   },
   barDateLabelToday: {
-    color: '#E8487A',
+    color: '#7C3AED',
     fontFamily: Fonts.sansBold,
   },
   summaryCard: {
@@ -568,7 +568,7 @@ const chartStyles = StyleSheet.create({
     top: 0,
     bottom: 0,
     width: 3,
-    backgroundColor: '#E8487A',
+    backgroundColor: '#7C3AED',
     borderTopLeftRadius: 12,
     borderBottomLeftRadius: 12,
   },
@@ -583,10 +583,10 @@ const chartStyles = StyleSheet.create({
 // ─── YogaGallery ──────────────────────────────────────────────────────────────
 
 const YOGA_CARD_GRADIENTS: [string, string][] = [
-  ['#E8487A', '#7C3AED'],
+  ['#7C3AED', '#7C3AED'],
   ['#7C3AED', '#60A5FA'],
   ['#34D399', '#60A5FA'],
-  ['#F59E0B', '#E8487A'],
+  ['#F59E0B', '#7C3AED'],
 ];
 
 function YogaGallery({
@@ -655,7 +655,7 @@ function YogaGallery({
       {/* Right edge fade */}
       <View style={yogaGalleryStyles.rightFade} pointerEvents="none">
         <LinearGradient
-          colors={['transparent', '#FFF8FC']}
+          colors={['transparent', '#FAFAFB']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={StyleSheet.absoluteFill}
@@ -819,7 +819,7 @@ const condStyles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#FFF8FC',
+    backgroundColor: '#FAFAFB',
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     paddingHorizontal: 24,
@@ -866,7 +866,7 @@ const MENTAL_TIPS = [
   { emoji: '🎵', text: 'Play calm music during feeding — it soothes both of you' },
 ];
 
-const TIP_BG = ['#F8F4FF', '#FFF0F5'];
+const TIP_BG = ['#F8F4FF', '#F5F0FF'];
 
 function PullQuoteTip({ tip, index }: { tip: { emoji: string; text: string }; index: number }) {
   const bg = TIP_BG[index % 2];
@@ -894,7 +894,7 @@ const tipStyles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: 'rgba(232,72,122,0.1)',
+    backgroundColor: 'rgba(28, 16, 51, 0.06)',
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
@@ -916,7 +916,7 @@ const tipStyles = StyleSheet.create({
 function MoodDividerLine() {
   return (
     <LinearGradient
-      colors={['#E8487A', 'transparent']}
+      colors={['#7C3AED', 'transparent']}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 0 }}
       style={dividerStyles.line}
@@ -1088,7 +1088,7 @@ export default function WellnessScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFF8FC' },
+  container: { flex: 1, backgroundColor: '#FAFAFB' },
   // Dark header
   header: {
     paddingHorizontal: 20,
@@ -1101,7 +1101,7 @@ const styles = StyleSheet.create({
     width: 180,
     height: 180,
     borderRadius: 90,
-    backgroundColor: 'rgba(232,72,122,0.22)',
+    backgroundColor: 'rgba(28, 16, 51, 0.132)',
     top: -60,
     right: -40,
   },
@@ -1160,7 +1160,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 16,
-    backgroundColor: 'rgba(232,72,122,0.09)',
+    backgroundColor: 'rgba(28, 16, 51, 0.054)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,

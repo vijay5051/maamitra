@@ -38,11 +38,11 @@ export default function YogaCard({ session, onPress }: YogaCardProps) {
         </Text>
         <View style={styles.tagsRow}>
           <TagPill label={`${minutes} min`} color="#8b5cf6" />
-          <TagPill label={`${session.poses.length} poses`} color="#ec4899" />
+          <TagPill label={`${session.poses.length} poses`} color="#7C3AED" />
         </View>
         <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={styles.startBtn}>
           <LinearGradient
-            colors={['#ec4899', '#8b5cf6']}
+            colors={['#7C3AED', '#8b5cf6']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.startGradient}

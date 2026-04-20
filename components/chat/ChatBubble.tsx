@@ -83,7 +83,7 @@ export default function ChatBubble({ message, onSave, isFirstInGroup = true }: C
           ) : null}
           {hasText ? (
             <LinearGradient
-              colors={['#E8487A', '#7C3AED']}
+              colors={['#7C3AED', '#7C3AED']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={[styles.userBubble, hasImage && { marginTop: 6 }]}
@@ -114,7 +114,7 @@ export default function ChatBubble({ message, onSave, isFirstInGroup = true }: C
           <View style={[styles.botBubble, emergencyStyle]}>
             {/* Rose left border strip */}
             <LinearGradient
-              colors={message.isEmergency ? ['#ef4444', '#ef4444'] : ['#E8487A', '#7C3AED']}
+              colors={message.isEmergency ? ['#ef4444', '#ef4444'] : ['#7C3AED', '#7C3AED']}
               start={{ x: 0, y: 0 }}
               end={{ x: 0, y: 1 }}
               style={styles.leftBorderStrip}
@@ -139,9 +139,9 @@ export default function ChatBubble({ message, onSave, isFirstInGroup = true }: C
                 <Ionicons
                   name={speaking ? 'stop-circle' : 'volume-medium-outline'}
                   size={16}
-                  color={speaking ? '#E8487A' : '#7C3AED'}
+                  color={speaking ? '#7C3AED' : '#7C3AED'}
                 />
-                <Text style={[styles.iconActionText, speaking && { color: '#E8487A' }]}>
+                <Text style={[styles.iconActionText, speaking && { color: '#7C3AED' }]}>
                   {speaking ? 'Stop' : 'Listen'}
                 </Text>
               </TouchableOpacity>
@@ -197,12 +197,12 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 4,
     paddingVertical: 11,
     paddingHorizontal: 14,
-    shadowColor: '#E8487A',
+    shadowColor: '#7C3AED',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.28,
     shadowRadius: 12,
     elevation: 4,
-    boxShadow: '0px 4px 16px rgba(232, 72, 122, 0.28)',
+    boxShadow: '0px 4px 16px rgba(28, 16, 51, 0.168)',
   },
   userText: {
     color: '#ffffff',
@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderTopLeftRadius: 4,
     borderWidth: 1,
-    borderColor: 'rgba(232,72,122,0.1)',
+    borderColor: 'rgba(28, 16, 51, 0.06)',
     paddingVertical: 11,
     paddingHorizontal: 14,
     paddingLeft: 18,

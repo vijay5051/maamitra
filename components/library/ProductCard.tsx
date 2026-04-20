@@ -33,7 +33,7 @@ export default function ProductCard({ product, onPress }: ProductCardProps) {
       <View
         style={[
           styles.imageArea,
-          { backgroundColor: product.bgColor ?? '#fdf2f8' },
+          { backgroundColor: product.bgColor ?? '#F5F0FF' },
         ]}
       >
         {product.badge ? (
@@ -81,13 +81,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderRadius: 12,
     overflow: 'hidden',
-    shadowColor: '#ec4899',
+    shadowColor: '#7C3AED',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 6,
     elevation: 2,
     flex: 1,
-    boxShadow: '0px 2px 6px rgba(236, 72, 153, 0.08)',
+    boxShadow: '0px 2px 6px rgba(28, 16, 51, 0.048)',
   },
   imageArea: {
     aspectRatio: 1.5,
@@ -99,7 +99,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     left: 8,
-    backgroundColor: '#ec4899',
+    backgroundColor: '#7C3AED',
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
   price: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#ec4899',
+    color: '#7C3AED',
   },
   originalPrice: {
     fontSize: 12,

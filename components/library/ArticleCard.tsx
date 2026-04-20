@@ -29,7 +29,7 @@ export default function ArticleCard({ article, onPress }: ArticleCardProps) {
     >
       {/* Top emoji strip */}
       <LinearGradient
-        colors={['#fdf2f8', '#f3e8ff']}
+        colors={['#F5F0FF', '#f3e8ff']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
         style={styles.strip}
@@ -50,7 +50,7 @@ export default function ArticleCard({ article, onPress }: ArticleCardProps) {
         </Text>
         <View style={styles.footer}>
           {article.tag ? (
-            <TagPill label={article.tag} color="#ec4899" size="sm" />
+            <TagPill label={article.tag} color="#7C3AED" size="sm" />
           ) : (
             <View />
           )}
@@ -67,12 +67,12 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     marginBottom: 14,
-    shadowColor: '#ec4899',
+    shadowColor: '#7C3AED',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 2,
-    boxShadow: '0px 2px 8px rgba(236, 72, 153, 0.08)',
+    boxShadow: '0px 2px 8px rgba(28, 16, 51, 0.048)',
   },
   strip: {
     height: 80,

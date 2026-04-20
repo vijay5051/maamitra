@@ -110,12 +110,12 @@ const styles = StyleSheet.create({
   },
   emojiWrapperSelected: {
     backgroundColor: '#ffffff',
-    shadowColor: '#ec4899',
+    shadowColor: '#7C3AED',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 10,
     elevation: 4,
-    boxShadow: '0px 4px 10px rgba(236, 72, 153, 0.15)',
+    boxShadow: '0px 4px 10px rgba(28, 16, 51, 0.09)',
   },
   emoji: {
     fontSize: 28,
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   labelSelected: {
-    color: '#ec4899',
+    color: '#7C3AED',
     fontWeight: '700',
   },
 });

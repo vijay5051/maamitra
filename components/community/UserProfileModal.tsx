@@ -162,7 +162,7 @@ const innerStyles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   followListContainer: {
-    backgroundColor: '#FFF8FC',
+    backgroundColor: '#FAFAFB',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '60%',
@@ -428,7 +428,7 @@ export default function UserProfileModal({ uid, visible, onClose, onEditProfile 
     return (
       <TouchableOpacity onPress={handleFollowPress} style={{ flex: 1 }}>
         <LinearGradient
-          colors={['#E8487A', '#7C3AED']}
+          colors={['#7C3AED', '#7C3AED']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.followButtonGradient}
@@ -445,7 +445,7 @@ export default function UserProfileModal({ uid, visible, onClose, onEditProfile 
       return (
         <TouchableOpacity onPress={handleMessagePress} style={{ flex: 1 }}>
           <LinearGradient
-            colors={['#E8487A', '#7C3AED']}
+            colors={['#7C3AED', '#7C3AED']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.messageButtonGradient}
@@ -466,7 +466,7 @@ export default function UserProfileModal({ uid, visible, onClose, onEditProfile 
     if (isLoading) {
       return (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#E8487A" />
+          <ActivityIndicator size="large" color="#7C3AED" />
         </View>
       );
     }
@@ -520,7 +520,7 @@ export default function UserProfileModal({ uid, visible, onClose, onEditProfile 
               activeOpacity={0.85}
             >
               <LinearGradient
-                colors={['#E8487A', '#7C3AED']}
+                colors={['#7C3AED', '#7C3AED']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.followButtonGradient}
@@ -780,7 +780,7 @@ export default function UserProfileModal({ uid, visible, onClose, onEditProfile 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF8FC',
+    backgroundColor: '#FAFAFB',
   },
   header: {
     paddingTop: Platform.OS === 'ios' ? 16 : 24,
@@ -931,12 +931,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: '#E8487A',
+    borderColor: '#7C3AED',
   },
   followButtonOutlineText: {
     fontFamily: Fonts.sansSemiBold,
     fontSize: 15,
-    color: '#E8487A',
+    color: '#7C3AED',
   },
   followButtonGrey: {
     flex: 1,
@@ -985,7 +985,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 14,
     marginBottom: 10,
-    shadowColor: '#E8487A',
+    shadowColor: '#7C3AED',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.07,
     shadowRadius: 8,
@@ -1026,7 +1026,7 @@ const styles = StyleSheet.create({
   seeAllText: {
     fontFamily: Fonts.sansSemiBold,
     fontSize: 13,
-    color: '#E8487A',
+    color: '#7C3AED',
   },
   blockSection: {
     alignItems: 'center',

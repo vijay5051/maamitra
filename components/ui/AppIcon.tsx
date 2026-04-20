@@ -4,7 +4,7 @@
  * Usage:
  *   <AppIcon name="heart-outline" variant="gradient" size={20} />
  *   <AppIcon name="book-outline"  variant="soft"     size={18} />
- *   <AppIcon name="shield-checkmark-outline" variant="plain" color="#E8487A" size={22} />
+ *   <AppIcon name="shield-checkmark-outline" variant="plain" color="#7C3AED" size={22} />
  */
 
 import React from 'react';
@@ -27,8 +27,8 @@ interface AppIconProps {
   style?: ViewStyle;
 }
 
-const DEFAULT_GRADIENT: [string, string] = ['#E8487A', '#7C3AED'];
-const DEFAULT_COLOR = '#E8487A';
+const DEFAULT_GRADIENT: [string, string] = ['#7C3AED', '#7C3AED'];
+const DEFAULT_COLOR = '#7C3AED';
 
 export function AppIcon({
   name,
@@ -79,7 +79,7 @@ export function AppIcon({
 
   // soft — light rose tint box
   return (
-    <View style={[boxBase, { backgroundColor: 'rgba(232,72,122,0.09)' }]}>
+    <View style={[boxBase, { backgroundColor: 'rgba(28, 16, 51, 0.054)' }]}>
       <Ionicons name={name as any} size={size} color={color} />
     </View>
   );

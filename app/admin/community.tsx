@@ -359,7 +359,7 @@ export default function AdminCommunity() {
       {/* List */}
       {loading ? (
         <View style={styles.centered}>
-          <ActivityIndicator color="#ec4899" size="large" />
+          <ActivityIndicator color="#7C3AED" size="large" />
           <Text style={styles.loadingText}>Loading posts...</Text>
         </View>
       ) : (
@@ -371,8 +371,8 @@ export default function AdminCommunity() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => loadPosts(true)}
-              tintColor="#ec4899"
-              colors={['#ec4899']}
+              tintColor="#7C3AED"
+              colors={['#7C3AED']}
             />
           }
         >
@@ -436,9 +436,9 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: '#f3f4f6',
   },
-  filterTabActive: { backgroundColor: '#fce7f3' },
+  filterTabActive: { backgroundColor: '#EDE9F6' },
   filterTabText: { fontSize: 13, fontWeight: '600', color: '#6b7280' },
-  filterTabTextActive: { color: '#ec4899' },
+  filterTabTextActive: { color: '#7C3AED' },
   filterCount: {
     minWidth: 20,
     height: 20,
@@ -486,11 +486,11 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#fce7f3',
+    backgroundColor: '#EDE9F6',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarText: { fontSize: 14, fontWeight: '800', color: '#ec4899' },
+  avatarText: { fontSize: 14, fontWeight: '800', color: '#7C3AED' },
   postAuthor: { fontSize: 14, fontWeight: '700', color: '#1a1a2e' },
   postAuthorEmail: { fontSize: 11, color: '#9ca3af' },
 

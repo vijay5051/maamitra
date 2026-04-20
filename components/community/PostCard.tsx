@@ -422,7 +422,7 @@ export default function PostCard({
               <Ionicons
                 name="send"
                 size={18}
-                color={commentText.trim() ? '#ec4899' : '#e5e7eb'}
+                color={commentText.trim() ? '#7C3AED' : '#e5e7eb'}
               />
             </TouchableOpacity>
           </View>
@@ -438,12 +438,12 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
-    shadowColor: '#ec4899',
+    shadowColor: '#7C3AED',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.07,
     shadowRadius: 8,
     elevation: 2,
-    boxShadow: '0px 2px 8px rgba(236, 72, 153, 0.07)',
+    boxShadow: '0px 2px 8px rgba(28, 16, 51, 0.042)',
   },
   authorRow: {
     flexDirection: 'row',
@@ -470,7 +470,7 @@ const styles = StyleSheet.create({
   },
   quickFollowText: {
     fontSize: 12,
-    color: '#E8487A',
+    color: '#7C3AED',
     fontWeight: '600',
   },
   authorMeta: {
@@ -562,7 +562,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
   },
   imageArea: {
-    backgroundColor: '#fdf2f8',
+    backgroundColor: '#F5F0FF',
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
@@ -595,8 +595,8 @@ const styles = StyleSheet.create({
   },
   reactionPillActive: {
     borderWidth: 1,
-    borderColor: '#ec4899',
-    backgroundColor: 'rgba(236,72,153,0.08)',
+    borderColor: '#7C3AED',
+    backgroundColor: 'rgba(28, 16, 51, 0.048)',
   },
   reactionEmoji: {
     fontSize: 14,
@@ -607,7 +607,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   reactionCountActive: {
-    color: '#ec4899',
+    color: '#7C3AED',
   },
   addReactionBtn: {
     width: 28,

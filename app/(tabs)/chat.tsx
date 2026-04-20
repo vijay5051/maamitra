@@ -96,7 +96,7 @@ function AllergyModal({
             activeOpacity={0.85}
           >
             <LinearGradient
-              colors={['#E8487A', '#7C3AED']}
+              colors={['#7C3AED', '#7C3AED']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={allergyStyles.doneBtnGrad}
@@ -117,7 +117,7 @@ const allergyStyles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#FFF8FC',
+    backgroundColor: '#FAFAFB',
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     paddingHorizontal: 24,
@@ -136,9 +136,9 @@ const allergyStyles = StyleSheet.create({
     paddingHorizontal: 14,
     backgroundColor: '#ffffff',
   },
-  chipSelected: { borderColor: '#E8487A', backgroundColor: 'rgba(232,72,122,0.08)' },
+  chipSelected: { borderColor: '#7C3AED', backgroundColor: 'rgba(28, 16, 51, 0.048)' },
   chipText: { fontFamily: Fonts.sansMedium, fontSize: 14, color: '#9CA3AF' },
-  chipTextSelected: { color: '#E8487A', fontFamily: Fonts.sansBold },
+  chipTextSelected: { color: '#7C3AED', fontFamily: Fonts.sansBold },
   doneBtn: { borderRadius: 18, overflow: 'hidden' },
   doneBtnGrad: { paddingVertical: 16, alignItems: 'center' },
   doneBtnText: { fontFamily: Fonts.sansBold, color: '#ffffff', fontSize: 16 },
@@ -152,7 +152,7 @@ function TodaySeparator() {
       {/* Left gradient line */}
       <View style={sepStyles.lineWrap}>
         <LinearGradient
-          colors={['transparent', 'rgba(232,72,122,0.2)', 'transparent']}
+          colors={['transparent', 'rgba(28, 16, 51, 0.12)', 'transparent']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={sepStyles.gradLine}
@@ -162,7 +162,7 @@ function TodaySeparator() {
       {/* Right gradient line */}
       <View style={sepStyles.lineWrap}>
         <LinearGradient
-          colors={['transparent', 'rgba(232,72,122,0.2)', 'transparent']}
+          colors={['transparent', 'rgba(28, 16, 51, 0.12)', 'transparent']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={sepStyles.gradLine}
@@ -500,7 +500,7 @@ export default function ChatScreen() {
               <Ionicons
                 name="bulb-outline"
                 size={18}
-                color={showSuggestions ? '#E8487A' : '#A78BCA'}
+                color={showSuggestions ? '#7C3AED' : '#A78BCA'}
               />
             </TouchableOpacity>
           )}
@@ -525,7 +525,7 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFF8FC' },
+  container: { flex: 1, backgroundColor: '#FAFAFB' },
   flex: { flex: 1 },
 
   // ── Header ──
@@ -537,7 +537,7 @@ const styles = StyleSheet.create({
   },
   glowTopRight: {
     position: 'absolute', width: 180, height: 180, borderRadius: 90,
-    backgroundColor: 'rgba(232,72,122,0.22)', top: -60, right: -40,
+    backgroundColor: 'rgba(28, 16, 51, 0.132)', top: -60, right: -40,
   },
   glowBottomLeft: {
     position: 'absolute', width: 120, height: 120, borderRadius: 60,
@@ -601,7 +601,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 300,
-    backgroundColor: 'rgba(232,72,122,0.04)',
+    backgroundColor: 'rgba(28, 16, 51, 0.024)',
     borderBottomLeftRadius: 200,
     borderBottomRightRadius: 200,
     zIndex: 0,
@@ -621,7 +621,7 @@ const styles = StyleSheet.create({
   emptyGreet: { fontFamily: Fonts.sansBold, fontSize: 18, color: '#1C1033', textAlign: 'center', marginBottom: 6 },
   emptyDesc: { fontFamily: Fonts.sansRegular, fontSize: 13, color: '#9ca3af', textAlign: 'center', lineHeight: 20, paddingHorizontal: 32, marginBottom: 20 },
   emptySeparator: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 20, marginBottom: 16, gap: 10 },
-  separatorLine: { flex: 1, height: 1, backgroundColor: 'rgba(232,72,122,0.12)' },
+  separatorLine: { flex: 1, height: 1, backgroundColor: 'rgba(28, 16, 51, 0.072)' },
   separatorText: { fontFamily: Fonts.sansSemiBold, fontSize: 10, color: '#C4B5D4', letterSpacing: 1 },
 
   // ── Input row with suggestions toggle ──
@@ -629,7 +629,7 @@ const styles = StyleSheet.create({
   inputFlex: { flex: 1 },
   suggestBtn: {
     width: 32, height: 32, borderRadius: 16,
-    backgroundColor: 'rgba(232,72,122,0.08)',
+    backgroundColor: 'rgba(28, 16, 51, 0.048)',
     alignItems: 'center', justifyContent: 'center',
     marginLeft: 8, marginBottom: 10,
   },

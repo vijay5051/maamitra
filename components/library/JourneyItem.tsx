@@ -33,7 +33,7 @@ export default function JourneyItem({ event, isLast }: JourneyItemProps) {
           </View>
         ) : (
           <LinearGradient
-            colors={['#ec4899', '#8b5cf6']}
+            colors={['#7C3AED', '#8b5cf6']}
             style={styles.circleGradient}
           >
             <Text style={styles.circleEmoji}>{event.emoji}</Text>

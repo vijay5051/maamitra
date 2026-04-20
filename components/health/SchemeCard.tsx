@@ -30,7 +30,7 @@ export default function SchemeCard({ scheme }: SchemeCardProps) {
       <View style={styles.row}>
         {/* Emoji in gradient circle */}
         <LinearGradient
-          colors={['#ec4899', '#8b5cf6']}
+          colors={['#7C3AED', '#8b5cf6']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.emojiCircle}
@@ -58,12 +58,12 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
-    shadowColor: '#ec4899',
+    shadowColor: '#7C3AED',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 2,
-    boxShadow: '0px 2px 8px rgba(236, 72, 153, 0.08)',
+    boxShadow: '0px 2px 8px rgba(28, 16, 51, 0.048)',
   },
   row: {
     flexDirection: 'row',

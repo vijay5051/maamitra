@@ -46,7 +46,7 @@ function CoverPreview({ imageUrl, title }: { imageUrl?: string; title: string })
     );
   }
   return (
-    <LinearGradient colors={['#ec4899', '#8b5cf6']} style={s.coverFallback}>
+    <LinearGradient colors={['#7C3AED', '#8b5cf6']} style={s.coverFallback}>
       <Text style={s.coverFallbackText}>{title.charAt(0)}</Text>
     </LinearGradient>
   );
@@ -73,7 +73,7 @@ function ResultItem({
           <Text style={s.resultCat}>{book.categories[0]}</Text>
         )}
       </View>
-      <Ionicons name="add-circle" size={22} color="#ec4899" />
+      <Ionicons name="add-circle" size={22} color="#7C3AED" />
     </TouchableOpacity>
   );
 }
@@ -342,7 +342,7 @@ export default function AdminBookPanel({ visible, onClose }: AdminBookPanelProps
       <View style={s.modal}>
         {/* Header */}
         <View style={s.header}>
-          <LinearGradient colors={['#ec4899', '#8b5cf6']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
+          <LinearGradient colors={['#7C3AED', '#8b5cf6']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />
           <View style={s.headerContent}>
             <View>
               <Text style={s.headerTitle}>📚 Book Admin</Text>
@@ -486,9 +486,9 @@ const s = StyleSheet.create({
 
   tabs: { flexDirection: 'row', backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#f3e8ff' },
   tab: { flex: 1, paddingVertical: 13, alignItems: 'center' },
-  tabActive: { borderBottomWidth: 2, borderBottomColor: '#ec4899' },
+  tabActive: { borderBottomWidth: 2, borderBottomColor: '#7C3AED' },
   tabText: { fontSize: 13, fontWeight: '600', color: '#9ca3af' },
-  tabTextActive: { color: '#ec4899' },
+  tabTextActive: { color: '#7C3AED' },
 
   // Search box
   searchBox: { padding: 16, backgroundColor: '#ffffff', borderBottomWidth: 1, borderBottomColor: '#f3e8ff' },
@@ -499,7 +499,7 @@ const s = StyleSheet.create({
     borderRadius: 10, paddingHorizontal: 12, fontSize: 14, color: '#1a1a2e',
   },
   searchBtn: {
-    width: 44, height: 44, borderRadius: 10, backgroundColor: '#ec4899',
+    width: 44, height: 44, borderRadius: 10, backgroundColor: '#7C3AED',
     alignItems: 'center', justifyContent: 'center',
   },
   searchBtnDisabled: { backgroundColor: '#f3a8d0' },
@@ -544,7 +544,7 @@ const s = StyleSheet.create({
     borderRadius: 20, paddingVertical: 6, paddingHorizontal: 12,
     backgroundColor: '#f9fafb', borderWidth: 1, borderColor: '#e5e7eb', marginRight: 6,
   },
-  chipActive: { backgroundColor: '#ec4899', borderColor: '#ec4899' },
+  chipActive: { backgroundColor: '#7C3AED', borderColor: '#7C3AED' },
   chipText: { fontSize: 12, color: '#6b7280', fontWeight: '600' },
   chipTextActive: { color: '#ffffff' },
 
@@ -556,7 +556,7 @@ const s = StyleSheet.create({
   cancelBtnText: { fontSize: 14, fontWeight: '700', color: '#6b7280' },
   saveBtn: {
     flex: 2, height: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center',
-    flexDirection: 'row', gap: 6, backgroundColor: '#ec4899',
+    flexDirection: 'row', gap: 6, backgroundColor: '#7C3AED',
   },
   saveBtnDisabled: { backgroundColor: '#f3a8d0' },
   saveBtnText: { fontSize: 14, fontWeight: '700', color: '#ffffff' },

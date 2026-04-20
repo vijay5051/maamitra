@@ -68,7 +68,7 @@ function dynamicToBook(d: DynamicBook): Book {
     reviews: d.reviews,
     topic: d.topic,
     brief: d.description,
-    coverColors: ['#E8487A', '#7C3AED'],
+    coverColors: ['#7C3AED', '#7C3AED'],
     url: d.url,
     sampleUrl: d.sampleUrl,
     imageUrl: d.imageUrl,
@@ -126,7 +126,7 @@ const BOOKS: Book[] = [
     topic: 'Pregnancy',
     brief: 'The world\'s bestselling pregnancy guide — week-by-week breakdowns, symptoms, nutrition, and birth prep trusted by millions of Indian mothers.',
     badge: 'Bestseller',
-    coverColors: ['#E8487A', '#f472b6'],
+    coverColors: ['#7C3AED', '#f472b6'],
     url: 'https://www.amazon.in/dp/0761187480',
     sampleUrl: 'https://books.google.com/books?id=WhatToExpect',
     ageMin: -9,
@@ -202,7 +202,7 @@ const BOOKS: Book[] = [
     reviews: 2100,
     topic: 'Self-Care',
     brief: 'A powerful guide for overwhelmed mothers on reclaiming balance, setting boundaries, and practising self-care without guilt.',
-    coverColors: ['#E8487A', '#7C3AED'],
+    coverColors: ['#7C3AED', '#7C3AED'],
     url: 'https://www.amazon.in/s?k=Nurturing+Soul+Family+Trudeau',
     ageMin: 0,
     ageMax: 999,
@@ -293,7 +293,7 @@ function SubTabSelector({ active, onChange }: { active: SubTab; onChange: (t: Su
             >
               {isActive && (
                 <LinearGradient
-                  colors={['#E8487A', '#7C3AED']}
+                  colors={['#7C3AED', '#7C3AED']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={[StyleSheet.absoluteFill, { borderRadius: 20 }]}
@@ -313,7 +313,7 @@ function SubTabSelector({ active, onChange }: { active: SubTab; onChange: (t: Su
 
 const subTabStyles = StyleSheet.create({
   wrapper: {
-    backgroundColor: '#FFF8FC',
+    backgroundColor: '#FAFAFB',
     borderBottomWidth: 1,
     borderBottomColor: '#F0EBF8',
     paddingVertical: 10,
@@ -368,7 +368,7 @@ function getTopicIcon(topic: string): string {
 
 function getArticleGradient(topic: string): [string, string] {
   const map: Record<string, [string, string]> = {
-    Feeding: ['#E8487A', '#f472b6'],
+    Feeding: ['#7C3AED', '#f472b6'],
     Sleep: ['#7C3AED', '#a78bfa'],
     Development: ['#f59e0b', '#fbbf24'],
     Postpartum: ['#10b981', '#34d399'],
@@ -378,7 +378,7 @@ function getArticleGradient(topic: string): [string, string] {
     Yoga: ['#a855f7', '#c084fc'],
     'Baby Care': ['#f97316', '#fb923c'],
   };
-  return map[topic] ?? ['#E8487A', '#7C3AED'];
+  return map[topic] ?? ['#7C3AED', '#7C3AED'];
 }
 
 // ─── Article Card (rich preview) ──────────────────────────────────────────────
@@ -480,7 +480,7 @@ function ArticleCard({
               activeOpacity={0.75}
             >
               <Text style={articleStyles.openBtnText}>Open article</Text>
-              <Ionicons name="open-outline" size={13} color="#E8487A" />
+              <Ionicons name="open-outline" size={13} color="#7C3AED" />
             </TouchableOpacity>
           )}
         </View>
@@ -605,12 +605,12 @@ const articleStyles = StyleSheet.create({
     paddingVertical: 5,
     paddingHorizontal: 10,
     borderRadius: 8,
-    backgroundColor: 'rgba(232,72,122,0.08)',
+    backgroundColor: 'rgba(28, 16, 51, 0.048)',
   },
   openBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#E8487A',
+    color: '#7C3AED',
   },
 });
 
@@ -667,7 +667,7 @@ function BookCard({ book, highlighted }: { book: Book; highlighted?: boolean }) 
     <View style={[bookStyles.card, highlighted && bookStyles.cardHighlighted]}>
       {highlighted && (
         <View style={bookStyles.forYouBadge}>
-          <Ionicons name="sparkles" size={11} color="#E8487A" />
+          <Ionicons name="sparkles" size={11} color="#7C3AED" />
           <Text style={bookStyles.forYouText}>Recommended for you</Text>
         </View>
       )}
@@ -747,7 +747,7 @@ const bookStyles = StyleSheet.create({
   } as any,
   cardHighlighted: {
     borderWidth: 1.5,
-    borderColor: 'rgba(232,72,122,0.25)',
+    borderColor: 'rgba(28, 16, 51, 0.15)',
     backgroundColor: '#fffbfe',
   },
   forYouBadge: {
@@ -755,7 +755,7 @@ const bookStyles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(232,72,122,0.08)',
+    backgroundColor: 'rgba(28, 16, 51, 0.048)',
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -764,7 +764,7 @@ const bookStyles = StyleSheet.create({
   forYouText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#E8487A',
+    color: '#7C3AED',
   },
   row: {
     flexDirection: 'row',
@@ -893,7 +893,7 @@ const bookStyles = StyleSheet.create({
     gap: 5,
     paddingVertical: 9,
     borderRadius: 10,
-    backgroundColor: '#E8487A',
+    backgroundColor: '#7C3AED',
   },
   buyBtnFull: {
     flex: 1,
@@ -922,7 +922,7 @@ function ProductCard({ product }: { product: Product }) {
             onError={() => setImgError(true)}
           />
         ) : (
-          <Ionicons name="bag-handle-outline" size={32} color="#E8487A" />
+          <Ionicons name="bag-handle-outline" size={32} color="#7C3AED" />
         )}
       </View>
       {product.badge ? (
@@ -959,7 +959,7 @@ const productCardStyles = StyleSheet.create({
     borderRadius: 14,
     padding: 12,
     margin: 4,
-    shadowColor: '#E8487A',
+    shadowColor: '#7C3AED',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.07,
     shadowRadius: 8,
@@ -967,12 +967,12 @@ const productCardStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#EDE9F6',
     overflow: 'hidden',
-    boxShadow: '0px 2px 8px rgba(236, 72, 153, 0.07)',
+    boxShadow: '0px 2px 8px rgba(28, 16, 51, 0.042)',
   },
   emojiBox: {
     width: '100%',
     aspectRatio: 1.4,
-    backgroundColor: 'rgba(232,72,122,0.06)',
+    backgroundColor: 'rgba(28, 16, 51, 0.036)',
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -982,14 +982,14 @@ const productCardStyles = StyleSheet.create({
   emoji: { fontSize: 40 }, // kept for type compat, not rendered
   productImg: { width: '100%', height: '100%' },
   badge: {
-    backgroundColor: 'rgba(236,72,153,0.1)',
+    backgroundColor: 'rgba(28, 16, 51, 0.06)',
     borderRadius: 6,
     paddingHorizontal: 6,
     paddingVertical: 2,
     alignSelf: 'flex-start',
     marginBottom: 6,
   },
-  badgeText: { fontSize: 10, color: '#E8487A', fontWeight: '700' },
+  badgeText: { fontSize: 10, color: '#7C3AED', fontWeight: '700' },
   name: { fontSize: 12, fontWeight: '600', color: '#1a1a2e', marginBottom: 6, lineHeight: 17 },
   priceRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
   price: { fontSize: 14, fontWeight: '800', color: '#1a1a2e' },
@@ -997,8 +997,8 @@ const productCardStyles = StyleSheet.create({
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 8 },
   rating: { fontSize: 12, color: '#f59e0b', fontWeight: '600' },
   reviews: { fontSize: 11, color: '#9ca3af' },
-  buyBtn: { backgroundColor: 'rgba(232,72,122,0.06)', borderRadius: 8, paddingVertical: 6, paddingHorizontal: 10, borderWidth: 1, borderColor: '#f9a8d4', alignItems: 'center' },
-  buyBtnText: { fontSize: 12, fontWeight: '700', color: '#E8487A' },
+  buyBtn: { backgroundColor: 'rgba(28, 16, 51, 0.036)', borderRadius: 8, paddingVertical: 6, paddingHorizontal: 10, borderWidth: 1, borderColor: '#f9a8d4', alignItems: 'center' },
+  buyBtnText: { fontSize: 12, fontWeight: '700', color: '#7C3AED' },
 });
 
 // ─── Journey Item ──────────────────────────────────────────────────────────────
@@ -1036,10 +1036,10 @@ function JourneyItem({ event, isLast }: { event: JourneyEvent; isLast: boolean }
       statusColor = '#16a34a';
       statusBg = '#dcfce7';
     } else if (isToday) {
-      dotColor = '#E8487A';
+      dotColor = '#7C3AED';
       statusLabel = 'Due Today 🔔';
-      statusColor = '#E8487A';
-      statusBg = 'rgba(236,72,153,0.1)';
+      statusColor = '#7C3AED';
+      statusBg = 'rgba(28, 16, 51, 0.06)';
     } else if (isPast) {
       dotColor = '#f97316';
       statusLabel = 'Overdue ⚠️';
@@ -1054,10 +1054,10 @@ function JourneyItem({ event, isLast }: { event: JourneyEvent; isLast: boolean }
   } else {
     // Birth / milestone / pregnancy events — date-based status
     const isCompleted = isPast || isToday;
-    dotColor = isCompleted ? '#22c55e' : isToday ? '#E8487A' : '#e5e7eb';
+    dotColor = isCompleted ? '#22c55e' : isToday ? '#7C3AED' : '#e5e7eb';
     statusLabel = isPast ? 'Done ✓' : isToday ? 'Today 🎉' : 'Upcoming';
-    statusColor = isPast ? '#16a34a' : isToday ? '#E8487A' : '#9ca3af';
-    statusBg = isPast ? '#dcfce7' : isToday ? 'rgba(236,72,153,0.1)' : '#f3f4f6';
+    statusColor = isPast ? '#16a34a' : isToday ? '#7C3AED' : '#9ca3af';
+    statusBg = isPast ? '#dcfce7' : isToday ? 'rgba(28, 16, 51, 0.06)' : '#f3f4f6';
   }
 
   const borderColor = dotColor === '#e5e7eb' ? '#d1d5db' : dotColor;
@@ -1070,8 +1070,8 @@ function JourneyItem({ event, isLast }: { event: JourneyEvent; isLast: boolean }
       </View>
       <View style={journeyStyles.card}>
         <View style={journeyStyles.cardHeader}>
-          <View style={[journeyStyles.iconBox, { backgroundColor: dotColor === '#22c55e' ? 'rgba(34,197,94,0.1)' : dotColor === '#e5e7eb' ? 'rgba(232,72,122,0.07)' : `${dotColor}18` }]}>
-            <Ionicons name={JOURNEY_ICONS[event.type] as any} size={16} color={dotColor === '#e5e7eb' ? '#E8487A' : dotColor} />
+          <View style={[journeyStyles.iconBox, { backgroundColor: dotColor === '#22c55e' ? 'rgba(34,197,94,0.1)' : dotColor === '#e5e7eb' ? 'rgba(28, 16, 51, 0.042)' : `${dotColor}18` }]}>
+            <Ionicons name={JOURNEY_ICONS[event.type] as any} size={16} color={dotColor === '#e5e7eb' ? '#7C3AED' : dotColor} />
           </View>
           <View style={journeyStyles.headerText}>
             <Text style={journeyStyles.title}>{event.title}</Text>
@@ -1111,7 +1111,7 @@ const journeyStyles = StyleSheet.create({
   iconBox: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   headerText: { flex: 1 },
   title: { fontSize: 14, fontWeight: '700', color: '#1a1a2e', marginBottom: 2 },
-  date: { fontSize: 12, color: '#E8487A', fontWeight: '600' },
+  date: { fontSize: 12, color: '#7C3AED', fontWeight: '600' },
   statusBadge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start' },
   statusText: { fontSize: 11, fontWeight: '700' },
   detail: { fontSize: 13, color: '#6b7280', lineHeight: 19 },
@@ -1465,12 +1465,12 @@ export default function LibraryScreen() {
           >
             {/* Personalisation banner */}
             <LinearGradient
-              colors={['rgba(232,72,122,0.1)', 'rgba(124,58,237,0.06)']}
+              colors={['rgba(28, 16, 51, 0.06)', 'rgba(124,58,237,0.06)']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.personalisationBanner}
             >
-              <Ionicons name="sparkles" size={16} color="#E8487A" />
+              <Ionicons name="sparkles" size={16} color="#7C3AED" />
               <Text style={styles.personalisationText}>
                 {activeKid && !activeKid.isExpecting
                   ? `Showing content for ${activeKid.name} · ${ageLabel}`
@@ -1564,12 +1564,12 @@ export default function LibraryScreen() {
             ListHeaderComponent={
               activeKid ? (
                 <LinearGradient
-                  colors={['rgba(232,72,122,0.1)', 'rgba(124,58,237,0.06)']}
+                  colors={['rgba(28, 16, 51, 0.06)', 'rgba(124,58,237,0.06)']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.personalisationBanner}
                 >
-                  <Ionicons name="sparkles" size={16} color="#E8487A" />
+                  <Ionicons name="sparkles" size={16} color="#7C3AED" />
                   <Text style={styles.personalisationText}>
                     {activeKid.isExpecting
                       ? `${recommendedCount} picks for your pregnancy`
@@ -1622,7 +1622,7 @@ export default function LibraryScreen() {
                       {opt}
                     </Text>
                     {opt === sortMode && (
-                      <Ionicons name="checkmark" size={18} color="#E8487A" />
+                      <Ionicons name="checkmark" size={18} color="#7C3AED" />
                     )}
                   </TouchableOpacity>
                 ))}
@@ -1734,7 +1734,7 @@ export default function LibraryScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFF8FC' },
+  container: { flex: 1, backgroundColor: '#FAFAFB' },
   flex: { flex: 1 },
   // Dark header
   header: {
@@ -1745,7 +1745,7 @@ const styles = StyleSheet.create({
   },
   glowTopRight: {
     position: 'absolute', width: 180, height: 180, borderRadius: 90,
-    backgroundColor: 'rgba(232,72,122,0.22)', top: -60, right: -40,
+    backgroundColor: 'rgba(28, 16, 51, 0.132)', top: -60, right: -40,
   },
   glowBottomLeft: {
     position: 'absolute', width: 120, height: 120, borderRadius: 60,
@@ -1825,7 +1825,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     marginBottom: 18,
   },
-  personalisationText: { fontFamily: Fonts.sansSemiBold, fontSize: 13, color: '#E8487A', flex: 1 },
+  personalisationText: { fontFamily: Fonts.sansSemiBold, fontSize: 13, color: '#7C3AED', flex: 1 },
   sectionTitle: { fontFamily: Fonts.sansBold, fontSize: 18, color: '#1C1033', marginBottom: 12 },
   bookSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(124,58,237,0.06)', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 14 },
   bookPersonalBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
@@ -1833,7 +1833,7 @@ const styles = StyleSheet.create({
   categoriesScrollView: {
     flexGrow: 0,
     flexShrink: 0,
-    backgroundColor: '#FFF8FC',
+    backgroundColor: '#FAFAFB',
     borderBottomWidth: 1,
     borderBottomColor: '#EDE9F6',
   },
@@ -1851,9 +1851,9 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#EDE9F6',
   },
-  catChipActive: { backgroundColor: 'rgba(232,72,122,0.08)', borderColor: '#E8487A' },
+  catChipActive: { backgroundColor: 'rgba(28, 16, 51, 0.048)', borderColor: '#7C3AED' },
   catChipText: { fontFamily: Fonts.sansMedium, fontSize: 13, color: '#9CA3AF' },
-  catChipTextActive: { fontFamily: Fonts.sansBold, color: '#E8487A' },
+  catChipTextActive: { fontFamily: Fonts.sansBold, color: '#7C3AED' },
   sortBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1885,7 +1885,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sortSheet: {
-    backgroundColor: '#FFF8FC',
+    backgroundColor: '#FAFAFB',
     borderRadius: 20,
     padding: 20,
     width: 220,
@@ -1906,12 +1906,12 @@ const styles = StyleSheet.create({
     borderBottomColor: '#EDE9F6',
   },
   sortOptionText: { fontFamily: Fonts.sansRegular, fontSize: 14, color: '#9CA3AF' },
-  sortOptionTextActive: { fontFamily: Fonts.sansBold, color: '#E8487A' },
+  sortOptionTextActive: { fontFamily: Fonts.sansBold, color: '#7C3AED' },
   emptyState: { flex: 1, alignItems: 'center', paddingTop: 80, paddingHorizontal: 32 },
   emptyEmoji: { fontSize: 56, marginBottom: 16 },
   emptyTitle: { fontFamily: Fonts.sansBold, fontSize: 18, color: '#1C1033', marginBottom: 8 },
   emptyText: { fontFamily: Fonts.sansRegular, fontSize: 14, color: '#9CA3AF', textAlign: 'center', lineHeight: 22 },
-  emptyHighlight: { fontFamily: Fonts.sansBold, color: '#E8487A' },
+  emptyHighlight: { fontFamily: Fonts.sansBold, color: '#7C3AED' },
   savedCard: { marginBottom: 12 },
   savedCardHeader: {
     flexDirection: 'row',

@@ -13,7 +13,7 @@ import { useActiveKid } from '../../hooks/useActiveKid';
 import { calculateAgeInMonths } from '../../store/useProfileStore';
 import { Fonts } from '../../constants/theme';
 
-const ROSE = '#E8487A';
+const ROSE = '#7C3AED';
 const PLUM = '#7C3AED';
 const SAGE = '#34D399';
 const GOLD = '#F59E0B';
@@ -282,7 +282,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 12,
     paddingHorizontal: 14,
-    backgroundColor: '#FFF8FC',
+    backgroundColor: '#FAFAFB',
     borderWidth: 1,
     borderColor: MIST,
     borderRadius: 12,

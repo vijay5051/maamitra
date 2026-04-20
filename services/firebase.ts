@@ -105,7 +105,7 @@ export const DEFAULT_APP_SETTINGS = {
     family: true,
   },
   theme: {
-    primary: '#ec4899',
+    primary: '#7C3AED',
     secondary: '#8b5cf6',
   },
   tabs: [

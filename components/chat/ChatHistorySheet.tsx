@@ -105,7 +105,7 @@ function ThreadRow({
         <Ionicons
           name={isActive ? 'chatbubble-ellipses' : 'chatbubble-ellipses-outline'}
           size={20}
-          color={isActive ? '#E8487A' : '#7C3AED'}
+          color={isActive ? '#7C3AED' : '#7C3AED'}
         />
       </View>
 
@@ -185,7 +185,7 @@ export default function ChatHistorySheet({ visible, onClose }: Props) {
         {/* New chat button */}
         <TouchableOpacity style={styles.newChatBtn} onPress={handleNewChat} activeOpacity={0.85}>
           <LinearGradient
-            colors={['#E8487A', '#7C3AED']}
+            colors={['#7C3AED', '#7C3AED']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.newChatGrad}
@@ -230,7 +230,7 @@ export default function ChatHistorySheet({ visible, onClose }: Props) {
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFF8FC' },
+  container: { flex: 1, backgroundColor: '#FAFAFB' },
   header: {
     paddingTop: Platform.OS === 'ios' ? 16 : 24,
     paddingBottom: 20,
@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(0,0,0,0.04)',
   },
   rowActive: {
-    backgroundColor: 'rgba(232,72,122,0.05)',
+    backgroundColor: 'rgba(28, 16, 51, 0.03)',
   },
   rowIcon: {
     width: 40,
@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
   },
   titleActive: {
     fontFamily: Fonts.sansBold,
-    color: '#E8487A',
+    color: '#7C3AED',
   },
   time: {
     fontFamily: Fonts.sansRegular,

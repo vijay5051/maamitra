@@ -58,7 +58,7 @@ function ChildCard({
 
   // Alternate accent colors per child
   const accentColors: [string, string][] = [
-    ['#E8487A', '#7C3AED'],
+    ['#7C3AED', '#7C3AED'],
     ['#7C3AED', '#60A5FA'],
     ['#34D399', '#60A5FA'],
   ];
@@ -96,7 +96,7 @@ function ChildCard({
                 : kid.gender === 'boy'
                 ? '#60A5FA'
                 : kid.gender === 'girl'
-                ? '#E8487A'
+                ? '#7C3AED'
                 : '#A78BFA'
             }
           />
@@ -127,15 +127,15 @@ const childCardStyles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#EDE9F6',
     backgroundColor: '#ffffff',
-    shadowColor: '#E8487A',
+    shadowColor: '#7C3AED',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 2,
-    boxShadow: '0px 2px 8px rgba(232, 72, 122, 0.08)',
+    boxShadow: '0px 2px 8px rgba(28, 16, 51, 0.048)',
   } as any,
   cardActive: {
-    borderColor: 'rgba(232,72,122,0.3)',
+    borderColor: 'rgba(28, 16, 51, 0.18)',
     shadowOpacity: 0.18,
     shadowRadius: 14,
     elevation: 6,
@@ -146,7 +146,7 @@ const childCardStyles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#ffffff',
   },
-  innerActive: { backgroundColor: 'rgba(232,72,122,0.03)' },
+  innerActive: { backgroundColor: 'rgba(28, 16, 51, 0.018)' },
   iconBox: { width: 42, height: 42, borderRadius: 13, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
   name: { fontFamily: Fonts.sansSemiBold, fontSize: 13, color: '#1C1033', textAlign: 'center' },
   nameActive: { fontFamily: Fonts.sansBold, color: '#1C1033' },
@@ -168,7 +168,7 @@ function MilestoneRow({
       <View style={milestoneStyles.dotCol}>
         {reached ? (
           <LinearGradient
-            colors={['#E8487A', '#7C3AED']}
+            colors={['#7C3AED', '#7C3AED']}
             style={milestoneStyles.dotReached}
           />
         ) : (
@@ -179,7 +179,7 @@ function MilestoneRow({
       <View style={milestoneStyles.info}>
         <View style={milestoneStyles.titleRow}>
           <View style={milestoneStyles.iconBox}>
-            <Ionicons name="star" size={12} color="#E8487A" />
+            <Ionicons name="star" size={12} color="#7C3AED" />
           </View>
           <Text style={milestoneStyles.title}>{milestone.title}</Text>
           {reached && (
@@ -197,13 +197,13 @@ const milestoneStyles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 14, marginBottom: 16 },
   dotCol: { alignItems: 'center', paddingTop: 4 },
   dotReached: { width: 12, height: 12, borderRadius: 6 },
-  dotPending: { width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: '#EDE9F6', backgroundColor: '#FFF8FC' },
+  dotPending: { width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: '#EDE9F6', backgroundColor: '#FAFAFB' },
   connector: { width: 2, flex: 1, backgroundColor: '#EDE9F6', marginTop: 4, minHeight: 16 },
   info: { flex: 1, paddingBottom: 8 },
   titleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
-  iconBox: { width: 22, height: 22, borderRadius: 6, backgroundColor: 'rgba(232,72,122,0.1)', alignItems: 'center', justifyContent: 'center', marginRight: 6 },
+  iconBox: { width: 22, height: 22, borderRadius: 6, backgroundColor: 'rgba(28, 16, 51, 0.06)', alignItems: 'center', justifyContent: 'center', marginRight: 6 },
   title: { fontFamily: Fonts.sansBold, fontSize: 14, color: '#1C1033' },
-  ageLabel: { fontFamily: Fonts.sansSemiBold, fontSize: 11, color: '#E8487A', marginBottom: 4 },
+  ageLabel: { fontFamily: Fonts.sansSemiBold, fontSize: 11, color: '#7C3AED', marginBottom: 4 },
   desc: { fontFamily: Fonts.sansRegular, fontSize: 13, color: '#9CA3AF', lineHeight: 18 },
 });
 
@@ -356,7 +356,7 @@ const addChildStyles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#FFF8FC',
+    backgroundColor: '#FAFAFB',
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     paddingHorizontal: 24,
@@ -388,9 +388,9 @@ const addChildStyles = StyleSheet.create({
     borderColor: '#EDE9F6',
     backgroundColor: '#ffffff',
   },
-  stageBtnActive: { borderColor: '#E8487A', backgroundColor: 'rgba(232,72,122,0.06)' },
+  stageBtnActive: { borderColor: '#7C3AED', backgroundColor: 'rgba(28, 16, 51, 0.036)' },
   stageBtnText: { fontFamily: Fonts.sansMedium, fontSize: 14, color: '#9CA3AF' },
-  stageBtnTextActive: { color: '#E8487A', fontFamily: Fonts.sansBold },
+  stageBtnTextActive: { color: '#7C3AED', fontFamily: Fonts.sansBold },
   errorText: { fontFamily: Fonts.sansRegular, color: '#ef4444', fontSize: 12, marginTop: 8 },
 });
 
@@ -592,7 +592,7 @@ export default function FamilyScreen() {
         {kids.length === 0 ? (
           <Card style={styles.emptyCard} shadow="sm">
             <View style={styles.emptyIconBox}>
-              <Ionicons name="happy-outline" size={30} color="#E8487A" />
+              <Ionicons name="happy-outline" size={30} color="#7C3AED" />
             </View>
             <Text style={styles.emptyText}>
               Add your child to get personalised milestones, vaccine schedules, and more!
@@ -625,7 +625,7 @@ export default function FamilyScreen() {
               activeOpacity={0.75}
             >
               <View style={styles.addKidInner}>
-                <Ionicons name="add" size={26} color="#E8487A" />
+                <Ionicons name="add" size={26} color="#7C3AED" />
                 <Text style={styles.addKidText}>Add</Text>
               </View>
             </TouchableOpacity>
@@ -646,7 +646,7 @@ export default function FamilyScreen() {
             {/* Progress bar */}
             <View style={styles.milestoneProgressBg}>
               <LinearGradient
-                colors={['#E8487A', '#7C3AED']}
+                colors={['#7C3AED', '#7C3AED']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={[styles.milestoneProgressFill, { width: `${milestoneProgress * 100}%` }]}
@@ -693,7 +693,7 @@ export default function FamilyScreen() {
             <Card style={styles.expectingCard} shadow="sm">
               {/* Header */}
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(232,72,122,0.1)', alignItems: 'center', justifyContent: 'center' }}>
+                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(28, 16, 51, 0.06)', alignItems: 'center', justifyContent: 'center' }}>
                   <Text style={{ fontSize: 20 }}>🤰</Text>
                 </View>
                 <View style={{ flex: 1 }}>
@@ -707,8 +707,8 @@ export default function FamilyScreen() {
               </View>
 
               {/* Current week highlight */}
-              <View style={{ backgroundColor: 'rgba(232,72,122,0.08)', borderRadius: 12, padding: 12, marginBottom: 16, borderWidth: 1, borderColor: 'rgba(232,72,122,0.15)' }}>
-                <Text style={{ fontFamily: Fonts.sansBold, fontSize: 13, color: '#E8487A', marginBottom: 2 }}>
+              <View style={{ backgroundColor: 'rgba(28, 16, 51, 0.048)', borderRadius: 12, padding: 12, marginBottom: 16, borderWidth: 1, borderColor: 'rgba(28, 16, 51, 0.09)' }}>
+                <Text style={{ fontFamily: Fonts.sansBold, fontSize: 13, color: '#7C3AED', marginBottom: 2 }}>
                   📍 You are at Week {currentWeek}
                 </Text>
                 <Text style={{ fontFamily: Fonts.sansRegular, fontSize: 12, color: '#6B7280' }}>
@@ -729,12 +729,12 @@ export default function FamilyScreen() {
                         width: isCurrent ? 28 : 20,
                         height: isCurrent ? 28 : 20,
                         borderRadius: 14,
-                        backgroundColor: isPast ? '#34D399' : isCurrent ? '#E8487A' : '#EDE9F6',
+                        backgroundColor: isPast ? '#34D399' : isCurrent ? '#7C3AED' : '#EDE9F6',
                         alignItems: 'center',
                         justifyContent: 'center',
                         borderWidth: isCurrent ? 2 : 0,
                         borderColor: isCurrent ? '#fff' : 'transparent',
-                        shadowColor: isCurrent ? '#E8487A' : 'transparent',
+                        shadowColor: isCurrent ? '#7C3AED' : 'transparent',
                         shadowOpacity: 0.4,
                         shadowRadius: 6,
                         shadowOffset: { width: 0, height: 2 },
@@ -758,7 +758,7 @@ export default function FamilyScreen() {
                           Wk {m.week}
                         </Text>
                         {isCurrent && (
-                          <View style={{ backgroundColor: '#E8487A', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+                          <View style={{ backgroundColor: '#7C3AED', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
                             <Text style={{ fontFamily: Fonts.sansBold, fontSize: 9, color: '#fff' }}>NOW</Text>
                           </View>
                         )}
@@ -788,7 +788,7 @@ export default function FamilyScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFF8FC' },
+  container: { flex: 1, backgroundColor: '#FAFAFB' },
 
   // ── Header ──
   header: {
@@ -799,7 +799,7 @@ const styles = StyleSheet.create({
   },
   glowTopRight: {
     position: 'absolute', width: 200, height: 200, borderRadius: 100,
-    backgroundColor: 'rgba(232,72,122,0.22)', top: -60, right: -50,
+    backgroundColor: 'rgba(28, 16, 51, 0.132)', top: -60, right: -50,
   },
   glowBottomLeft: {
     position: 'absolute', width: 140, height: 140, borderRadius: 70,
@@ -837,7 +837,7 @@ const styles = StyleSheet.create({
     minWidth: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: '#E8487A',
+    backgroundColor: '#7C3AED',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 4,
@@ -862,14 +862,14 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   progressBadge: {
-    backgroundColor: 'rgba(232,72,122,0.1)',
+    backgroundColor: 'rgba(28, 16, 51, 0.06)',
     borderRadius: 20,
     paddingHorizontal: 10,
     paddingVertical: 3,
     borderWidth: 1,
-    borderColor: 'rgba(232,72,122,0.2)',
+    borderColor: 'rgba(28, 16, 51, 0.12)',
   },
-  progressBadgeText: { fontFamily: Fonts.sansBold, fontSize: 11, color: '#E8487A' },
+  progressBadgeText: { fontFamily: Fonts.sansBold, fontSize: 11, color: '#7C3AED' },
   milestoneProgressBg: {
     height: 4, backgroundColor: '#EDE9F6', borderRadius: 2, marginBottom: 12, overflow: 'hidden',
   },
@@ -881,21 +881,21 @@ const styles = StyleSheet.create({
     width: 100,
     borderRadius: 18,
     borderWidth: 1.5,
-    borderColor: 'rgba(232,72,122,0.3)',
+    borderColor: 'rgba(28, 16, 51, 0.18)',
     borderStyle: 'dashed',
     overflow: 'hidden',
   } as any,
   addKidInner: {
     flex: 1, minHeight: 115,
     alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(232,72,122,0.03)',
+    backgroundColor: 'rgba(28, 16, 51, 0.018)',
     gap: 4,
   },
-  addKidText: { fontFamily: Fonts.sansSemiBold, color: '#E8487A', fontSize: 12 },
+  addKidText: { fontFamily: Fonts.sansSemiBold, color: '#7C3AED', fontSize: 12 },
 
   // ── Empty / expecting ──
   emptyCard: { alignItems: 'center', paddingVertical: 32, marginBottom: 20 },
-  emptyIconBox: { width: 66, height: 66, borderRadius: 20, backgroundColor: 'rgba(232,72,122,0.09)', alignItems: 'center', justifyContent: 'center', marginBottom: 12, alignSelf: 'center' },
+  emptyIconBox: { width: 66, height: 66, borderRadius: 20, backgroundColor: 'rgba(28, 16, 51, 0.054)', alignItems: 'center', justifyContent: 'center', marginBottom: 12, alignSelf: 'center' },
   emptyText: { fontFamily: Fonts.sansRegular, fontSize: 15, color: '#9CA3AF', textAlign: 'center', lineHeight: 22, maxWidth: 260 },
   milestonesCard: { marginBottom: 24, paddingTop: 20 },
   expectingCard: { alignItems: 'center', paddingVertical: 32, marginBottom: 20 },
@@ -909,7 +909,7 @@ const styles = StyleSheet.create({
   actionCardGrad: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     padding: 16,
-    borderWidth: 1, borderColor: 'rgba(232,72,122,0.12)', borderRadius: 16,
+    borderWidth: 1, borderColor: 'rgba(28, 16, 51, 0.072)', borderRadius: 16,
   },
   actionCardLeft: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   actionCardEmoji: { fontSize: 28 },
@@ -917,7 +917,7 @@ const styles = StyleSheet.create({
   actionCardSub: { fontFamily: Fonts.sansRegular, fontSize: 12, color: '#9CA3AF' },
   actionCardArrow: {
     width: 30, height: 30, borderRadius: 15,
-    backgroundColor: 'rgba(232,72,122,0.1)',
+    backgroundColor: 'rgba(28, 16, 51, 0.06)',
     alignItems: 'center', justifyContent: 'center',
   },
 });

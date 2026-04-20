@@ -50,7 +50,7 @@ function OptionChip({ label, emoji, selected, onPress }: OptionChipProps) {
     return (
       <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={styles.chipWrapper}>
         <LinearGradient
-          colors={['#ec4899', '#8b5cf6']}
+          colors={['#7C3AED', '#8b5cf6']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.chip}
@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#e5e7eb',
   },
   dotActive: {
-    backgroundColor: '#ec4899',
+    backgroundColor: '#7C3AED',
     width: 20,
   },
   content: {
@@ -353,7 +353,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#1a1a2e',
     borderWidth: 1,
-    borderColor: 'rgba(236,72,153,0.2)',
+    borderColor: 'rgba(28, 16, 51, 0.12)',
   },
   navRow: {
     flexDirection: 'row',

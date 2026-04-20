@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Fonts } from '../../constants/theme';
 
-const ROSE = '#E8487A';
+const ROSE = '#7C3AED';
 const PLUM = '#7C3AED';
 const MIST = '#EDE9F6';
 const INK  = '#1C1033';
@@ -98,7 +98,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 11,
-    backgroundColor: 'rgba(232,72,122,0.09)',
+    backgroundColor: 'rgba(28, 16, 51, 0.054)',
     alignItems: 'center',
     justifyContent: 'center',
   },

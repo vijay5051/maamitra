@@ -239,7 +239,7 @@ export default function VaccinesScreen() {
   }
 
   const categoryColors: Record<string, string> = {
-    'Birth Doses': '#ec4899',
+    'Birth Doses': '#7C3AED',
     'Primary Series': '#8b5cf6',
     'Booster Doses': '#10b981',
     'Optional': '#f59e0b',

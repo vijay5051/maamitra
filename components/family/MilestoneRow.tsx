@@ -32,7 +32,7 @@ export default function MilestoneRow({ milestone, isReached }: MilestoneRowProps
           <Text style={[styles.title, isReached && styles.titleReached]}>
             {milestone.title}
           </Text>
-          <TagPill label={milestone.ageLabel} color={isReached ? '#22c55e' : '#ec4899'} />
+          <TagPill label={milestone.ageLabel} color={isReached ? '#22c55e' : '#7C3AED'} />
         </View>
         <Text style={styles.description}>{milestone.description}</Text>
         {!isReached && (
@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(34,197,94,0.15)',
   },
   emojiCircleUpcoming: {
-    backgroundColor: 'rgba(236,72,153,0.1)',
+    backgroundColor: 'rgba(28, 16, 51, 0.06)',
   },
   emoji: {
     fontSize: 20,

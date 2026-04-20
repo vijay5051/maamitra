@@ -303,7 +303,7 @@ export default function ChatInput({ onSend, disabled = false, prefill }: ChatInp
             <Ionicons
               name={listening ? 'stop' : 'mic-outline'}
               size={18}
-              color={listening ? '#ffffff' : '#E8487A'}
+              color={listening ? '#ffffff' : '#7C3AED'}
             />
           </TouchableOpacity>
         </View>
@@ -316,7 +316,7 @@ export default function ChatInput({ onSend, disabled = false, prefill }: ChatInp
         >
           {canSend ? (
             <LinearGradient
-              colors={['#E8487A', '#7C3AED']}
+              colors={['#7C3AED', '#7C3AED']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.sendButton}
@@ -372,7 +372,7 @@ export default function ChatInput({ onSend, disabled = false, prefill }: ChatInp
                       <Text style={styles.langRowLabel}>{item.label}</Text>
                     </View>
                     {active && (
-                      <Ionicons name="checkmark-circle" size={20} color="#E8487A" />
+                      <Ionicons name="checkmark-circle" size={20} color="#7C3AED" />
                     )}
                   </TouchableOpacity>
                 );
@@ -389,7 +389,7 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: 'rgba(255,248,252,0.97)',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(232,72,122,0.08)',
+    borderTopColor: 'rgba(28, 16, 51, 0.048)',
     paddingHorizontal: 14,
     paddingVertical: 10,
     paddingBottom: 10,
@@ -416,16 +416,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderRadius: 26,
     borderWidth: 1.5,
-    borderColor: 'rgba(232,72,122,0.15)',
+    borderColor: 'rgba(28, 16, 51, 0.09)',
     paddingVertical: 8,
     paddingLeft: 16,
     paddingRight: 8,
-    shadowColor: '#E8487A',
+    shadowColor: '#7C3AED',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 12,
     elevation: 3,
-    boxShadow: '0px 2px 12px rgba(232, 72, 122, 0.08)',
+    boxShadow: '0px 2px 12px rgba(28, 16, 51, 0.048)',
   },
   input: {
     flex: 1,
@@ -503,18 +503,18 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#E8487A',
+    backgroundColor: '#7C3AED',
   },
   micBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(232,72,122,0.08)',
+    backgroundColor: 'rgba(28, 16, 51, 0.048)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   micBtnActive: {
-    backgroundColor: '#E8487A',
+    backgroundColor: '#7C3AED',
   },
   sendButton: {
     width: 38,
@@ -523,12 +523,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'flex-end',
-    shadowColor: '#E8487A',
+    shadowColor: '#7C3AED',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 8,
     elevation: 4,
-    boxShadow: '0px 4px 12px rgba(232, 72, 122, 0.35)',
+    boxShadow: '0px 4px 12px rgba(28, 16, 51, 0.2)',
   },
   sendDisabled: {
     backgroundColor: '#F3F0F8',
@@ -579,15 +579,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 12,
     marginBottom: 6,
-    backgroundColor: '#FFF8FC',
+    backgroundColor: '#FAFAFB',
   },
   langRowActive: {
-    backgroundColor: '#FFF0F5',
+    backgroundColor: '#F5F0FF',
     borderWidth: 1,
-    borderColor: 'rgba(232,72,122,0.25)',
+    borderColor: 'rgba(28, 16, 51, 0.15)',
   },
   langRowActiveText: {
-    color: '#E8487A',
+    color: '#7C3AED',
   },
   langRowNative: {
     fontFamily: Fonts.sansBold,

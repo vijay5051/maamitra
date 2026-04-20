@@ -231,7 +231,7 @@ export default function NotificationsSheet({ visible, onClose, onViewProfile }: 
         {/* Content */}
         {isLoadingNotifs ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#E8487A" />
+            <ActivityIndicator size="large" color="#7C3AED" />
           </View>
         ) : (
           <FlatList
@@ -285,7 +285,7 @@ export default function NotificationsSheet({ visible, onClose, onViewProfile }: 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF8FC',
+    backgroundColor: '#FAFAFB',
   },
   header: {
     paddingTop: Platform.OS === 'ios' ? 16 : 24,
@@ -308,7 +308,7 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
   badge: {
-    backgroundColor: '#E8487A',
+    backgroundColor: '#7C3AED',
     borderRadius: 999,
     minWidth: 22,
     height: 22,
@@ -355,7 +355,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
   },
   notifRowUnread: {
-    backgroundColor: 'rgba(232,72,122,0.05)',
+    backgroundColor: 'rgba(28, 16, 51, 0.03)',
   },
   notifContent: {
     flex: 1,
@@ -378,7 +378,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   acceptBtn: {
-    backgroundColor: '#E8487A',
+    backgroundColor: '#7C3AED',
     borderRadius: 999,
     paddingVertical: 6,
     paddingHorizontal: 16,
@@ -417,7 +417,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#E8487A',
+    backgroundColor: '#7C3AED',
     marginTop: 6,
     flexShrink: 0,
   },

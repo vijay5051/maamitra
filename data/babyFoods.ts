@@ -32,7 +32,7 @@ export interface FoodCategoryInfo {
 }
 
 export const FOOD_CATEGORIES: FoodCategoryInfo[] = [
-  { id: 'fruits',      label: 'Fruits',           icon: 'nutrition-outline',  tint: '#FCE7F3' },
+  { id: 'fruits',      label: 'Fruits',           icon: 'nutrition-outline',  tint: '#EDE9F6' },
   { id: 'vegetables',  label: 'Vegetables',       icon: 'leaf-outline',       tint: '#DCFCE7' },
   { id: 'grains',      label: 'Grains & Cereals', icon: 'restaurant-outline', tint: '#FEF3C7' },
   { id: 'dairy',       label: 'Dairy',            icon: 'cafe-outline',       tint: '#EDE9FE' },

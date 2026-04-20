@@ -39,14 +39,14 @@ function TabIcon({
       <Animated.View style={animatedStyle}>
         <Ionicons
           name={name as any}
-          size={24}
-          color={focused ? Colors.primary : '#C4B5D4'}
+          size={22}
+          color={focused ? Colors.primary : '#9ca3af'}
         />
       </Animated.View>
       <Text
         style={[
           styles.tabLabel,
-          { color: focused ? Colors.primary : '#C4B5D4' },
+          { color: focused ? Colors.primary : '#9ca3af' },
         ]}
       >
         {label}
@@ -118,21 +118,22 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: 'rgba(255,248,252,0.96)',
+          backgroundColor: 'rgba(255,255,255,0.98)',
           borderTopWidth: 1,
           borderTopColor: Colors.border,
           // Extra height so the lifted Ask FAB has room to sit above.
           height: Platform.OS === 'ios' ? 84 : 74,
           paddingBottom: Platform.OS === 'ios' ? 20 : 10,
           paddingTop: 8,
-          shadowColor: Colors.primary,
-          shadowOpacity: 0.08,
-          shadowRadius: 16,
-          elevation: 12,
-          boxShadow: '0px -2px 16px rgba(232, 72, 122, 0.08)',
+          // Neutral subtle lift — was a pink shadow.
+          shadowColor: '#1C1033',
+          shadowOpacity: 0.05,
+          shadowRadius: 14,
+          elevation: 10,
+          boxShadow: '0px -2px 14px rgba(28, 16, 51, 0.05)',
         },
         tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: '#C4B5D4',
+        tabBarInactiveTintColor: '#9ca3af',
         tabBarShowLabel: false,
       }}
     >
@@ -237,17 +238,18 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   fabGrad: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.28,
+    // Neutral soft lift — was a glowing pink shadow.
+    shadowColor: '#1C1033',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
     shadowRadius: 14,
-    elevation: 12,
-    boxShadow: '0px 8px 18px rgba(232, 72, 122, 0.35)',
+    elevation: 10,
+    boxShadow: '0px 6px 16px rgba(28, 16, 51, 0.18)',
   },
   fabLabel: {
     fontFamily: Fonts.sansBold,

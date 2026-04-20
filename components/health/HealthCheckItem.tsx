@@ -58,12 +58,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     marginBottom: 8,
     gap: 10,
-    shadowColor: '#ec4899',
+    shadowColor: '#7C3AED',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
     shadowRadius: 4,
     elevation: 1,
-    boxShadow: '0px 1px 4px rgba(236, 72, 153, 0.06)',
+    boxShadow: '0px 1px 4px rgba(28, 16, 51, 0.036)',
   },
   rowDone: {
     backgroundColor: 'rgba(34,197,94,0.07)',
@@ -78,8 +78,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   checkboxDone: {
-    backgroundColor: '#ec4899',
-    borderColor: '#ec4899',
+    backgroundColor: '#7C3AED',
+    borderColor: '#7C3AED',
   },
   emoji: {
     fontSize: 20,

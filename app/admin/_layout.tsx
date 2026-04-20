@@ -26,7 +26,7 @@ export default function AdminLayout() {
     <Stack
       screenOptions={({ navigation }: any) => ({
         headerStyle: { backgroundColor: '#fff' },
-        headerTintColor: '#ec4899',
+        headerTintColor: '#7C3AED',
         headerTitleStyle: { fontWeight: '700', color: '#1a1a2e' },
         headerShadowVisible: false,
         // Explicit back button — ensures it's visible on web where the default
@@ -38,7 +38,7 @@ export default function AdminLayout() {
                 style={{ paddingHorizontal: 8, paddingVertical: 6 }}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Ionicons name="chevron-back" size={26} color="#ec4899" />
+                <Ionicons name="chevron-back" size={26} color="#7C3AED" />
               </TouchableOpacity>
             )
           : undefined,

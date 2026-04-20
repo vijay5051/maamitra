@@ -5,7 +5,7 @@ import { TEETH, ToothJaw, ToothRef } from '../../data/teeth';
 import { KidTeethMap, ToothState } from '../../store/useTeethStore';
 import { Fonts } from '../../constants/theme';
 
-const ROSE = '#E8487A';
+const ROSE = '#7C3AED';
 const SAGE = '#34D399';
 const GOLD = '#F59E0B';
 const MIST = '#EDE9F6';

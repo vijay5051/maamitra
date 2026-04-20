@@ -315,12 +315,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.25)',
   },
   dotActive: {
-    backgroundColor: '#ec4899',
+    backgroundColor: '#7C3AED',
     width: 20,
     borderRadius: 4,
   },
   dotDone: {
-    backgroundColor: 'rgba(236,72,153,0.5)',
+    backgroundColor: 'rgba(28, 16, 51, 0.2)',
   },
 
   // Progress bar
@@ -334,7 +334,7 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: 2,
-    backgroundColor: '#ec4899',
+    backgroundColor: '#7C3AED',
     borderRadius: 1,
   },
 
@@ -401,7 +401,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   timer: {
-    color: '#ec4899',
+    color: '#7C3AED',
     fontSize: 52,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
@@ -434,7 +434,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
-    boxShadow: '0px 4px 16px rgba(236, 72, 153, 0.40)',
+    boxShadow: '0px 4px 16px rgba(28, 16, 51, 0.2)',
   },
 
   bottomSpacer: { height: 16 },

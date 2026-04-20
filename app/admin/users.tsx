@@ -24,7 +24,7 @@ import { AdminUser, getUsers, deleteUserData, adminSetUserRole } from '../../ser
 
 function Avatar({ name, size = 40 }: { name: string; size?: number }) {
   const initial = (name ?? '?').charAt(0).toUpperCase();
-  const colors = ['#ec4899', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b'];
+  const colors = ['#7C3AED', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b'];
   const bg = colors[initial.charCodeAt(0) % colors.length];
   return (
     <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2, backgroundColor: bg }]}>
@@ -210,7 +210,7 @@ export default function UsersScreen() {
       style={styles.container}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor="#ec4899" />}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor="#7C3AED" />}
     >
       {/* Stats bar */}
       <View style={styles.statsRow}>
@@ -253,7 +253,7 @@ export default function UsersScreen() {
 
       {/* List */}
       {loading ? (
-        <ActivityIndicator color="#ec4899" style={{ marginTop: 40 }} />
+        <ActivityIndicator color="#7C3AED" style={{ marginTop: 40 }} />
       ) : filtered.length === 0 ? (
         <View style={styles.empty}>
           <Ionicons name="people-outline" size={40} color="#d1d5db" />

@@ -19,7 +19,7 @@ import { useActiveKid } from '../../hooks/useActiveKid';
 import { calculateAgeInMonths, useProfileStore } from '../../store/useProfileStore';
 import { Fonts } from '../../constants/theme';
 
-const ROSE = '#E8487A';
+const ROSE = '#7C3AED';
 const PLUM = '#7C3AED';
 const SAGE = '#34D399';
 const GOLD = '#F59E0B';
@@ -377,7 +377,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 11,
-    backgroundColor: 'rgba(232,72,122,0.09)',
+    backgroundColor: 'rgba(28, 16, 51, 0.054)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -457,7 +457,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 11,
     paddingVertical: 6,
     borderRadius: 14,
-    backgroundColor: '#FFF8FC',
+    backgroundColor: '#FAFAFB',
     borderWidth: 1,
     borderColor: MIST,
   },
