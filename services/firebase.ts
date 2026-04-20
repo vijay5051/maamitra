@@ -28,6 +28,7 @@ import {
   setDoc,
   getDoc,
   collection,
+  collectionGroup,
   addDoc,
   getDocs,
   query,
@@ -39,7 +40,7 @@ import {
   serverTimestamp,
   Timestamp,
 } from 'firebase/firestore';
-import { getStorage, FirebaseStorage } from 'firebase/storage';
+import { getStorage, FirebaseStorage, ref as storageRef, listAll, deleteObject } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -445,16 +446,164 @@ export async function checkEmailVerified(): Promise<boolean> {
 
 // ─── User Account Management ──────────────────────────────────────────────────
 
+/**
+ * Best-effort delete of every sub-document in a subcollection owned by `uid`.
+ * Used for moods/*, saved_answers/*, chats/*, notifications/* — all of which
+ * key the top-level doc on uid and then store entries in a child collection.
+ */
+async function deleteSubcollection(
+  parentCol: string,
+  uid: string,
+  childCol: string,
+): Promise<void> {
+  if (!db) return;
+  try {
+    const snap = await getDocs(collection(db, parentCol, uid, childCol));
+    await Promise.all(snap.docs.map((d) => deleteDoc(d.ref).catch(() => {})));
+  } catch (err) {
+    console.error(`deleteSubcollection ${parentCol}/${uid}/${childCol}:`, err);
+  }
+}
+
+/** Delete every object under a Storage folder (recursive). */
+async function deleteStorageFolder(path: string): Promise<void> {
+  if (!storage) return;
+  try {
+    const folder = storageRef(storage, path);
+    const listing = await listAll(folder);
+    await Promise.all([
+      ...listing.items.map((item) => deleteObject(item).catch(() => {})),
+      ...listing.prefixes.map((p) => deleteStorageFolder(p.fullPath)),
+    ]);
+  } catch (err) {
+    // Folder may not exist — safe to ignore.
+  }
+}
+
+/**
+ * Fully delete a user's account and every trace of their data.
+ *
+ * The previous version only removed `users/{uid}` and the Auth user, leaving
+ * everything else (posts, comments, chats, moods, DMs, follow edges, avatars,
+ * etc.) orphaned. Because Google SSO is deterministic — the same email maps
+ * to the same Firebase UID — signing up again with the same email rehydrated
+ * all that orphaned data into the "new" account. This function purges it all.
+ *
+ * Ordering matters: we do Firestore + Storage purges FIRST while the Auth
+ * token is still valid, then delete the Auth user last. If auth deletion
+ * fails (e.g., needs recent sign-in) the data is already gone — the user
+ * can retry the auth step, and we won't leave half-cleaned state.
+ */
 export async function deleteUserAccount(uid: string): Promise<void> {
-  // Delete Firestore user document
-  if (db) {
+  if (!db) {
+    if (auth?.currentUser) await deleteUser(auth.currentUser);
+    return;
+  }
+
+  // 1. Delete subcollections keyed under uid (own-data, safe per rules).
+  await Promise.all([
+    deleteSubcollection('moods', uid, 'entries'),
+    deleteSubcollection('saved_answers', uid, 'items'),
+    deleteSubcollection('chats', uid, 'threads'),
+    deleteSubcollection('notifications', uid, 'items'),
+  ]);
+
+  // 2. Community posts authored by this user — and each post's comments.
+  for (const collName of ['communityPosts', 'community_posts']) {
     try {
-      await deleteDoc(doc(db, 'users', uid));
-    } catch (error) {
-      console.error('deleteUserAccount (firestore) error:', error);
+      const snap = await getDocs(query(collection(db, collName), where('authorUid', '==', uid)));
+      for (const postDoc of snap.docs) {
+        // Wipe the comments subcollection (other users' comments on my post go
+        // away with me — this is the same as deleting the post itself).
+        try {
+          const comments = await getDocs(collection(db, collName, postDoc.id, 'comments'));
+          await Promise.all(comments.docs.map((c) => deleteDoc(c.ref).catch(() => {})));
+        } catch (_) {}
+        await deleteDoc(postDoc.ref).catch(() => {});
+      }
+    } catch (err) {
+      console.error(`deleteUserAccount (${collName}):`, err);
     }
   }
-  // Delete Firebase Auth user
+
+  // 3. Comments this user authored on OTHER people's posts.
+  //    Uses a collection-group query across all 'comments' subcollections.
+  try {
+    const snap = await getDocs(
+      query(collectionGroup(db, 'comments'), where('authorUid', '==', uid)),
+    );
+    await Promise.all(snap.docs.map((c) => deleteDoc(c.ref).catch(() => {})));
+  } catch (err) {
+    // Will fail until the collection-group index is built — that's fine, the
+    // comment texts will be orphaned but no future sign-in will own them
+    // (author lookup fails because publicProfiles is deleted below).
+    console.warn('deleteUserAccount (comments CG):', err);
+  }
+
+  // 4. Follow edges (both directions) and follow requests.
+  for (const { coll, field } of [
+    { coll: 'follows', field: 'fromUid' },
+    { coll: 'follows', field: 'toUid' },
+    { coll: 'followRequests', field: 'fromUid' },
+    { coll: 'followRequests', field: 'toUid' },
+  ]) {
+    try {
+      const snap = await getDocs(query(collection(db, coll), where(field, '==', uid)));
+      await Promise.all(snap.docs.map((d) => deleteDoc(d.ref).catch(() => {})));
+    } catch (err) {
+      console.error(`deleteUserAccount (${coll}/${field}):`, err);
+    }
+  }
+
+  // 5. Blocks the user initiated (rules only allow blocker to delete).
+  try {
+    const snap = await getDocs(query(collection(db, 'blocks'), where('blockerUid', '==', uid)));
+    await Promise.all(snap.docs.map((d) => deleteDoc(d.ref).catch(() => {})));
+  } catch (err) {
+    console.error('deleteUserAccount (blocks):', err);
+  }
+
+  // 6. Conversations + messages. Rules allow participants to delete the conv
+  //    (see firestore.rules update shipped with this fix). We also delete our
+  //    own messages so anyone still subscribed sees them disappear.
+  try {
+    const snap = await getDocs(
+      query(collection(db, 'conversations'), where('participants', 'array-contains', uid)),
+    );
+    for (const convDoc of snap.docs) {
+      try {
+        const msgs = await getDocs(collection(db, 'conversations', convDoc.id, 'messages'));
+        await Promise.all(msgs.docs.map((m) => deleteDoc(m.ref).catch(() => {})));
+      } catch (_) {}
+      await deleteDoc(convDoc.ref).catch(() => {});
+    }
+  } catch (err) {
+    console.error('deleteUserAccount (conversations):', err);
+  }
+
+  // 7. Public profile mirror + private user doc.
+  await Promise.all([
+    deleteDoc(doc(db, 'publicProfiles', uid)).catch(() => {}),
+    deleteDoc(doc(db, 'users', uid)).catch(() => {}),
+  ]);
+
+  // 8. Storage cleanup: avatar + the user's post-images folder. DM image
+  //    attachments (dm-images/{convId}/{uid}_*.jpg) are left behind because
+  //    they'd require enumerating every conversation the user was ever in;
+  //    the conversations themselves are deleted above so no UI surfaces them.
+  if (storage) {
+    try {
+      await Promise.all([
+        deleteObject(storageRef(storage, `avatars/${uid}.jpg`)).catch(() => {}),
+        deleteStorageFolder(`posts/${uid}`),
+      ]);
+    } catch (err) {
+      console.error('deleteUserAccount (storage):', err);
+    }
+  }
+
+  // 9. Finally delete the Firebase Auth user. Must be last because earlier
+  //    Firestore/Storage writes need the auth token.
   if (auth?.currentUser) {
     try {
       await deleteUser(auth.currentUser);

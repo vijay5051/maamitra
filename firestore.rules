@@ -182,7 +182,9 @@ service cloud.firestore {
         request.auth.uid in request.resource.data.participants &&
         request.resource.data.participants.size() == 2;
       allow update: if isParticipant(resource.data.participants);
-      allow delete: if isAdmin();
+      // Participants may delete their own conversation (used during
+      // account-delete to purge DMs). Admins may delete anything.
+      allow delete: if isAdmin() || isParticipant(resource.data.participants);
 
       match /messages/{msgId} {
         // Guard the get() with exists() so a missing parent conversation
@@ -202,8 +204,16 @@ service cloud.firestore {
           resource.data.senderUid == request.auth.uid &&
           onlyFields(['text', 'editedAt', 'read', 'readBy']) &&
           (!('text' in request.resource.data) || shortText(request.resource.data.text, 4000));
+        // Senders delete their own messages. Admins delete anything.
+        // Additionally, any participant of the parent conversation may
+        // delete messages — this is required during account-delete where
+        // the departing user wipes the whole thread (including messages
+        // the other party sent to them).
         allow delete: if isAdmin() ||
-          (isSignedIn() && resource.data.senderUid == request.auth.uid);
+          (isSignedIn() && resource.data.senderUid == request.auth.uid) ||
+          (isSignedIn() &&
+            exists(/databases/$(database)/documents/conversations/$(convId)) &&
+            request.auth.uid in get(/databases/$(database)/documents/conversations/$(convId)).data.participants);
       }
     }
 
