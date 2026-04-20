@@ -284,7 +284,13 @@ service cloud.firestore {
           request.resource.data.toUid is string &&
           request.resource.data.toUid != request.auth.uid &&
           shortText(request.resource.data.title, 120) &&
-          shortText(request.resource.data.body, 300));
+          shortText(request.resource.data.body, 300) &&
+          // notifType is optional but when present must be one of the
+          // recognised in-app types — lets the dispatcher gate on
+          // per-topic prefs without us trusting arbitrary strings.
+          (!('notifType' in request.resource.data) ||
+            request.resource.data.notifType in
+              ['reaction', 'comment', 'follow_request', 'follow_accepted', 'message']));
       allow update, delete: if isAdmin();
     }
 

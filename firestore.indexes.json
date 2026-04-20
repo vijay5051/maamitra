@@ -7,6 +7,14 @@
         { "fieldPath": "approved", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "pushEnabled", "order": "ASCENDING" },
+        { "fieldPath": "audienceBuckets", "arrayConfig": "CONTAINS" }
+      ]
     }
   ],
   "fieldOverrides": [

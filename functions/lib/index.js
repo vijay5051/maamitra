@@ -3,18 +3,17 @@
  * MaaMitra — push dispatcher Cloud Function
  *
  * Subscribes to `push_queue/{jobId}` writes. For each job:
- *   - personal: read target uid's fcmTokens from users/{uid}, send to each.
- *   - broadcast: query users matching the audience filter, send in batches.
+ *   - personal: read target uid's fcmTokens + notifPrefs; skip if the
+ *               matching topic pref is disabled, else send.
+ *   - broadcast: query users in the right audience bucket via
+ *                array-contains + pushEnabled + announcements pref,
+ *                send in batches of 500.
  *
  * Cleans up dead tokens (FCM returns `messaging/registration-token-not-registered`)
  * by removing them from the user's array so future sends skip them.
  *
  * Deploy:
  *   firebase deploy --only functions:dispatchPush
- *
- * Required: this function uses the admin SDK which comes pre-authenticated
- * with the project's service account when deployed to Cloud Functions.
- * Nothing to configure.
  */
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -54,7 +53,14 @@ exports.dispatchPush = void 0;
 const functions = __importStar(require("firebase-functions/v1"));
 const admin = __importStar(require("firebase-admin"));
 admin.initializeApp();
-const MAX_BATCH = 500; // FCM sendEachForMulticast limit
+const DEFAULT_PREFS = {
+    reactions: true,
+    comments: true,
+    dms: true,
+    follows: true,
+    announcements: true,
+};
+const MAX_BATCH = 500;
 exports.dispatchPush = functions.firestore
     .document('push_queue/{jobId}')
     .onCreate(async (snap, context) => {
@@ -67,12 +73,11 @@ exports.dispatchPush = functions.firestore
         if (tokens.length === 0) {
             await snap.ref.update({
                 status: 'skipped',
-                reason: 'no-tokens',
+                reason: 'no-tokens-or-prefs-off',
                 sentAt: admin.firestore.FieldValue.serverTimestamp(),
             });
             return;
         }
-        // FCM sendEachForMulticast tops out at 500 tokens per call.
         const deadTokens = [];
         let successCount = 0;
         let failureCount = 0;
@@ -105,7 +110,6 @@ exports.dispatchPush = functions.firestore
                 }
             });
         }
-        // Prune dead tokens from whichever user owns them.
         if (deadTokens.length > 0) {
             await pruneDeadTokens(db, deadTokens);
         }
@@ -126,6 +130,12 @@ exports.dispatchPush = functions.firestore
         });
     }
 });
+/**
+ * Collect the token list that should receive this job, respecting
+ * pushEnabled + per-topic prefs. Returns an empty array if the user has
+ * opted out of the relevant category — that's a silent skip, not an
+ * error.
+ */
 async function resolveTokens(db, job) {
     if (job.kind === 'personal') {
         if (!job.toUid)
@@ -134,22 +144,33 @@ async function resolveTokens(db, job) {
         const data = doc.data();
         if (!data || data.pushEnabled === false)
             return [];
+        // Per-topic gate. Map the in-app notification type to a pref key;
+        // if the pref is false we return no tokens → silent skip.
+        const prefs = { ...DEFAULT_PREFS, ...(data.notifPrefs || {}) };
+        const prefKey = personalPrefKey(job.notifType);
+        if (prefKey && !prefs[prefKey])
+            return [];
         const tokens = data.fcmTokens;
         return Array.isArray(tokens) ? tokens.filter((t) => typeof t === 'string' && t.length > 0) : [];
     }
-    // Broadcast — query users matching the audience.
-    let q = db.collection('users').where('pushEnabled', '==', true);
-    if (job.audience === 'pregnant') {
-        q = q.where('profile.stage', '==', 'pregnant');
-    }
-    // Newborn / toddler filters can be done client-side after fetch —
-    // Firestore can't easily filter on computed "age of any kid" without
-    // denormalised fields. We fall back to 'all' for those two buckets
-    // until a per-kid age field is added to the user doc.
+    // ── broadcast ──────────────────────────────────────────────────
+    // 'all' audience: everyone with push on AND announcements not
+    // explicitly off. We use two queries per filter (can't combine
+    // !=-equivalent with other filters easily) — simpler path: pull
+    // pushEnabled users and filter announcements in-memory.
+    const q = job.audience && job.audience !== 'all'
+        ? db.collection('users')
+            .where('pushEnabled', '==', true)
+            .where('audienceBuckets', 'array-contains', job.audience)
+        : db.collection('users').where('pushEnabled', '==', true);
     const snap = await q.get();
     const out = [];
     snap.forEach((doc) => {
         const d = doc.data();
+        // Respect announcements opt-out. Missing prefs default to true.
+        const wantsAnnouncements = d.notifPrefs?.announcements !== false;
+        if (!wantsAnnouncements)
+            return;
         const arr = d.fcmTokens;
         if (Array.isArray(arr)) {
             for (const t of arr) {
@@ -160,10 +181,21 @@ async function resolveTokens(db, job) {
     });
     return out;
 }
-/**
- * Data must be a flat string→string map for FCM. Stringify anything
- * we accidentally left as non-strings.
- */
+/** Map a personal-push in-app type to its matching pref key. */
+function personalPrefKey(type) {
+    switch (type) {
+        case 'reaction': return 'reactions';
+        case 'comment': return 'comments';
+        case 'message': return 'dms';
+        case 'follow_request':
+        case 'follow_accepted':
+            return 'follows';
+        default:
+            // Missing type (older client) — don't gate. Better to deliver than
+            // silently drop during rollout.
+            return null;
+    }
+}
 function sanitiseData(data) {
     if (!data)
         return undefined;
@@ -176,8 +208,6 @@ function sanitiseData(data) {
     return out;
 }
 async function pruneDeadTokens(db, deadTokens) {
-    // Find users holding any of the dead tokens and arrayRemove them.
-    // Firestore `array-contains-any` caps at 10 values per query, so chunk.
     const chunks = [];
     for (let i = 0; i < deadTokens.length; i += 10)
         chunks.push(deadTokens.slice(i, i + 10));

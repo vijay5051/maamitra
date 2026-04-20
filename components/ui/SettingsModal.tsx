@@ -39,6 +39,10 @@ import {
   currentPushPermission,
   enablePush,
   disablePush,
+  loadNotifPrefs,
+  updateNotifPref,
+  DEFAULT_NOTIF_PREFS,
+  type NotifPrefs,
 } from '../../services/push';
 import { Colors } from '../../constants/theme';
 
@@ -139,7 +143,17 @@ function ToggleRow({ label, value, onToggle }: { label: string; value: boolean; 
 // ─── Notifications toggle ────────────────────────────────────────────────────
 // Enables web push for this browser. Asks for OS permission, grabs the
 // FCM token, and persists it to users/{uid}.fcmTokens so the dispatcher
-// can target this device.
+// can target this device. When push is on, five sub-toggles let the user
+// opt out of individual topics (reactions, comments, DMs, follows,
+// announcements). The dispatcher reads these before firing each push.
+const PREF_ROWS: Array<{ key: keyof NotifPrefs; label: string; sub: string }> = [
+  { key: 'reactions',     label: 'Reactions',     sub: 'When someone reacts to your post' },
+  { key: 'comments',      label: 'Comments',      sub: 'When someone comments on your post' },
+  { key: 'dms',           label: 'Direct messages',sub: 'New chat messages' },
+  { key: 'follows',       label: 'Follows',       sub: 'Follow requests & accepts' },
+  { key: 'announcements', label: 'Announcements', sub: 'Broadcasts from MaaMitra' },
+];
+
 function NotificationsPanel({ uid }: { uid?: string }) {
   const [supported, setSupported] = useState<boolean | null>(null);
   const [permission, setPermission] = useState<'unsupported' | 'default' | 'granted' | 'denied'>(
@@ -147,6 +161,8 @@ function NotificationsPanel({ uid }: { uid?: string }) {
   );
   const [busy, setBusy] = useState(false);
   const [token, setToken] = useState<string | null>(null);
+  const [prefs, setPrefs] = useState<NotifPrefs>(DEFAULT_NOTIF_PREFS);
+  const [prefsLoaded, setPrefsLoaded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -160,8 +176,27 @@ function NotificationsPanel({ uid }: { uid?: string }) {
     };
   }, []);
 
+  // Load the user's saved prefs once we have a uid.
+  useEffect(() => {
+    if (!uid) return;
+    let cancelled = false;
+    loadNotifPrefs(uid).then((p) => {
+      if (!cancelled) {
+        setPrefs(p);
+        setPrefsLoaded(true);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [uid]);
+
   const enabled = permission === 'granted' && !!token;
   const blocked = permission === 'denied';
+  // Show sub-toggles when push is on AND we've pulled the persisted prefs.
+  // Keeping them hidden while push is off avoids a dead-looking UI — the
+  // master toggle is the single call-to-action.
+  const showSubToggles = enabled && prefsLoaded;
 
   const handleToggle = async () => {
     if (!uid) return;
@@ -190,12 +225,22 @@ function NotificationsPanel({ uid }: { uid?: string }) {
           setToken(t);
           setPermission('granted');
         } else {
-          // enablePush returned null — either user denied or env vars missing
           setPermission(currentPushPermission() as any);
         }
       }
     } finally {
       setBusy(false);
+    }
+  };
+
+  const togglePref = async (key: keyof NotifPrefs) => {
+    if (!uid) return;
+    const next = !prefs[key];
+    setPrefs((p) => ({ ...p, [key]: next })); // optimistic
+    try {
+      await updateNotifPref(uid, key, next);
+    } catch {
+      setPrefs((p) => ({ ...p, [key]: !next })); // revert
     }
   };
 
@@ -230,6 +275,33 @@ function NotificationsPanel({ uid }: { uid?: string }) {
           <View style={[s.toggleThumb, enabled && s.toggleThumbOn]} />
         </View>
       </TouchableOpacity>
+
+      {/* Per-topic sub-toggles. Rendered inside the same card for visual
+          hierarchy — indented + a divider separates them from the master
+          toggle above. */}
+      {showSubToggles && (
+        <>
+          <View style={[s.divider, { marginLeft: 0 }]} />
+          {PREF_ROWS.map((row, idx) => (
+            <React.Fragment key={row.key}>
+              {idx > 0 && <View style={s.divider} />}
+              <TouchableOpacity
+                style={s.prefRow}
+                onPress={() => togglePref(row.key)}
+                activeOpacity={0.75}
+              >
+                <View style={s.prefContent}>
+                  <Text style={s.prefLabel}>{row.label}</Text>
+                  <Text style={s.prefSub}>{row.sub}</Text>
+                </View>
+                <View style={[s.toggleTrack, prefs[row.key] && s.toggleTrackOn]}>
+                  <View style={[s.toggleThumb, prefs[row.key] && s.toggleThumbOn]} />
+                </View>
+              </TouchableOpacity>
+            </React.Fragment>
+          ))}
+        </>
+      )}
     </View>
   );
 }
@@ -1832,6 +1904,28 @@ const s = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 14,
     gap: 12,
+  },
+  // Per-topic sub-toggle. Slightly indented + quieter copy so the
+  // hierarchy reads as "master switch ↓ five specific switches".
+  prefRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 60,
+    paddingRight: 14,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  prefContent: { flex: 1 },
+  prefLabel: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 14,
+    color: '#1C1033',
+  },
+  prefSub: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: 12,
+    color: '#9ca3af',
+    marginTop: 1,
   },
 
   // Edit views

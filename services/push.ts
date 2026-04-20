@@ -1,7 +1,63 @@
 import { Platform } from 'react-native';
 import { getMessaging, getToken, onMessage, isSupported } from 'firebase/messaging';
-import { doc, setDoc, arrayUnion, arrayRemove, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, arrayUnion, arrayRemove, serverTimestamp } from 'firebase/firestore';
 import { app, db } from './firebase';
+
+/**
+ * Per-topic push preferences stored on the user's profile doc. The
+ * dispatcher Cloud Function reads these before firing each push — if
+ * the relevant flag is `false`, the send is skipped silently.
+ *
+ * New users default to "everything on" so the experience out of the
+ * box matches the in-app notification feed exactly.
+ */
+export interface NotifPrefs {
+  reactions: boolean;
+  comments: boolean;
+  dms: boolean;
+  follows: boolean;
+  announcements: boolean;
+}
+
+export const DEFAULT_NOTIF_PREFS: NotifPrefs = {
+  reactions: true,
+  comments: true,
+  dms: true,
+  follows: true,
+  announcements: true,
+};
+
+/** Read the user's current prefs, defaulting missing fields to true. */
+export async function loadNotifPrefs(uid: string): Promise<NotifPrefs> {
+  if (!db) return { ...DEFAULT_NOTIF_PREFS };
+  try {
+    const snap = await getDoc(doc(db, 'users', uid));
+    const stored = (snap.exists() ? snap.data()?.notifPrefs : null) as Partial<NotifPrefs> | null;
+    return { ...DEFAULT_NOTIF_PREFS, ...(stored || {}) };
+  } catch (_) {
+    return { ...DEFAULT_NOTIF_PREFS };
+  }
+}
+
+export async function updateNotifPref(
+  uid: string,
+  key: keyof NotifPrefs,
+  value: boolean,
+): Promise<void> {
+  if (!db) return;
+  try {
+    await setDoc(
+      doc(db, 'users', uid),
+      {
+        notifPrefs: { [key]: value },
+        pushUpdatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+  } catch (err) {
+    console.error('updateNotifPref failed:', err);
+  }
+}
 
 /**
  * MaaMitra — Web Push client

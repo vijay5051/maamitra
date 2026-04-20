@@ -890,8 +890,9 @@ export async function createNotification(
     });
     // Also enqueue a push job. The dispatcher (Cloud Function / worker
     // subscribed to push_queue) reads this, looks up the recipient's
-    // fcmTokens, and fires FCM. Fire-and-forget — if the write fails
-    // (rules or network) the in-app notification is still delivered.
+    // fcmTokens + per-topic prefs, and fires FCM. Fire-and-forget — if
+    // the write fails (rules or network) the in-app notification is
+    // still delivered.
     const push = buildPushFromNotif(toUid, data);
     if (push) {
       try {
@@ -899,6 +900,9 @@ export async function createNotification(
           kind: 'personal',
           toUid,
           fromUid: data.fromUid,
+          // The dispatcher uses notifType to decide which of the user's
+          // per-topic prefs to check (reactions/comments/dms/follows).
+          notifType: data.type,
           ...push,
           status: 'pending',
           createdAt: serverTimestamp(),

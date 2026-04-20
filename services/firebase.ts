@@ -172,9 +172,55 @@ export interface FullProfileData {
   phoneVerified?: boolean;                  // True if the number was OTP-verified
 }
 
+/**
+ * Bucket a user into audience tags based on stage + kids. Used by the
+ * push dispatcher to answer broadcast targets like "send this to every
+ * parent with a newborn" without a heavy per-kid join server-side.
+ *
+ * Buckets returned (non-exclusive — a user can be in multiple):
+ *   - 'pregnant'  : stage === 'pregnant' OR any kid isExpecting
+ *   - 'newborn'   : any kid with age < 6mo (and not expecting)
+ *   - 'toddler'   : any kid with age 6mo–36mo
+ *
+ * 'all' is implicit and doesn't need a bucket — every signed-up user
+ * with pushEnabled matches it directly by the `pushEnabled == true` filter.
+ */
+export function deriveAudienceBuckets(
+  kids: Array<{ dob?: string; isExpecting?: boolean }> | undefined,
+  stage: string | undefined | null,
+): string[] {
+  const buckets = new Set<string>();
+  if (stage === 'pregnant') buckets.add('pregnant');
+  if (!Array.isArray(kids)) return [...buckets];
+  const now = Date.now();
+  for (const kid of kids) {
+    if (kid.isExpecting) {
+      buckets.add('pregnant');
+      continue;
+    }
+    if (!kid.dob) continue;
+    const ms = now - new Date(kid.dob).getTime();
+    const months = ms / (1000 * 60 * 60 * 24 * 30.44);
+    if (months < 0) {
+      buckets.add('pregnant');
+    } else if (months < 6) {
+      buckets.add('newborn');
+    } else if (months < 36) {
+      buckets.add('toddler');
+    }
+  }
+  return [...buckets];
+}
+
 export async function saveFullProfile(uid: string, data: FullProfileData): Promise<void> {
   if (!db) return;
   try {
+    // Denormalise the audience buckets so the dispatcher can do an O(1)
+    // array-contains query instead of computing age from kids[] per user.
+    const audienceBuckets = deriveAudienceBuckets(
+      data.kids as any,
+      (data.profile as any)?.stage,
+    );
     await setDoc(doc(db, 'users', uid), {
       motherName: data.motherName,
       profile: data.profile ?? null,
@@ -186,6 +232,7 @@ export async function saveFullProfile(uid: string, data: FullProfileData): Promi
       expertise: data.expertise ?? [],
       photoUrl: data.photoUrl ?? '',
       visibilitySettings: data.visibilitySettings ?? null,
+      audienceBuckets,
       updatedAt: serverTimestamp(),
     }, { merge: true });
   } catch (error) {
