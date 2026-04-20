@@ -83,16 +83,62 @@ export interface PushState {
   token: string | null;
 }
 
-export async function checkPushSupport(): Promise<boolean> {
-  if (Platform.OS !== 'web') return false;
-  if (typeof window === 'undefined') return false;
-  if (!('Notification' in window)) return false;
-  if (!('serviceWorker' in navigator)) return false;
-  try {
-    return await isSupported();
-  } catch (_) {
-    return false;
+/**
+ * Detailed reason a browser can or cannot do web push. Surfaces the
+ * exact missing capability so the toggle UI can explain itself — iOS
+ * PWA is especially finicky (home-screen launch required, FCM's own
+ * isSupported() is unreliable on iOS even when push works).
+ */
+export type PushSupportStatus =
+  | { ok: true }
+  | { ok: false; reason: 'platform-native' | 'ssr' | 'no-notification-api' | 'no-service-worker' | 'no-push-manager' | 'no-indexed-db' | 'ios-not-standalone' | 'fcm-unsupported'; hint?: string };
+
+export async function checkPushSupportDetailed(): Promise<PushSupportStatus> {
+  if (Platform.OS !== 'web') return { ok: false, reason: 'platform-native' };
+  if (typeof window === 'undefined') return { ok: false, reason: 'ssr' };
+  if (!('Notification' in window)) return { ok: false, reason: 'no-notification-api' };
+  if (!('serviceWorker' in navigator)) return { ok: false, reason: 'no-service-worker' };
+  if (!('PushManager' in window)) return { ok: false, reason: 'no-push-manager' };
+  if (!('indexedDB' in window)) return { ok: false, reason: 'no-indexed-db' };
+
+  // iOS-specific: Apple only allows web push in *standalone* mode
+  // (the PWA launched from the home-screen icon, not opened in a
+  // regular Safari tab). Detect via navigator.standalone (legacy) or
+  // display-mode media query.
+  const ua = navigator.userAgent || '';
+  const isIos = /iPad|iPhone|iPod/.test(ua);
+  const nav = navigator as any;
+  const isStandalone =
+    nav.standalone === true ||
+    (typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)').matches);
+  if (isIos && !isStandalone) {
+    return {
+      ok: false,
+      reason: 'ios-not-standalone',
+      hint: 'On iPhone, launch MaaMitra from your Home Screen icon (not from Safari) to enable push.',
+    };
   }
+
+  // Finally, ask FCM's own check — but treat a `false` here on iOS as
+  // informational rather than a hard block. FCM's isSupported() checks
+  // for features we've already validated above; when it still returns
+  // false on iOS PWA it's usually because the SDK hasn't been updated
+  // with iOS-awareness. We still let the user try.
+  try {
+    const fcmOk = await isSupported();
+    if (!fcmOk && !isIos) {
+      return { ok: false, reason: 'fcm-unsupported' };
+    }
+  } catch (_) {
+    if (!isIos) return { ok: false, reason: 'fcm-unsupported' };
+  }
+  return { ok: true };
+}
+
+/** Back-compat boolean helper. Prefer checkPushSupportDetailed(). */
+export async function checkPushSupport(): Promise<boolean> {
+  const s = await checkPushSupportDetailed();
+  return s.ok;
 }
 
 export function currentPushPermission(): NotificationPermission | 'unsupported' {
@@ -102,40 +148,72 @@ export function currentPushPermission(): NotificationPermission | 'unsupported' 
   return Notification.permission;
 }
 
+/** Richer result so the UI can render a specific error if something fails. */
+export type EnablePushResult =
+  | { ok: true; token: string }
+  | { ok: false; reason: 'unsupported' | 'not-configured' | 'no-vapid-key' | 'denied' | 'sw-registration-failed' | 'token-failed' | 'firestore-failed'; detail?: string };
+
 /**
  * Request notification permission and retrieve an FCM token. Persists
  * the token to `users/{uid}.fcmTokens` (arrayUnion) and flips
  * `pushEnabled: true` so the dispatcher knows to target this user.
  *
- * Returns null if the user denies, or if anything in the chain fails.
- * Caller can treat null as "not subscribed".
+ * Returns a discriminated result so the caller can show a specific
+ * error (iOS PWA paths surface distinct failures).
  */
-export async function enablePush(uid: string): Promise<string | null> {
-  if (!(await checkPushSupport())) return null;
-  if (!app || !db) return null;
+export async function enablePushDetailed(uid: string): Promise<EnablePushResult> {
+  const support = await checkPushSupportDetailed();
+  if (!support.ok) return { ok: false, reason: 'unsupported', detail: (support as any).hint };
+  if (!app || !db) return { ok: false, reason: 'not-configured' };
   if (!VAPID_KEY) {
     console.warn('[push] EXPO_PUBLIC_FCM_VAPID_KEY missing — set it in .env to enable push.');
-    return null;
+    return { ok: false, reason: 'no-vapid-key' };
   }
 
+  // 1. Permission — must be triggered by a direct user gesture.
+  let perm: NotificationPermission;
   try {
-    // Request permission. Safari/Firefox will show the browser prompt.
-    const perm = await Notification.requestPermission();
-    if (perm !== 'granted') return null;
+    perm = await Notification.requestPermission();
+  } catch (err: any) {
+    return { ok: false, reason: 'denied', detail: err?.message };
+  }
+  if (perm !== 'granted') {
+    return { ok: false, reason: 'denied' };
+  }
 
-    // Ensure our SW is registered. Firebase's getToken() does this
-    // implicitly but we do it explicitly so we get a handle we can log.
-    const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+  // 2. Service worker. Use getRegistration first — iOS tends to already
+  // have one active after page load, and registering a second time
+  // confuses the FCM SDK.
+  let registration: ServiceWorkerRegistration | undefined;
+  try {
+    registration = await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js');
+    if (!registration) {
+      registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+    }
+    // On iOS, the SW can be in 'installing' state when getToken fires —
+    // wait for `ready` so the push subscription endpoint is available.
+    await navigator.serviceWorker.ready;
+  } catch (err: any) {
+    console.error('[push] SW register failed:', err);
+    return { ok: false, reason: 'sw-registration-failed', detail: err?.message };
+  }
 
+  // 3. Token.
+  let token: string | null = null;
+  try {
     const messaging = getMessaging(app);
-    const token = await getToken(messaging, {
+    token = await getToken(messaging, {
       vapidKey: VAPID_KEY,
       serviceWorkerRegistration: registration,
     });
-    if (!token) return null;
+  } catch (err: any) {
+    console.error('[push] getToken failed:', err);
+    return { ok: false, reason: 'token-failed', detail: err?.message };
+  }
+  if (!token) return { ok: false, reason: 'token-failed', detail: 'Firebase returned an empty token.' };
 
-    // Persist. arrayUnion dedupes if the user re-enables on the same
-    // browser. We'll prune stale tokens server-side when sends fail.
+  // 4. Persist.
+  try {
     await setDoc(
       doc(db, 'users', uid),
       {
@@ -145,12 +223,18 @@ export async function enablePush(uid: string): Promise<string | null> {
       },
       { merge: true },
     );
-
-    return token;
-  } catch (err) {
-    console.error('[push] enablePush failed:', err);
-    return null;
+  } catch (err: any) {
+    console.error('[push] save token failed:', err);
+    return { ok: false, reason: 'firestore-failed', detail: err?.message };
   }
+
+  return { ok: true, token };
+}
+
+/** Back-compat wrapper for call sites that only want the token-or-null shape. */
+export async function enablePush(uid: string): Promise<string | null> {
+  const r = await enablePushDetailed(uid);
+  return r.ok ? r.token : null;
 }
 
 /**

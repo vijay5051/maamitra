@@ -35,14 +35,15 @@ import StateSelectorComponent from '../onboarding/StateSelector';
 import { Fonts, ACCENT_PRESETS } from '../../constants/theme';
 import { useThemeStore, reloadForThemeChange } from '../../store/useThemeStore';
 import {
-  checkPushSupport,
+  checkPushSupportDetailed,
   currentPushPermission,
-  enablePush,
+  enablePushDetailed,
   disablePush,
   loadNotifPrefs,
   updateNotifPref,
   DEFAULT_NOTIF_PREFS,
   type NotifPrefs,
+  type PushSupportStatus,
 } from '../../services/push';
 import { Colors } from '../../constants/theme';
 
@@ -155,7 +156,7 @@ const PREF_ROWS: Array<{ key: keyof NotifPrefs; label: string; sub: string }> = 
 ];
 
 function NotificationsPanel({ uid }: { uid?: string }) {
-  const [supported, setSupported] = useState<boolean | null>(null);
+  const [support, setSupport] = useState<PushSupportStatus | null>(null);
   const [permission, setPermission] = useState<'unsupported' | 'default' | 'granted' | 'denied'>(
     'default',
   );
@@ -166,9 +167,9 @@ function NotificationsPanel({ uid }: { uid?: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    checkPushSupport().then((ok) => {
+    checkPushSupportDetailed().then((s) => {
       if (cancelled) return;
-      setSupported(ok);
+      setSupport(s);
       setPermission(currentPushPermission() as any);
     });
     return () => {
@@ -191,19 +192,36 @@ function NotificationsPanel({ uid }: { uid?: string }) {
     };
   }, [uid]);
 
+  const supported = support?.ok === true;
   const enabled = permission === 'granted' && !!token;
   const blocked = permission === 'denied';
-  // Show sub-toggles when push is on AND we've pulled the persisted prefs.
-  // Keeping them hidden while push is off avoids a dead-looking UI — the
-  // master toggle is the single call-to-action.
   const showSubToggles = enabled && prefsLoaded;
+
+  // Human-readable status line for the master toggle. iOS-PWA-not-
+  // -standalone is the #1 source of "can't toggle push" reports; surface
+  // the hint explicitly.
+  const statusLine = (() => {
+    if (!support) return '';
+    if (!support.ok) {
+      if (support.reason === 'ios-not-standalone') return 'Open from your Home Screen icon';
+      if (support.reason === 'no-notification-api') return 'Not supported in this browser';
+      if (support.reason === 'no-push-manager') return 'Push not supported here — use Chrome or Safari 16.4+';
+      if (support.reason === 'platform-native') return 'Only available on the web build for now';
+      return 'Not supported on this device';
+    }
+    if (blocked) return 'Blocked in browser settings';
+    if (enabled) return 'Enabled on this device';
+    return 'Off — tap to enable';
+  })();
 
   const handleToggle = async () => {
     if (!uid) return;
-    if (!supported) {
+    if (!support) return;
+    if (!support.ok) {
       Alert.alert(
-        'Not supported',
-        'Your browser does not support web push. Try Chrome or Safari on iOS 16.4+.',
+        support.reason === 'ios-not-standalone' ? 'Open from Home Screen' : 'Not supported',
+        (support as any).hint ||
+          'Your browser does not support web push. Try Chrome on Android, or Safari 16.4+ on iPhone with the app installed to your Home Screen.',
       );
       return;
     }
@@ -220,12 +238,25 @@ function NotificationsPanel({ uid }: { uid?: string }) {
         await disablePush(uid, token);
         setToken(null);
       } else {
-        const t = await enablePush(uid);
-        if (t) {
-          setToken(t);
+        const r = await enablePushDetailed(uid);
+        if (r.ok) {
+          setToken(r.token);
           setPermission('granted');
         } else {
+          // Update permission state either way.
           setPermission(currentPushPermission() as any);
+          const msgByReason: Record<string, string> = {
+            'no-vapid-key': 'Server not fully configured yet. Ask the admin to set the VAPID key.',
+            'denied': 'You said no to the browser prompt. Tap the lock icon in the address bar to allow notifications, then try again.',
+            'sw-registration-failed':
+              'Could not register the background worker. If you just installed the app to your Home Screen, close and reopen it from there and try again.',
+            'token-failed':
+              'We could not get a push token. On iPhone, make sure you opened MaaMitra from the Home Screen icon (not Safari).',
+            'firestore-failed': 'Network error while saving your preference. Check connection and retry.',
+            'not-configured': 'Server not configured — admins need to finish setup.',
+            'unsupported': r.detail || 'Push is not available here.',
+          };
+          Alert.alert('Could not enable push', msgByReason[r.reason] || 'Something went wrong. Please try again.');
         }
       }
     } finally {
@@ -244,7 +275,7 @@ function NotificationsPanel({ uid }: { uid?: string }) {
     }
   };
 
-  if (supported === null) return null;
+  if (!support) return null;
 
   return (
     <View style={s.card}>
@@ -259,15 +290,7 @@ function NotificationsPanel({ uid }: { uid?: string }) {
         </View>
         <View style={s.rowContent}>
           <Text style={s.rowLabel}>Push notifications</Text>
-          <Text style={s.rowValue}>
-            {!supported
-              ? 'Not supported in this browser'
-              : blocked
-              ? 'Blocked in browser settings'
-              : enabled
-              ? 'Enabled on this device'
-              : 'Off — tap to enable'}
-          </Text>
+          <Text style={s.rowValue}>{statusLine}</Text>
         </View>
         <View
           style={[s.toggleTrack, enabled && s.toggleTrackOn, (!supported || busy) && { opacity: 0.5 }]}
