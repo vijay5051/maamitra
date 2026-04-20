@@ -100,6 +100,8 @@ export default function HomeTab() {
   >(null);
 
   const { motherName, parentGender, photoUrl, profile, kids } = useProfileStore();
+  const activeKidId = useProfileStore((s) => s.activeKidId);
+  const setActiveKidId = useProfileStore((s) => s.setActiveKidId);
   const { activeKid, ageLabel } = useActiveKid();
   const moodHistory = useWellnessStore((s) => s.moodHistory);
 
@@ -976,6 +978,71 @@ export default function HomeTab() {
                 </View>
               </View>
             </View>
+
+            {/* Your family — quick child switcher + manage. Moved out of the
+                bottom tab bar so the primary slots belong to the most-used
+                surfaces (Home, Health, Ask, Community, Wellness). Picking a
+                child here drives which baby's data the rest of the app
+                personalises against (vaccines, teeth, foods, growth, etc.). */}
+            <Text style={styles.sheetSectionLabel}>Your family</Text>
+            {kids.length > 0 ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.kidChipRow}
+              >
+                {kids.map((k) => {
+                  const isActive = k.id === activeKidId;
+                  const initial = (k.name || '?').charAt(0).toUpperCase();
+                  return (
+                    <TouchableOpacity
+                      key={k.id}
+                      onPress={() => setActiveKidId(k.id)}
+                      activeOpacity={0.8}
+                      style={[styles.kidChip, isActive && styles.kidChipActive]}
+                    >
+                      <View style={[styles.kidChipAvatar, isActive && styles.kidChipAvatarActive]}>
+                        <Text style={[styles.kidChipInitial, isActive && styles.kidChipInitialActive]}>
+                          {initial}
+                        </Text>
+                      </View>
+                      <View>
+                        <Text style={[styles.kidChipName, isActive && styles.kidChipNameActive]} numberOfLines={1}>
+                          {k.name}
+                        </Text>
+                        <Text style={[styles.kidChipMeta, isActive && styles.kidChipMetaActive]} numberOfLines={1}>
+                          {k.isExpecting
+                            ? 'Expecting'
+                            : k.dob
+                            ? (() => {
+                                const m = Math.max(
+                                  0,
+                                  Math.floor((Date.now() - new Date(k.dob).getTime()) / (1000 * 60 * 60 * 24 * 30.44)),
+                                );
+                                return m < 24 ? `${m}mo` : `${Math.floor(m / 12)}y`;
+                              })()
+                            : ''}
+                        </Text>
+                      </View>
+                      {isActive ? (
+                        <Ionicons name="checkmark-circle" size={14} color="#ffffff" />
+                      ) : null}
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            ) : (
+              <Text style={styles.kidEmptyLine}>No children added yet.</Text>
+            )}
+            <ProfileRow
+              icon="people-outline"
+              label={kids.length > 0 ? 'Manage family' : 'Add your first child'}
+              sub={kids.length > 0 ? `${kids.length} ${kids.length === 1 ? 'child' : 'children'} · add, edit, remove` : 'Set up your family profile'}
+              onPress={() => {
+                setProfileOpen(false);
+                router.push('/(tabs)/family');
+              }}
+            />
 
             {/* You */}
             <Text style={styles.sheetSectionLabel}>You</Text>
@@ -2497,6 +2564,66 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     marginTop: Spacing.md,
     marginBottom: Spacing.xs,
+  },
+  kidChipRow: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 4,
+    gap: 8,
+  },
+  kidChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: '#ffffff',
+    maxWidth: 200,
+  },
+  kidChipActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  kidChipAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.primarySoft,
+  },
+  kidChipAvatarActive: {
+    backgroundColor: 'rgba(255,255,255,0.22)',
+  },
+  kidChipInitial: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 13,
+    color: Colors.primary,
+  },
+  kidChipInitialActive: { color: '#ffffff' },
+  kidChipName: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 13,
+    color: Colors.textDark,
+    maxWidth: 110,
+  },
+  kidChipNameActive: { color: '#ffffff' },
+  kidChipMeta: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: 11,
+    color: Colors.textMuted,
+    marginTop: 1,
+  },
+  kidChipMetaActive: { color: 'rgba(255,255,255,0.85)' },
+  kidEmptyLine: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: 12,
+    color: Colors.textMuted,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    fontStyle: 'italic',
   },
   sheetName: {
     fontFamily: Fonts.sansBold,

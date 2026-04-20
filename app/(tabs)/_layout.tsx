@@ -152,14 +152,14 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="family"
+        name="health"
         options={{
-          title: 'Family',
+          title: 'Health',
           tabBarIcon: ({ focused }) => (
             <TabIcon
-              name={focused ? 'people' : 'people-outline'}
+              name={focused ? 'medkit' : 'medkit-outline'}
               focused={focused}
-              label="Family"
+              label="Health"
             />
           ),
         }}
@@ -204,7 +204,8 @@ export default function TabLayout() {
       />
 
       {/* ─── Hidden from tab bar, still routable via deep link + Profile sheet ─── */}
-      <Tabs.Screen name="health" options={{ href: null }} />
+      {/* Family moved into the Profile sheet (see Home → avatar → "Your family"). */}
+      <Tabs.Screen name="family" options={{ href: null }} />
       <Tabs.Screen name="library" options={{ href: null }} />
     </Tabs>
   );
