@@ -27,7 +27,13 @@ interface DMState {
 
   loadConversations: () => Promise<void>;
   loadMessages: (otherUid: string) => Promise<void>;
-  sendMessage: (otherUid: string, otherName: string, otherPhoto: string, text: string) => Promise<void>;
+  sendMessage: (
+    otherUid: string,
+    otherName: string,
+    otherPhoto: string,
+    text: string,
+    imageUrl?: string,
+  ) => Promise<void>;
   markRead: (otherUid: string) => Promise<void>;
   loadUnreadCount: () => Promise<void>;
 
@@ -104,7 +110,13 @@ export const useDMStore = create<DMState>((set, get) => ({
     }
   },
 
-  sendMessage: async (otherUid: string, otherName: string, otherPhoto: string, text: string) => {
+  sendMessage: async (
+    otherUid: string,
+    otherName: string,
+    otherPhoto: string,
+    text: string,
+    imageUrl?: string,
+  ) => {
     const uid = useAuthStore.getState().user?.uid;
     const myName = useProfileStore.getState().motherName || 'User';
     const myPhoto = useProfileStore.getState().photoUrl || '';
@@ -113,7 +125,7 @@ export const useDMStore = create<DMState>((set, get) => ({
     set({ isSending: true });
     try {
       const convId = await getOrCreateConversation(uid, myName, myPhoto, otherUid, otherName, otherPhoto);
-      const msg = await sendDM(convId, uid, myName, myPhoto, text, otherUid);
+      const msg = await sendDM(convId, uid, myName, myPhoto, text, otherUid, imageUrl);
 
       if (msg) {
         set((state) => ({

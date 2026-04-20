@@ -51,6 +51,10 @@ export interface DMMessage {
   senderName: string;
   senderPhoto?: string;
   text: string;
+  /** Firebase Storage download URL of an attached image, if any. Stored
+   *  as a field on the message doc; the image itself lives under
+   *  dm-images/{convId}/... */
+  imageUrl?: string;
   createdAt: Date;
   read: boolean;
 }
@@ -166,6 +170,7 @@ export async function getMessages(
         senderName: data.senderName ?? '',
         senderPhoto: data.senderPhoto,
         text: data.text ?? '',
+        imageUrl: data.imageUrl,
         createdAt: firestoreDate(data.createdAt),
         read: data.read ?? false,
       } as DMMessage;
@@ -178,7 +183,7 @@ export async function getMessages(
   }
 }
 
-/** Send a message in a conversation */
+/** Send a message in a conversation. Optionally attach an image URL. */
 export async function sendMessage(
   convId: string,
   senderUid: string,
@@ -186,22 +191,28 @@ export async function sendMessage(
   senderPhoto: string,
   text: string,
   otherUid: string,
+  imageUrl?: string,
 ): Promise<DMMessage | null> {
   if (!db) return null;
   try {
     // Add message to subcollection
-    const msgRef = await addDoc(collection(db, 'conversations', convId, 'messages'), {
+    const payload: Record<string, any> = {
       senderUid,
       senderName,
       senderPhoto: senderPhoto || '',
       text,
       read: false,
       createdAt: serverTimestamp(),
-    });
+    };
+    if (imageUrl) payload.imageUrl = imageUrl;
 
-    // Update conversation metadata
+    const msgRef = await addDoc(collection(db, 'conversations', convId, 'messages'), payload);
+
+    // Update conversation metadata. lastMessage shows a placeholder when
+    // the body is only an image so the conversation list isn't blank.
+    const preview = imageUrl && !text.trim() ? '📷 Photo' : text;
     await updateDoc(doc(db, 'conversations', convId), {
-      lastMessage: text.length > 80 ? text.slice(0, 80) + '...' : text,
+      lastMessage: preview.length > 80 ? preview.slice(0, 80) + '...' : preview,
       lastMessageTime: serverTimestamp(),
       lastMessageSenderUid: senderUid,
       unreadBy: [otherUid],
@@ -221,6 +232,7 @@ export async function sendMessage(
       senderName,
       senderPhoto,
       text,
+      imageUrl,
       createdAt: new Date(),
       read: false,
     };
@@ -317,6 +329,7 @@ export function subscribeMessages(
           senderName: data.senderName ?? '',
           senderPhoto: data.senderPhoto,
           text: data.text ?? '',
+          imageUrl: data.imageUrl,
           createdAt: firestoreDate(data.createdAt),
           read: data.read ?? false,
         } as DMMessage;

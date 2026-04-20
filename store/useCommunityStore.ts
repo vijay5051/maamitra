@@ -394,9 +394,46 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
   },
 
   toggleReactionFirestore: async (postId: string, myUid: string, myName: string, emoji: string) => {
+    // Optimistic update — the pill flips the instant the user taps instead
+    // of waiting ~1-3s for the Firestore transaction (which goes through
+    // App Check / reCAPTCHA). Users were confused seeing the pill visually
+    // freeze or disappear during that wait. Server response below confirms
+    // or corrects the optimistic state.
+    const snapshot = get().posts.find((p) => p.id === postId);
+    let rolledBack = false;
+    if (snapshot) {
+      const myCurrent = (snapshot.reactionsByUser?.[myUid] ?? []) as string[];
+      const alreadyHas = myCurrent.includes(emoji);
+      const nextMine = alreadyHas
+        ? myCurrent.filter((e) => e !== emoji)
+        : [...myCurrent, emoji];
+      const currCount = (snapshot.reactions?.[emoji] as number) ?? 0;
+      const nextCount = Math.max(0, currCount + (alreadyHas ? -1 : 1));
+      const nextReactions: Record<string, number> = { ...(snapshot.reactions ?? {}) };
+      if (nextCount === 0) delete nextReactions[emoji];
+      else nextReactions[emoji] = nextCount;
+
+      set((state) => ({
+        posts: state.posts.map((post) =>
+          post.id === postId
+            ? {
+                ...post,
+                reactions: nextReactions,
+                userReactions: nextMine,
+                reactionsByUser: {
+                  ...(post.reactionsByUser ?? {}),
+                  [myUid]: nextMine,
+                },
+              }
+            : post,
+        ),
+      }));
+    }
+
     try {
       const { reactions, myReactions } = await togglePostReaction(postId, myUid, myName, emoji);
 
+      // Authoritative server state — overwrite optimistic.
       set((state) => ({
         posts: state.posts.map((post) =>
           post.id === postId
@@ -414,6 +451,15 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
       }));
     } catch (error) {
       console.error('toggleReactionFirestore error:', error);
+      // Roll back the optimistic update so the UI doesn't drift from server.
+      if (snapshot && !rolledBack) {
+        rolledBack = true;
+        set((state) => ({
+          posts: state.posts.map((post) =>
+            post.id === postId ? snapshot : post,
+          ),
+        }));
+      }
       throw error;
     }
   },

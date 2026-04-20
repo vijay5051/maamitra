@@ -19,37 +19,71 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useDMStore } from '../../store/useDMStore';
 import { useProfileStore } from '../../store/useProfileStore';
 import { getPublicProfile, type UserPublicProfile } from '../../services/social';
-import { getOrCreateConversation } from '../../services/messages';
+import { getOrCreateConversation, conversationId } from '../../services/messages';
+import { uploadDMImage } from '../../services/storage';
 import GradientAvatar from '../../components/ui/GradientAvatar';
 import { Fonts, Colors } from '../../constants/theme';
 
 // ─── Message Bubble ──────────────────────────────────────────────────────────
 
-function MessageBubble({ text, isMine, time }: { text: string; isMine: boolean; time: Date }) {
+function MessageBubble({
+  text,
+  imageUrl,
+  isMine,
+  time,
+}: {
+  text: string;
+  imageUrl?: string;
+  isMine: boolean;
+  time: Date;
+}) {
   const timeStr = time.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  const hasText = !!text?.trim();
 
   if (isMine) {
     return (
       <View style={bubbleStyles.myRow}>
-        <LinearGradient
-          colors={['#E8487A', '#7C3AED']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={bubbleStyles.myBubble}
-        >
-          <Text style={bubbleStyles.myText}>{text}</Text>
-          <Text style={bubbleStyles.myTime}>{timeStr}</Text>
-        </LinearGradient>
+        {imageUrl ? (
+          <Image
+            source={{ uri: imageUrl }}
+            style={bubbleStyles.attachedImage}
+            resizeMode="cover"
+          />
+        ) : null}
+        {hasText ? (
+          <LinearGradient
+            colors={['#E8487A', '#7C3AED']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={[bubbleStyles.myBubble, imageUrl ? { marginTop: 6 } : null]}
+          >
+            <Text style={bubbleStyles.myText}>{text}</Text>
+            <Text style={bubbleStyles.myTime}>{timeStr}</Text>
+          </LinearGradient>
+        ) : (
+          <Text style={[bubbleStyles.myTime, { alignSelf: 'flex-end', marginTop: 4 }]}>{timeStr}</Text>
+        )}
       </View>
     );
   }
 
   return (
     <View style={bubbleStyles.otherRow}>
-      <View style={bubbleStyles.otherBubble}>
-        <Text style={bubbleStyles.otherText}>{text}</Text>
-        <Text style={bubbleStyles.otherTime}>{timeStr}</Text>
-      </View>
+      {imageUrl ? (
+        <Image
+          source={{ uri: imageUrl }}
+          style={bubbleStyles.attachedImage}
+          resizeMode="cover"
+        />
+      ) : null}
+      {hasText ? (
+        <View style={[bubbleStyles.otherBubble, imageUrl ? { marginTop: 6 } : null]}>
+          <Text style={bubbleStyles.otherText}>{text}</Text>
+          <Text style={bubbleStyles.otherTime}>{timeStr}</Text>
+        </View>
+      ) : (
+        <Text style={[bubbleStyles.otherTime, { alignSelf: 'flex-start', marginTop: 4 }]}>{timeStr}</Text>
+      )}
     </View>
   );
 }
@@ -63,7 +97,48 @@ const bubbleStyles = StyleSheet.create({
   otherBubble: { backgroundColor: '#ffffff', borderRadius: 18, borderBottomLeftRadius: 4, paddingVertical: 10, paddingHorizontal: 14, shadowColor: '#E8487A', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 1 },
   otherText: { fontFamily: Fonts.sansRegular, fontSize: 15, color: '#1C1033', lineHeight: 21 },
   otherTime: { fontFamily: Fonts.sansRegular, fontSize: 10, color: '#9ca3af', marginTop: 4, alignSelf: 'flex-end' },
+  attachedImage: {
+    width: 220,
+    height: 220,
+    borderRadius: 16,
+    backgroundColor: '#EDE9F6',
+  },
 });
+
+// ─── Image compression ──────────────────────────────────────────────────────
+// Web-only helper: read a File, downscale to max 1600px on the longer edge,
+// re-encode as JPEG 0.85. Keeps Storage uploads + doc-size modest.
+async function compressImageToDataUrl(file: File): Promise<string> {
+  const raw = await new Promise<string>((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result || ''));
+    r.onerror = () => reject(new Error('Could not read file'));
+    r.readAsDataURL(file);
+  });
+  try {
+    const ImageCtor: any = (window as any).Image;
+    const img: HTMLImageElement = await new Promise((resolve, reject) => {
+      const el = new ImageCtor();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error('Could not decode image'));
+      el.src = raw;
+    });
+    const max = 1600;
+    const longer = Math.max(img.width, img.height);
+    const scale = longer > max ? max / longer : 1;
+    const w = Math.round(img.width * scale);
+    const h = Math.round(img.height * scale);
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('canvas ctx unavailable');
+    ctx.drawImage(img, 0, 0, w, h);
+    return canvas.toDataURL('image/jpeg', 0.85);
+  } catch {
+    return raw;
+  }
+}
 
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 
@@ -86,7 +161,11 @@ export default function ConversationScreen() {
 
   const [text, setText] = useState('');
   const [profile, setProfile] = useState<UserPublicProfile | null>(null);
+  const [attachment, setAttachment] = useState<{ dataUrl: string; mimeType: string } | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [attachError, setAttachError] = useState<string | null>(null);
   const listRef = useRef<FlatList>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Load other user's profile + eagerly create the conversation doc if
   // it doesn't exist yet, then load messages. Without the eager create
@@ -137,12 +216,60 @@ export default function ConversationScreen() {
     }
   }, [activeMessages.length]);
 
-  const handleSend = useCallback(() => {
+  const handleSend = useCallback(async () => {
     const trimmed = text.trim();
-    if (!trimmed || isSending || !otherUid) return;
-    sendMessage(otherUid, profile?.name || 'User', profile?.photoUrl || '', trimmed);
+    // Allow sending image-only messages (no text)
+    if ((!trimmed && !attachment) || isSending || !otherUid || !myUid) return;
+
+    let imageUrl: string | undefined;
+    if (attachment) {
+      try {
+        setUploading(true);
+        const convId = conversationId(myUid, otherUid);
+        imageUrl = await uploadDMImage(convId, myUid, attachment.dataUrl);
+      } catch (e: any) {
+        setAttachError(e?.message ?? 'Could not upload image. Please try again.');
+        setTimeout(() => setAttachError(null), 4000);
+        setUploading(false);
+        return;
+      } finally {
+        setUploading(false);
+      }
+    }
+
+    sendMessage(
+      otherUid,
+      profile?.name || 'User',
+      profile?.photoUrl || '',
+      trimmed,
+      imageUrl,
+    );
     setText('');
-  }, [text, isSending, otherUid, profile, sendMessage]);
+    setAttachment(null);
+  }, [text, attachment, isSending, otherUid, profile, sendMessage, myUid]);
+
+  const handleAttachPress = () => {
+    if (Platform.OS !== 'web') {
+      setAttachError('Image upload is available on web. Native support coming soon.');
+      setTimeout(() => setAttachError(null), 4000);
+      return;
+    }
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: any) => {
+    const file: File | undefined = e?.target?.files?.[0];
+    if (e?.target) e.target.value = '';
+    if (!file) return;
+    // Compress on client first so Storage stays cheap + uploads are fast.
+    try {
+      const dataUrl = await compressImageToDataUrl(file);
+      setAttachment({ dataUrl, mimeType: 'image/jpeg' });
+    } catch (err: any) {
+      setAttachError(err?.message ?? 'Could not read image.');
+      setTimeout(() => setAttachError(null), 4000);
+    }
+  };
 
   const otherName = profile?.name || 'User';
   const otherPhoto = profile?.photoUrl;
@@ -198,6 +325,7 @@ export default function ConversationScreen() {
             renderItem={({ item }) => (
               <MessageBubble
                 text={item.text}
+                imageUrl={item.imageUrl}
                 isMine={item.senderUid === myUid}
                 time={item.createdAt instanceof Date ? item.createdAt : new Date(item.createdAt)}
               />
@@ -207,8 +335,58 @@ export default function ConversationScreen() {
           />
         )}
 
+        {/* Attach error banner */}
+        {attachError ? (
+          <View style={styles.errorBanner}>
+            <Ionicons name="alert-circle-outline" size={14} color="#b91c1c" />
+            <Text style={styles.errorBannerText}>{attachError}</Text>
+          </View>
+        ) : null}
+
+        {/* Attachment preview */}
+        {attachment ? (
+          <View style={styles.previewRow}>
+            <Image source={{ uri: attachment.dataUrl }} style={styles.previewImage} />
+            <Text style={styles.previewLabel}>
+              {uploading ? 'Uploading…' : 'Photo ready to send'}
+            </Text>
+            {!uploading && (
+              <TouchableOpacity
+                onPress={() => setAttachment(null)}
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                accessibilityLabel="Remove attachment"
+              >
+                <Ionicons name="close-circle" size={20} color="#9ca3af" />
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : null}
+
+        {/* Hidden file input (web) */}
+        {Platform.OS === 'web'
+          ? React.createElement('input', {
+              ref: (el: HTMLInputElement | null) => { fileInputRef.current = el; },
+              type: 'file',
+              accept: 'image/*',
+              onChange: handleFileChange,
+              style: { display: 'none' },
+            })
+          : null}
+
         {/* Input */}
         <View style={[styles.inputRow, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+          <TouchableOpacity
+            onPress={handleAttachPress}
+            style={styles.attachBtn}
+            accessibilityLabel="Attach photo"
+            disabled={uploading}
+          >
+            <Ionicons
+              name={uploading ? 'hourglass-outline' : 'image-outline'}
+              size={20}
+              color={uploading ? '#9ca3af' : '#7C3AED'}
+            />
+          </TouchableOpacity>
           <TextInput
             style={styles.input}
             value={text}
@@ -222,8 +400,8 @@ export default function ConversationScreen() {
           />
           <TouchableOpacity
             onPress={handleSend}
-            disabled={!text.trim() || isSending}
-            style={[styles.sendBtn, (!text.trim() || isSending) && { opacity: 0.4 }]}
+            disabled={(!text.trim() && !attachment) || isSending || uploading}
+            style={[styles.sendBtn, ((!text.trim() && !attachment) || isSending || uploading) && { opacity: 0.4 }]}
           >
             <LinearGradient
               colors={['#E8487A', '#7C3AED']}
@@ -231,7 +409,7 @@ export default function ConversationScreen() {
               end={{ x: 1, y: 0 }}
               style={styles.sendBtnGrad}
             >
-              {isSending ? (
+              {isSending || uploading ? (
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
                 <Ionicons name="send" size={18} color="#ffffff" />
@@ -301,5 +479,55 @@ const styles = StyleSheet.create({
     borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  attachBtn: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(124,58,237,0.08)',
+    marginBottom: 2,
+  },
+  previewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginHorizontal: 12,
+    marginBottom: 8,
+    padding: 8,
+    borderRadius: 12,
+    backgroundColor: '#F8F3FF',
+    borderWidth: 1,
+    borderColor: 'rgba(124,58,237,0.15)',
+  },
+  previewImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: '#E5E1EE',
+  },
+  previewLabel: {
+    flex: 1,
+    fontFamily: Fonts.sansMedium,
+    fontSize: 13,
+    color: '#1C1033',
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginHorizontal: 12,
+    marginBottom: 8,
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  errorBannerText: {
+    flex: 1,
+    fontSize: 12,
+    fontFamily: Fonts.sansMedium,
+    color: '#991b1b',
   },
 });

@@ -55,3 +55,14 @@ export async function uploadAvatar(uid: string, dataUrl: string): Promise<string
   const path = `avatars/${uid}.jpg`;
   return uploadImage(path, dataUrl);
 }
+
+/** Upload a DM image attachment. Path uses convId + a timestamp so each
+ *  conversation's images are grouped, and name collisions are avoided. */
+export async function uploadDMImage(
+  convId: string,
+  uid: string,
+  dataUrl: string,
+): Promise<string> {
+  const path = `dm-images/${convId}/${uid}_${Date.now()}.jpg`;
+  return uploadImage(path, dataUrl);
+}

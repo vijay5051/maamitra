@@ -21,6 +21,19 @@ service firebase.storage {
         && request.resource.contentType.matches('image/.*');
     }
 
+    // DM image attachments — path is dm-images/{convId}/{uid}_{timestamp}.jpg
+    // Any signed-in user can read (conversation participants need access on
+    // both sides; we gate who can see the conversation itself via Firestore).
+    // Only the uploader can write, and only into a file whose name starts
+    // with their UID so one party can't impersonate the other.
+    match /dm-images/{convId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && fileName.matches(request.auth.uid + '_.*')
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
     // Deny everything else by default
     match /{allPaths=**} {
       allow read, write: if false;
