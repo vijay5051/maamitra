@@ -505,22 +505,21 @@ export default function HomeTab() {
           </LinearGradient>
         </TouchableOpacity>
 
-        {/* Quick actions strip */}
+        {/* Quick actions — 2-column wrap so everything is visible without
+            having to swipe. Was a horizontal ScrollView; users were
+            missing cards beyond the fold. */}
         <Text style={styles.sectionLabel}>QUICK ACTIONS</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.todayScroll}
-        >
+        <View style={styles.todayGrid}>
           {todayCards.map((c, i) => (
             // Outer wrapper handles the mount animation (fade + slide up,
-            // staggered by 60ms per card so the strip reveals itself in
+            // staggered by 60ms per card so the grid reveals itself in
             // sequence). Inner Pressable drives the press-scale via
             // shared value — the two transforms don't conflict because
             // the outer settles to identity after mount.
             <Reanimated.View
               key={c.id}
               entering={FadeInDown.delay(i * 60).duration(340).springify().damping(15)}
+              style={styles.todayCardWrap}
             >
               <AnimatedPressable
                 onPress={c.onPress}
@@ -532,7 +531,7 @@ export default function HomeTab() {
               </AnimatedPressable>
             </Reanimated.View>
           ))}
-        </ScrollView>
+        </View>
 
         {/* Family snapshot */}
         <View style={styles.sectionHeader}>
@@ -1971,13 +1970,20 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xxl,
     marginLeft: Spacing.xl,
   },
-  todayScroll: {
+  todayGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     paddingHorizontal: Spacing.xl,
     gap: Spacing.md,
     marginTop: Spacing.md,
   },
+  todayCardWrap: {
+    // 2-column grid. width:'48%' + gap:Spacing.md (12) leaves ~4% / row
+    // for the inter-card gap on a 360dp screen — fits without overflow.
+    width: '48%',
+  },
   todayCard: {
-    width: 160,
+    width: '100%',
     minHeight: 100,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
