@@ -1,4 +1,6 @@
 /* eslint-disable */
+// sw-version: 2 — bumped 2026-04-20 to force iOS PWA to drop the
+// 1-year-cached old SW after the cache-control fix deployed.
 /**
  * MaaMitra — Firebase Cloud Messaging service worker
  *
