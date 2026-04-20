@@ -182,16 +182,20 @@ service cloud.firestore {
       match /messages/{msgId} {
         allow read: if isSignedIn() &&
           request.auth.uid in get(/databases/$(database)/documents/conversations/$(convId)).data.participants;
+        // services/messages.ts writes senderUid/senderName/senderPhoto —
+        // the rule previously looked for authorUid, which never exists
+        // on these docs, so every create was silently rejected with
+        // PERMISSION_DENIED and the user saw 'unable to send messages'.
         allow create: if isVerified() &&
-          request.resource.data.authorUid == request.auth.uid &&
+          request.resource.data.senderUid == request.auth.uid &&
           request.auth.uid in get(/databases/$(database)/documents/conversations/$(convId)).data.participants &&
           shortText(request.resource.data.text, 4000);
         allow update: if isSignedIn() &&
-          resource.data.authorUid == request.auth.uid &&
-          onlyFields(['text', 'editedAt', 'readBy']) &&
+          resource.data.senderUid == request.auth.uid &&
+          onlyFields(['text', 'editedAt', 'read', 'readBy']) &&
           (!('text' in request.resource.data) || shortText(request.resource.data.text, 4000));
         allow delete: if isAdmin() ||
-          (isSignedIn() && resource.data.authorUid == request.auth.uid);
+          (isSignedIn() && resource.data.senderUid == request.auth.uid);
       }
     }
 
