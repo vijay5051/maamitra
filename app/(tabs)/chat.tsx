@@ -491,6 +491,10 @@ export default function ChatScreen() {
           <QuickChips onSelect={handleSend} />
         )}
 
+        <Text style={styles.medDisclaimer}>
+          MaaMitra shares information, not medical advice. For urgent concerns, please consult a doctor.
+        </Text>
+
         <View style={styles.inputRow}>
           {messages.length > 0 && (
             <TouchableOpacity
@@ -626,6 +630,21 @@ const styles = StyleSheet.create({
   emptySeparator: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 20, marginBottom: 16, gap: 10 },
   separatorLine: { flex: 1, height: 1, backgroundColor: 'rgba(28, 16, 51, 0.072)' },
   separatorText: { fontFamily: Fonts.sansSemiBold, fontSize: 10, color: '#C4B5D4', letterSpacing: 1 },
+
+  // ── Medical-advice disclaimer (persistent, above input) ──
+  // Present on every chat view to make clear MaaMitra is an informational
+  // companion — not a medical service. Required for Play Store clarity
+  // since AI chat can be read as health guidance.
+  medDisclaimer: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: 10,
+    lineHeight: 14,
+    color: '#9ca3af',
+    textAlign: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 2,
+    paddingBottom: 4,
+  },
 
   // ── Input row with suggestions toggle ──
   inputRow: { flexDirection: 'row', alignItems: 'flex-end' },

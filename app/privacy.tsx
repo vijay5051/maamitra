@@ -42,6 +42,13 @@ export default function PrivacyScreen() {
           Data Protection Act, 2023 (DPDP Act) and other applicable laws.
         </P>
 
+        <P>
+          MaaMitra is a <B>parenting information and support companion — not a medical service</B>.
+          Our AI chat, articles, and tracking tools provide informational content only and are not
+          a substitute for professional medical advice, diagnosis, or treatment. For any medical
+          concern, please consult a qualified doctor. See our <B>Terms</B> for full details.
+        </P>
+
         <H2>1. Data we collect</H2>
         <LI><B>Account data:</B> name, email, phone number, password (hashed), profile photo.</LI>
         <LI><B>Family data you choose to add:</B> your pregnancy due date, your children's names, dates of birth, and milestones. You decide what to enter.</LI>

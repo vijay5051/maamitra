@@ -1637,6 +1637,30 @@ export default function SettingsModal({
               />
             </View>
 
+            {/* Legal + informational footer.
+                Visible on every Settings open so reviewers (and users) see
+                the "not medical advice" framing plus quick links to Terms
+                and Privacy — both required in-app references for Play Store. */}
+            <Text style={s.medDisclaimer}>
+              MaaMitra is a parenting companion, not a medical service. The AI, articles, and trackers provide information only — always consult a doctor for anything urgent or specific to your child.
+            </Text>
+
+            <View style={s.legalRow}>
+              <TouchableOpacity
+                onPress={() => { onClose(); router.push('/terms'); }}
+                activeOpacity={0.7}
+              >
+                <Text style={s.legalLink}>Terms</Text>
+              </TouchableOpacity>
+              <Text style={s.legalDot}>·</Text>
+              <TouchableOpacity
+                onPress={() => { onClose(); router.push('/privacy'); }}
+                activeOpacity={0.7}
+              >
+                <Text style={s.legalLink}>Privacy</Text>
+              </TouchableOpacity>
+            </View>
+
             {/* App info — plain, no emoji */}
             <Text style={s.version}>MaaMitra v1.0 · Made in India</Text>
           </ScrollView>
@@ -1872,6 +1896,32 @@ const s = StyleSheet.create({
     color: '#9ca3af',
     marginTop: 12,
     letterSpacing: 0.2,
+  },
+
+  medDisclaimer: {
+    textAlign: 'center',
+    fontSize: 11,
+    lineHeight: 16,
+    fontFamily: Fonts.sansRegular,
+    color: '#9ca3af',
+    paddingHorizontal: 18,
+    marginTop: 24,
+  },
+  legalRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 10,
+  },
+  legalLink: {
+    fontSize: 12,
+    fontFamily: Fonts.sansBold,
+    color: Colors.primary,
+  },
+  legalDot: {
+    fontSize: 12,
+    color: '#9ca3af',
   },
 
   // Accent picker — 5-up grid of swatches.
