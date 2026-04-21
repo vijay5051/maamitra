@@ -17,7 +17,7 @@
     ],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.soonicorn.maamitra",
+      "bundleIdentifier": "in.maamitra.app",
       "buildNumber": "1",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
@@ -28,7 +28,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#fdf6ff"
       },
-      "package": "com.soonicorn.maamitra",
+      "package": "in.maamitra.app",
       "versionCode": 1
     },
     "web": {
