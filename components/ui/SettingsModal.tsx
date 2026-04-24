@@ -1362,11 +1362,22 @@ export default function SettingsModal({
   const performDelete = async () => {
     try {
       setLoading(true);
-      handleClose();
       await deleteAccount();
+      handleClose();
       router.replace('/(auth)/welcome');
-    } catch (e) {
-      console.error(e);
+    } catch (e: any) {
+      console.error('deleteAccount failed:', e);
+      // Firebase Auth deletion requires a recent sign-in — if the session is old,
+      // the user must sign in again before their account can actually be deleted.
+      const code = e?.code ?? '';
+      const isStale = code === 'auth/requires-recent-login' ||
+                      String(e?.message || '').includes('requires-recent-login');
+      Alert.alert(
+        'Could not delete account',
+        isStale
+          ? 'For security, please sign out and sign back in, then try deleting your account again.'
+          : 'Something went wrong. Please check your connection and try again.',
+      );
     } finally {
       setLoading(false);
     }

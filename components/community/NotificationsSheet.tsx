@@ -16,7 +16,7 @@ import { useRouter } from 'expo-router';
 import GradientAvatar from '../ui/GradientAvatar';
 import { Fonts } from '../../constants/theme';
 import { useSocialStore } from '../../store/useSocialStore';
-import { type AppNotification } from '../../services/social';
+import { type AppNotification, getPublicProfiles } from '../../services/social';
 import { Colors } from '../../constants/theme';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -71,14 +71,21 @@ function notifText(notif: AppNotification): string {
 interface NotifRowProps {
   notif: AppNotification;
   handled: 'accepted' | 'declined' | undefined;
+  freshName?: string;          // live name from publicProfiles (overrides stored fromName)
+  freshPhotoUrl?: string;      // live photo from publicProfiles
   onAccept: () => void;
   onDecline: () => void;
   onPress: () => void;
 }
 
-function NotifRow({ notif, handled, onAccept, onDecline, onPress }: NotifRowProps) {
+function NotifRow({ notif, handled, freshName, freshPhotoUrl, onAccept, onDecline, onPress }: NotifRowProps) {
   const isUnread = !notif.read;
   const isRequest = notif.type === 'follow_request';
+  // Prefer live data from publicProfiles so deleted/recreated accounts show current identity
+  const displayName = freshName ?? notif.fromName ?? '?';
+  const displayPhoto = freshPhotoUrl ?? notif.fromPhotoUrl;
+  // Build a version of the notif with the fresh name so the sentence text is correct too
+  const displayNotif = { ...notif, fromName: displayName };
 
   return (
     <TouchableOpacity
@@ -87,15 +94,15 @@ function NotifRow({ notif, handled, onAccept, onDecline, onPress }: NotifRowProp
       activeOpacity={0.75}
     >
       {/* Avatar */}
-      {notif.fromPhotoUrl ? (
-        <Image source={{ uri: notif.fromPhotoUrl }} style={styles.notifAvatar} />
+      {displayPhoto ? (
+        <Image source={{ uri: displayPhoto }} style={styles.notifAvatar} />
       ) : (
-        <GradientAvatar name={notif.fromName ?? '?'} size={44} />
+        <GradientAvatar name={displayName} size={44} />
       )}
 
       {/* Content */}
       <View style={styles.notifContent}>
-        <Text style={styles.notifText}>{notifText(notif)}</Text>
+        <Text style={styles.notifText}>{notifText(displayNotif)}</Text>
         <Text style={styles.notifTime}>{relativeTime(notif.createdAt)}</Text>
 
         {/* Follow request action buttons or result */}
@@ -153,6 +160,9 @@ export default function NotificationsSheet({ visible, onClose, onViewProfile }: 
   );
 
   const [handledRequests, setHandledRequests] = useState<Record<string, 'accepted' | 'declined'>>({});
+  // Map of uid → {name, photoUrl} fetched live from publicProfiles so stale snapshots
+  // (old name/photo frozen at notification-create time) are replaced with current data.
+  const [freshProfiles, setFreshProfiles] = useState<Record<string, { name: string; photoUrl: string }>>({});
   const markReadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -168,6 +178,7 @@ export default function NotificationsSheet({ visible, onClose, onViewProfile }: 
     // Reset handled state so old Accept/Decline badges don't persist
     setHandledRequests({});
     loadNotifications();
+    setFreshProfiles({});
     // Mark all read after 1.5s so user briefly sees unread state
     markReadTimerRef.current = setTimeout(() => {
       markAllRead();
@@ -180,6 +191,29 @@ export default function NotificationsSheet({ visible, onClose, onViewProfile }: 
       }
     };
   }, [visible]);
+
+  // Whenever notifications update, batch-refresh their senders' publicProfiles so the
+  // row shows the CURRENT name/photo, not the snapshot frozen at notification-create
+  // time. This prevents stale identities (e.g., after a user changed their name/photo
+  // or recreated their account on the same UID) from being shown to the recipient.
+  useEffect(() => {
+    if (!visible || filteredNotifications.length === 0) return;
+    const uids = Array.from(new Set(
+      filteredNotifications.map((n) => n.fromUid).filter((u) => !!u)
+    ));
+    if (uids.length === 0) return;
+    let cancelled = false;
+    getPublicProfiles(uids).then((profs) => {
+      if (cancelled) return;
+      const map: Record<string, { name: string; photoUrl: string }> = {};
+      profs.forEach((p: any) => {
+        if (p?.uid) map[p.uid] = { name: p.name ?? '', photoUrl: p.photoUrl ?? '' };
+      });
+      setFreshProfiles(map);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, notifications?.length]);
 
   const handleAccept = (notif: AppNotification) => {
     if (!notif.requestId) return;
@@ -241,6 +275,8 @@ export default function NotificationsSheet({ visible, onClose, onViewProfile }: 
               <NotifRow
                 notif={item}
                 handled={handledRequests[item.id]}
+                freshName={freshProfiles[item.fromUid]?.name || undefined}
+                freshPhotoUrl={freshProfiles[item.fromUid]?.photoUrl || undefined}
                 onAccept={() => handleAccept(item)}
                 onDecline={() => handleDecline(item)}
                 onPress={() => {
