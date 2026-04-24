@@ -180,19 +180,7 @@ function NativeWelcome({
           </Text>
         </View>
 
-        <View style={styles.featuresGrid}>
-          {FEATURES.map((f, i) => (
-            <View key={i} style={styles.featureCard}>
-              <View style={styles.iconBox}>
-                <Ionicons name={f.icon} size={18} color={Colors.primary} />
-              </View>
-              <Text style={styles.featureTitle}>{f.title}</Text>
-              <Text style={styles.featureText}>{f.text}</Text>
-            </View>
-          ))}
-        </View>
-
-        <View style={styles.buttonsContainer}>
+        <View style={[styles.buttonsContainer, nativeStyles.buttonsContainerTop]}>
           <GradientButton
             title="Get started — it's free"
             onPress={() => router.push('/(auth)/sign-up')}
@@ -206,6 +194,18 @@ function NativeWelcome({
             <Text style={styles.textCtaLabel}>Already have an account?</Text>
             <Text style={styles.textCtaAction}>Sign in</Text>
           </TouchableOpacity>
+        </View>
+
+        <View style={styles.featuresGrid}>
+          {FEATURES.map((f, i) => (
+            <View key={i} style={styles.featureCard}>
+              <View style={styles.iconBox}>
+                <Ionicons name={f.icon} size={18} color={Colors.primary} />
+              </View>
+              <Text style={styles.featureTitle}>{f.title}</Text>
+              <Text style={styles.featureText}>{f.text}</Text>
+            </View>
+          ))}
         </View>
 
         <Text style={nativeStyles.footer}>
@@ -314,6 +314,11 @@ const nativeStyles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: 22,
     justifyContent: 'space-between',
+  },
+  buttonsContainerTop: {
+    alignSelf: 'center',
+    marginTop: 4,
+    marginBottom: 18,
   },
   tagline: {
     fontFamily: Fonts.sansRegular,
