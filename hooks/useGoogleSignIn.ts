@@ -14,6 +14,14 @@ import {
 WebBrowser.maybeCompleteAuthSession();
 
 const WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+// Fall back to the web client ID if a platform-specific one isn't configured.
+// Google will accept an id_token whose audience is any OAuth client tied to
+// this Firebase project, but the OAuth *request* on Android/iOS is more
+// reliable when it uses a same-type client with the right package/SHA-1.
+const ANDROID_CLIENT_ID =
+  process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || WEB_CLIENT_ID;
+const IOS_CLIENT_ID =
+  process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || WEB_CLIENT_ID;
 
 export function useGoogleSignIn() {
   // Expo's Google provider requires this hook to be called on every render.
@@ -21,8 +29,8 @@ export function useGoogleSignIn() {
   // system-browser OAuth flow that returns via the app's scheme.
   const [request, , promptAsync] = Google.useIdTokenAuthRequest({
     webClientId: WEB_CLIENT_ID,
-    androidClientId: WEB_CLIENT_ID,
-    iosClientId: WEB_CLIENT_ID,
+    androidClientId: ANDROID_CLIENT_ID,
+    iosClientId: IOS_CLIENT_ID,
   });
 
   async function signIn(): Promise<UserCredential> {
