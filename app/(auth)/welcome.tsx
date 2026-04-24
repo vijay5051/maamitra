@@ -163,13 +163,15 @@ function NativeWelcome({
   insets: { top: number; bottom: number; left: number; right: number };
 }) {
   return (
-    <View style={styles.root}>
-      <View
-        style={[
-          nativeStyles.container,
-          { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 20 },
-        ]}
-      >
+    <ScrollView
+      style={styles.root}
+      contentContainerStyle={[
+        nativeStyles.container,
+        { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 20 },
+      ]}
+      showsVerticalScrollIndicator={false}
+      bounces
+    >
         <View style={styles.hero}>
           <Image source={LOGO} style={styles.logoImage} resizeMode="contain" />
           <Text style={styles.wordmark}>MaaMitra</Text>
@@ -209,8 +211,7 @@ function NativeWelcome({
         <Text style={nativeStyles.footer}>
           Protected under India's DPDP Act 2023 · IAP & FOGSI guidelines
         </Text>
-      </View>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -310,7 +311,7 @@ const styles = StyleSheet.create({
 
 const nativeStyles = StyleSheet.create({
   container: {
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: 22,
     justifyContent: 'space-between',
   },
