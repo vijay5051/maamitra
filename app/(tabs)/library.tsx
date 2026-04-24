@@ -1315,14 +1315,16 @@ export default function LibraryScreen() {
     return { filteredProducts: [...recommended, ...others], recommendedCount: recommended.length };
   }, [productCategory, sortMode, dynamicProducts, activeKid]);
 
-  // Key vaccine milestones to show in journey (curated, with friendly labels)
+  // Key vaccine milestones to show in journey (curated, with friendly labels).
+  // Each id points at the first vaccine of that age group in VACCINE_SCHEDULE
+  // so the date we compute matches the group header in the vaccine tracker.
   const JOURNEY_VACCINES: { id: string; label: string; detail: string }[] = [
-    { id: 'v01', label: 'Birth Vaccines', detail: 'BCG, OPV & Hepatitis B — first protection right from the start' },
-    { id: 'v02', label: '6 Weeks Vaccines', detail: 'OPV, Pentavalent, Rotavirus & PCV — primary series begins' },
-    { id: 'v03', label: '10 Weeks Vaccines', detail: 'Second round of OPV, Pentavalent, Rotavirus & PCV' },
-    { id: 'v04', label: '14 Weeks Vaccines', detail: 'Completing the primary series with OPV, Pentavalent & IPV' },
-    { id: 'v06', label: '9 Month Vaccines', detail: 'Measles-Rubella & Japanese Encephalitis protection' },
-    { id: 'v07', label: '15 Month Vaccines', detail: 'Varicella (chickenpox) — first dose' },
+    { id: 'iap-bcg', label: 'Birth Vaccines', detail: 'BCG, OPV-0 & Hepatitis B — first protection right from the start' },
+    { id: 'iap-dtp-1', label: '6 Weeks Vaccines', detail: 'DTP, IPV, Hib, Hep B, Rotavirus & PCV — primary series begins' },
+    { id: 'iap-dtp-2', label: '10 Weeks Vaccines', detail: 'Second round of DTP, IPV, Hib, Hep B, Rotavirus & PCV' },
+    { id: 'iap-dtp-3', label: '14 Weeks Vaccines', detail: 'Completing the primary series' },
+    { id: 'iap-mmr-1', label: '9 Month Vaccines', detail: 'MMR — measles, mumps & rubella protection' },
+    { id: 'iap-mmr-2', label: '15 Month Vaccines', detail: 'MMR-2, Varicella & PCV booster' },
   ];
 
   // Pregnancy timeline milestones (relative to EDD)

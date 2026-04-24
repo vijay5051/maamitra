@@ -34,7 +34,7 @@ interface VaccineItem {
   isCustom?: boolean; // true = admin-added via Firestore
 }
 
-const CATEGORIES = ['Birth Doses', 'Primary Series', 'Booster Doses', 'Optional', 'Catch-up'];
+const CATEGORIES = ['Birth', 'Primary Series', 'Boosters', 'Seasonal', 'Adolescent', 'Optional', 'Catch-up'];
 
 // ─── Form Modal ───────────────────────────────────────────────────────────────
 
@@ -240,9 +240,11 @@ export default function VaccinesScreen() {
   }
 
   const categoryColors: Record<string, string> = {
-    'Birth Doses': Colors.primary,
+    'Birth': Colors.primary,
     'Primary Series': '#8b5cf6',
-    'Booster Doses': '#10b981',
+    'Boosters': '#10b981',
+    'Seasonal': '#0ea5e9',
+    'Adolescent': '#ec4899',
     'Optional': '#f59e0b',
     'Catch-up': '#06b6d4',
   };

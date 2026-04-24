@@ -70,7 +70,7 @@ interface SubTabMeta {
 // differentiation is conveyed by the icon and the section header, not the
 // fill colour.
 const SUB_TABS: SubTabMeta[] = [
-  { key: 'vaccines', label: 'Vaccines',   icon: 'shield-checkmark-outline', description: 'IAP 2024 schedule · due & upcoming', category: 'baby'     },
+  { key: 'vaccines', label: 'Vaccines',   icon: 'shield-checkmark-outline', description: 'IAP 2023 schedule · due & upcoming', category: 'baby'     },
   { key: 'growth',   label: 'Growth',     icon: 'trending-up-outline',      description: 'Weight, height & head circumference', category: 'baby'     },
   { key: 'teeth',    label: 'Teeth',      icon: 'happy-outline',            description: 'Eruption & shedding tracker',         category: 'baby'     },
   { key: 'foods',    label: 'Foods',      icon: 'restaurant-outline',       description: '3-day rule for new foods',             category: 'baby'     },
@@ -247,9 +247,60 @@ const headerStyles = StyleSheet.create({
   },
 });
 
-// ─── Pulsing overdue ring for vaccine timeline dot ─────────────────────────────
+// ─── Vaccine age-group ─────────────────────────────────────────────────────────
+// The 2023 IAP schedule recommends several vaccines at the same visit. In
+// practice parents often split them across different days, so each vaccine
+// is its own row with its own date. Rows are grouped under the age they're
+// recommended at to keep the list scannable.
 
-function OverduePulseRing() {
+type VaccineRow = ReturnType<typeof useVaccineSchedule>[0];
+
+interface VaccineGroup {
+  ageLabel: string;
+  formattedDate: string;
+  items: VaccineRow[];
+  doneCount: number;
+  total: number;
+  status: 'done' | 'overdue' | 'due-soon' | 'upcoming';
+}
+
+function groupVaccinesByAge(rows: VaccineRow[]): VaccineGroup[] {
+  const order: string[] = [];
+  const map = new Map<string, VaccineRow[]>();
+  for (const r of rows) {
+    if (!map.has(r.ageLabel)) {
+      order.push(r.ageLabel);
+      map.set(r.ageLabel, []);
+    }
+    map.get(r.ageLabel)!.push(r);
+  }
+  return order.map((ageLabel) => {
+    const items = map.get(ageLabel)!;
+    const doneCount = items.filter((i) => i.status === 'done').length;
+    const total = items.length;
+    let status: VaccineGroup['status'] = 'upcoming';
+    if (doneCount === total) status = 'done';
+    else if (items.some((i) => i.status === 'overdue')) status = 'overdue';
+    else if (items.some((i) => i.status === 'due-soon')) status = 'due-soon';
+    return {
+      ageLabel,
+      formattedDate: items[0]?.formattedDate ?? '',
+      items,
+      doneCount,
+      total,
+      status,
+    };
+  });
+}
+
+function groupDotColor(status: VaccineGroup['status']): string {
+  if (status === 'done') return SAGE;
+  if (status === 'overdue') return GOLD;
+  if (status === 'due-soon') return Colors.primary;
+  return MIST;
+}
+
+function OverduePulseRing({ color }: { color: string }) {
   const scale = useSharedValue(1);
 
   useEffect(() => {
@@ -265,100 +316,169 @@ function OverduePulseRing() {
 
   const ringStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
-    opacity: interpolate(scale.value, [1.0, 1.5], [0.75, 0]),
+    opacity: interpolate(scale.value, [1.0, 1.5], [0.7, 0]),
   }));
 
   return (
     <Animated.View
-      style={[vStyles.pulseRing, ringStyle]}
+      style={[vStyles.pulseRing, { borderColor: color }, ringStyle]}
       pointerEvents="none"
     />
   );
 }
 
-// ─── Enhanced VaccineCard with premium timeline dots ──────────────────────────
-// Wraps VaccineCardComponent and overlays a premium dot on top of the
-// existing timeline column (position: absolute, top-left of the wrapper).
-
-function PremiumVaccineWrapper({
-  vaccine,
-  isLast,
-}: {
-  vaccine: ReturnType<typeof useVaccineSchedule>[0];
-  isLast: boolean;
-}) {
-  const isOverdue  = vaccine.status === 'overdue';
-  const isDone     = vaccine.status === 'done';
-  const isDueSoon  = vaccine.status === 'due-soon';
-  const isUpcoming = vaccine.status === 'upcoming';
-
-  const dotBg = isDone
-    ? SAGE
-    : isOverdue
-    ? GOLD
-    : isDueSoon
-    ? ROSE
-    : 'transparent';
-
-  const dotBorder = isUpcoming ? MIST : 'transparent';
+function VaccineAgeGroup({ group }: { group: VaccineGroup }) {
+  const [expanded, setExpanded] = useState(
+    group.status === 'overdue' || group.status === 'due-soon' || group.doneCount < group.total,
+  );
+  const dotColor = groupDotColor(group.status);
+  const progressColor =
+    group.status === 'done'
+      ? SAGE
+      : group.status === 'overdue'
+      ? GOLD
+      : group.status === 'due-soon'
+      ? Colors.primary
+      : STONE;
 
   return (
-    // position: relative container so the overlay dot can be absolutely placed
-    <View style={vStyles.wrapper}>
-      {/* VaccineCard renders its own timeline dot at left ~6px, top ~18px */}
-      <VaccineCardComponent vaccine={vaccine} isLast={isLast} />
-
-      {/* Premium dot overlay — sits directly over the original dot */}
-      <View style={vStyles.dotOverlay} pointerEvents="none">
-        {isOverdue && <OverduePulseRing />}
-        <View
-          style={[
-            vStyles.dot,
-            {
-              backgroundColor: dotBg,
-              borderColor: isOverdue ? GOLD : dotBorder,
-              borderWidth: isUpcoming || isOverdue ? 2 : 0,
-            },
-          ]}
-        >
-          {isDone && <Ionicons name="checkmark" size={8} color="#ffffff" />}
+    <View style={vStyles.group}>
+      <TouchableOpacity
+        activeOpacity={0.75}
+        onPress={() => setExpanded((e) => !e)}
+        style={vStyles.groupHeader}
+      >
+        <View style={vStyles.groupDotWrap}>
+          {group.status === 'overdue' && <OverduePulseRing color={dotColor} />}
+          <View
+            style={[
+              vStyles.groupDot,
+              { backgroundColor: dotColor, borderColor: dotColor },
+            ]}
+          >
+            {group.status === 'done' && <Ionicons name="checkmark" size={9} color="#fff" />}
+          </View>
         </View>
-      </View>
+        <View style={{ flex: 1 }}>
+          <Text style={vStyles.groupAge}>{group.ageLabel}</Text>
+          <Text style={vStyles.groupDate}>{group.formattedDate}</Text>
+        </View>
+        <View style={[vStyles.progressChip, { backgroundColor: `${progressColor}15` }]}>
+          <Text style={[vStyles.progressText, { color: progressColor }]}>
+            {group.doneCount}/{group.total}
+          </Text>
+        </View>
+        <Ionicons
+          name={expanded ? 'chevron-up' : 'chevron-down'}
+          size={16}
+          color={STONE}
+          style={{ marginLeft: 6 }}
+        />
+      </TouchableOpacity>
+
+      {expanded && (
+        <View style={vStyles.groupBody}>
+          {group.items.map((v) => (
+            <VaccineCardComponent key={v.id} vaccine={v} />
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+function VaccineSourceFooter() {
+  return (
+    <View style={vStyles.source}>
+      <Ionicons name="document-text-outline" size={14} color={STONE} />
+      <Text style={vStyles.sourceText}>
+        Schedule based on{' '}
+        <Text style={vStyles.sourceEmph}>
+          IAP ACVIP Recommended Immunization Schedule (2023)
+        </Text>
+        , published in{' '}
+        <Text style={vStyles.sourceEmph}>Indian Pediatrics</Text>, Jan 2024 —
+        Rao IS, Kasi SG et al. Always confirm doses with your paediatrician.
+      </Text>
     </View>
   );
 }
 
 const vStyles = StyleSheet.create({
-  wrapper: {
-    position: 'relative',
+  group: {
+    marginBottom: 12,
   },
-  dotOverlay: {
-    position: 'absolute',
-    // VaccineCard timeline column is 24px wide, dot top: paddingTop(14) + centered in dot area
-    // dot is 12px dia at top:14; center = 14 + 6 = 20px. Our 13px dot: top = 14 + 6 - 6 = ~14
-    top: 14,
-    left: 6,
+  groupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  groupDotWrap: {
     width: 14,
     height: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 10,
   },
-  dot: {
-    width: 13,
-    height: 13,
-    borderRadius: 7,
+  groupDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
   pulseRing: {
     position: 'absolute',
-    width: 13,
-    height: 13,
-    borderRadius: 7,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     borderWidth: 2,
-    borderColor: GOLD,
     backgroundColor: 'transparent',
+  },
+  groupAge: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 14,
+    color: INK,
+  },
+  groupDate: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: 11.5,
+    color: STONE,
+    marginTop: 1,
+  },
+  progressChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+  },
+  progressText: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 11,
+    letterSpacing: 0.2,
+  },
+  groupBody: {
+    paddingLeft: 24,
+    paddingTop: 2,
+  },
+  source: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginTop: 8,
+    paddingHorizontal: 4,
+  },
+  sourceText: {
+    flex: 1,
+    fontFamily: Fonts.sansRegular,
+    fontSize: 11,
+    color: STONE,
+    lineHeight: 16,
+  },
+  sourceEmph: {
+    fontFamily: Fonts.sansSemiBold,
+    color: INK,
   },
 });
 
@@ -1169,9 +1289,12 @@ export default function HealthScreen() {
           <>
             <View style={styles.infoBanner}>
               <Text style={styles.infoBannerEmoji}>💉</Text>
-              <Text style={styles.infoBannerText}>
-                Based on IAP 2024 immunisation schedule
-              </Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.infoBannerText}>IAP ACVIP Immunisation Schedule (2023)</Text>
+                <Text style={styles.infoBannerSub}>
+                  Tap each vaccine to log the exact date it was given.
+                </Text>
+              </View>
             </View>
 
             {!activeKid ? (
@@ -1216,13 +1339,12 @@ export default function HealthScreen() {
                 </Text>
               </View>
             ) : (
-              vaccines.map((v, i) => (
-                <PremiumVaccineWrapper
-                  key={v.id}
-                  vaccine={v}
-                  isLast={i === vaccines.length - 1}
-                />
-              ))
+              <>
+                {groupVaccinesByAge(vaccines).map((group) => (
+                  <VaccineAgeGroup key={group.ageLabel} group={group} />
+                ))}
+                <VaccineSourceFooter />
+              </>
             )}
           </>
         )}
@@ -1365,9 +1487,14 @@ const styles = StyleSheet.create({
   infoBannerEmoji: { fontSize: 20 },
   infoBannerText: {
     fontFamily: Fonts.sansSemiBold,
-    flex: 1,
     fontSize: 13,
     color: PLUM,
+  },
+  infoBannerSub: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: 11.5,
+    color: STONE,
+    marginTop: 2,
   },
   noKidCard: { alignItems: 'center', paddingVertical: 32 },
   noKidText: {
