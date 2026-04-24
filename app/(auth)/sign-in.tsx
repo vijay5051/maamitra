@@ -361,24 +361,28 @@ export default function SignInScreen() {
             </Text>
           </View>
 
-          {/* ── Google CTA ── */}
-          <TouchableOpacity
-            style={styles.googleBtn}
-            onPress={handleGoogleSignIn}
-            disabled={googleLoading}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.googleG}>G</Text>
-            <Text style={styles.googleText}>
-              {googleLoading ? 'Signing in…' : 'Continue with Google'}
-            </Text>
-          </TouchableOpacity>
+          {/* ── Google CTA (web only; native uses email until native OAuth ships) ── */}
+          {Platform.OS === 'web' && (
+            <>
+              <TouchableOpacity
+                style={styles.googleBtn}
+                onPress={handleGoogleSignIn}
+                disabled={googleLoading}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.googleG}>G</Text>
+                <Text style={styles.googleText}>
+                  {googleLoading ? 'Signing in…' : 'Continue with Google'}
+                </Text>
+              </TouchableOpacity>
 
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or sign in with email</Text>
-            <View style={styles.dividerLine} />
-          </View>
+              <View style={styles.divider}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>or sign in with email</Text>
+                <View style={styles.dividerLine} />
+              </View>
+            </>
+          )}
 
           {/* ── Animated form ── */}
           <Animated.View style={[styles.form, formAnimStyle]}>

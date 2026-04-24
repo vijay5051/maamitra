@@ -106,10 +106,12 @@ export default function ForgotPasswordScreen() {
                 <Text style={styles.successEmail}>{email.trim()}</Text>, a password-reset link is on its way.
                 It usually arrives within a minute — check the Spam or Promotions folder if you don't see it.
               </Text>
-              <Text style={styles.successHint}>
-                Signed in with Google? There's no password to reset — just use{' '}
-                <Text style={{ fontFamily: Fonts.sansBold }}>Continue with Google</Text> on the sign-in screen.
-              </Text>
+              {Platform.OS === 'web' && (
+                <Text style={styles.successHint}>
+                  Signed in with Google? There's no password to reset — just use{' '}
+                  <Text style={{ fontFamily: Fonts.sansBold }}>Continue with Google</Text> on the sign-in screen.
+                </Text>
+              )}
               <GradientButton title="Back to sign in" onPress={() => router.replace('/(auth)/sign-in')} style={{ marginTop: 16 }} />
               <TouchableOpacity onPress={() => { setSent(false); setEmail(''); }} style={styles.resendBtn} activeOpacity={0.7}>
                 <Text style={styles.resendBtnText}>Send to a different email</Text>
