@@ -29,12 +29,7 @@ import { useProfileStore } from '../../store/useProfileStore';
 import { isAdminEmail } from '../../lib/admin';
 import { Fonts } from '../../constants/theme';
 import GradientButton from '../../components/ui/GradientButton';
-import {
-  auth,
-  signInWithPopup,
-  signInWithRedirect,
-  buildGoogleProvider,
-} from '../../services/firebase';
+import { useGoogleSignIn } from '../../hooks/useGoogleSignIn';
 import { Colors } from '../../constants/theme';
 
 // ─── Animated Field ───────────────────────────────────────────────────────────
@@ -208,6 +203,7 @@ export default function SignInScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { signIn, onGoogleCredential } = useAuthStore();
+  const { signIn: signInWithGoogle, ready: googleReady } = useGoogleSignIn();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -278,21 +274,15 @@ export default function SignInScreen() {
     }
   };
 
-  // iOS Safari: signInWithPopup must run in the same sync task as the user
-  // gesture. Keep this handler non-async.
+  // Web: signInWithPopup must run in the same sync task as the user gesture —
+  // the hook handles that. Native: Expo's AuthSession opens a system browser
+  // and returns an ID token we exchange via Firebase signInWithCredential.
   const handleGoogleSignIn = () => {
-    if (!auth) {
-      setApiError('Authentication is not configured.');
-      return;
-    }
     setGoogleLoading(true);
     setApiError('');
-    const provider = buildGoogleProvider();
-
-    signInWithPopup(auth, provider)
+    signInWithGoogle()
       .then(async (credential) => {
         const destination = await onGoogleCredential(credential);
-        // Admin email → admin dashboard, regardless of onboarding state.
         if (isAdminEmail(credential.user.email)) {
           router.replace('/admin');
           return;
@@ -305,18 +295,7 @@ export default function SignInScreen() {
         const code = e?.code ?? '';
         if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
           setApiError('Sign-in window closed before completing. Please try again.');
-          triggerShake();
-          return;
-        }
-        if (code === 'auth/popup-blocked') {
-          setApiError('Popup blocked — redirecting to Google…');
-          signInWithRedirect(auth!, provider).catch((redirectErr: any) => {
-            setApiError(redirectErr?.message ?? 'Redirect sign-in failed.');
-            triggerShake();
-          });
-          return;
-        }
-        if (code === 'auth/unauthorized-domain') {
+        } else if (code === 'auth/unauthorized-domain') {
           setApiError('This domain is not authorized for Google sign-in.');
         } else if (code === 'auth/network-request-failed') {
           setApiError('No internet connection. Please try again.');
@@ -361,28 +340,24 @@ export default function SignInScreen() {
             </Text>
           </View>
 
-          {/* ── Google CTA (web only; native uses email until native OAuth ships) ── */}
-          {Platform.OS === 'web' && (
-            <>
-              <TouchableOpacity
-                style={styles.googleBtn}
-                onPress={handleGoogleSignIn}
-                disabled={googleLoading}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.googleG}>G</Text>
-                <Text style={styles.googleText}>
-                  {googleLoading ? 'Signing in…' : 'Continue with Google'}
-                </Text>
-              </TouchableOpacity>
+          {/* ── Google CTA ── */}
+          <TouchableOpacity
+            style={styles.googleBtn}
+            onPress={handleGoogleSignIn}
+            disabled={googleLoading || !googleReady}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.googleG}>G</Text>
+            <Text style={styles.googleText}>
+              {googleLoading ? 'Signing in…' : 'Continue with Google'}
+            </Text>
+          </TouchableOpacity>
 
-              <View style={styles.divider}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>or sign in with email</Text>
-                <View style={styles.dividerLine} />
-              </View>
-            </>
-          )}
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or sign in with email</Text>
+            <View style={styles.dividerLine} />
+          </View>
 
           {/* ── Animated form ── */}
           <Animated.View style={[styles.form, formAnimStyle]}>

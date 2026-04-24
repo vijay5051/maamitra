@@ -28,12 +28,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { isAdminEmail } from '../../lib/admin';
 import { Fonts } from '../../constants/theme';
 import GradientButton from '../../components/ui/GradientButton';
-import {
-  auth,
-  signInWithPopup,
-  signInWithRedirect,
-  buildGoogleProvider,
-} from '../../services/firebase';
+import { useGoogleSignIn } from '../../hooks/useGoogleSignIn';
 import { Colors } from '../../constants/theme';
 
 // ─── Password strength (tonal, not rainbow) ──────────────────────────────────
@@ -265,6 +260,7 @@ export default function SignUpScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { signUp, onGoogleCredential } = useAuthStore();
+  const { signIn: signInWithGoogle, ready: googleReady } = useGoogleSignIn();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -323,18 +319,10 @@ export default function SignUpScreen() {
     }
   };
 
-  // iOS Safari: signInWithPopup must run in the same sync task as the user
-  // gesture. Keep this handler non-async.
   const handleGoogleSignIn = () => {
-    if (!auth) {
-      setApiError('Authentication is not configured.');
-      return;
-    }
     setGoogleLoading(true);
     setApiError('');
-    const provider = buildGoogleProvider();
-
-    signInWithPopup(auth, provider)
+    signInWithGoogle()
       .then(async (credential) => {
         const destination = await onGoogleCredential(credential);
         if (isAdminEmail(credential.user.email)) {
@@ -349,18 +337,7 @@ export default function SignUpScreen() {
         const code = e?.code ?? '';
         if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
           setApiError('Sign-in window closed before completing. Please try again.');
-          triggerShake();
-          return;
-        }
-        if (code === 'auth/popup-blocked') {
-          setApiError('Popup blocked — redirecting to Google…');
-          signInWithRedirect(auth!, provider).catch((redirectErr: any) => {
-            setApiError(redirectErr?.message ?? 'Redirect sign-in failed.');
-            triggerShake();
-          });
-          return;
-        }
-        if (code === 'auth/unauthorized-domain') {
+        } else if (code === 'auth/unauthorized-domain') {
           setApiError('This domain is not authorized for Google sign-in.');
         } else if (code === 'auth/network-request-failed') {
           setApiError('No internet connection. Please try again.');
@@ -403,28 +380,23 @@ export default function SignUpScreen() {
             </Text>
           </View>
 
-          {/* ── Google CTA (web only; native uses email until native OAuth ships) ── */}
-          {Platform.OS === 'web' && (
-            <>
-              <TouchableOpacity
-                style={styles.googleBtn}
-                onPress={handleGoogleSignIn}
-                disabled={googleLoading}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.googleG}>G</Text>
-                <Text style={styles.googleText}>
-                  {googleLoading ? 'Signing in…' : 'Continue with Google'}
-                </Text>
-              </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.googleBtn}
+            onPress={handleGoogleSignIn}
+            disabled={googleLoading || !googleReady}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.googleG}>G</Text>
+            <Text style={styles.googleText}>
+              {googleLoading ? 'Signing in…' : 'Continue with Google'}
+            </Text>
+          </TouchableOpacity>
 
-              <View style={styles.divider}>
-                <View style={styles.dividerLine} />
-                <Text style={styles.dividerText}>or sign up with email</Text>
-                <View style={styles.dividerLine} />
-              </View>
-            </>
-          )}
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or sign up with email</Text>
+            <View style={styles.dividerLine} />
+          </View>
 
           <Animated.View style={[styles.form, formAnimStyle]}>
             <AnimatedField

@@ -12,6 +12,7 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
   signInWithRedirect,
+  signInWithCredential,
   getRedirectResult,
   UserCredential,
   sendEmailVerification,
@@ -388,7 +389,7 @@ export async function syncAllergies(uid: string, allergies: string[]): Promise<v
 // synchronously, from the click handler. We expose the primitives and a
 // `finaliseGoogleSignIn(result)` helper that runs AFTER the popup resolves.
 
-export { signInWithPopup, signInWithRedirect, GoogleAuthProvider };
+export { signInWithPopup, signInWithRedirect, signInWithCredential, GoogleAuthProvider };
 
 /** Build a preconfigured Google provider. Safe to call synchronously. */
 export function buildGoogleProvider(): GoogleAuthProvider {
