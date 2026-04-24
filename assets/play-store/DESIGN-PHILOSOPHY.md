@@ -1,0 +1,13 @@
+# Cradle Geometry
+
+A visual philosophy for work that must feel held — like a child in the crook of an arm, like a thought cupped in two hands. The form is quiet geometry: nothing loud, nothing improvised, nothing accidental. Every line placed as though by someone who has placed this line ten thousand times before, and knows which millimetre matters. The product of deep expertise, the kind that disappears into the work until only composure remains.
+
+The left is night — a slow gradient from deep plum to magenta-plum, carrying the weight of 2 a.m. questions, the hours when motherhood is most alone. The right is day — lilac, breath, open palm. The seam between them is not a hard edge but a gentle slope, the angle of a shoulder turned toward a baby, the way warmth meets warmth. No corner is where it happens to be; each is the result of painstaking attention, the measured restraint of a practitioner who removes every element that does not earn its place.
+
+Typography is whispered, never shouted. A serif wordmark sits with the composure of a signature at the bottom of a long letter — serifs doing the quiet work of authority. The tagline follows in a soft, modern sans, the voice of someone speaking in the next room. Three small pills sit beneath like river stones, each labeled with one word, each holding one idea. Nothing is overdressed. The text is placed with the care of a stonecutter who knows that the spaces between letters do more work than the letters themselves.
+
+The right side holds a single figure — a rounded form in brand purple, a circle within a circle, suggesting a head and an arm, the oldest geometry we know. It is not rendered. It is not modeled. It is almost a glyph, almost a prayer, drawn with the minimum of lines needed to say *held*. Around it, lilac air. Around that, margin. The object breathes. The eye breathes. Nothing hurries.
+
+Colour is the medium through which feeling is transmitted. The plum carries gravitas without gloom; the lilac carries softness without sentimentality; the single stroke of brand purple carries the identity without pleading for it. These are the chosen few; no other colour is permitted entry. The palette is a closed room, and everything inside it was placed by hand, labored over, checked and rechecked by someone at the top of their craft.
+
+The final image is not a poster. It is not an advertisement. It is an artifact of care — a small, rectangular object that behaves, on second glance, like something a master has set down quietly on a table and walked away from, confident that what remains is exactly what was intended. Meticulously crafted, patiently composed, executed with the kind of restraint that only comes from countless hours of refinement.
