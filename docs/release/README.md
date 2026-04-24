@@ -5,11 +5,25 @@ future-you (or any collaborator) can do this without thinking.
 
 ---
 
-## One-time setup (already done — reference only)
+## ⚠️ Current state (2026-04-24)
+
+**`eas submit` for Android is NOT yet set up**, because Play Console's **API access** page is hidden for new personal developer accounts until production access is granted. Until that unlocks (~3–4 weeks after our first closed test):
+
+- **Android releases**: GitHub Actions build → **manual** AAB upload to Play Console → Internal testing rollout. ~25 min total per release.
+- **OTA updates** (JS-only fixes): work today — `npm run update` pushes to the `production` channel and installed users get the fix on next cold start.
+- **iOS**: not yet set up (no Apple Developer account).
+
+When Play Console starts showing the **Setup → API access** section, come back and do the "Google Play Store service account" one-time setup below. From then on, `npm run submit:android` works.
+
+---
+
+## One-time setup (DO LATER — after production access is granted)
 
 ### Google Play Store service account
 
 Lives at repo root as `google-service-account.json` (gitignored).
+
+**Prerequisite**: Play Console → Settings must show an **API access** item. If it doesn't, your account doesn't have production access yet — keep shipping via manual upload for now.
 
 If it ever gets lost / needs regenerating:
 
@@ -50,8 +64,12 @@ open https://github.com/vijay5051/maamitra/actions/workflows/build-mobile.yml
 #    Click "Run workflow" → platform: android → Run
 #    Wait ~20 min. You'll see it go green in the Actions tab.
 
-# 4. Submit to Play Store — one command, uploads AAB + mapping file to
-#    the Internal testing track
+# 4a. [Until API access is available] Download AAB from expo.dev → manual
+#     upload via Play Console → Testing → Internal testing → Create release.
+#     https://expo.dev/accounts/rockingvsr/projects/maamitra/builds
+#
+# 4b. [Once API access is available] Submit to Play Store — one command,
+#     uploads AAB + mapping file to the Internal testing track
 npm run submit:android
 
 # 5. (Optional) push an OTA update to users who already have the app
