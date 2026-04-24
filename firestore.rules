@@ -23,7 +23,8 @@ service cloud.firestore {
         request.auth.token.admin == true ||
         (request.auth.token.email_verified == true && (
           request.auth.token.email == 'admin@maamitra.app' ||
-          request.auth.token.email == 'vijay@maamitra.app'
+          request.auth.token.email == 'vijay@maamitra.app' ||
+          request.auth.token.email == 'rocking.vsr@gmail.com'
         ))
       );
     }
