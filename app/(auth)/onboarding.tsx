@@ -161,7 +161,7 @@ export default function OnboardingScreen() {
   useEffect(() => {
     if (!onboardingComplete) return;
     const phone = useProfileStore.getState().phone;
-    router.replace(phone ? '/(tabs)/' : '/(auth)/phone');
+    router.replace(phone ? '/(tabs)' : '/(auth)/phone');
   }, [onboardingComplete]);
 
   // ── Derived copy ──
@@ -300,7 +300,7 @@ export default function OnboardingScreen() {
       }
 
       const phone = useProfileStore.getState().phone;
-      router.replace(phone ? '/(tabs)/' : '/(auth)/phone');
+      router.replace(phone ? '/(tabs)' : '/(auth)/phone');
     } catch (err: any) {
       Alert.alert('Could not save', err?.message ?? 'Please try again.');
     } finally {

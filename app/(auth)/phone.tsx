@@ -128,7 +128,7 @@ export default function PhoneScreen() {
       console.error('saveUserProfile(phone) failed:', e);
     }
     const onboardingComplete = useProfileStore.getState().onboardingComplete;
-    router.replace(onboardingComplete ? '/(tabs)/' : '/(auth)/onboarding');
+    router.replace(onboardingComplete ? '/(tabs)' : '/(auth)/onboarding');
   };
 
   const handleChangeDigits = (text: string) => {

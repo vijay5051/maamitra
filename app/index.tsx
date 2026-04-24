@@ -19,5 +19,5 @@ export default function Index() {
   if (isAdminEmail(user?.email)) return <Redirect href="/admin" />;
   if (!onboardingComplete) return <Redirect href="/(auth)/onboarding" />;
   // Home is now the AI-hero landing. Chat remains available via the center FAB.
-  return <Redirect href="/(tabs)/" />;
+  return <Redirect href="/(tabs)" />;
 }

@@ -341,7 +341,7 @@ export default function SignUpScreen() {
           router.replace('/admin');
           return;
         }
-        if (destination === 'tabs') router.replace('/(tabs)/');
+        if (destination === 'tabs') router.replace('/(tabs)');
         else if (destination === 'phone') router.replace('/(auth)/phone');
         else router.replace('/(auth)/onboarding');
       })

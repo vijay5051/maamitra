@@ -245,7 +245,7 @@ export default function SignInScreen() {
     const { onboardingComplete, phone } = useProfileStore.getState();
     if (!onboardingComplete) router.replace('/(auth)/onboarding');
     else if (!phone) router.replace('/(auth)/phone');
-    else router.replace('/(tabs)/');
+    else router.replace('/(tabs)');
   };
 
   const handleSubmit = async () => {
@@ -297,7 +297,7 @@ export default function SignInScreen() {
           router.replace('/admin');
           return;
         }
-        if (destination === 'tabs') router.replace('/(tabs)/');
+        if (destination === 'tabs') router.replace('/(tabs)');
         else if (destination === 'phone') router.replace('/(auth)/phone');
         else router.replace('/(auth)/onboarding');
       })
