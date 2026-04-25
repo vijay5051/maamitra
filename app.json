@@ -29,7 +29,7 @@
         "backgroundColor": "#fdf6ff"
       },
       "package": "in.maamitra.app",
-      "versionCode": 5
+      "versionCode": 6
     },
     "web": {
       "favicon": "./assets/favicon.png",
