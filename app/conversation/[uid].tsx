@@ -276,15 +276,10 @@ export default function ConversationScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header */}
-      <LinearGradient
-        colors={['#1C1033', '#3b1060', '#6d1a7a']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.header}
-      >
+      {/* Header — light theme, consistent with the rest of the app */}
+      <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={22} color="rgba(255,255,255,0.9)" />
+          <Ionicons name="arrow-back" size={22} color={Colors.primary} />
         </TouchableOpacity>
         <View style={styles.headerProfile}>
           {otherPhoto ? (
@@ -292,14 +287,14 @@ export default function ConversationScreen() {
           ) : (
             <GradientAvatar name={otherName} size={38} />
           )}
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={styles.headerName} numberOfLines={1}>{otherName}</Text>
             {profile?.badge ? (
               <Text style={styles.headerBadge} numberOfLines={1}>{profile.badge}</Text>
             ) : null}
           </View>
         </View>
-      </LinearGradient>
+      </View>
 
       {/* Messages */}
       <KeyboardAvoidingView
@@ -431,19 +426,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 14,
     gap: 10,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0EDF5',
   },
   backBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: '#F5F0FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerProfile: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
   headerAvatar: { width: 38, height: 38, borderRadius: 19 },
-  headerName: { fontFamily: Fonts.sansBold, fontSize: 16, color: '#ffffff' },
-  headerBadge: { fontFamily: Fonts.sansRegular, fontSize: 12, color: 'rgba(255,255,255,0.6)' },
+  headerName: { fontFamily: Fonts.sansBold, fontSize: 16, color: '#1C1033' },
+  headerBadge: { fontFamily: Fonts.sansRegular, fontSize: 12, color: '#9ca3af' },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 },
   emptyEmoji: { fontSize: 48 },
   emptyTitle: { fontFamily: Fonts.sansSemiBold, fontSize: 17, color: '#1C1033' },

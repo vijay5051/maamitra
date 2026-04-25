@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 import {
   FlatList,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -393,10 +394,16 @@ export default function ChatScreen() {
         <View style={styles.glowBottomLeft} pointerEvents="none" />
 
         <View style={styles.headerInner}>
-          {/* Left: Avatar + info */}
+          {/* Left: Logo + info */}
           <View style={styles.headerLeft}>
             <View style={styles.avatarWrap}>
-              <GradientAvatar emoji="🤱" size={40} />
+              <View style={styles.logoCircle}>
+                <Image
+                  source={require('../../assets/logo.png')}
+                  style={styles.logoImg}
+                  resizeMode="contain"
+                />
+              </View>
               <View style={styles.onlineDot} />
             </View>
             <View style={styles.headerInfo}>
@@ -421,14 +428,14 @@ export default function ChatScreen() {
               style={styles.gearBtn}
               activeOpacity={0.7}
             >
-              <Ionicons name="time-outline" size={20} color="rgba(255,255,255,0.7)" />
+              <Ionicons name="time-outline" size={20} color={Colors.primary} />
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setSettingsVisible(true)}
               style={styles.gearBtn}
               activeOpacity={0.7}
             >
-              <Ionicons name="settings-outline" size={20} color="rgba(255,255,255,0.7)" />
+              <Ionicons name="settings-outline" size={20} color={Colors.primary} />
             </TouchableOpacity>
           </View>
         </View>
@@ -559,11 +566,26 @@ const styles = StyleSheet.create({
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
 
   avatarWrap: { position: 'relative' },
+  logoCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#F0EDF5',
+    overflow: 'hidden',
+  },
+  logoImg: {
+    width: 30,
+    height: 30,
+  },
   onlineDot: {
     position: 'absolute', bottom: 1, right: 1,
     width: 10, height: 10, borderRadius: 5,
     backgroundColor: '#22c55e',
-    borderWidth: 2, borderColor: '#1C1033',
+    borderWidth: 2, borderColor: '#ffffff',
   },
 
   headerInfo: {},
@@ -571,7 +593,7 @@ const styles = StyleSheet.create({
   headerName: {
     fontFamily: Fonts.serif,
     fontSize: 20,
-    color: '#ffffff',
+    color: '#1C1033',
     letterSpacing: -0.3,
   },
   headerSub: {
@@ -582,22 +604,22 @@ const styles = StyleSheet.create({
   },
 
   kidPill: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: '#F5F0FF',
     borderRadius: 20,
     paddingVertical: 5,
     paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: '#E5DAF5',
   },
   kidPillText: {
     fontFamily: Fonts.sansSemiBold,
-    color: 'rgba(255,255,255,0.9)',
+    color: Colors.primary,
     fontSize: 12,
   },
   gearBtn: {
     width: 34, height: 34, borderRadius: 17,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: '#F5F0FF',
+    borderWidth: 1, borderColor: '#E5DAF5',
     alignItems: 'center', justifyContent: 'center',
   },
 

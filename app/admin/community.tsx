@@ -22,12 +22,15 @@ type FilterTab = 'all' | 'pending' | 'approved';
 
 interface CommunityPost {
   id: string;
+  authorUid: string;
   author: string;
   authorEmail?: string;
   text: string;
   topic: string;
   createdAt: string;
   approved: boolean;
+  hidden: boolean;
+  hiddenReason?: string;
 }
 
 // ─── Status Badge ─────────────────────────────────────────────────────────────
@@ -49,12 +52,14 @@ function PostCard({
   post,
   onApprove,
   onDelete,
-  onEdit,
+  onHide,
+  onUnhide,
 }: {
   post: CommunityPost;
   onApprove: () => void;
   onDelete: () => void;
-  onEdit: () => void;
+  onHide: () => void;
+  onUnhide: () => void;
 }) {
   const dateStr = post.createdAt
     ? new Date(post.createdAt).toLocaleDateString('en-IN', {
@@ -103,92 +108,143 @@ function PostCard({
             <Text style={styles.approveBtnText}>Approve</Text>
           </TouchableOpacity>
         )}
-        {post.approved && (
+        {post.approved && !post.hidden && (
           <View style={styles.approvedTag}>
             <Ionicons name="checkmark-circle" size={14} color="#10b981" />
             <Text style={styles.approvedTagText}>Live</Text>
           </View>
         )}
-        <TouchableOpacity style={styles.editBtn} onPress={onEdit} activeOpacity={0.8}>
-          <Ionicons name="pencil" size={14} color="#8b5cf6" />
-          <Text style={styles.editBtnText}>Edit</Text>
-        </TouchableOpacity>
+        {post.hidden ? (
+          <TouchableOpacity style={styles.editBtn} onPress={onUnhide} activeOpacity={0.8}>
+            <Ionicons name="eye-outline" size={14} color="#8b5cf6" />
+            <Text style={styles.editBtnText}>Unhide</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={styles.editBtn} onPress={onHide} activeOpacity={0.8}>
+            <Ionicons name="eye-off-outline" size={14} color="#8b5cf6" />
+            <Text style={styles.editBtnText}>Hide</Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity style={styles.deleteBtn} onPress={onDelete} activeOpacity={0.8}>
           <Ionicons name="trash" size={14} color="#fff" />
           <Text style={styles.deleteBtnText}>Delete</Text>
         </TouchableOpacity>
       </View>
+      {post.hidden && post.hiddenReason ? (
+        <View style={styles.hiddenBanner}>
+          <Ionicons name="shield-outline" size={12} color="#92400e" />
+          <Text style={styles.hiddenBannerText} numberOfLines={2}>
+            Hidden — {post.hiddenReason}
+          </Text>
+        </View>
+      ) : null}
     </View>
   );
 }
 
-// ─── Edit Post Modal ──────────────────────────────────────────────────────────
+// ─── Hide Post Modal ─────────────────────────────────────────────────────────
+// Admins cannot rewrite a user's words (privacy). Instead, they can hide
+// off-topic / spammy posts and tell the author which community guideline was
+// breached.
 
-function EditPostModal({
+const HIDE_REASONS = [
+  'Spam or repetitive promotion',
+  'Off-topic or unrelated to parenting',
+  'Disrespectful or hurtful language',
+  'Misinformation about health or medical advice',
+  'Personal information or contact details shared',
+  'Other (see message)',
+];
+
+function HidePostModal({
   post,
   visible,
   onClose,
-  onSave,
+  onConfirm,
 }: {
   post: CommunityPost | null;
   visible: boolean;
   onClose: () => void;
-  onSave: (updated: Partial<CommunityPost>) => Promise<void>;
+  onConfirm: (reason: string) => Promise<void>;
 }) {
-  const [text, setText] = useState('');
-  const [topic, setTopic] = useState('');
-  const [saving, setSaving] = useState(false);
-  const TOPICS = ['Newborn', 'Pregnancy', 'Nutrition', 'Sleep', 'Mental Health', 'Milestones', 'Products', 'General'];
+  const [preset, setPreset] = useState<string>(HIDE_REASONS[0]);
+  const [extra, setExtra] = useState('');
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    setText(post?.text ?? '');
-    setTopic(post?.topic ?? '');
-  }, [post, visible]);
+    if (!visible) return;
+    setPreset(HIDE_REASONS[0]);
+    setExtra('');
+    setBusy(false);
+  }, [visible]);
 
-  async function handleSave() {
-    if (!text.trim()) return;
-    setSaving(true);
-    await onSave({ text: text.trim(), topic });
-    setSaving(false);
+  async function handleConfirm() {
+    const reason = extra.trim()
+      ? `${preset}. ${extra.trim()}`
+      : preset;
+    setBusy(true);
+    try {
+      await onConfirm(reason);
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={editStyles.header}>
-          <TouchableOpacity onPress={onClose} style={{ padding: 4 }}>
+          <TouchableOpacity onPress={onClose} style={{ padding: 4 }} disabled={busy}>
             <Ionicons name="close" size={22} color="#6b7280" />
           </TouchableOpacity>
-          <Text style={editStyles.title}>Edit Post</Text>
+          <Text style={editStyles.title}>Hide Post</Text>
           <TouchableOpacity
-            style={[editStyles.saveBtn, !text.trim() && { opacity: 0.4 }]}
-            onPress={handleSave} disabled={!text.trim() || saving} activeOpacity={0.85}
+            style={[editStyles.saveBtn, busy && { opacity: 0.4 }]}
+            onPress={handleConfirm}
+            disabled={busy}
+            activeOpacity={0.85}
           >
-            {saving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={editStyles.saveBtnText}>Save</Text>}
+            {busy ? <ActivityIndicator size="small" color="#fff" /> : <Text style={editStyles.saveBtnText}>Hide</Text>}
           </TouchableOpacity>
         </View>
         <ScrollView contentContainerStyle={editStyles.body} keyboardShouldPersistTaps="handled">
-          <Text style={editStyles.label}>Post Content</Text>
+          <Text style={editStyles.label}>Author</Text>
+          <Text style={[editStyles.input, { paddingVertical: 10 }]} numberOfLines={1}>
+            {post?.author ?? ''}
+          </Text>
+          <Text style={editStyles.label}>Post excerpt</Text>
+          <Text style={[editStyles.input, editStyles.textArea]} numberOfLines={4}>
+            {post?.text ?? ''}
+          </Text>
+          <Text style={editStyles.label}>Community guideline breached</Text>
+          {HIDE_REASONS.map((r) => (
+            <TouchableOpacity
+              key={r}
+              style={[editStyles.reasonRow, r === preset && editStyles.reasonRowActive]}
+              onPress={() => setPreset(r)}
+              activeOpacity={0.75}
+            >
+              <Ionicons
+                name={r === preset ? 'radio-button-on' : 'radio-button-off'}
+                size={16}
+                color={r === preset ? Colors.primary : '#9ca3af'}
+              />
+              <Text style={[editStyles.reasonText, r === preset && editStyles.reasonTextActive]}>{r}</Text>
+            </TouchableOpacity>
+          ))}
+          <Text style={editStyles.label}>Additional note (optional)</Text>
           <TextInput
             style={[editStyles.input, editStyles.textArea]}
-            value={text}
-            onChangeText={setText}
+            value={extra}
+            onChangeText={setExtra}
             multiline
-            placeholder="Post content…"
+            placeholder="Anything else the author should know…"
             placeholderTextColor="#9ca3af"
           />
-          <Text style={editStyles.label}>Topic</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
-            {TOPICS.map((t) => (
-              <TouchableOpacity
-                key={t}
-                style={[editStyles.chip, t === topic && editStyles.chipActive]}
-                onPress={() => setTopic(t)}
-              >
-                <Text style={[editStyles.chipText, t === topic && editStyles.chipTextActive]}>{t}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+          <Text style={editStyles.helper}>
+            The author will receive a notification with the reason. The post is hidden from
+            the public feed but kept on file.
+          </Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </Modal>
@@ -208,6 +264,11 @@ const editStyles = StyleSheet.create({
   chipActive: { backgroundColor: '#ede9fe', borderWidth: 1, borderColor: '#8b5cf6' },
   chipText: { fontSize: 13, color: '#6b7280', fontWeight: '600' },
   chipTextActive: { color: Colors.primary, fontWeight: '700' },
+  reasonRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, borderColor: '#e5e7eb', backgroundColor: '#f9fafb', marginBottom: 8 },
+  reasonRowActive: { borderColor: Colors.primary, backgroundColor: '#F5F0FF' },
+  reasonText: { flex: 1, fontSize: 14, color: '#1a1a2e' },
+  reasonTextActive: { color: Colors.primary, fontWeight: '700' },
+  helper: { fontSize: 12, color: '#6b7280', marginTop: 12, lineHeight: 17 },
 });
 
 // ─── Filter Tab ───────────────────────────────────────────────────────────────
@@ -244,8 +305,8 @@ export default function AdminCommunity() {
   const [filter, setFilter] = useState<FilterTab>('all');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [editingPost, setEditingPost] = useState<CommunityPost | null>(null);
-  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [hidingPost, setHidingPost] = useState<CommunityPost | null>(null);
+  const [hideModalVisible, setHideModalVisible] = useState(false);
 
   useEffect(() => {
     loadPosts();
@@ -257,17 +318,22 @@ export default function AdminCommunity() {
     try {
       // Use the ACTIVE communityPosts collection (social.ts), NOT the legacy community_posts
       const { fetchRecentPosts } = await import('../../services/social');
-      const { posts: data } = await fetchRecentPosts(100);
+      // Admin queue includes hidden posts so we can review / unhide them.
+      const { posts: data } = await fetchRecentPosts(100, undefined, { includeHidden: true });
       setPosts(data.map((p: any) => ({
         id: p.id,
+        authorUid: p.authorUid ?? '',
         author: p.authorName ?? '',
         authorEmail: '',
         text: p.text ?? '',
         topic: p.topic ?? '',
         createdAt: p.createdAt instanceof Date ? p.createdAt.toISOString() : String(p.createdAt ?? ''),
         approved: true, // All posts in communityPosts are approved at write time
+        hidden: p.hidden === true,
+        hiddenReason: p.hiddenReason ?? '',
       })));
-    } catch {
+    } catch (err) {
+      console.error('admin loadPosts failed:', err);
       setPosts([]);
     } finally {
       setLoading(false);
@@ -280,22 +346,51 @@ export default function AdminCommunity() {
       const { approveCommunityPost } = await import('../../services/firebase');
       await approveCommunityPost(post.id);
       setPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p, approved: true } : p)));
-    } catch {
-      Alert.alert('Error', 'Failed to approve post.');
+    } catch (err: any) {
+      Alert.alert('Approve failed', err?.message ?? String(err));
     }
   }
 
-  async function handleEditSave(updated: Partial<CommunityPost>) {
-    if (!editingPost) return;
+  function openHideModal(post: CommunityPost) {
+    setHidingPost(post);
+    setHideModalVisible(true);
+  }
+
+  async function handleHideConfirm(reason: string) {
+    if (!hidingPost) return;
     try {
-      // Use the ACTIVE communityPosts collection
-      const { updateContent } = await import('../../services/firebase');
-      await updateContent('communityPosts', editingPost.id, updated);
-      setPosts((prev) => prev.map((p) => p.id === editingPost.id ? { ...p, ...updated } : p));
-      setEditModalVisible(false);
-      setEditingPost(null);
-    } catch {
-      Alert.alert('Error', 'Failed to update post.');
+      const { hidePost } = await import('../../services/social');
+      const { useAuthStore } = await import('../../store/useAuthStore');
+      const { useProfileStore } = await import('../../store/useProfileStore');
+      const auth = useAuthStore.getState();
+      const profile = useProfileStore.getState();
+      if (!auth.user?.uid) throw new Error('Admin not signed in');
+      await hidePost(
+        hidingPost.id,
+        reason,
+        { uid: auth.user.uid, name: auth.user.name || profile.motherName || 'Moderator', photoUrl: profile.photoUrl || undefined },
+        hidingPost.authorUid,
+        hidingPost.text,
+      );
+      setPosts((prev) => prev.map((p) =>
+        p.id === hidingPost.id ? { ...p, hidden: true, hiddenReason: reason } : p,
+      ));
+      setHideModalVisible(false);
+      setHidingPost(null);
+    } catch (err: any) {
+      Alert.alert('Hide failed', err?.message ?? String(err));
+    }
+  }
+
+  async function handleUnhide(post: CommunityPost) {
+    try {
+      const { unhidePost } = await import('../../services/social');
+      await unhidePost(post.id);
+      setPosts((prev) => prev.map((p) =>
+        p.id === post.id ? { ...p, hidden: false, hiddenReason: '' } : p,
+      ));
+    } catch (err: any) {
+      Alert.alert('Unhide failed', err?.message ?? String(err));
     }
   }
 
@@ -310,12 +405,14 @@ export default function AdminCommunity() {
           style: 'destructive',
           onPress: async () => {
             try {
-              // Use the ACTIVE communityPosts collection (social.ts)
               const { deletePost } = await import('../../services/social');
               await deletePost(post.id);
               setPosts((prev) => prev.filter((p) => p.id !== post.id));
-            } catch {
-              Alert.alert('Error', 'Failed to delete post.');
+            } catch (err: any) {
+              // Surface the real Firestore error so we can see permission /
+              // network failures instead of a generic toast.
+              const code = err?.code ? `${err.code}\n\n` : '';
+              Alert.alert('Delete failed', `${code}${err?.message ?? String(err)}`);
             }
           },
         },
@@ -396,7 +493,8 @@ export default function AdminCommunity() {
                 post={post}
                 onApprove={() => handleApprove(post)}
                 onDelete={() => handleDelete(post)}
-                onEdit={() => { setEditingPost(post); setEditModalVisible(true); }}
+                onHide={() => openHideModal(post)}
+                onUnhide={() => handleUnhide(post)}
               />
             ))
           )}
@@ -404,11 +502,11 @@ export default function AdminCommunity() {
         </ScrollView>
       )}
 
-      <EditPostModal
-        post={editingPost}
-        visible={editModalVisible}
-        onClose={() => { setEditModalVisible(false); setEditingPost(null); }}
-        onSave={handleEditSave}
+      <HidePostModal
+        post={hidingPost}
+        visible={hideModalVisible}
+        onClose={() => { setHideModalVisible(false); setHidingPost(null); }}
+        onConfirm={handleHideConfirm}
       />
     </View>
   );
@@ -552,4 +650,10 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(139,92,246,0.2)',
   },
   editBtnText: { color: '#8b5cf6', fontSize: 13, fontWeight: '700' },
+  hiddenBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    marginTop: 10, paddingHorizontal: 10, paddingVertical: 7,
+    borderRadius: 8, backgroundColor: '#FEF3C7', borderWidth: 1, borderColor: '#FDE68A',
+  },
+  hiddenBannerText: { flex: 1, fontSize: 12, color: '#92400e', fontWeight: '600' },
 });

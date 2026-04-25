@@ -57,6 +57,9 @@ export interface CommunityPost {
   commentCount: number;
   /** Snapshot: was author's "followers-only" setting on at post time? */
   authorFollowersOnly?: boolean;
+  /** Set by an admin via hidePost(). Hidden posts are skipped in the feed. */
+  hidden?: boolean;
+  hiddenReason?: string;
   createdAt: Date;
 }
 
@@ -87,7 +90,7 @@ export interface FollowRequest {
   createdAt: Date;
 }
 
-export type NotifType = 'reaction' | 'comment' | 'follow_request' | 'follow_accepted' | 'message';
+export type NotifType = 'reaction' | 'comment' | 'follow_request' | 'follow_accepted' | 'message' | 'moderation';
 
 export interface AppNotification {
   id: string;
@@ -168,14 +171,75 @@ export async function updatePost(
 export async function deletePost(postId: string): Promise<void> {
   if (!db) return;
   try {
-    // Delete all comments in the subcollection first
+    // Two-phase delete: comments are deleted in their own batch first, then
+    // the post itself. This used to be a single atomic batch, but Firestore
+    // rules evaluate each comment-delete with a `get()` of the parent post —
+    // which fails partway through a batch where the parent is queued for
+    // deletion in the same write. Splitting the writes keeps the parent
+    // present (and rule-evaluable) while the comment deletes resolve.
     const commentsSnap = await getDocs(collection(db, 'communityPosts', postId, 'comments'));
-    const batch = writeBatch(db);
-    commentsSnap.docs.forEach((d) => batch.delete(d.ref));
-    batch.delete(doc(db, 'communityPosts', postId));
-    await batch.commit();
+    if (commentsSnap.docs.length > 0) {
+      const batch = writeBatch(db);
+      commentsSnap.docs.forEach((d) => batch.delete(d.ref));
+      await batch.commit();
+    }
+    await deleteDoc(doc(db, 'communityPosts', postId));
   } catch (error) {
     console.error('deletePost error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Admin-only soft-hide. Doesn't touch the post text or author data — it
+ * just sets hidden=true so feed queries skip it. The author gets a
+ * moderation notification citing the reason. Replaces the previous "edit"
+ * privilege so admins can't silently rewrite a user's words.
+ */
+export async function hidePost(
+  postId: string,
+  reason: string,
+  admin: { uid: string; name: string; photoUrl?: string },
+  authorUid: string,
+  postText: string,
+): Promise<void> {
+  if (!db) return;
+  try {
+    await updateDoc(doc(db, 'communityPosts', postId), {
+      hidden: true,
+      hiddenAt: serverTimestamp(),
+      hiddenReason: reason,
+      hiddenBy: admin.uid,
+    });
+    if (authorUid && authorUid !== admin.uid) {
+      await createNotification(authorUid, {
+        type: 'moderation',
+        fromUid: admin.uid,
+        fromName: admin.name || 'MaaMitra Moderation',
+        fromPhotoUrl: admin.photoUrl,
+        postId,
+        postText: postText.slice(0, 240),
+        emoji: '🛡️',
+      });
+    }
+  } catch (error) {
+    console.error('hidePost error:', error);
+    throw error;
+  }
+}
+
+/** Admin: restore a previously-hidden post. */
+export async function unhidePost(postId: string): Promise<void> {
+  if (!db) return;
+  try {
+    await updateDoc(doc(db, 'communityPosts', postId), {
+      hidden: false,
+      hiddenAt: null,
+      hiddenReason: null,
+      hiddenBy: null,
+    });
+  } catch (error) {
+    console.error('unhidePost error:', error);
     throw error;
   }
 }
@@ -237,6 +301,7 @@ export interface FetchPostsResult {
 export async function fetchRecentPosts(
   limitN = POSTS_PAGE_SIZE,
   afterDoc?: DocumentSnapshot | null,
+  opts?: { includeHidden?: boolean },
 ): Promise<FetchPostsResult> {
   if (!db) return { posts: [], lastDoc: null };
   try {
@@ -247,28 +312,35 @@ export async function fetchRecentPosts(
     const snap = await getDocs(q);
     const lastDoc = snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] : null;
 
-    const posts = snap.docs.map((d) => {
-      const data = d.data();
-      return {
-        id: d.id,
-        authorUid: data.authorUid ?? '',
-        authorName: data.authorName ?? '',
-        authorInitial: data.authorInitial ?? '',
-        authorPhotoUrl: data.authorPhotoUrl ?? undefined,
-        badge: data.badge ?? '',
-        topic: data.topic ?? '',
-        text: data.text ?? '',
-        imageUri: data.imageUri,
-        imageAspectRatio: data.imageAspectRatio,
-        imageEmoji: data.imageEmoji,
-        imageCaption: data.imageCaption,
-        reactions: data.reactions ?? {},
-        reactionsByUser: data.reactionsByUser ?? {},
-        commentCount: data.commentCount ?? 0,
-        authorFollowersOnly: data.authorFollowersOnly ?? false,
-        createdAt: firestoreDate(data.createdAt),
-      } as CommunityPost;
-    });
+    const includeHidden = !!opts?.includeHidden;
+    const posts = snap.docs
+      // Skip moderator-hidden posts in the public feed. Admin paths pass
+      // includeHidden=true so the moderation queue can still show them.
+      .filter((d) => includeHidden || d.data().hidden !== true)
+      .map((d) => {
+        const data = d.data();
+        return {
+          id: d.id,
+          authorUid: data.authorUid ?? '',
+          authorName: data.authorName ?? '',
+          authorInitial: data.authorInitial ?? '',
+          authorPhotoUrl: data.authorPhotoUrl ?? undefined,
+          badge: data.badge ?? '',
+          topic: data.topic ?? '',
+          text: data.text ?? '',
+          imageUri: data.imageUri,
+          imageAspectRatio: data.imageAspectRatio,
+          imageEmoji: data.imageEmoji,
+          imageCaption: data.imageCaption,
+          reactions: data.reactions ?? {},
+          reactionsByUser: data.reactionsByUser ?? {},
+          commentCount: data.commentCount ?? 0,
+          authorFollowersOnly: data.authorFollowersOnly ?? false,
+          hidden: data.hidden === true,
+          hiddenReason: data.hiddenReason ?? '',
+          createdAt: firestoreDate(data.createdAt),
+        } as CommunityPost;
+      });
 
     return { posts, lastDoc };
   } catch (error) {

@@ -76,7 +76,10 @@ service cloud.firestore {
       allow create: if isVerified() &&
         request.resource.data.authorUid == request.auth.uid &&
         shortText(request.resource.data.text, 5000);
-      allow update: if isAdmin() ||
+      // Admins are intentionally NOT allowed to rewrite a user's words — that
+      // was a privacy issue. They can only flip moderation flags (approved /
+      // hidden + companion fields) or delete the post outright.
+      allow update: if (isAdmin() && onlyFields(['approved', 'hidden', 'hiddenAt', 'hiddenReason', 'hiddenBy'])) ||
         (isSignedIn() && resource.data.authorUid == request.auth.uid &&
           shortText(request.resource.data.text, 5000)) ||
         (isSignedIn() && onlyFields(['reactions', 'userReactions', 'commentsCount', 'lastCommentAt']));

@@ -61,6 +61,11 @@ function notifText(notif: AppNotification): string {
       return `${name} accepted your follow request 🎉`;
     case 'message':
       return `${name} sent you a message 💬`;
+    case 'moderation':
+      // postText is set by hidePost() to the reason citing the breached
+      // community guideline. Surface it directly so the author knows
+      // exactly why their post was hidden.
+      return `🛡️ Your post was hidden by moderation: ${truncate(notif.postText, 140)}`;
     default:
       return `${name} interacted with you`;
   }
