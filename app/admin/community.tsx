@@ -16,6 +16,24 @@ import {
 } from 'react-native';
 import { Colors } from '../../constants/theme';
 
+// Cross-platform confirm. RN's Alert.alert renders on web but its
+// destructive-style buttons silently fail to fire onPress (known
+// react-native-web limitation). On web we use window.confirm which is
+// reliable; on native we keep Alert.alert.
+function confirmAction(title: string, message: string): Promise<boolean> {
+  if (Platform.OS === 'web') {
+    return Promise.resolve(
+      typeof window !== 'undefined' && window.confirm(`${title}\n\n${message}`),
+    );
+  }
+  return new Promise((resolve) => {
+    Alert.alert(title, message, [
+      { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+      { text: 'Delete', style: 'destructive', onPress: () => resolve(true) },
+    ]);
+  });
+}
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type FilterTab = 'all' | 'pending' | 'approved';
@@ -394,30 +412,55 @@ export default function AdminCommunity() {
     }
   }
 
-  function handleDelete(post: CommunityPost) {
-    Alert.alert(
+  async function handleDelete(post: CommunityPost) {
+    const ok = await confirmAction(
       'Delete Post',
       `Delete this post by "${post.author}"?\n\n"${post.text.slice(0, 80)}..."`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const { deletePost } = await import('../../services/social');
-              await deletePost(post.id);
-              setPosts((prev) => prev.filter((p) => p.id !== post.id));
-            } catch (err: any) {
-              // Surface the real Firestore error so we can see permission /
-              // network failures instead of a generic toast.
-              const code = err?.code ? `${err.code}\n\n` : '';
-              Alert.alert('Delete failed', `${code}${err?.message ?? String(err)}`);
-            }
-          },
-        },
-      ]
     );
+    if (!ok) return;
+    try {
+      const { deletePost } = await import('../../services/social');
+      await deletePost(post.id);
+      setPosts((prev) => prev.filter((p) => p.id !== post.id));
+    } catch (err: any) {
+      const code = err?.code ? `${err.code}\n\n` : '';
+      Alert.alert('Delete failed', `${code}${err?.message ?? String(err)}`);
+    }
+  }
+
+  async function handleClearDemo() {
+    const ok = await confirmAction(
+      'Clear demo posts',
+      'This deletes every community post written by the seeded demo users (priya/ananya/deepika/meena/etc. @demo.maamitra.app). Real user posts are not touched. Continue?',
+    );
+    if (!ok) return;
+    try {
+      // Look up seeded user uids by email pattern, then bulk-delete their
+      // posts. The seed script writes users with @demo.maamitra.app emails.
+      const { getDocs, collection, query, where } = await import('firebase/firestore');
+      const { db } = await import('../../services/firebase');
+      if (!db) throw new Error('Firestore not configured');
+      const usersSnap = await getDocs(collection(db, 'users'));
+      const demoUids = usersSnap.docs
+        .filter((d) => {
+          const email = (d.data() as any).email ?? '';
+          return typeof email === 'string' && email.endsWith('@demo.maamitra.app');
+        })
+        .map((d) => d.id);
+      if (demoUids.length === 0) {
+        Alert.alert('No demo users found', 'Could not find any users with @demo.maamitra.app emails.');
+        return;
+      }
+      const { deletePostsByAuthorUids } = await import('../../services/social');
+      const { deleted, errors } = await deletePostsByAuthorUids(demoUids);
+      // Reflect locally
+      setPosts((prev) => prev.filter((p) => !demoUids.includes((p as any).authorUid)));
+      const errMsg = errors.length > 0 ? `\n\n${errors.length} failed.` : '';
+      Alert.alert('Done', `Deleted ${deleted} demo posts.${errMsg}`);
+    } catch (err: any) {
+      const code = err?.code ? `${err.code}\n\n` : '';
+      Alert.alert('Clear demo failed', `${code}${err?.message ?? String(err)}`);
+    }
   }
 
   const totalCount = posts.length;
@@ -453,6 +496,16 @@ export default function AdminCommunity() {
           onPress={() => setFilter('approved')}
         />
       </View>
+
+      {/* One-shot cleanup for demo seed posts authored by *.@demo.maamitra.app */}
+      <TouchableOpacity
+        onPress={handleClearDemo}
+        style={styles.clearDemoBtn}
+        activeOpacity={0.85}
+      >
+        <Ionicons name="sparkles-outline" size={14} color="#92400e" />
+        <Text style={styles.clearDemoBtnText}>Clear demo posts (Priya / Ananya / etc.)</Text>
+      </TouchableOpacity>
 
       {/* List */}
       {loading ? (
@@ -656,4 +709,11 @@ const styles = StyleSheet.create({
     borderRadius: 8, backgroundColor: '#FEF3C7', borderWidth: 1, borderColor: '#FDE68A',
   },
   hiddenBannerText: { flex: 1, fontSize: 12, color: '#92400e', fontWeight: '600' },
+  clearDemoBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginHorizontal: 16, marginTop: 12, paddingHorizontal: 12, paddingVertical: 10,
+    borderRadius: 10, backgroundColor: '#FEF3C7', borderWidth: 1, borderColor: '#FDE68A',
+    alignSelf: 'flex-start',
+  },
+  clearDemoBtnText: { fontSize: 12, color: '#92400e', fontWeight: '700' },
 });

@@ -170,24 +170,70 @@ export async function updatePost(
 
 export async function deletePost(postId: string): Promise<void> {
   if (!db) return;
+  // Phase 1: comments. Best-effort — if the subcollection read or batch fails
+  // for any reason (rules, transient network, orphaned writes), we still
+  // attempt phase 2 so the post itself goes away. Orphan comment docs are
+  // unreachable once the parent is gone and can be swept later if needed.
   try {
-    // Two-phase delete: comments are deleted in their own batch first, then
-    // the post itself. This used to be a single atomic batch, but Firestore
-    // rules evaluate each comment-delete with a `get()` of the parent post —
-    // which fails partway through a batch where the parent is queued for
-    // deletion in the same write. Splitting the writes keeps the parent
-    // present (and rule-evaluable) while the comment deletes resolve.
     const commentsSnap = await getDocs(collection(db, 'communityPosts', postId, 'comments'));
     if (commentsSnap.docs.length > 0) {
       const batch = writeBatch(db);
       commentsSnap.docs.forEach((d) => batch.delete(d.ref));
       await batch.commit();
     }
+  } catch (commentsErr) {
+    console.warn(`deletePost(${postId}): comments cleanup failed, continuing with post delete`, commentsErr);
+  }
+
+  // Phase 2: the post itself. THIS is the one that must succeed — if it
+  // fails, surface the error so the caller (admin UI) can show it.
+  try {
     await deleteDoc(doc(db, 'communityPosts', postId));
   } catch (error) {
     console.error('deletePost error:', error);
     throw error;
   }
+}
+
+/**
+ * Admin-only bulk cleanup: deletes every post authored by one of the listed
+ * uids. Used to wipe the four demo personas (Priya/Ananya/Deepika/Meena)
+ * that scripts/seed-demo-users.mjs wrote into communityPosts. Returns the
+ * count of posts deleted plus any errors that didn't kill the loop.
+ */
+export async function deletePostsByAuthorUids(
+  authorUids: string[],
+): Promise<{ deleted: number; errors: { postId: string; error: string }[] }> {
+  if (!db || authorUids.length === 0) return { deleted: 0, errors: [] };
+  const errors: { postId: string; error: string }[] = [];
+  let deleted = 0;
+  // Page through ALL posts in chunks to find seeded ones. We can't `where()`
+  // efficiently because authorUids may not be indexed (and the seed posts
+  // could have been written before any composite index existed). Reading
+  // 100 posts at a time is cheap enough for a one-off admin sweep.
+  let lastDoc: DocumentSnapshot | null = null;
+  const targetSet = new Set(authorUids);
+  // Cap iterations to avoid infinite loops on bad data.
+  for (let page = 0; page < 50; page++) {
+    const q: any = lastDoc
+      ? query(collection(db, 'communityPosts'), orderBy('createdAt', 'desc'), startAfter(lastDoc), limit(100))
+      : query(collection(db, 'communityPosts'), orderBy('createdAt', 'desc'), limit(100));
+    const snap: any = await getDocs(q);
+    if (snap.empty) break;
+    for (const d of snap.docs) {
+      const data = d.data();
+      if (!targetSet.has(data.authorUid)) continue;
+      try {
+        await deletePost(d.id);
+        deleted += 1;
+      } catch (err: any) {
+        errors.push({ postId: d.id, error: err?.message ?? String(err) });
+      }
+    }
+    if (snap.docs.length < 100) break;
+    lastDoc = snap.docs[snap.docs.length - 1];
+  }
+  return { deleted, errors };
 }
 
 /**
