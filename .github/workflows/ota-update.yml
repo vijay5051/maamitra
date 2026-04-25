@@ -39,7 +39,9 @@ jobs:
         run: npm ci --legacy-peer-deps
 
       - name: Pull env from EAS production
-        run: npx eas-cli env:pull production --path .env --force
+        run: |
+          rm -f .env
+          npx eas-cli env:pull production --path .env --non-interactive
 
       - name: Publish OTA update
         run: npx eas-cli update --branch "${{ inputs.branch }}" --message "${{ inputs.message }}" --non-interactive
