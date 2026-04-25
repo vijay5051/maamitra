@@ -280,12 +280,18 @@ export default function OnboardingScreen() {
         });
       });
 
-      setOnboardingComplete(true);
-
       const authUser = useAuthStore.getState().user;
       if (authUser?.uid) {
+        // CRITICAL: await the Firestore write BEFORE flipping the local
+        // onboardingComplete flag and routing the user out. The previous
+        // fire-and-forget save was the root cause of the
+        // "onboarding-form-on-every-restart" loop — when the write failed
+        // silently, local store said `onboardingComplete: true` (and was
+        // persisted to AsyncStorage), but Firestore still had `false` (or
+        // missing). Next sign-in's hydrate then reset the local flag to
+        // false from Firestore, sending the user back through onboarding.
         const st = useProfileStore.getState();
-        saveFullProfile(authUser.uid, {
+        await saveFullProfile(authUser.uid, {
           motherName: st.motherName,
           profile: st.profile,
           kids: st.kids,
@@ -296,13 +302,22 @@ export default function OnboardingScreen() {
           expertise: st.expertise,
           photoUrl: st.photoUrl,
           visibilitySettings: st.visibilitySettings,
-        }).catch(console.error);
+        });
       }
+
+      // Only flip the local flag AFTER Firestore confirms — keeps local and
+      // remote in lockstep. If the write threw, we never reach this line
+      // and the user stays on the onboarding screen with the catch-block
+      // alert telling them to retry.
+      setOnboardingComplete(true);
 
       const phone = useProfileStore.getState().phone;
       router.replace(phone ? '/(tabs)' : '/(auth)/phone');
     } catch (err: any) {
-      Alert.alert('Could not save', err?.message ?? 'Please try again.');
+      Alert.alert(
+        'Could not save your profile',
+        `${err?.message ?? 'Please try again.'}\n\nYour answers are still here — just tap Save again.`,
+      );
     } finally {
       setSubmitting(false);
     }

@@ -7,6 +7,7 @@ import {
 } from 'firebase/app-check';
 import {
   getAuth,
+  initializeAuth,
   Auth,
   deleteUser,
   GoogleAuthProvider,
@@ -25,6 +26,12 @@ import {
   unlink,
   ConfirmationResult,
 } from 'firebase/auth';
+// `getReactNativePersistence` is exported from firebase/auth in v9+ but the
+// TypeScript types don't always include it (long-running open issue), so we
+// pull it via require to keep the build clean. Only used on native.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { getReactNativePersistence } = require('firebase/auth');
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   getFirestore,
   Firestore,
@@ -91,7 +98,27 @@ if (isFirebaseConfigured()) {
     }
   }
 
-  auth = getAuth(app);
+  // Auth persistence:
+  //   - Web: getAuth() defaults to IndexedDB, which survives reloads.
+  //   - Native (Android/iOS): the JS SDK defaults to *in-memory* persistence
+  //     because RN has no IndexedDB. That's why every cold start used to
+  //     dump the user back at the welcome screen. We have to call
+  //     initializeAuth() with getReactNativePersistence(AsyncStorage)
+  //     BEFORE any getAuth() ever runs against this FirebaseApp.
+  if (Platform.OS === 'web') {
+    auth = getAuth(app);
+  } else {
+    try {
+      auth = initializeAuth(app, {
+        persistence: getReactNativePersistence(AsyncStorage),
+      });
+    } catch (err) {
+      // Fast-refresh / re-import paths can hit this if initializeAuth
+      // has already run for this app — fall back to the existing instance.
+      console.warn('initializeAuth(native) skipped, using getAuth():', err);
+      auth = getAuth(app);
+    }
+  }
   db = getFirestore(app);
   storage = getStorage(app);
 }
@@ -216,31 +243,30 @@ export function deriveAudienceBuckets(
 }
 
 export async function saveFullProfile(uid: string, data: FullProfileData): Promise<void> {
-  if (!db) return;
-  try {
-    // Denormalise the audience buckets so the dispatcher can do an O(1)
-    // array-contains query instead of computing age from kids[] per user.
-    const audienceBuckets = deriveAudienceBuckets(
-      data.kids as any,
-      (data.profile as any)?.stage,
-    );
-    await setDoc(doc(db, 'users', uid), {
-      motherName: data.motherName,
-      profile: data.profile ?? null,
-      kids: data.kids,
-      completedVaccines: data.completedVaccines,
-      onboardingComplete: data.onboardingComplete,
-      parentGender: data.parentGender ?? '',
-      bio: data.bio ?? '',
-      expertise: data.expertise ?? [],
-      photoUrl: data.photoUrl ?? '',
-      visibilitySettings: data.visibilitySettings ?? null,
-      audienceBuckets,
-      updatedAt: serverTimestamp(),
-    }, { merge: true });
-  } catch (error) {
-    console.error('saveFullProfile error:', error);
-  }
+  if (!db) throw new Error('Firestore not configured');
+  // Denormalise the audience buckets so the dispatcher can do an O(1)
+  // array-contains query instead of computing age from kids[] per user.
+  const audienceBuckets = deriveAudienceBuckets(
+    data.kids as any,
+    (data.profile as any)?.stage,
+  );
+  // Throws on failure — callers that don't care can `.catch(console.error)`,
+  // but onboarding submit MUST await + surface so the user isn't stranded
+  // in a state where local says "onboarded" but Firestore disagrees.
+  await setDoc(doc(db, 'users', uid), {
+    motherName: data.motherName,
+    profile: data.profile ?? null,
+    kids: data.kids,
+    completedVaccines: data.completedVaccines,
+    onboardingComplete: data.onboardingComplete,
+    parentGender: data.parentGender ?? '',
+    bio: data.bio ?? '',
+    expertise: data.expertise ?? [],
+    photoUrl: data.photoUrl ?? '',
+    visibilitySettings: data.visibilitySettings ?? null,
+    audienceBuckets,
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
 }
 
 /**
