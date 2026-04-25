@@ -11,6 +11,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useAppSettingsStore } from '../store/useAppSettingsStore';
 import { useFeedbackStore } from '../store/useFeedbackStore';
 import FeedbackSurveyModal from '../components/feedback/FeedbackSurveyModal';
+import RootErrorBoundary from '../components/ui/RootErrorBoundary';
 import { hasSubmittedTesterFeedback } from '../services/firebase';
 // Importing useThemeStore at the root runs its rehydration (via zustand
 // persist's onRehydrateStorage) which calls setPrimaryAtRuntime() before
@@ -19,6 +20,20 @@ import { hasSubmittedTesterFeedback } from '../services/firebase';
 import '../store/useThemeStore';
 
 SplashScreen.preventAutoHideAsync();
+
+// Safari bfcache guard (web only). When the user uses the back/forward
+// button or — in some Safari builds — refresh, the page is restored from
+// bfcache. Restored pages can have stale JS module state (Firebase
+// listeners disposed, network connections closed) which manifests as a
+// blank screen until the user opens a new tab. Force a full reload when
+// we detect a bfcache-restore so the app always boots from a clean slate.
+if (Platform.OS === 'web' && typeof window !== 'undefined') {
+  window.addEventListener('pageshow', (e: any) => {
+    if (e.persisted) {
+      try { window.location.reload(); } catch (_) { /* ignore */ }
+    }
+  });
+}
 
 export default function RootLayout() {
   const { initAuth, user } = useAuthStore();
@@ -104,15 +119,17 @@ export default function RootLayout() {
   if (Platform.OS !== 'web' && !fontsLoaded && !fontError) return null;
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <StatusBar style="light" />
-        <Stack screenOptions={{ headerShown: false }} />
-        <FeedbackSurveyModal
-          visible={surveyVisible}
-          onClose={() => { setAutoSurveyVisible(false); closeSurvey(); }}
-        />
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+    <RootErrorBoundary>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <StatusBar style="light" />
+          <Stack screenOptions={{ headerShown: false }} />
+          <FeedbackSurveyModal
+            visible={surveyVisible}
+            onClose={() => { setAutoSurveyVisible(false); closeSurvey(); }}
+          />
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    </RootErrorBoundary>
   );
 }
