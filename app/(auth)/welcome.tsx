@@ -70,6 +70,25 @@ export default function WelcomeScreen() {
             2 a.m. questions, remembers your baby, and connects you with parents
             going through the same thing.
           </Text>
+
+          {/* Above-the-fold CTA — visible without scrolling. The full
+              finalCta block stays at the bottom for visitors who scroll
+              through the marketing first. */}
+          <View style={[styles.buttonsContainer, styles.heroCta]}>
+            <GradientButton
+              title="Get started — it's free"
+              onPress={() => router.push('/(auth)/sign-up')}
+              style={styles.primaryButton}
+            />
+            <TouchableOpacity
+              style={styles.textCta}
+              onPress={() => router.push('/(auth)/sign-in')}
+              activeOpacity={0.6}
+            >
+              <Text style={styles.textCtaLabel}>Already have an account?</Text>
+              <Text style={styles.textCtaAction}>Sign in</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Why MaaMitra</Text></View>
@@ -224,6 +243,7 @@ const styles = StyleSheet.create({
   },
 
   hero: { alignItems: 'center', marginTop: 10, marginBottom: 24 },
+  heroCta: { marginTop: 18, alignSelf: 'center' },
   logoImage: { width: 72, height: 72, marginBottom: 8 },
   wordmark: {
     fontFamily: 'DMSans_700Bold', fontSize: 38, color: '#1C1033',
