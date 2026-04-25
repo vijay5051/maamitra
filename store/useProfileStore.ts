@@ -107,6 +107,16 @@ interface ProfileState {
   cachedProfileUid: string | null;
   setCachedProfileUid: (uid: string | null) => void;
 
+  /**
+   * True once zustand-persist has finished reading from AsyncStorage.
+   * Routing in app/index.tsx must wait for this — otherwise the very first
+   * render reads the default state (`onboardingComplete: false`) and
+   * redirects an already-onboarded user back into the onboarding flow.
+   * This bug was reported repeatedly after the user changed accent colour
+   * and restarted the app on Android.
+   */
+  _hasHydrated: boolean;
+
   setMotherName: (name: string) => void;
   setProfile: (profile: Profile) => void;
   addKid: (kid: Omit<Kid, 'ageInMonths' | 'ageInWeeks' | 'id'> & { id?: string }) => void;
@@ -154,6 +164,8 @@ export const useProfileStore = create<ProfileState>()(
 
       cachedProfileUid: null,
       setCachedProfileUid: (uid: string | null) => set({ cachedProfileUid: uid }),
+
+      _hasHydrated: false,
 
       setMotherName: (name) => set({ motherName: name }),
 
@@ -269,6 +281,30 @@ export const useProfileStore = create<ProfileState>()(
     {
       name: 'maamitra-profile',
       storage: createJSONStorage(() => AsyncStorage),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          state._hasHydrated = true;
+        }
+      },
     }
   )
 );
+
+/**
+ * Resolves once useProfileStore has finished its async rehydrate from
+ * AsyncStorage. Use this in code paths that read the cached
+ * `onboardingComplete` / `cachedProfileUid` to decide whether a returning
+ * user should bypass onboarding — without awaiting, those reads can fall
+ * back to the default state and incorrectly route the user into onboarding.
+ */
+export function awaitProfileHydration(): Promise<void> {
+  if (useProfileStore.getState()._hasHydrated) return Promise.resolve();
+  return new Promise<void>((resolve) => {
+    const unsub = useProfileStore.subscribe((state) => {
+      if (state._hasHydrated) {
+        unsub();
+        resolve();
+      }
+    });
+  });
+}

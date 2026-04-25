@@ -6,11 +6,18 @@ import { isAdminEmail } from '../lib/admin';
 
 export default function Index() {
   const { isAuthenticated, isLoading, user } = useAuthStore();
-  const { onboardingComplete } = useProfileStore();
+  const onboardingComplete = useProfileStore((s) => s.onboardingComplete);
+  const profileHydrated = useProfileStore((s) => s._hasHydrated);
 
-  // While auth + profile hydration is in flight, show nothing — never redirect
-  // during the transient window where isAuthenticated:true but onboardingComplete:false
-  if (isLoading) return <View style={{ flex: 1, backgroundColor: '#fdf6ff' }} />;
+  // Hold the splash until BOTH gates are open:
+  //  1. Firebase auth has reported (isLoading=false), and
+  //  2. zustand-persist has finished reading the cached profile from
+  //     AsyncStorage (profileHydrated). Without (2), the very first render
+  //     after a cold start reads `onboardingComplete: false` from the
+  //     default state and redirects an already-onboarded user back into
+  //     the onboarding flow — the bug users hit after restarting the app
+  //     post-theme change on Android.
+  if (isLoading || !profileHydrated) return <View style={{ flex: 1, backgroundColor: '#fdf6ff' }} />;
 
   if (!isAuthenticated) return <Redirect href="/(auth)/welcome" />;
   // Admins land straight on the admin dashboard — they shouldn't be routed

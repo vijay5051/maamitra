@@ -1,6 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
-  FlatList,
   StyleSheet,
   Text,
   TextInput,
@@ -16,6 +15,13 @@ interface StateSelectorProps {
   selected?: string;
 }
 
+/**
+ * State picker rendered as a plain View.map list so the parent ScrollView in
+ * onboarding (or wherever this is embedded) handles scrolling. Nesting a
+ * vertical FlatList inside a vertical ScrollView is broken on Android — the
+ * inner list either won't scroll or swallows taps after a keyboard dismiss.
+ * The list is finite (~28 items) so a plain map is fine.
+ */
 export default function StateSelector({ onSelect, selected }: StateSelectorProps) {
   const [query, setQuery] = useState('');
 
@@ -28,7 +34,6 @@ export default function StateSelector({ onSelect, selected }: StateSelectorProps
 
   return (
     <View style={styles.container}>
-      {/* Search input */}
       <View style={styles.searchRow}>
         <Ionicons name="search" size={16} color="#9ca3af" style={styles.searchIcon} />
         <TextInput
@@ -39,33 +44,48 @@ export default function StateSelector({ onSelect, selected }: StateSelectorProps
           placeholderTextColor="#9ca3af"
         />
         {query.length > 0 && (
-          <TouchableOpacity onPress={() => setQuery('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <TouchableOpacity
+            onPress={() => setQuery('')}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
             <Ionicons name="close-circle" size={16} color="#9ca3af" />
           </TouchableOpacity>
         )}
       </View>
 
-      {/* Vertical scrollable list */}
-      <FlatList
-        data={filtered}
-        keyExtractor={(item) => item}
-        style={styles.listArea}
-        showsVerticalScrollIndicator={true}
-        keyboardShouldPersistTaps="handled"
-        renderItem={({ item }) => {
-          const isSelected = selected === item;
-          return (
-            <TouchableOpacity
-              onPress={() => onSelect(item)}
-              activeOpacity={0.7}
-              style={[styles.stateRow, isSelected && styles.stateRowSelected]}
-            >
-              <Text style={[styles.stateText, isSelected && styles.stateTextSelected]}>{item}</Text>
-              <Ionicons name="chevron-forward" size={16} color={isSelected ? Colors.primary : '#d1d5db'} />
-            </TouchableOpacity>
-          );
-        }}
-      />
+      <View style={styles.listArea}>
+        {filtered.length === 0 ? (
+          <View style={styles.emptyRow}>
+            <Text style={styles.emptyText}>No states match "{query}"</Text>
+          </View>
+        ) : (
+          filtered.map((item, idx) => {
+            const isSelected = selected === item;
+            const isLast = idx === filtered.length - 1;
+            return (
+              <TouchableOpacity
+                key={item}
+                onPress={() => onSelect(item)}
+                activeOpacity={0.7}
+                style={[
+                  styles.stateRow,
+                  isLast && styles.stateRowLast,
+                  isSelected && styles.stateRowSelected,
+                ]}
+              >
+                <Text style={[styles.stateText, isSelected && styles.stateTextSelected]}>
+                  {item}
+                </Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={16}
+                  color={isSelected ? Colors.primary : '#d1d5db'}
+                />
+              </TouchableOpacity>
+            );
+          })
+        )}
+      </View>
     </View>
   );
 }
@@ -93,11 +113,11 @@ const styles = StyleSheet.create({
     color: '#1a1a2e',
   },
   listArea: {
-    maxHeight: 220,
     borderRadius: 12,
     backgroundColor: '#ffffff',
     borderWidth: 1,
     borderColor: '#f3e8ff',
+    overflow: 'hidden',
   },
   stateRow: {
     flexDirection: 'row',
@@ -108,6 +128,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#f3f4f6',
     minHeight: 44,
+  },
+  stateRowLast: {
+    borderBottomWidth: 0,
   },
   stateRowSelected: {
     backgroundColor: '#F5F0FF',
@@ -121,5 +144,14 @@ const styles = StyleSheet.create({
   stateTextSelected: {
     color: Colors.primary,
     fontWeight: '700',
+  },
+  emptyRow: {
+    paddingVertical: 18,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 13,
+    color: '#9ca3af',
   },
 });

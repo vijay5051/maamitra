@@ -154,6 +154,12 @@ export default function HomeTab() {
 
   const firstName = (motherName || 'there').split(' ')[0];
   const greetingTitle = firstName === 'there' ? 'Hello' : firstName;
+  const greetingSalutation = useMemo(() => {
+    const h = new Date().getHours();
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    return 'Good evening';
+  }, []);
   const parentSalutation =
     parentGender === 'father' ? 'dad' : parentGender === 'other' ? 'parent' : 'mama';
 
@@ -569,7 +575,7 @@ export default function HomeTab() {
             </TouchableOpacity>
           </Reanimated.View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.greetSmall}>Good morning</Text>
+            <Text style={styles.greetSmall}>{greetingSalutation}</Text>
             <Text style={styles.greetBig}>{greetingTitle}</Text>
           </View>
 

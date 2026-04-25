@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import {
+  Modal,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
-  TextInput,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,8 +22,9 @@ interface DatePickerFieldProps {
 
 /**
  * Cross-platform date picker field.
- * On web: renders a native <input type="date"> which shows the OS date picker on mobile Safari.
- * On native: shows a simple text input (for future native picker enhancement).
+ * Web: native <input type="date"> overlay (mobile Safari date wheel).
+ * Native (Android/iOS): pure-JS month-grid modal — no native module so it
+ * ships via OTA without an EAS rebuild.
  */
 export default function DatePickerField({
   value,
@@ -31,8 +34,7 @@ export default function DatePickerField({
   minDate,
   maxDate,
 }: DatePickerFieldProps) {
-  // Format YYYY-MM-DD → human-readable "12 Sep 2025"
-  const displayValue = React.useMemo(() => {
+  const displayValue = useMemo(() => {
     if (!value) return '';
     const d = new Date(value + 'T00:00:00');
     if (isNaN(d.getTime())) return '';
@@ -48,11 +50,6 @@ export default function DatePickerField({
           <Text style={[styles.displayText, !value && styles.placeholder]}>
             {displayValue || placeholder}
           </Text>
-          {/*
-            Raw HTML <input type="date"> overlaid transparently over the styled row.
-            This bypasses React Native's TextInput wrapper entirely, which lets mobile
-            Safari's native date-wheel fire the standard DOM `change` event reliably.
-          */}
           {/* @ts-ignore — JSX HTML element used on web only */}
           <input
             type="date"
@@ -67,26 +64,207 @@ export default function DatePickerField({
     );
   }
 
-  // Native fallback — simple text input
+  return (
+    <NativeDatePickerField
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      label={label}
+      minDate={minDate}
+      maxDate={maxDate}
+      displayValue={displayValue}
+    />
+  );
+}
+
+// ─── Native (Android/iOS) — pure-JS calendar modal ──────────────────────────
+function NativeDatePickerField({
+  value,
+  onChange,
+  placeholder,
+  label,
+  minDate,
+  maxDate,
+  displayValue,
+}: DatePickerFieldProps & { displayValue: string }) {
+  const [open, setOpen] = useState(false);
+  const today = useMemo(() => new Date(), []);
+  const initial = useMemo(() => parseIso(value) ?? today, [value, today]);
+  const [viewYear, setViewYear] = useState(initial.getFullYear());
+  const [viewMonth, setViewMonth] = useState(initial.getMonth()); // 0-11
+
+  const minDt = useMemo(() => parseIso(minDate), [minDate]);
+  const maxDt = useMemo(() => parseIso(maxDate), [maxDate]);
+
+  const openPicker = () => {
+    const seed = parseIso(value) ?? today;
+    setViewYear(seed.getFullYear());
+    setViewMonth(seed.getMonth());
+    setOpen(true);
+  };
+
+  const pick = (day: number) => {
+    const iso = formatIso(viewYear, viewMonth, day);
+    onChange(iso);
+    setOpen(false);
+  };
+
+  const goPrev = () => {
+    if (viewMonth === 0) {
+      setViewMonth(11);
+      setViewYear((y) => y - 1);
+    } else {
+      setViewMonth((m) => m - 1);
+    }
+  };
+  const goNext = () => {
+    if (viewMonth === 11) {
+      setViewMonth(0);
+      setViewYear((y) => y + 1);
+    } else {
+      setViewMonth((m) => m + 1);
+    }
+  };
+
+  const cells = useMemo(() => buildMonthGrid(viewYear, viewMonth), [viewYear, viewMonth]);
+  const selectedIso = value;
+  const monthLabel = new Date(viewYear, viewMonth, 1).toLocaleDateString('en-IN', {
+    month: 'long',
+    year: 'numeric',
+  });
+
   return (
     <View style={styles.wrapper}>
       {label ? <Text style={styles.label}>{label}</Text> : null}
-      <View style={styles.inputRow}>
+      <TouchableOpacity
+        style={styles.inputRow}
+        activeOpacity={0.7}
+        onPress={openPicker}
+        accessibilityLabel={label ?? 'Pick a date'}
+      >
         <Ionicons name="calendar-outline" size={20} color={Colors.primary} style={styles.icon} />
-        <TextInput
-          style={styles.nativeInput}
-          value={value}
-          onChangeText={onChange}
-          placeholder={placeholder}
-          placeholderTextColor="#9ca3af"
-          keyboardType="default"
-        />
-      </View>
+        <Text style={[styles.displayText, !value && styles.placeholder]}>
+          {displayValue || placeholder}
+        </Text>
+        <Ionicons name="chevron-down" size={16} color="#9ca3af" />
+      </TouchableOpacity>
+
+      <Modal
+        visible={open}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOpen(false)}
+      >
+        <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
+          <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.sheetHeader}>
+              <TouchableOpacity onPress={goPrev} hitSlop={8} style={styles.navBtn}>
+                <Ionicons name="chevron-back" size={20} color="#1a1a2e" />
+              </TouchableOpacity>
+              <Text style={styles.sheetTitle}>{monthLabel}</Text>
+              <TouchableOpacity onPress={goNext} hitSlop={8} style={styles.navBtn}>
+                <Ionicons name="chevron-forward" size={20} color="#1a1a2e" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.weekRow}>
+              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
+                <Text key={i} style={styles.weekDay}>
+                  {d}
+                </Text>
+              ))}
+            </View>
+
+            <View style={styles.gridWrap}>
+              {cells.map((cell, idx) => {
+                if (cell == null) {
+                  return <View key={idx} style={styles.dayCell} />;
+                }
+                const iso = formatIso(viewYear, viewMonth, cell);
+                const dt = new Date(viewYear, viewMonth, cell);
+                const disabled =
+                  (minDt && dt < stripTime(minDt)) || (maxDt && dt > stripTime(maxDt));
+                const isSelected = selectedIso === iso;
+                const isToday =
+                  dt.getFullYear() === today.getFullYear() &&
+                  dt.getMonth() === today.getMonth() &&
+                  dt.getDate() === today.getDate();
+                return (
+                  <TouchableOpacity
+                    key={idx}
+                    style={[
+                      styles.dayCell,
+                      isSelected && styles.dayCellSelected,
+                      !isSelected && isToday && styles.dayCellToday,
+                      disabled && styles.dayCellDisabled,
+                    ]}
+                    onPress={() => !disabled && pick(cell)}
+                    disabled={!!disabled}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.dayText,
+                        isSelected && styles.dayTextSelected,
+                        disabled && styles.dayTextDisabled,
+                      ]}
+                    >
+                      {cell}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <View style={styles.sheetFooter}>
+              <TouchableOpacity onPress={() => setOpen(false)} style={styles.footerBtn}>
+                <Text style={styles.footerBtnTxt}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  const t = new Date();
+                  const iso = formatIso(t.getFullYear(), t.getMonth(), t.getDate());
+                  onChange(iso);
+                  setOpen(false);
+                }}
+                style={styles.footerBtn}
+              >
+                <Text style={[styles.footerBtnTxt, { color: Colors.primary, fontWeight: '700' }]}>
+                  Today
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
 
-// Plain DOM style object for the raw <input type="date"> — not processed by StyleSheet
+function parseIso(s?: string): Date | null {
+  if (!s) return null;
+  const d = new Date(s + 'T00:00:00');
+  return isNaN(d.getTime()) ? null : d;
+}
+function stripTime(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+function formatIso(y: number, m0: number, day: number): string {
+  const m = String(m0 + 1).padStart(2, '0');
+  const d = String(day).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+// 6 rows × 7 cols, padded with nulls so columns align under S/M/T/W/T/F/S.
+function buildMonthGrid(y: number, m0: number): (number | null)[] {
+  const first = new Date(y, m0, 1).getDay(); // 0 = Sun
+  const daysInMonth = new Date(y, m0 + 1, 0).getDate();
+  const cells: (number | null)[] = [];
+  for (let i = 0; i < first; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  while (cells.length % 7 !== 0) cells.push(null);
+  return cells;
+}
+
 const webInputStyle = {
   position: 'absolute' as const,
   top: 0,
@@ -98,14 +276,12 @@ const webInputStyle = {
   minHeight: 44,
   opacity: 0.01,
   cursor: 'pointer',
-  touchAction: 'manipulation', // removes 300ms tap delay on iOS Safari
+  touchAction: 'manipulation',
   zIndex: 1,
 };
 
 const styles = StyleSheet.create({
-  wrapper: {
-    width: '100%',
-  },
+  wrapper: { width: '100%' },
   label: {
     fontSize: 13,
     fontWeight: '600',
@@ -122,10 +298,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     position: 'relative',
+    minHeight: 48,
   },
-  icon: {
-    marginRight: 10,
-  },
+  icon: { marginRight: 10 },
   displayText: {
     flex: 1,
     fontSize: 15,
@@ -136,9 +311,100 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
     fontWeight: '400',
   },
-  nativeInput: {
+  backdrop: {
     flex: 1,
-    fontSize: 15,
+    backgroundColor: 'rgba(15, 8, 30, 0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 18,
+  },
+  sheet: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: '#ffffff',
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+    paddingBottom: 8,
+  },
+  sheetTitle: {
+    fontSize: 16,
+    fontWeight: '700',
     color: '#1a1a2e',
+  },
+  navBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 18,
+  },
+  weekRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 2,
+    paddingTop: 4,
+    paddingBottom: 6,
+  },
+  weekDay: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#9ca3af',
+  },
+  gridWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  dayCell: {
+    width: `${100 / 7}%`,
+    aspectRatio: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 999,
+  },
+  dayCellSelected: {
+    backgroundColor: Colors.primary,
+  },
+  dayCellToday: {
+    borderWidth: 1,
+    borderColor: Colors.primary,
+  },
+  dayCellDisabled: {
+    opacity: 0.3,
+  },
+  dayText: {
+    fontSize: 14,
+    color: '#1a1a2e',
+    fontWeight: '500',
+  },
+  dayTextSelected: {
+    color: '#ffffff',
+    fontWeight: '700',
+  },
+  dayTextDisabled: {
+    color: '#c4b5d4',
+  },
+  sheetFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+    paddingTop: 6,
+    paddingHorizontal: 4,
+  },
+  footerBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  footerBtnTxt: {
+    fontSize: 14,
+    color: '#6b7280',
+    fontWeight: '600',
   },
 });

@@ -73,11 +73,16 @@ export default function PhoneScreen() {
       confirmationRef.current = confirmation;
       setStep('enter-code');
     } catch (e: any) {
+      // Previously we used to silently save the unverified phone and route to
+      // home when OTP was unsupported. That bypassed verification entirely
+      // and stored an unverified number to the profile. Surface a clear
+      // error and keep the user on this screen — never trust the number
+      // until OTP succeeds.
       if (e?.code === PHONE_OTP_UNSUPPORTED) {
-        await savePhoneAndContinue(e164, false);
-        return;
+        setError("We couldn't send an SMS to this number right now. Please try again in a moment, or use a different number.");
+      } else {
+        setError(friendlyOtpError(e));
       }
-      setError(friendlyOtpError(e));
       resetPhoneRecaptcha();
     } finally {
       setBusy(false);

@@ -21,7 +21,7 @@ import {
   type FullProfileData,
 } from '../services/firebase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useProfileStore } from './useProfileStore';
+import { useProfileStore, awaitProfileHydration } from './useProfileStore';
 import { useWellnessStore } from './useWellnessStore';
 import { useThemeStore } from './useThemeStore';
 import { useChatStore } from './useChatStore';
@@ -45,6 +45,14 @@ async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
   const existing = _hydrationInFlight.get(uid);
   if (existing) return existing;
   const p = (async () => {
+  // Wait for the profile store's persisted state to finish rehydrating from
+  // AsyncStorage. Without this, reads of `cachedProfileUid` /
+  // `onboardingComplete` below see the default state on the very first call
+  // after a cold start (common after the user changes accent colour and is
+  // prompted to restart on Android) — which silently disables the
+  // returning-user fallback and routes already-onboarded users back into
+  // the onboarding flow.
+  try { await awaitProfileHydration(); } catch {}
   try {
     // Retry the Firestore fetch on transient errors (incognito Safari is the
     // main culprit — IndexedDB / cookie partitioning delays auth-token
@@ -213,6 +221,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // keep the cache as a fallback so a transient Firestore failure
       // during hydrate doesn't flip onboardingComplete back to false
       // and route them into the onboarding flow by mistake.
+      try { await awaitProfileHydration(); } catch {}
       const cached = useProfileStore.getState().cachedProfileUid;
       if (cached && cached !== credential.user.uid) {
         useProfileStore.getState().resetProfile();
@@ -281,6 +290,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // reset when the incoming uid differs from the last cached one —
     // protects onboardingComplete from being lost on a flaky Firestore
     // read (see signIn for the same pattern).
+    try { await awaitProfileHydration(); } catch {}
     const cachedUid = useProfileStore.getState().cachedProfileUid;
     if (cachedUid && cachedUid !== credential.user.uid) {
       useProfileStore.getState().resetProfile();
@@ -421,6 +431,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         // DIFFERENT user. When the same user signs back in after a session
         // (common on app reload) we keep the cache so a flaky Firestore
         // hydrate doesn't reset onboardingComplete and route to onboarding.
+        try { await awaitProfileHydration(); } catch {}
         const cachedUid = useProfileStore.getState().cachedProfileUid;
         if (cachedUid && cachedUid !== firebaseUser.uid) {
           useProfileStore.getState().resetProfile();
