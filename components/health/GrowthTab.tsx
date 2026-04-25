@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import Card from '../ui/Card';
+import DatePickerField from '../ui/DatePickerField';
 import { Colors, Fonts, Gradients } from '../../constants/theme';
 import { useActiveKid } from '../../hooks/useActiveKid';
 import {
@@ -126,17 +127,57 @@ function DateTimeField({
     );
   }
 
+  // Native fallback: separate calendar (date) + HH:MM number inputs.
+  // Avoids dumping a raw ISO string in a TextInput which Android users can't
+  // intuitively edit.
+  const d = new Date(value);
+  const valid = !isNaN(d.getTime());
+  const isoDate = valid
+    ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    : '';
+  const hh = valid ? String(d.getHours()).padStart(2, '0') : '00';
+  const mm = valid ? String(d.getMinutes()).padStart(2, '0') : '00';
+
+  const updateParts = (newDate: string, newHH: string, newMM: string) => {
+    if (!newDate) return;
+    const h = Math.min(23, Math.max(0, parseInt(newHH, 10) || 0));
+    const m = Math.min(59, Math.max(0, parseInt(newMM, 10) || 0));
+    const [y, mo, da] = newDate.split('-').map((n) => parseInt(n, 10));
+    if (!y || !mo || !da) return;
+    const next = new Date(y, mo - 1, da, h, m, 0, 0);
+    if (!isNaN(next.getTime())) onChange(next.toISOString());
+  };
+
   return (
     <View style={inputStyles.fieldBlock}>
       {label ? <Text style={inputStyles.fieldLabel}>{label}</Text> : null}
-      <View style={inputStyles.fieldRow}>
+      <DatePickerField
+        value={isoDate}
+        onChange={(d) => updateParts(d, hh, mm)}
+        maxDate={new Date().toISOString().split('T')[0]}
+      />
+      <View style={[inputStyles.fieldRow, { marginTop: 8 }]}>
         <Ionicons name="time-outline" size={18} color={Colors.primary} />
+        <Text style={inputStyles.fieldSuffix}>Time</Text>
+        <View style={{ flex: 1 }} />
         <TextInput
-          value={toDateTimeLocalValue(value)}
-          onChangeText={(t) => onChange(fromDateTimeLocalValue(t))}
-          placeholder="YYYY-MM-DDTHH:mm"
+          value={hh}
+          onChangeText={(t) => updateParts(isoDate, t, mm)}
+          placeholder="HH"
+          keyboardType="number-pad"
+          maxLength={2}
           placeholderTextColor={Colors.textMuted}
-          style={inputStyles.fieldInput}
+          style={[inputStyles.fieldInput, { textAlign: 'center', maxWidth: 40 }]}
+        />
+        <Text style={inputStyles.fieldSuffix}>:</Text>
+        <TextInput
+          value={mm}
+          onChangeText={(t) => updateParts(isoDate, hh, t)}
+          placeholder="MM"
+          keyboardType="number-pad"
+          maxLength={2}
+          placeholderTextColor={Colors.textMuted}
+          style={[inputStyles.fieldInput, { textAlign: 'center', maxWidth: 40 }]}
         />
       </View>
     </View>
@@ -155,8 +196,10 @@ type Draft = {
   sleepStart: string;
   sleepEnd: string;
   note: string;
-  // Height-only: user picks cm or inches; we persist cm.
-  heightUnit: 'cm' | 'in';
+  // Height-only: user picks cm, inches, or feet+inches; we persist cm.
+  heightUnit: 'cm' | 'in' | 'ft';
+  heightFeet: string;   // when heightUnit === 'ft'
+  heightInches: string; // when heightUnit === 'ft'
 };
 
 function blankDraft(): Draft {
@@ -169,6 +212,8 @@ function blankDraft(): Draft {
     sleepEnd: now,
     note: '',
     heightUnit: 'cm',
+    heightFeet: '',
+    heightInches: '',
   };
 }
 
@@ -202,9 +247,18 @@ function AddEntrySheet({
       if (!isFinite(n) || n <= 0) return;
       onSave({ ...base, value: n });
     } else if (tracker.key === 'height') {
-      const n = parseFloat(draft.value);
-      if (!isFinite(n) || n <= 0) return;
-      const cm = draft.heightUnit === 'in' ? n * 2.54 : n;
+      let cm = 0;
+      if (draft.heightUnit === 'ft') {
+        const ft = parseFloat(draft.heightFeet) || 0;
+        const inch = parseFloat(draft.heightInches) || 0;
+        const totalInches = ft * 12 + inch;
+        if (totalInches <= 0) return;
+        cm = totalInches * 2.54;
+      } else {
+        const n = parseFloat(draft.value);
+        if (!isFinite(n) || n <= 0) return;
+        cm = draft.heightUnit === 'in' ? n * 2.54 : n;
+      }
       onSave({ ...base, value: Number(cm.toFixed(2)) });
     } else if (tracker.key === 'head') {
       const n = parseFloat(draft.value);
@@ -276,33 +330,65 @@ function AddEntrySheet({
               <>
                 <View style={inputStyles.fieldBlock}>
                   <Text style={inputStyles.fieldLabel}>Value</Text>
-                  <View style={inputStyles.fieldRow}>
-                    <Ionicons name="resize-outline" size={18} color={Colors.primary} />
-                    <TextInput
-                      value={draft.value}
-                      onChangeText={(t) => setDraft({ ...draft, value: t })}
-                      placeholder={draft.heightUnit === 'cm' ? 'e.g. 68' : 'e.g. 27'}
-                      keyboardType="decimal-pad"
-                      placeholderTextColor={Colors.textMuted}
-                      style={inputStyles.fieldInput}
-                    />
-                    <View style={inputStyles.unitToggle}>
-                      {(['cm', 'in'] as const).map((u) => {
-                        const active = draft.heightUnit === u;
-                        return (
-                          <TouchableOpacity
-                            key={u}
-                            onPress={() => setDraft({ ...draft, heightUnit: u })}
-                            style={[inputStyles.unitChip, active && inputStyles.unitChipActive]}
-                          >
-                            <Text style={[inputStyles.unitChipText, active && inputStyles.unitChipTextActive]}>
-                              {u}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
+                  {/* Unit toggle row — three options: cm / in / ft+in */}
+                  <View style={[inputStyles.unitToggle, { alignSelf: 'flex-start', marginBottom: 8 }]}>
+                    {(['cm', 'in', 'ft'] as const).map((u) => {
+                      const active = draft.heightUnit === u;
+                      const label = u === 'ft' ? 'ft + in' : u;
+                      return (
+                        <TouchableOpacity
+                          key={u}
+                          onPress={() => setDraft({ ...draft, heightUnit: u })}
+                          style={[inputStyles.unitChip, active && inputStyles.unitChipActive]}
+                        >
+                          <Text style={[inputStyles.unitChipText, active && inputStyles.unitChipTextActive]}>
+                            {label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
                   </View>
+
+                  {draft.heightUnit === 'ft' ? (
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <View style={[inputStyles.fieldRow, { flex: 1 }]}>
+                        <Ionicons name="resize-outline" size={18} color={Colors.primary} />
+                        <TextInput
+                          value={draft.heightFeet}
+                          onChangeText={(t) => setDraft({ ...draft, heightFeet: t })}
+                          placeholder="2"
+                          keyboardType="decimal-pad"
+                          placeholderTextColor={Colors.textMuted}
+                          style={inputStyles.fieldInput}
+                        />
+                        <Text style={inputStyles.fieldSuffix}>ft</Text>
+                      </View>
+                      <View style={[inputStyles.fieldRow, { flex: 1 }]}>
+                        <TextInput
+                          value={draft.heightInches}
+                          onChangeText={(t) => setDraft({ ...draft, heightInches: t })}
+                          placeholder="4"
+                          keyboardType="decimal-pad"
+                          placeholderTextColor={Colors.textMuted}
+                          style={inputStyles.fieldInput}
+                        />
+                        <Text style={inputStyles.fieldSuffix}>in</Text>
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={inputStyles.fieldRow}>
+                      <Ionicons name="resize-outline" size={18} color={Colors.primary} />
+                      <TextInput
+                        value={draft.value}
+                        onChangeText={(t) => setDraft({ ...draft, value: t })}
+                        placeholder={draft.heightUnit === 'cm' ? 'e.g. 68' : 'e.g. 27'}
+                        keyboardType="decimal-pad"
+                        placeholderTextColor={Colors.textMuted}
+                        style={inputStyles.fieldInput}
+                      />
+                      <Text style={inputStyles.fieldSuffix}>{draft.heightUnit}</Text>
+                    </View>
+                  )}
                 </View>
               </>
             )}

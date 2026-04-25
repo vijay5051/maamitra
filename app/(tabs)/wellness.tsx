@@ -278,40 +278,45 @@ function MoodChart() {
         </View>
       </View>
 
-      <View style={chartStyles.barsRow}>
-        {weekHistory.map((entry, i) => {
-          const { abbr, day, isToday } = dayColumns[i];
-          const heightPct = entry ? (entry.score / maxScore) : 0;
-          return (
-            <View key={i} style={chartStyles.barCol}>
-              <View style={[chartStyles.barTrack, { height: barMaxHeight }]}>
-                {entry ? (
-                  <LinearGradient
-                    colors={isToday ? [Colors.primary, Colors.primary] : ['#F4B3CC', '#C9A8E0']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 0, y: 1 }}
-                    style={[
-                      chartStyles.barFill,
-                      { height: Math.max(8, barMaxHeight * heightPct) },
-                    ]}
-                  />
-                ) : (
-                  <View style={[chartStyles.barEmpty, { height: 6 }]} />
-                )}
-                {entry && (
-                  <Text style={chartStyles.barEmoji}>{entry.emoji}</Text>
-                )}
+      {/* Bar chart — shown only if there's at least one mood logged this week.
+          When empty, the chart was visually heavy + meaningless; the summary
+          card below covers the empty state cleanly. */}
+      {nonNull.length > 0 && (
+        <View style={chartStyles.barsRow}>
+          {weekHistory.map((entry, i) => {
+            const { abbr, day, isToday } = dayColumns[i];
+            const heightPct = entry ? (entry.score / maxScore) : 0;
+            return (
+              <View key={i} style={chartStyles.barCol}>
+                <View style={[chartStyles.barTrack, { height: barMaxHeight }]}>
+                  {entry ? (
+                    <LinearGradient
+                      colors={isToday ? [Colors.primary, Colors.primary] : ['#F4B3CC', '#C9A8E0']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 0, y: 1 }}
+                      style={[
+                        chartStyles.barFill,
+                        { height: Math.max(8, barMaxHeight * heightPct) },
+                      ]}
+                    />
+                  ) : (
+                    <View style={[chartStyles.barEmpty, { height: 6 }]} />
+                  )}
+                  {entry && (
+                    <Text style={chartStyles.barEmoji}>{entry.emoji}</Text>
+                  )}
+                </View>
+                <Text style={[chartStyles.barDayLabel, isToday && chartStyles.barDayLabelToday]}>
+                  {abbr}
+                </Text>
+                <Text style={[chartStyles.barDateLabel, isToday && chartStyles.barDateLabelToday]}>
+                  {isToday ? 'Today' : day}
+                </Text>
               </View>
-              <Text style={[chartStyles.barDayLabel, isToday && chartStyles.barDayLabelToday]}>
-                {abbr}
-              </Text>
-              <Text style={[chartStyles.barDateLabel, isToday && chartStyles.barDateLabelToday]}>
-                {isToday ? 'Today' : day}
-              </Text>
-            </View>
-          );
-        })}
-      </View>
+            );
+          })}
+        </View>
+      )}
 
       {/* Summary */}
       <View style={chartStyles.summaryCard}>

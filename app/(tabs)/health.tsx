@@ -1188,12 +1188,6 @@ function HealthCheckItem({
         {
           backgroundColor: c.bg,
           borderColor: c.border,
-          // inner glow matching ring color
-          shadowColor: color,
-          shadowRadius: 8,
-          shadowOpacity: 0.15,
-          shadowOffset: { width: 0, height: 2 },
-          elevation: 3,
         },
       ]}
     >
