@@ -34,7 +34,7 @@ interface VaccineItem {
   isCustom?: boolean; // true = admin-added via Firestore
 }
 
-const CATEGORIES = ['Birth', 'Primary Series', 'Boosters', 'Seasonal', 'Adolescent', 'Optional', 'Catch-up'];
+const CATEGORIES = ['Birth', 'Primary Series', 'Boosters', 'Seasonal', 'Adolescent', 'Nutrition', 'Optional', 'Catch-up'];
 
 // ─── Form Modal ───────────────────────────────────────────────────────────────
 
@@ -245,6 +245,7 @@ export default function VaccinesScreen() {
     'Boosters': '#10b981',
     'Seasonal': '#0ea5e9',
     'Adolescent': '#ec4899',
+    'Nutrition': '#84cc16',
     'Optional': '#f59e0b',
     'Catch-up': '#06b6d4',
   };

@@ -6,6 +6,8 @@ export type Stage = 'pregnant' | 'newborn' | 'planning';
 export type ParentGender = 'mother' | 'father' | 'other' | '';
 export type ParentRelation = 'mother' | 'father' | 'guardian' | 'grandparent' | 'aunt/uncle' | 'other' | '';
 
+export type VaccineScheduleType = 'iap' | 'nis';
+
 export interface Kid {
   id: string;
   name: string;
@@ -16,6 +18,13 @@ export interface Kid {
   ageInWeeks: number;
   isExpecting: boolean;
   relation?: ParentRelation; // this parent's relation to the child
+  /**
+   * Which immunization schedule this child follows. Null until the parent
+   * picks one in the vaccine tracker — at which point the tracker is
+   * locked to that schedule for this kid (changing it requires explicit
+   * confirmation because it remaps which vaccines show).
+   */
+  vaccineSchedule?: VaccineScheduleType | null;
 }
 
 export interface VisibilitySettings {
@@ -127,6 +136,7 @@ interface ProfileState {
   getActiveKid: () => Kid | null;
   markVaccineDone: (vaccineId: string, kidId: string, doneDate?: string) => void;
   unmarkVaccineDone: (vaccineId: string, kidId: string) => void;
+  setKidVaccineSchedule: (kidId: string, schedule: VaccineScheduleType) => void;
   /** Wipes ALL profile data — call on sign-out so no data leaks to the next user */
   resetProfile: () => void;
 
@@ -234,6 +244,12 @@ export const useProfileStore = create<ProfileState>()(
               [vaccineId]: { done: true, doneDate: doneDate ?? new Date().toISOString() },
             },
           },
+        }));
+      },
+
+      setKidVaccineSchedule: (kidId, schedule) => {
+        set((state) => ({
+          kids: state.kids.map((k) => (k.id === kidId ? { ...k, vaccineSchedule: schedule } : k)),
         }));
       },
 

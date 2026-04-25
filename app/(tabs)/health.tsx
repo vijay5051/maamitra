@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Linking,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -22,15 +23,17 @@ import Animated, {
   interpolate,
 } from 'react-native-reanimated';
 import Svg, { Circle } from 'react-native-svg';
-import { useVaccineSchedule } from '../../hooks/useVaccineSchedule';
+import { useVaccineSchedule, useKidVaccineSchedulePreference } from '../../hooks/useVaccineSchedule';
 import { GOVERNMENT_SCHEMES } from '../../data/schemes';
 import { filterByAudience, parentGenderToAudience } from '../../data/audience';
+import { SCHEDULE_INFO, VaccineScheduleType } from '../../data/vaccines';
 import { useActiveKid } from '../../hooks/useActiveKid';
 import { useProfileStore } from '../../store/useProfileStore';
 import { useAuthStore } from '../../store/useAuthStore';
-import { syncHealthTracking } from '../../services/firebase';
+import { syncHealthTracking, saveFullProfile } from '../../services/firebase';
 import Card from '../../components/ui/Card';
 import VaccineCardComponent from '../../components/health/VaccineCard';
+import VaccineScheduleChooser from '../../components/health/VaccineScheduleChooser';
 import TeethTab from '../../components/health/TeethTab';
 import FoodTrackerTab from '../../components/health/FoodTrackerTab';
 import GrowthTab, { RoutineTab } from '../../components/health/GrowthTab';
@@ -389,20 +392,163 @@ function VaccineAgeGroup({ group }: { group: VaccineGroup }) {
   );
 }
 
-function VaccineSourceFooter() {
+function VaccineSourceFooter({ schedule }: { schedule: VaccineScheduleType }) {
+  const info = SCHEDULE_INFO[schedule];
   return (
     <View style={vStyles.source}>
       <Ionicons name="document-text-outline" size={14} color={STONE} />
       <Text style={vStyles.sourceText}>
         Schedule based on{' '}
-        <Text style={vStyles.sourceEmph}>
-          IAP ACVIP Recommended Immunization Schedule (2023)
-        </Text>
-        , published in{' '}
-        <Text style={vStyles.sourceEmph}>Indian Pediatrics</Text>, Jan 2024 —
-        Rao IS, Kasi SG et al. Always confirm doses with your paediatrician.
+        <Text style={vStyles.sourceEmph}>{info.fullName}</Text> ·{' '}
+        <Text style={vStyles.sourceEmph}>{info.authority}</Text>. {info.source}.
+        {' '}Always confirm doses with your paediatrician.
       </Text>
     </View>
+  );
+}
+
+// ─── VaccinesSection ───────────────────────────────────────────────────────────
+// One place that resolves the four states the vaccines tab can be in:
+//   1. No active kid → CTA to add a baby
+//   2. Pregnant kid → pregnancy vaccines list (FOGSI)
+//   3. Live kid, no schedule chosen yet → VaccineScheduleChooser
+//   4. Live kid with schedule → grouped tracker with a "change schedule" link
+
+function VaccinesSection({
+  activeKid,
+  vaccines,
+  schedulePref,
+  onPickSchedule,
+  router,
+}: {
+  activeKid: ReturnType<typeof useActiveKid>['activeKid'];
+  vaccines: VaccineRow[];
+  schedulePref: ReturnType<typeof useKidVaccineSchedulePreference>;
+  onPickSchedule: (t: VaccineScheduleType) => void;
+  router: ReturnType<typeof useRouter>;
+}) {
+  const [changeOpen, setChangeOpen] = useState(false);
+
+  if (!activeKid) {
+    return (
+      <Card style={styles.noKidCard} shadow="sm">
+        <Ionicons name="heart-outline" size={40} color={Colors.primary} style={{ marginBottom: 12, opacity: 0.8 }} />
+        <Text style={styles.noKidText}>
+          Add your baby to see their personalised vaccine schedule.
+        </Text>
+        <TouchableOpacity
+          style={styles.noKidBtn}
+          onPress={() => router.push('/(tabs)/family')}
+          activeOpacity={0.85}
+        >
+          <LinearGradient
+            colors={[Colors.primary, Colors.primary]}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+            style={styles.noKidBtnGrad}
+          >
+            <Ionicons name="add-circle-outline" size={16} color="#fff" />
+            <Text style={styles.noKidBtnText}>Add your baby</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      </Card>
+    );
+  }
+
+  if (activeKid.isExpecting) {
+    return (
+      <View style={{ marginTop: 8 }}>
+        <Text style={{ fontFamily: Fonts.sansSemiBold, fontSize: 14, color: '#1C1033', marginBottom: 12 }}>
+          Recommended Vaccines During Pregnancy
+        </Text>
+        {[
+          { name: 'Tdap (Tetanus, Diphtheria, Pertussis)', timing: 'Between 27–36 weeks', note: 'Protects your baby from whooping cough after birth' },
+          { name: 'Influenza (Flu) Vaccine', timing: 'Any trimester', note: 'Reduces risk of flu-related complications in pregnancy' },
+          { name: 'COVID-19 Booster', timing: 'Consult your doctor', note: 'Recommended if due for booster — safe in all trimesters' },
+        ].map((v) => (
+          <View key={v.name} style={{ backgroundColor: '#fff', borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: '#EDE9F6' }}>
+            <Text style={{ fontFamily: Fonts.sansSemiBold, fontSize: 13, color: '#1C1033' }}>{v.name}</Text>
+            <Text style={{ fontFamily: Fonts.sansRegular, fontSize: 12, color: Colors.primary, marginTop: 2 }}>When: {v.timing}</Text>
+            <Text style={{ fontFamily: Fonts.sansRegular, fontSize: 12, color: '#6b7280', marginTop: 2 }}>{v.note}</Text>
+          </View>
+        ))}
+        <Text style={{ fontFamily: Fonts.sansRegular, fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
+          As per FOGSI 2024 guidelines · Always confirm with your OB-GYN
+        </Text>
+      </View>
+    );
+  }
+
+  // Schedule not chosen yet — show the chooser. No info banner / tracker yet.
+  if (!schedulePref.hasChosen) {
+    return (
+      <VaccineScheduleChooser
+        currentSchedule={null}
+        onConfirm={onPickSchedule}
+      />
+    );
+  }
+
+  // Schedule locked-in — render the tracker.
+  const info = SCHEDULE_INFO[schedulePref.schedule];
+  const groups = groupVaccinesByAge(vaccines);
+
+  return (
+    <>
+      <View style={styles.infoBanner}>
+        <Text style={styles.infoBannerEmoji}>💉</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.infoBannerText}>{info.fullName}</Text>
+          <Text style={styles.infoBannerSub}>
+            Tap each vaccine to log the exact date it was given.
+          </Text>
+        </View>
+        <View style={vStyles.scheduleBadge}>
+          <Text style={vStyles.scheduleBadgeText}>{info.name}</Text>
+        </View>
+      </View>
+
+      {groups.map((group) => (
+        <VaccineAgeGroup key={group.ageLabel} group={group} />
+      ))}
+
+      <VaccineSourceFooter schedule={schedulePref.schedule} />
+
+      <TouchableOpacity
+        onPress={() => setChangeOpen(true)}
+        style={vStyles.changeBtn}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="swap-horizontal-outline" size={14} color={Colors.primary} />
+        <Text style={vStyles.changeBtnText}>Change schedule</Text>
+      </TouchableOpacity>
+
+      <Modal
+        visible={changeOpen}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setChangeOpen(false)}
+      >
+        <View style={vStyles.changeHeader}>
+          <TouchableOpacity onPress={() => setChangeOpen(false)} style={{ padding: 6 }}>
+            <Ionicons name="close" size={22} color={Colors.textLight} />
+          </TouchableOpacity>
+          <Text style={vStyles.changeHeaderTitle}>Change schedule</Text>
+          <View style={{ width: 32 }} />
+        </View>
+        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+          <VaccineScheduleChooser
+            currentSchedule={schedulePref.schedule}
+            isChange
+            title="Switch to a different schedule"
+            subtitle="Your previously logged dates stay saved. Vaccines that exist in the new schedule will still show as done."
+            onConfirm={(t) => {
+              onPickSchedule(t);
+              setChangeOpen(false);
+            }}
+          />
+        </ScrollView>
+      </Modal>
+    </>
   );
 }
 
@@ -480,6 +626,52 @@ const vStyles = StyleSheet.create({
   },
   sourceEmph: {
     fontFamily: Fonts.sansSemiBold,
+    color: INK,
+  },
+  scheduleBadge: {
+    backgroundColor: Colors.primary,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  scheduleBadgeText: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 10.5,
+    letterSpacing: 0.5,
+    color: '#fff',
+    textTransform: 'uppercase',
+  },
+  changeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.primaryAlpha20,
+    backgroundColor: '#fff',
+  },
+  changeBtnText: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 12.5,
+    color: Colors.primary,
+  },
+  changeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderSoft,
+    backgroundColor: '#fff',
+  },
+  changeHeaderTitle: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 15,
     color: INK,
   },
 });
@@ -1203,10 +1395,35 @@ export default function HealthScreen() {
 
   const activeMeta = subTab ? SUB_TABS.find((t) => t.key === subTab) ?? null : null;
   const vaccines   = useVaccineSchedule();
+  const schedulePref = useKidVaccineSchedulePreference();
   const { activeKid } = useActiveKid();
   const motherName = useProfileStore((s) => s.motherName);
   const profile    = useProfileStore((s) => s.profile);
+  const setKidVaccineSchedule = useProfileStore((s) => s.setKidVaccineSchedule);
   const { user }   = useAuthStore();
+
+  // Persist the parent's schedule pick locally + to Firestore. Lighter than
+  // a full saveFullProfile but uses the same shape so the kids array stays
+  // in sync across devices.
+  const persistSchedulePick = (type: VaccineScheduleType) => {
+    if (!activeKid) return;
+    setKidVaccineSchedule(activeKid.id, type);
+    if (user?.uid) {
+      const s = useProfileStore.getState();
+      saveFullProfile(user.uid, {
+        motherName: s.motherName,
+        profile: s.profile,
+        kids: s.kids,
+        completedVaccines: s.completedVaccines,
+        onboardingComplete: s.onboardingComplete,
+        photoUrl: s.photoUrl || '',
+        parentGender: s.parentGender || '',
+        bio: s.bio || '',
+        expertise: s.expertise || [],
+        visibilitySettings: s.visibilitySettings,
+      }).catch(console.error);
+    }
+  };
   const [lastDone, setLastDone] = useState<Record<string, string>>({});
 
   const healthKey = `maamitra-health-${user?.uid ?? 'local'}`;
@@ -1288,67 +1505,13 @@ export default function HealthScreen() {
 
         {/* ── VACCINES ── */}
         {subTab === 'vaccines' && (
-          <>
-            <View style={styles.infoBanner}>
-              <Text style={styles.infoBannerEmoji}>💉</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.infoBannerText}>IAP ACVIP Immunisation Schedule (2023)</Text>
-                <Text style={styles.infoBannerSub}>
-                  Tap each vaccine to log the exact date it was given.
-                </Text>
-              </View>
-            </View>
-
-            {!activeKid ? (
-              <Card style={styles.noKidCard} shadow="sm">
-                <Ionicons name="heart-outline" size={40} color={Colors.primary} style={{ marginBottom: 12, opacity: 0.8 }} />
-                <Text style={styles.noKidText}>
-                  Add your baby to see their personalised vaccine schedule.
-                </Text>
-                <TouchableOpacity
-                  style={styles.noKidBtn}
-                  onPress={() => router.push('/(tabs)/family')}
-                  activeOpacity={0.85}
-                >
-                  <LinearGradient
-                    colors={[Colors.primary, Colors.primary]}
-                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                    style={styles.noKidBtnGrad}
-                  >
-                    <Ionicons name="add-circle-outline" size={16} color="#fff" />
-                    <Text style={styles.noKidBtnText}>Add your baby</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              </Card>
-            ) : activeKid.isExpecting ? (
-              <View style={{ marginTop: 8 }}>
-                <Text style={{ fontFamily: Fonts.sansSemiBold, fontSize: 14, color: '#1C1033', marginBottom: 12 }}>
-                  Recommended Vaccines During Pregnancy
-                </Text>
-                {[
-                  { name: 'Tdap (Tetanus, Diphtheria, Pertussis)', timing: 'Between 27–36 weeks', note: 'Protects your baby from whooping cough after birth' },
-                  { name: 'Influenza (Flu) Vaccine', timing: 'Any trimester', note: 'Reduces risk of flu-related complications in pregnancy' },
-                  { name: 'COVID-19 Booster', timing: 'Consult your doctor', note: 'Recommended if due for booster — safe in all trimesters' },
-                ].map((v) => (
-                  <View key={v.name} style={{ backgroundColor: '#fff', borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: '#EDE9F6' }}>
-                    <Text style={{ fontFamily: Fonts.sansSemiBold, fontSize: 13, color: '#1C1033' }}>{v.name}</Text>
-                    <Text style={{ fontFamily: Fonts.sansRegular, fontSize: 12, color: Colors.primary, marginTop: 2 }}>When: {v.timing}</Text>
-                    <Text style={{ fontFamily: Fonts.sansRegular, fontSize: 12, color: '#6b7280', marginTop: 2 }}>{v.note}</Text>
-                  </View>
-                ))}
-                <Text style={{ fontFamily: Fonts.sansRegular, fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
-                  As per FOGSI 2024 guidelines · Always confirm with your OB-GYN
-                </Text>
-              </View>
-            ) : (
-              <>
-                {groupVaccinesByAge(vaccines).map((group) => (
-                  <VaccineAgeGroup key={group.ageLabel} group={group} />
-                ))}
-                <VaccineSourceFooter />
-              </>
-            )}
-          </>
+          <VaccinesSection
+            activeKid={activeKid}
+            vaccines={vaccines}
+            schedulePref={schedulePref}
+            onPickSchedule={persistSchedulePick}
+            router={router}
+          />
         )}
 
         {/* ── TEETH ── */}
