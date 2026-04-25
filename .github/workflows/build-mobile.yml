@@ -1,14 +1,30 @@
-name: Build & Submit Mobile Apps
+name: Build Native App (Android / iOS)
+
+# Manual trigger from the GitHub Actions UI: pick a platform and an
+# optional auto-submit flag. EAS Build runs on Expo's infra (cloud), so
+# this workflow just needs an EXPO_TOKEN — env vars come from the EAS
+# production environment automatically.
 
 on:
   workflow_dispatch:
     inputs:
       platform:
-        description: 'Platform to build'
+        description: 'Platform'
         required: true
         default: 'android'
         type: choice
         options: [android, ios, all]
+      profile:
+        description: 'Build profile'
+        required: true
+        default: 'production'
+        type: choice
+        options: [production, preview, development]
+      submit:
+        description: 'Auto-submit to store after build (production only)'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   build:
@@ -24,7 +40,7 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: Setup EAS
+      - name: Setup EAS CLI
         uses: expo/expo-github-action@v8
         with:
           eas-version: latest
@@ -33,22 +49,15 @@ jobs:
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
 
-      - name: Create .env file
+      - name: Build (with optional submit)
         run: |
-          echo "EXPO_PUBLIC_FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }}" >> .env
-          echo "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=${{ secrets.FIREBASE_AUTH_DOMAIN }}" >> .env
-          echo "EXPO_PUBLIC_FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}" >> .env
-          echo "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=${{ secrets.FIREBASE_STORAGE_BUCKET }}" >> .env
-          echo "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}" >> .env
-          echo "EXPO_PUBLIC_FIREBASE_APP_ID=${{ secrets.FIREBASE_APP_ID }}" >> .env
-          echo "EXPO_PUBLIC_ADMIN_EMAIL=${{ secrets.ADMIN_EMAIL }}" >> .env
-          echo "EXPO_PUBLIC_CLAUDE_WORKER_URL=https://round-grass-a27c.rocking-vsr.workers.dev" >> .env
-          echo "EXPO_PUBLIC_RECAPTCHA_SITE_KEY=${{ secrets.RECAPTCHA_SITE_KEY }}" >> .env
-
-      - name: Build iOS
-        if: github.event.inputs.platform == 'ios' || github.event.inputs.platform == 'all'
-        run: eas build --platform ios --profile production --non-interactive
-
-      - name: Build Android
-        if: github.event.inputs.platform == 'android' || github.event.inputs.platform == 'all'
-        run: eas build --platform android --profile production --non-interactive
+          SUBMIT_FLAG=""
+          if [ "${{ inputs.submit }}" = "true" ] && [ "${{ inputs.profile }}" = "production" ]; then
+            SUBMIT_FLAG="--auto-submit"
+          fi
+          npx eas-cli build \
+            --platform ${{ inputs.platform }} \
+            --profile ${{ inputs.profile }} \
+            --non-interactive \
+            --no-wait \
+            $SUBMIT_FLAG
