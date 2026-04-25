@@ -48,64 +48,11 @@ export interface Post {
   showComments: boolean;
 }
 
-const SEED_POSTS: Post[] = [
-  {
-    id: 'seed-1',
-    authorName: 'Priya S.',
-    authorInitial: 'P',
-    authorUid: '',
-    badge: 'New Mom · Mumbai',
-    topic: 'Newborn',
-    text: 'Finally figured out the perfect latch after 3 weeks of struggling! Turns out the laid-back nursing position works best for us. Sharing for any other mamas struggling 🤱 Don\'t give up, it gets easier!',
-    reactions: { '❤️': 47, '🤱': 23, '😊': 12 },
-    userReactions: [],
-    comments: [],
-    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
-    showComments: false,
-  },
-  {
-    id: 'seed-2',
-    authorName: 'Ananya K.',
-    authorInitial: 'A',
-    authorUid: '',
-    badge: '3rd Trimester · Bangalore',
-    topic: 'Pregnancy',
-    text: 'Monsoon is here and I\'m worried about mosquitoes and dengue for my newborn (due next month). Any tips from experienced moms? Sleeping under mosquito nets enough?',
-    reactions: { '❤️': 31, '💜': 18, '🙏': 9 },
-    userReactions: [],
-    comments: [],
-    createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000),
-    showComments: false,
-  },
-  {
-    id: 'seed-3',
-    authorName: 'Deepika R.',
-    authorInitial: 'D',
-    authorUid: '',
-    badge: 'Mom of 2 · Delhi',
-    topic: 'Sleep',
-    text: '4-month sleep regression is REAL. My baby who was sleeping 6-hour stretches is now up every 2 hours. Doctor says it\'s developmental. Surviving on chai ☕ Anyone else in this boat?',
-    reactions: { '❤️': 89, '😊': 44, '💪': 37 },
-    userReactions: [],
-    comments: [],
-    createdAt: new Date(Date.now() - 12 * 60 * 60 * 1000),
-    showComments: false,
-  },
-  {
-    id: 'seed-4',
-    authorName: 'Meena T.',
-    authorInitial: 'M',
-    authorUid: '',
-    badge: 'First-time Mom · Pune',
-    topic: 'Mental Health',
-    text: 'Just wanted to say — this community has been my lifeline during those 3am feeds when I felt so alone. Thank you all. 💜 MaaMitra\'s chat feature answered questions I was too embarrassed to ask anyone.',
-    reactions: { '❤️': 134, '💜': 67, '😊': 52 },
-    userReactions: [],
-    comments: [],
-    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
-    showComments: false,
-  },
-];
+// No SEED_POSTS — the production app must never render fake authors
+// ("Priya S." / "Ananya K." / etc.). The community feed starts empty and is
+// populated exclusively by loadPostsFromFirestore. Reacting to seed posts
+// silently failed because their ids don't exist in Firestore, which is what
+// caused the "reaction lost on restart" bug.
 
 const FILTERS = ['All', 'Newborn', 'Pregnancy', 'Nutrition', 'Mental Health', 'Milestones', 'Products'] as const;
 export type CommunityFilter = typeof FILTERS[number];
@@ -141,7 +88,7 @@ interface CommunityState {
 }
 
 export const useCommunityStore = create<CommunityState>((set, get) => ({
-  posts: SEED_POSTS,
+  posts: [],
   activeFilter: 'All',
   motherName: '',
   isLoadingPosts: false,
@@ -589,7 +536,7 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
   },
 
   resetCommunity: () => set({
-    posts: SEED_POSTS,
+    posts: [],
     activeFilter: 'All',
     motherName: '',
     isLoadingPosts: false,
