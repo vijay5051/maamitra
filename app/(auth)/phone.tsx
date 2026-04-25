@@ -11,7 +11,6 @@ import {
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { ConfirmationResult } from 'firebase/auth';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useProfileStore } from '../../store/useProfileStore';
 import {
@@ -21,6 +20,7 @@ import {
   resetPhoneRecaptcha,
   PHONE_OTP_CONTAINER_ID,
   PHONE_OTP_UNSUPPORTED,
+  type PhoneOtpHandle,
 } from '../../services/firebase';
 import GradientButton from '../../components/ui/GradientButton';
 import { Fonts } from '../../constants/theme';
@@ -49,9 +49,10 @@ export default function PhoneScreen() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
-  // Firebase ConfirmationResult — a one-time handle to the pending SMS
-  // challenge. Kept in a ref so a re-render doesn't drop it.
-  const confirmationRef = useRef<ConfirmationResult | null>(null);
+  // One-time handle to the pending SMS challenge. On web it wraps the JS SDK
+  // ConfirmationResult; on Android it wraps the verificationId from RN
+  // Firebase. Kept in a ref so a re-render doesn't drop it.
+  const confirmationRef = useRef<PhoneOtpHandle | null>(null);
 
   const e164 = `+91${digits.replace(/\D/g, '')}`;
 
@@ -69,8 +70,8 @@ export default function PhoneScreen() {
     setError('');
     setBusy(true);
     try {
-      const confirmation = await sendPhoneOtp(e164);
-      confirmationRef.current = confirmation;
+      const handle = await sendPhoneOtp(e164);
+      confirmationRef.current = handle;
       setStep('enter-code');
     } catch (e: any) {
       // Previously we used to silently save the unverified phone and route to

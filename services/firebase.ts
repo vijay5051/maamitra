@@ -20,6 +20,8 @@ import {
   reload,
   RecaptchaVerifier,
   linkWithPhoneNumber,
+  linkWithCredential,
+  PhoneAuthProvider,
   unlink,
   ConfirmationResult,
 } from 'firebase/auth';
@@ -437,27 +439,43 @@ export async function getGoogleRedirectResult(): Promise<{ uid: string; name: st
   }
 }
 
-// ─── Phone OTP (web) ─────────────────────────────────────────────────────────
+// ─── Phone OTP (cross-platform) ──────────────────────────────────────────────
 //
-// Firebase phone auth requires reCAPTCHA on web. We build an INVISIBLE
-// verifier against a DOM element the phone screen renders. The flow:
+// Web flow:
 //   1. phone screen mounts <View nativeID="recaptcha-container" />
-//   2. on "Send OTP", we call sendPhoneOtp(e164) — which creates (once) a
-//      RecaptchaVerifier bound to that div and triggers linkWithPhoneNumber
-//      on the CURRENTLY SIGNED-IN user (Google / email). Linking means the
-//      phone becomes a second credential on the same account — the user
-//      doesn't get "signed out" of their Google identity.
-//   3. Firebase sends the SMS. We stash the ConfirmationResult.
-//   4. on "Verify", caller invokes confirmation.confirm(code). Success
-//      populates auth.currentUser.phoneNumber.
+//   2. sendPhoneOtp(e164) creates an invisible RecaptchaVerifier against
+//      that div, calls linkWithPhoneNumber on the CURRENTLY SIGNED-IN user
+//      (Google/email). Linking means the phone becomes a second credential
+//      on the same account; the user doesn't get signed out of Google.
+//   3. Firebase sends the SMS. We stash the ConfirmationResult in the handle.
+//   4. verifyPhoneOtp(handle, code) calls confirmation.confirm(code).
 //
-// Native platforms return throw ISS_UNSUPPORTED — the UI falls back to
-// saving the number without OTP verification.
+// Android flow (uses @react-native-firebase/auth, dynamically required):
+//   1. sendPhoneOtp(e164) calls rnAuth().verifyPhoneNumber(e164) — this
+//      sends the SMS via Firebase's native Android SDK, which uses Play
+//      Integrity for app verification (no reCAPTCHA WebView). Returns a
+//      verificationId.
+//   2. verifyPhoneOtp(handle, code) constructs a JS-SDK PhoneAuthCredential
+//      from the verificationId+code and calls linkWithCredential against
+//      auth.currentUser, so the phone provider is linked to the SAME
+//      Firebase user that's already signed in via Google/email.
+//
+// iOS: not yet wired (needs APNs key uploaded to Firebase Console).
+// Falls through to PHONE_OTP_UNSUPPORTED until that's done.
 
 export const PHONE_OTP_CONTAINER_ID = 'recaptcha-container';
 export const PHONE_OTP_UNSUPPORTED = 'phone-otp/unsupported-platform';
 
 let _recaptchaVerifier: RecaptchaVerifier | null = null;
+
+/**
+ * Opaque handle returned by sendPhoneOtp and consumed by verifyPhoneOtp.
+ * Web: holds the JS SDK ConfirmationResult.
+ * Native: holds the verificationId issued by RN Firebase.
+ */
+export type PhoneOtpHandle =
+  | { kind: 'web'; confirmation: ConfirmationResult }
+  | { kind: 'native'; verificationId: string };
 
 /** Reset between attempts so a new reCAPTCHA token is generated. */
 export function resetPhoneRecaptcha(): void {
@@ -468,57 +486,91 @@ export function resetPhoneRecaptcha(): void {
 }
 
 /**
- * Send an OTP SMS to {e164Phone}. Returns a ConfirmationResult the caller
- * must hold on to and pass back to {verifyPhoneOtp}. Throws if the user
- * isn't signed in, the platform is native, or Firebase rejects.
+ * Send an OTP SMS to {e164Phone}. Returns a handle the caller must pass back
+ * to {verifyPhoneOtp}. Throws if not signed in, platform unsupported, or
+ * Firebase rejects.
  *
- * Works for BOTH first-time add and change-phone flows — if the user
- * already has a phone credential linked, it's unlinked first so the new
- * number can be linked cleanly without 'auth/provider-already-linked'.
+ * Works for both first-time add and change-phone flows — any existing phone
+ * credential is unlinked at verify time so the new number can be linked
+ * cleanly without 'auth/provider-already-linked'.
  */
-export async function sendPhoneOtp(e164Phone: string): Promise<ConfirmationResult> {
-  if (Platform.OS !== 'web') {
-    const err: any = new Error('Phone OTP is only supported on web in this build.');
-    err.code = PHONE_OTP_UNSUPPORTED;
-    throw err;
-  }
+export async function sendPhoneOtp(e164Phone: string): Promise<PhoneOtpHandle> {
   if (!auth) throw new Error('Auth not configured');
   const user = auth.currentUser;
   if (!user) throw new Error('You must be signed in before verifying your phone.');
 
-  // If this user already has a phone credential linked (change-phone flow),
-  // unlink it first so linkWithPhoneNumber below can proceed. Failure to
-  // unlink isn't fatal — linkWithPhoneNumber will surface a clearer error
-  // if there's really a problem.
-  const hasPhone = user.providerData.some((p) => p.providerId === 'phone');
-  if (hasPhone) {
-    try {
-      await unlink(user, 'phone');
-    } catch (e) {
-      console.warn('unlink existing phone failed:', e);
+  if (Platform.OS === 'web') {
+    // Reuse the verifier across attempts — recreating it on every send leaks
+    // reCAPTCHA widgets into the DOM and starts rate-limiting.
+    if (!_recaptchaVerifier) {
+      _recaptchaVerifier = new RecaptchaVerifier(auth, PHONE_OTP_CONTAINER_ID, {
+        size: 'invisible',
+      });
     }
+    // linkWithPhoneNumber attaches the phone credential to the currently
+    // signed-in user. signInWithPhoneNumber would REPLACE the session.
+    const confirmation = await linkWithPhoneNumber(user, e164Phone, _recaptchaVerifier);
+    return { kind: 'web', confirmation };
   }
 
-  // Reuse the verifier across attempts — recreating it on every send leaks
-  // reCAPTCHA widgets into the DOM and starts rate-limiting.
-  if (!_recaptchaVerifier) {
-    _recaptchaVerifier = new RecaptchaVerifier(auth, PHONE_OTP_CONTAINER_ID, {
-      size: 'invisible',
+  if (Platform.OS === 'android') {
+    // Lazy-require so iOS bundle doesn't try to load the native module until
+    // it's actually configured.
+    const rnAuth = require('@react-native-firebase/auth').default;
+    const verificationId = await new Promise<string>((resolve, reject) => {
+      let settled = false;
+      const sub = rnAuth().verifyPhoneNumber(e164Phone);
+      sub.on('state_changed', (snap: any) => {
+        if (settled) return;
+        switch (snap.state) {
+          case 'sent':
+          case 'verified': // Android may auto-retrieve via Play Services
+            settled = true;
+            resolve(snap.verificationId);
+            break;
+          case 'error':
+            settled = true;
+            reject(snap.error ?? new Error('Phone verification failed'));
+            break;
+        }
+      });
     });
+    return { kind: 'native', verificationId };
   }
 
-  // linkWithPhoneNumber attaches the phone credential to the currently
-  // signed-in user (Google/email). signInWithPhoneNumber would REPLACE the
-  // auth session, which we don't want.
-  return await linkWithPhoneNumber(user, e164Phone, _recaptchaVerifier);
+  // iOS — pending APNs key upload to Firebase Console.
+  const err: any = new Error('Phone OTP on iOS is not yet enabled in this build.');
+  err.code = PHONE_OTP_UNSUPPORTED;
+  throw err;
 }
 
 /** Confirm the 6-digit code. Throws on invalid code / expired / too many tries. */
 export async function verifyPhoneOtp(
-  confirmation: ConfirmationResult,
-  code: string
+  handle: PhoneOtpHandle,
+  code: string,
 ): Promise<void> {
-  await confirmation.confirm(code);
+  if (!auth) throw new Error('Auth not configured');
+
+  if (handle.kind === 'web') {
+    await handle.confirmation.confirm(code);
+    return;
+  }
+
+  // Native: bridge into the JS SDK so the phone gets linked to the SAME
+  // Firebase user that's already signed in via Google/email. The
+  // verificationId is a Firebase-issued server token; both SDKs validate it
+  // against the same backend, so cross-SDK construction is supported.
+  const user = auth.currentUser;
+  if (!user) throw new Error('You must be signed in before verifying your phone.');
+
+  // Unlink any existing phone provider so the new number can be linked
+  // without 'auth/provider-already-linked'.
+  if (user.providerData.some((p) => p.providerId === 'phone')) {
+    try { await unlink(user, 'phone'); } catch (e) { console.warn('unlink existing phone failed:', e); }
+  }
+
+  const credential = PhoneAuthProvider.credential(handle.verificationId, code);
+  await linkWithCredential(user, credential);
 }
 
 // ─── Email Verification ───────────────────────────────────────────────────────

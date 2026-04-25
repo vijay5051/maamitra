@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "709650827583",
+    "project_id": "maa-mitra-7kird8",
+    "storage_bucket": "maa-mitra-7kird8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:709650827583:android:09ccab9518d97d942b2b8a",
+        "android_client_info": {
+          "package_name": "in.maamitra.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "709650827583-6b2uj7epjtfgd6kbii7djcb8a82mon0b.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBooEciv5KQ1ti0lZcwxk9g1Sw_EgbIc1Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "709650827583-6b2uj7epjtfgd6kbii7djcb8a82mon0b.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "709650827583-jufm53b8qkhnrk6982oh8j5f2evu29sg.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.mycompany.maamitra"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

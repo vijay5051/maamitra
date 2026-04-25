@@ -17,7 +17,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../store/useAuthStore';
-import { ConfirmationResult } from 'firebase/auth';
 import SuccessCheck from './SuccessCheck';
 import { useProfileStore, Kid, Profile, ParentGender, ParentRelation, calculateAgeInMonths, calculateAgeInWeeks, DEFAULT_VISIBILITY } from '../../store/useProfileStore';
 import {
@@ -28,6 +27,7 @@ import {
   resetPhoneRecaptcha,
   PHONE_OTP_CONTAINER_ID,
   PHONE_OTP_UNSUPPORTED,
+  type PhoneOtpHandle,
 } from '../../services/firebase';
 import { uploadAvatar } from '../../services/storage';
 import DatePickerField from './DatePickerField';
@@ -892,7 +892,7 @@ function ChangePhoneView({
   const [busy, setBusy] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  const confirmationRef = useRef<ConfirmationResult | null>(null);
+  const confirmationRef = useRef<PhoneOtpHandle | null>(null);
   const e164 = `+91${digits.replace(/\D/g, '')}`;
 
   const handleSendOtp = async () => {
@@ -907,12 +907,13 @@ function ChangePhoneView({
     setError('');
     setBusy(true);
     try {
-      const confirmation = await sendPhoneOtp(e164);
-      confirmationRef.current = confirmation;
+      const handle = await sendPhoneOtp(e164);
+      confirmationRef.current = handle;
       setStep('enter-code');
     } catch (e: any) {
       if (e?.code === PHONE_OTP_UNSUPPORTED) {
-        setError('OTP verification is only available on web. Please use a browser to change your mobile number.');
+        // Hit on iOS until APNs key is uploaded to Firebase Console.
+        setError('Phone OTP is not yet enabled on this device. Please use the web app or an Android device for now.');
       } else {
         setError(friendlyOtpError(e));
         resetPhoneRecaptcha();
