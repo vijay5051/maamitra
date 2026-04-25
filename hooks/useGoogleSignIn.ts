@@ -24,13 +24,17 @@ const IOS_CLIENT_ID =
   process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || WEB_CLIENT_ID;
 
 export function useGoogleSignIn() {
-  // Expo's Google provider requires this hook to be called on every render.
-  // On web it initialises a redirect-based request; on native it wires up a
-  // system-browser OAuth flow that returns via the app's scheme.
-  const [request, , promptAsync] = Google.useIdTokenAuthRequest({
+  // Authorization-code flow with PKCE. Android/iOS OAuth clients only
+  // support `response_type=code` — they reject the implicit `id_token`
+  // flow with `invalid_request 400`. Asking for the `openid` scope
+  // makes Google return an `idToken` field on the resulting
+  // `authentication` object, which is what Firebase needs for
+  // `signInWithCredential`.
+  const [request, , promptAsync] = Google.useAuthRequest({
     webClientId: WEB_CLIENT_ID,
     androidClientId: ANDROID_CLIENT_ID,
     iosClientId: IOS_CLIENT_ID,
+    scopes: ['openid', 'profile', 'email'],
   });
 
   async function signIn(): Promise<UserCredential> {
@@ -56,13 +60,19 @@ export function useGoogleSignIn() {
       err.code = 'auth/google-signin-failed';
       throw err;
     }
-    const idToken = (result.params as Record<string, string | undefined>).id_token;
+    // Authorization-code flow exposes tokens on `authentication`. Fall
+    // back to `params.id_token` for older runtimes that still surface
+    // it there.
+    const idToken =
+      result.authentication?.idToken ??
+      (result.params as Record<string, string | undefined>).id_token;
+    const accessToken = result.authentication?.accessToken;
     if (!idToken) {
       const err: any = new Error('Google did not return an ID token.');
       err.code = 'auth/missing-id-token';
       throw err;
     }
-    const credential = GoogleAuthProvider.credential(idToken);
+    const credential = GoogleAuthProvider.credential(idToken, accessToken);
     return signInWithCredential(auth, credential);
   }
 
