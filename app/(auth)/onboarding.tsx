@@ -17,7 +17,6 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useProfileStore } from '../../store/useProfileStore';
 import DatePickerField from '../../components/ui/DatePickerField';
 import StateSelectorComponent from '../../components/onboarding/StateSelector';
-import { saveFullProfile } from '../../services/firebase';
 import { Fonts } from '../../constants/theme';
 import { Colors } from '../../constants/theme';
 
@@ -130,7 +129,7 @@ export default function OnboardingScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
-  const { setMotherName, setProfile, addKid, setOnboardingComplete, setParentGender, onboardingComplete } = useProfileStore();
+  const { setMotherName, setProfile, addKid, setParentGender, onboardingComplete } = useProfileStore();
 
   const initialName = user?.name ?? '';
 
@@ -280,43 +279,17 @@ export default function OnboardingScreen() {
         });
       });
 
-      const authUser = useAuthStore.getState().user;
-      if (authUser?.uid) {
-        // CRITICAL: await the Firestore write BEFORE flipping the local
-        // onboardingComplete flag and routing the user out. The previous
-        // fire-and-forget save was the root cause of the
-        // "onboarding-form-on-every-restart" loop — when the write failed
-        // silently, local store said `onboardingComplete: true` (and was
-        // persisted to AsyncStorage), but Firestore still had `false` (or
-        // missing). Next sign-in's hydrate then reset the local flag to
-        // false from Firestore, sending the user back through onboarding.
-        const st = useProfileStore.getState();
-        await saveFullProfile(authUser.uid, {
-          motherName: st.motherName,
-          profile: st.profile,
-          kids: st.kids,
-          completedVaccines: st.completedVaccines,
-          onboardingComplete: true,
-          parentGender: st.parentGender,
-          bio: st.bio,
-          expertise: st.expertise,
-          photoUrl: st.photoUrl,
-          visibilitySettings: st.visibilitySettings,
-        });
-      }
-
-      // Only flip the local flag AFTER Firestore confirms — keeps local and
-      // remote in lockstep. If the write threw, we never reach this line
-      // and the user stays on the onboarding screen with the catch-block
-      // alert telling them to retry.
-      setOnboardingComplete(true);
-
-      const phone = useProfileStore.getState().phone;
-      router.replace(phone ? '/(tabs)' : '/(auth)/phone');
+      // Hand off to the dedicated setup screen, which owns the Firestore
+      // write + onboardingComplete flip + retry UI. Keeping the
+      // persistence step out of this submit handler means the Firestore
+      // round-trip has a guaranteed UI window (a real screen) instead of
+      // racing against a router.replace().
+      // Cast — typed-routes hasn't regenerated yet for this brand-new file.
+      (router.replace as any)('/(auth)/setup');
     } catch (err: any) {
       Alert.alert(
-        'Could not save your profile',
-        `${err?.message ?? 'Please try again.'}\n\nYour answers are still here — just tap Save again.`,
+        'Could not continue',
+        err?.message ?? 'Please try again.',
       );
     } finally {
       setSubmitting(false);
