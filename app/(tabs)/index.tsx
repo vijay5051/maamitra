@@ -1041,6 +1041,13 @@ export default function HomeTab() {
             }
           />
           <JumpTile
+            icon="flower-outline"
+            label="Dadi's Nuskhe"
+            onPress={() =>
+              router.push({ pathname: '/(tabs)/health', params: { tab: 'nuskhe' } })
+            }
+          />
+          <JumpTile
             icon="heart-outline"
             label="My health"
             onPress={() =>

@@ -34,6 +34,7 @@ import VaccineCardComponent from '../../components/health/VaccineCard';
 import TeethTab from '../../components/health/TeethTab';
 import FoodTrackerTab from '../../components/health/FoodTrackerTab';
 import GrowthTab, { RoutineTab } from '../../components/health/GrowthTab';
+import NuskheTab from '../../components/health/NuskheTab';
 import { Fonts, Gradients } from '../../constants/theme';
 import { Colors } from '../../constants/theme';
 
@@ -46,7 +47,7 @@ const MIST   = '#EDE9F6';
 const INK    = '#1C1033';
 const STONE  = '#6B7280';
 
-type SubTab = 'vaccines' | 'teeth' | 'foods' | 'growth' | 'routine' | 'schemes' | 'myhealth';
+type SubTab = 'vaccines' | 'teeth' | 'foods' | 'growth' | 'routine' | 'schemes' | 'myhealth' | 'nuskhe';
 
 // ─── Landing-grid categories ──────────────────────────────────────────────────
 // Seven trackers is too many for a horizontal pill bar. Group them by who the
@@ -75,6 +76,7 @@ const SUB_TABS: SubTabMeta[] = [
   { key: 'teeth',    label: 'Teeth',      icon: 'happy-outline',            description: 'Eruption & shedding tracker',         category: 'baby'     },
   { key: 'foods',    label: 'Foods',      icon: 'restaurant-outline',       description: '3-day rule for new foods',             category: 'baby'     },
   { key: 'routine',  label: 'Routine',    icon: 'time-outline',             description: 'Diaper & sleep log',                   category: 'baby'     },
+  { key: 'nuskhe',   label: 'Dadi Maa\u2019s Nuskhe', icon: 'flower-outline',  description: 'Traditional home remedies for common ailments', category: 'baby' },
   { key: 'myhealth', label: 'My Health',  icon: 'heart-outline',            description: 'FOGSI checklist for mother',           category: 'mother'   },
   { key: 'schemes',  label: 'Schemes',    icon: 'ribbon-outline',           description: 'Government benefits for you',          category: 'benefits' },
 ];
@@ -1183,7 +1185,7 @@ export default function HealthScreen() {
   // `?tab=teeth` (or schemes/myhealth/vaccines) opens the screen on that
   // sub-tab — used by the home Quick Actions deep-link.
   const params     = useLocalSearchParams<{ tab?: string }>();
-  const validTabs: SubTab[] = ['vaccines', 'teeth', 'foods', 'growth', 'routine', 'schemes', 'myhealth'];
+  const validTabs: SubTab[] = ['vaccines', 'teeth', 'foods', 'growth', 'routine', 'schemes', 'myhealth', 'nuskhe'];
   // Null => show the category landing grid. A valid ?tab=… deep-links directly
   // into a sub-screen (used by home Quick Actions) and bypasses the grid.
   const initialTab: SubTab | null =
@@ -1360,6 +1362,9 @@ export default function HealthScreen() {
 
         {/* ── ROUTINE (diaper / sleep) ── */}
         {subTab === 'routine' && <RoutineTab />}
+
+        {/* ── DADI MAA KE NUSKHE ── */}
+        {subTab === 'nuskhe' && <NuskheTab />}
 
         {/* ── SCHEMES ── */}
         {subTab === 'schemes' && (
