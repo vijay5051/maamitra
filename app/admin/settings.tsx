@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   Alert,
+  Linking,
   ScrollView,
   StyleSheet,
   Switch,
@@ -197,6 +198,79 @@ const DEFAULT_NOTIFS = {
   mood: 'How are you feeling today? Take a moment to check in with yourself. 💕',
 };
 
+// ─── Releases ────────────────────────────────────────────────────────────────
+// All deploys live in GitHub Actions: pushing to main auto-ships web + OTA;
+// native builds are a 1-click "Run workflow" in the GH Actions UI. These rows
+// are deep-link shortcuts so you don't need to dig through GitHub's nav.
+
+const GH_REPO = 'https://github.com/vijay5051/maamitra';
+const RELEASE_LINKS = [
+  {
+    key: 'deploy',
+    label: 'Push OTA + redeploy web',
+    sub: 'Re-runs the latest deploy workflow against main.',
+    icon: 'cloud-upload-outline',
+    url: `${GH_REPO}/actions/workflows/deploy-web.yml`,
+  },
+  {
+    key: 'ota-only',
+    label: 'OTA-only update',
+    sub: 'Ship a JS update without redeploying the web bundle.',
+    icon: 'flash-outline',
+    url: `${GH_REPO}/actions/workflows/ota-update.yml`,
+  },
+  {
+    key: 'native',
+    label: 'Build native app (Android / iOS)',
+    sub: 'Pick a platform → produces a new AAB / IPA on EAS.',
+    icon: 'phone-portrait-outline',
+    url: `${GH_REPO}/actions/workflows/build-mobile.yml`,
+  },
+  {
+    key: 'eas-builds',
+    label: 'EAS build dashboard',
+    sub: 'Watch in-flight builds, download artifacts.',
+    icon: 'bar-chart-outline',
+    url: 'https://expo.dev/accounts/rockingvsr/projects/maamitra/builds',
+  },
+  {
+    key: 'eas-updates',
+    label: 'OTA update history',
+    sub: 'Roll back, inspect runtime versions.',
+    icon: 'time-outline',
+    url: 'https://expo.dev/accounts/rockingvsr/projects/maamitra/updates',
+  },
+] as const;
+
+function ReleaseRow({
+  label,
+  sub,
+  icon,
+  url,
+}: {
+  label: string;
+  sub: string;
+  icon: string;
+  url: string;
+}) {
+  return (
+    <TouchableOpacity
+      style={styles.releaseRow}
+      onPress={() => Linking.openURL(url)}
+      activeOpacity={0.7}
+    >
+      <View style={styles.releaseIcon}>
+        <Ionicons name={icon as any} size={16} color={Colors.primary} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.releaseLabel}>{label}</Text>
+        <Text style={styles.releaseSub}>{sub}</Text>
+      </View>
+      <Ionicons name="open-outline" size={14} color="#9ca3af" />
+    </TouchableOpacity>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function AdminSettings() {
@@ -365,7 +439,17 @@ export default function AdminSettings() {
         />
       </Section>
 
-      {/* Section 5: Admin Account */}
+      {/* Section 5: Releases */}
+      <Section title="Releases">
+        {RELEASE_LINKS.map((row, i) => (
+          <View key={row.key}>
+            <ReleaseRow label={row.label} sub={row.sub} icon={row.icon} url={row.url} />
+            {i < RELEASE_LINKS.length - 1 && <View style={styles.divider} />}
+          </View>
+        ))}
+      </Section>
+
+      {/* Section 6: Admin Account */}
       <Section title="Admin Account">
         <View style={styles.adminEmailRow}>
           <Ionicons name="shield-checkmark-outline" size={16} color={Colors.primary} />
@@ -464,6 +548,24 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
     minHeight: 56,
   },
+
+  releaseRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  releaseIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#EDE9F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  releaseLabel: { fontSize: 14, color: '#1a1a2e', fontWeight: '600' },
+  releaseSub: { fontSize: 12, color: '#9ca3af', marginTop: 2, lineHeight: 16 },
 
   adminEmailRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 14 },
   adminEmail: { fontSize: 14, color: '#1a1a2e', fontWeight: '500' },
