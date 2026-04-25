@@ -581,6 +581,25 @@ export async function sendPhoneOtp(e164Phone: string): Promise<PhoneOtpHandle> {
  * never linked (e.g. native build before RN Firebase wiring), there's
  * nothing to unlink, but the profile field still needs clearing.
  */
+/**
+ * Admin-only: fully wipe a user — both their Firebase Auth account AND
+ * Firestore data. Calls the `adminDeleteUser` Cloud Function which runs
+ * with the Firebase Admin SDK (clients can't delete arbitrary Auth users).
+ *
+ * Use this instead of `deleteUserData` when the goal is to free up the
+ * user's identity — phone, email — for re-use. Plain `deleteUserData`
+ * leaves the Auth record + phone provider behind, which then blocks the
+ * phone from being linked to a new account.
+ */
+export async function adminDeleteUserFully(targetUid: string): Promise<void> {
+  if (!app) throw new Error('Firebase app not configured');
+  // Lazy-load the functions client SDK so non-admin paths don't pull it in.
+  const { getFunctions, httpsCallable } = await import('firebase/functions');
+  const functions = getFunctions(app);
+  const call = httpsCallable<{ uid: string }, { ok: boolean }>(functions, 'adminDeleteUser');
+  await call({ uid: targetUid });
+}
+
 export async function removePhoneFromAccount(uid: string): Promise<void> {
   if (!auth) throw new Error('Auth not configured');
   const user = auth.currentUser;

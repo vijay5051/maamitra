@@ -18,7 +18,7 @@ import {
   View,
 } from 'react-native';
 
-import { AdminUser, getUsers, deleteUserData, adminSetUserRole } from '../../services/firebase';
+import { AdminUser, getUsers, adminDeleteUserFully, adminSetUserRole } from '../../services/firebase';
 import { Colors } from '../../constants/theme';
 import { confirmAction, infoAlert } from '../../lib/cross-platform-alerts';
 
@@ -174,14 +174,15 @@ export default function UsersScreen() {
 
   async function handleDelete(user: AdminUser) {
     const ok = await confirmAction(
-      'Delete User Data',
-      `Remove all Firestore data for ${user.name} (${user.email})?\n\nThis does NOT delete their Firebase Auth account — they can still sign in but will start fresh.`,
-      { confirmLabel: 'Delete Data' },
+      'Delete user permanently',
+      `Permanently delete ${user.name} (${user.email})?\n\nThis removes BOTH their Firebase Auth account and Firestore data. Their phone / email become free for use by a new account. This cannot be undone.`,
+      { confirmLabel: 'Delete Permanently' },
     );
     if (!ok) return;
     try {
-      await deleteUserData(user.uid);
+      await adminDeleteUserFully(user.uid);
       setUsers((prev) => prev.filter((u) => u.uid !== user.uid));
+      infoAlert('Deleted', `${user.name || user.email} has been fully removed.`);
     } catch (e: any) {
       const code = e?.code ? `${e.code}\n\n` : '';
       infoAlert('Delete failed', `${code}${e?.message ?? String(e)}`);

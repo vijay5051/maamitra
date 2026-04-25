@@ -211,6 +211,109 @@ function sanitiseData(data: Record<string, any> | undefined): Record<string, str
   return out;
 }
 
+// ─── adminDeleteUser ─────────────────────────────────────────────────────────
+// Admin-gated callable that fully removes a user — both their Firebase Auth
+// account AND their Firestore data. Necessary because the client-side
+// `deleteUserData` only wipes Firestore; the Auth record (with any linked
+// phone provider) lingers and blocks the freed phone number from being
+// re-linked to a new account ("auth/credential-already-in-use").
+//
+// Caller must be authenticated AND admin (custom claim or email allowlist —
+// kept in sync with firestore.rules → isAdmin()).
+
+const ADMIN_EMAILS = new Set<string>([
+  'admin@maamitra.app',
+  'vijay@maamitra.app',
+  'rocking.vsr@gmail.com',
+  'demo@maamitra.app',
+]);
+
+function isAdminToken(token: admin.auth.DecodedIdToken | undefined): boolean {
+  if (!token) return false;
+  if (token.admin === true) return true;
+  if (token.email_verified === true && token.email && ADMIN_EMAILS.has(token.email.toLowerCase())) {
+    return true;
+  }
+  return false;
+}
+
+interface AdminDeleteUserPayload {
+  uid: string;
+}
+
+export const adminDeleteUser = functions
+  .runWith({ memory: '256MB', timeoutSeconds: 60 })
+  .https.onCall(async (data: AdminDeleteUserPayload, context) => {
+    if (!isAdminToken(context.auth?.token)) {
+      throw new functions.https.HttpsError(
+        'permission-denied',
+        'Only admins can delete user accounts.',
+      );
+    }
+    const targetUid = data?.uid;
+    if (!targetUid || typeof targetUid !== 'string') {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'A target user uid is required.',
+      );
+    }
+    const callerUid = context.auth?.uid;
+    if (callerUid && callerUid === targetUid) {
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        'Admins cannot delete their own account through this endpoint. Use the regular Delete Account flow in your settings.',
+      );
+    }
+
+    const db = admin.firestore();
+    let firestoreDeleted = false;
+    let authDeleted = false;
+    let authErr: string | null = null;
+
+    // Phase 1: Firestore user doc. Best-effort — phase 2 must run regardless
+    // so an orphan Auth record with a phone provider doesn't get stuck.
+    try {
+      await db.collection('users').doc(targetUid).delete();
+      firestoreDeleted = true;
+    } catch (err) {
+      console.warn(`adminDeleteUser(${targetUid}): firestore delete failed`, err);
+    }
+
+    // Phase 2: the Auth record. THIS is what frees the phone number.
+    try {
+      await admin.auth().deleteUser(targetUid);
+      authDeleted = true;
+    } catch (err: any) {
+      // 'auth/user-not-found' is success — already gone.
+      if (err?.code === 'auth/user-not-found') {
+        authDeleted = true;
+      } else {
+        authErr = err?.message ?? String(err);
+      }
+    }
+
+    // Phase 3: best-effort cleanup of side data — public profile + push
+    // queue subscription markers. Failures here are non-fatal.
+    try {
+      await db.collection('publicProfiles').doc(targetUid).delete();
+    } catch (err) {
+      console.warn(`adminDeleteUser(${targetUid}): publicProfiles cleanup`, err);
+    }
+
+    if (!authDeleted) {
+      throw new functions.https.HttpsError(
+        'internal',
+        `Auth deletion failed: ${authErr ?? 'unknown error'}`,
+      );
+    }
+
+    return {
+      ok: true,
+      firestoreDeleted,
+      authDeleted,
+    };
+  });
+
 async function pruneDeadTokens(
   db: admin.firestore.Firestore,
   deadTokens: string[],
