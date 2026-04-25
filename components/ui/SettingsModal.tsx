@@ -25,10 +25,13 @@ import {
   sendPhoneOtp,
   verifyPhoneOtp,
   resetPhoneRecaptcha,
+  removePhoneFromAccount,
   PHONE_OTP_CONTAINER_ID,
   PHONE_OTP_UNSUPPORTED,
   type PhoneOtpHandle,
 } from '../../services/firebase';
+import { confirmAction, infoAlert } from '../../lib/cross-platform-alerts';
+import { isAdminEmail } from '../../lib/admin';
 import { uploadAvatar } from '../../services/storage';
 import DatePickerField from './DatePickerField';
 import StateSelectorComponent from '../onboarding/StateSelector';
@@ -895,6 +898,12 @@ function ChangePhoneView({
   const confirmationRef = useRef<PhoneOtpHandle | null>(null);
   const e164 = `+91${digits.replace(/\D/g, '')}`;
 
+  // Removing a saved number entirely is admin-only. Regular users must
+  // always have a verified phone on file (anti-abuse + recoverability) — if
+  // they want a different number they go through the change-OTP flow above
+  // which atomically swaps to a new verified number.
+  const canRemove = isAdminEmail(user?.email);
+
   const handleSendOtp = async () => {
     const v = validateIndianMobile(digits);
     if (v) { setError(v); return; }
@@ -959,6 +968,29 @@ function ChangePhoneView({
     setStep('enter-number');
   };
 
+  const handleRemove = async () => {
+    if (!user?.uid) return;
+    const ok = await confirmAction(
+      'Remove mobile number?',
+      `This will unlink ${currentPhone} from your account. You can add a new one any time. Continue?`,
+      { confirmLabel: 'Remove' },
+    );
+    if (!ok) return;
+    setError('');
+    setBusy(true);
+    try {
+      await removePhoneFromAccount(user.uid);
+      setPhone('');
+      setPhoneVerified(false);
+      infoAlert('Number removed', 'Your mobile number has been removed from your account.');
+      onBack();
+    } catch (e: any) {
+      setError(e?.message ?? 'Could not remove the number. Please try again.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const isStep1 = step === 'enter-number';
 
   return (
@@ -978,8 +1010,24 @@ function ChangePhoneView({
           {/* Current number */}
           {currentPhone ? (
             <View style={cp.currentCard}>
-              <Text style={cp.currentLabel}>Current number</Text>
-              <Text style={cp.currentValue}>{currentPhone}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={cp.currentLabel}>Current number</Text>
+                <Text style={cp.currentValue}>{currentPhone}</Text>
+              </View>
+              {/* Remove is admin-only — regular users must keep a verified
+                  number on file and use the change-OTP flow below to swap. */}
+              {canRemove ? (
+                <TouchableOpacity
+                  onPress={handleRemove}
+                  disabled={busy}
+                  style={cp.removeBtn}
+                  activeOpacity={0.75}
+                  accessibilityLabel="Remove this number"
+                >
+                  <Ionicons name="trash-outline" size={14} color="#b91c1c" />
+                  <Text style={cp.removeBtnText}>Remove</Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
           ) : null}
 
@@ -1075,6 +1123,9 @@ function ChangePhoneView({
 
 const cp = StyleSheet.create({
   currentCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
     backgroundColor: '#F5F0FF',
     borderRadius: 12,
     padding: 14,
@@ -1091,6 +1142,22 @@ const cp = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#111827',
+  },
+  removeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+  },
+  removeBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#b91c1c',
   },
   hint: {
     fontSize: 13,

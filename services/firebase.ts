@@ -570,6 +570,30 @@ export async function sendPhoneOtp(e164Phone: string): Promise<PhoneOtpHandle> {
   throw err;
 }
 
+/**
+ * Remove the phone credential from the signed-in user's Firebase Auth
+ * account AND wipe the phone fields on their Firestore user doc. Used by
+ * the "Remove number" button in Settings → Change phone. No OTP required —
+ * the caller is already signed in to the account that owns the number.
+ *
+ * Idempotent: safe to call when no phone is linked. Unlink failures are
+ * logged but don't block the Firestore write — if the phone provider
+ * never linked (e.g. native build before RN Firebase wiring), there's
+ * nothing to unlink, but the profile field still needs clearing.
+ */
+export async function removePhoneFromAccount(uid: string): Promise<void> {
+  if (!auth) throw new Error('Auth not configured');
+  const user = auth.currentUser;
+  if (user && user.providerData.some((p) => p.providerId === 'phone')) {
+    try {
+      await unlink(user, 'phone');
+    } catch (e) {
+      console.warn('removePhoneFromAccount: unlink failed (continuing)', e);
+    }
+  }
+  await saveUserProfile(uid, { phone: '', phoneVerified: false });
+}
+
 /** Confirm the 6-digit code. Throws on invalid code / expired / too many tries. */
 export async function verifyPhoneOtp(
   handle: PhoneOtpHandle,
