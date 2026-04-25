@@ -20,6 +20,7 @@ import {
 
 import { AdminUser, getUsers, deleteUserData, adminSetUserRole } from '../../services/firebase';
 import { Colors } from '../../constants/theme';
+import { confirmAction, infoAlert } from '../../lib/cross-platform-alerts';
 
 // ─── Avatar ───────────────────────────────────────────────────────────────────
 
@@ -155,45 +156,36 @@ export default function UsersScreen() {
 
   async function handleRoleChange(user: AdminUser, newRole: 'mother' | 'father' | 'other') {
     const prev = user.parentGender;
-    Alert.alert(
+    const ok = await confirmAction(
       'Change role?',
       `Reset ${user.name}'s role from ${prev || 'unset'} to ${newRole}?\n\nThis reshapes their role-adaptive content immediately on next app open.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Confirm',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await adminSetUserRole(user.uid, newRole);
-              setUsers((arr) =>
-                arr.map((u) => (u.uid === user.uid ? { ...u, parentGender: newRole } : u)),
-              );
-            } catch (e: any) {
-              Alert.alert('Failed', e?.message ?? 'Could not update role');
-            }
-          },
-        },
-      ],
+      { confirmLabel: 'Confirm' },
     );
+    if (!ok) return;
+    try {
+      await adminSetUserRole(user.uid, newRole);
+      setUsers((arr) =>
+        arr.map((u) => (u.uid === user.uid ? { ...u, parentGender: newRole } : u)),
+      );
+    } catch (e: any) {
+      infoAlert('Failed', e?.message ?? 'Could not update role');
+    }
   }
 
-  function handleDelete(user: AdminUser) {
-    Alert.alert(
+  async function handleDelete(user: AdminUser) {
+    const ok = await confirmAction(
       'Delete User Data',
       `Remove all Firestore data for ${user.name} (${user.email})?\n\nThis does NOT delete their Firebase Auth account — they can still sign in but will start fresh.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete Data',
-          style: 'destructive',
-          onPress: async () => {
-            await deleteUserData(user.uid);
-            setUsers((prev) => prev.filter((u) => u.uid !== user.uid));
-          },
-        },
-      ]
+      { confirmLabel: 'Delete Data' },
     );
+    if (!ok) return;
+    try {
+      await deleteUserData(user.uid);
+      setUsers((prev) => prev.filter((u) => u.uid !== user.uid));
+    } catch (e: any) {
+      const code = e?.code ? `${e.code}\n\n` : '';
+      infoAlert('Delete failed', `${code}${e?.message ?? String(e)}`);
+    }
   }
 
   const filtered = users.filter(

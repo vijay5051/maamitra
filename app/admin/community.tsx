@@ -15,28 +15,19 @@ import {
   View,
 } from 'react-native';
 import { Colors } from '../../constants/theme';
-
-// Cross-platform confirm. RN's Alert.alert renders on web but its
-// destructive-style buttons silently fail to fire onPress (known
-// react-native-web limitation). On web we use window.confirm which is
-// reliable; on native we keep Alert.alert.
-function confirmAction(title: string, message: string): Promise<boolean> {
-  if (Platform.OS === 'web') {
-    return Promise.resolve(
-      typeof window !== 'undefined' && window.confirm(`${title}\n\n${message}`),
-    );
-  }
-  return new Promise((resolve) => {
-    Alert.alert(title, message, [
-      { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
-      { text: 'Delete', style: 'destructive', onPress: () => resolve(true) },
-    ]);
-  });
-}
+import { confirmAction, infoAlert } from '../../lib/cross-platform-alerts';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type FilterTab = 'all' | 'pending' | 'approved';
+// Filter tabs:
+//   all    — everything in the queue including hidden (full audit view).
+//   live   — what users actually see in the public feed
+//            (approved && !hidden).
+//   hidden — posts moderated out via the Hide button. Shown so admins can
+//            review their hide history and Unhide if a complaint comes in.
+// "Pending" was removed because approval is currently hardcoded true at
+// post-create time — there's no real pending state to surface yet.
+type FilterTab = 'all' | 'live' | 'hidden';
 
 interface CommunityPost {
   id: string;
@@ -365,7 +356,7 @@ export default function AdminCommunity() {
       await approveCommunityPost(post.id);
       setPosts((prev) => prev.map((p) => (p.id === post.id ? { ...p, approved: true } : p)));
     } catch (err: any) {
-      Alert.alert('Approve failed', err?.message ?? String(err));
+      infoAlert('Approve failed', err?.message ?? String(err));
     }
   }
 
@@ -396,7 +387,7 @@ export default function AdminCommunity() {
       setHideModalVisible(false);
       setHidingPost(null);
     } catch (err: any) {
-      Alert.alert('Hide failed', err?.message ?? String(err));
+      infoAlert('Hide failed', err?.message ?? String(err));
     }
   }
 
@@ -408,7 +399,7 @@ export default function AdminCommunity() {
         p.id === post.id ? { ...p, hidden: false, hiddenReason: '' } : p,
       ));
     } catch (err: any) {
-      Alert.alert('Unhide failed', err?.message ?? String(err));
+      infoAlert('Unhide failed', err?.message ?? String(err));
     }
   }
 
@@ -424,7 +415,7 @@ export default function AdminCommunity() {
       setPosts((prev) => prev.filter((p) => p.id !== post.id));
     } catch (err: any) {
       const code = err?.code ? `${err.code}\n\n` : '';
-      Alert.alert('Delete failed', `${code}${err?.message ?? String(err)}`);
+      infoAlert('Delete failed', `${code}${err?.message ?? String(err)}`);
     }
   }
 
@@ -448,7 +439,7 @@ export default function AdminCommunity() {
         })
         .map((d) => d.id);
       if (demoUids.length === 0) {
-        Alert.alert('No demo users found', 'Could not find any users with @demo.maamitra.app emails.');
+        infoAlert('No demo users found', 'Could not find any users with @demo.maamitra.app emails.');
         return;
       }
       const { deletePostsByAuthorUids } = await import('../../services/social');
@@ -456,20 +447,20 @@ export default function AdminCommunity() {
       // Reflect locally
       setPosts((prev) => prev.filter((p) => !demoUids.includes((p as any).authorUid)));
       const errMsg = errors.length > 0 ? `\n\n${errors.length} failed.` : '';
-      Alert.alert('Done', `Deleted ${deleted} demo posts.${errMsg}`);
+      infoAlert('Done', `Deleted ${deleted} demo posts.${errMsg}`);
     } catch (err: any) {
       const code = err?.code ? `${err.code}\n\n` : '';
-      Alert.alert('Clear demo failed', `${code}${err?.message ?? String(err)}`);
+      infoAlert('Clear demo failed', `${code}${err?.message ?? String(err)}`);
     }
   }
 
   const totalCount = posts.length;
-  const pendingCount = posts.filter((p) => !p.approved).length;
-  const approvedCount = posts.filter((p) => p.approved).length;
+  const liveCount = posts.filter((p) => p.approved && !p.hidden).length;
+  const hiddenCount = posts.filter((p) => p.hidden).length;
 
   const filteredPosts = posts.filter((p) => {
-    if (filter === 'pending') return !p.approved;
-    if (filter === 'approved') return p.approved;
+    if (filter === 'live') return p.approved && !p.hidden;
+    if (filter === 'hidden') return p.hidden;
     return true;
   });
 
@@ -484,16 +475,16 @@ export default function AdminCommunity() {
           onPress={() => setFilter('all')}
         />
         <FilterTabBtn
-          label="Pending"
-          count={pendingCount}
-          active={filter === 'pending'}
-          onPress={() => setFilter('pending')}
+          label="Live"
+          count={liveCount}
+          active={filter === 'live'}
+          onPress={() => setFilter('live')}
         />
         <FilterTabBtn
-          label="Approved"
-          count={approvedCount}
-          active={filter === 'approved'}
-          onPress={() => setFilter('approved')}
+          label="Hidden"
+          count={hiddenCount}
+          active={filter === 'hidden'}
+          onPress={() => setFilter('hidden')}
         />
       </View>
 
@@ -532,10 +523,10 @@ export default function AdminCommunity() {
               <Ionicons name="chatbubbles-outline" size={48} color="#e5e7eb" />
               <Text style={styles.emptyTitle}>No posts here</Text>
               <Text style={styles.emptySubtitle}>
-                {filter === 'pending'
-                  ? 'All caught up! No posts awaiting approval.'
-                  : filter === 'approved'
-                  ? 'No approved posts yet.'
+                {filter === 'hidden'
+                  ? "Nothing hidden right now. When you hide a post, it'll show up here so you can review or unhide it."
+                  : filter === 'live'
+                  ? 'No live posts yet.'
                   : 'No community posts found.'}
               </Text>
             </View>
