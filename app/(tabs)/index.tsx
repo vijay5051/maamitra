@@ -252,7 +252,12 @@ export default function HomeTab() {
     const candidates = audienceOk.filter(
       (a) => ageMonths >= a.ageMin && ageMonths <= a.ageMax,
     );
-    if (candidates.length === 0) return ARTICLES[0] ?? null;
+    // No age-appropriate article? Return null so the Discover card is hidden
+    // entirely. Previously we fell back to ARTICLES[0], which surfaced
+    // unrelated content (e.g. a newborn-sleep piece for a 4-year-old) and
+    // also explains why tapping it landed in an empty Library — that
+    // article id was filtered out by Library's own age gate.
+    if (candidates.length === 0) return null;
 
     // Score and pick the best. Ties broken by narrower age range (more
     // specific = more personalised). Diet-incompatible articles take a
@@ -575,8 +580,16 @@ export default function HomeTab() {
             </TouchableOpacity>
           </Reanimated.View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.greetSmall}>{greetingSalutation}</Text>
-            <Text style={styles.greetBig}>{greetingTitle}</Text>
+            <Text style={styles.greetSmall} allowFontScaling={false}>{greetingSalutation}</Text>
+            <Text
+              style={styles.greetBig}
+              allowFontScaling={false}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.7}
+            >
+              {greetingTitle}
+            </Text>
           </View>
 
           <TouchableOpacity
@@ -642,10 +655,8 @@ export default function HomeTab() {
           </View>
         </TouchableOpacity>
 
-        {/* ═══ FOR TODAY ═══ Urgent/actionable cards. Was "QUICK ACTIONS"
-            — renamed so it's clear this is the "do this today" bucket and
-            doesn't collide with the "Explore" shortcut grid further down. */}
-        <Text style={styles.groupLabel}>For today</Text>
+        {/* ═══ QUICK ACTIONS ═══ Urgent/actionable cards. */}
+        <Text style={styles.groupLabel}>Quick actions</Text>
         <View style={styles.todayGrid}>
           {(quickActionsExpanded ? todayCards : todayCards.slice(0, 6)).map((c, i) => (
             // Outer wrapper handles the mount animation (fade + slide up,

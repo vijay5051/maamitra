@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -16,14 +16,25 @@ interface StateSelectorProps {
 }
 
 /**
- * State picker rendered as a plain View.map list so the parent ScrollView in
- * onboarding (or wherever this is embedded) handles scrolling. Nesting a
- * vertical FlatList inside a vertical ScrollView is broken on Android — the
- * inner list either won't scroll or swallows taps after a keyboard dismiss.
- * The list is finite (~28 items) so a plain map is fine.
+ * State picker rendered as a collapsible field.
+ *
+ * Closed (default once a state is picked): looks like a single-line text
+ * field with the chosen state and a chevron-down. Tapping opens the search +
+ * list. After picking a state, the list collapses again so the user has
+ * clear feedback that their selection was captured.
+ *
+ * The list is rendered as a plain View.map (not FlatList) so the parent
+ * ScrollView in onboarding owns scrolling — nesting a vertical FlatList
+ * inside a vertical ScrollView is broken on Android.
  */
 export default function StateSelector({ onSelect, selected }: StateSelectorProps) {
+  const [open, setOpen] = useState(!selected);
   const [query, setQuery] = useState('');
+
+  // If the parent clears the selection (e.g. on profile reset), reopen.
+  useEffect(() => {
+    if (!selected) setOpen(true);
+  }, [selected]);
 
   const filtered = useMemo(() => {
     if (!query.trim()) return INDIAN_STATES;
@@ -31,6 +42,32 @@ export default function StateSelector({ onSelect, selected }: StateSelectorProps
       s.toLowerCase().includes(query.toLowerCase())
     );
   }, [query]);
+
+  const pick = (state: string) => {
+    onSelect(state);
+    setQuery('');
+    setOpen(false);
+  };
+
+  // Collapsed: show the selected state with an "Edit" chevron.
+  if (!open && selected) {
+    return (
+      <View style={styles.container}>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          style={styles.selectedField}
+          onPress={() => setOpen(true)}
+          accessibilityLabel="Change state"
+        >
+          <Ionicons name="location-outline" size={18} color={Colors.primary} style={styles.searchIcon} />
+          <Text style={styles.selectedFieldText} numberOfLines={1}>
+            {selected}
+          </Text>
+          <Ionicons name="chevron-down" size={16} color="#9ca3af" />
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -42,15 +79,24 @@ export default function StateSelector({ onSelect, selected }: StateSelectorProps
           onChangeText={setQuery}
           placeholder="Search state…"
           placeholderTextColor="#9ca3af"
+          autoFocus={!!selected}
         />
-        {query.length > 0 && (
+        {query.length > 0 ? (
           <TouchableOpacity
             onPress={() => setQuery('')}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Ionicons name="close-circle" size={16} color="#9ca3af" />
           </TouchableOpacity>
-        )}
+        ) : selected ? (
+          // Already picked — let the user collapse without changing anything.
+          <TouchableOpacity
+            onPress={() => setOpen(false)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="chevron-up" size={16} color="#9ca3af" />
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       <View style={styles.listArea}>
@@ -65,7 +111,7 @@ export default function StateSelector({ onSelect, selected }: StateSelectorProps
             return (
               <TouchableOpacity
                 key={item}
-                onPress={() => onSelect(item)}
+                onPress={() => pick(item)}
                 activeOpacity={0.7}
                 style={[
                   styles.stateRow,
@@ -76,11 +122,11 @@ export default function StateSelector({ onSelect, selected }: StateSelectorProps
                 <Text style={[styles.stateText, isSelected && styles.stateTextSelected]}>
                   {item}
                 </Text>
-                <Ionicons
-                  name="chevron-forward"
-                  size={16}
-                  color={isSelected ? Colors.primary : '#d1d5db'}
-                />
+                {isSelected ? (
+                  <Ionicons name="checkmark" size={18} color={Colors.primary} />
+                ) : (
+                  <Ionicons name="chevron-forward" size={16} color="#d1d5db" />
+                )}
               </TouchableOpacity>
             );
           })
@@ -93,6 +139,24 @@ export default function StateSelector({ onSelect, selected }: StateSelectorProps
 const styles = StyleSheet.create({
   container: {
     gap: 12,
+  },
+  selectedField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f9fafb',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    minHeight: 48,
+  },
+  selectedFieldText: {
+    flex: 1,
+    fontSize: 15,
+    color: '#1a1a2e',
+    fontWeight: '600',
+    marginLeft: 4,
   },
   searchRow: {
     flexDirection: 'row',
