@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../store/useAuthStore';
 import SuccessCheck from './SuccessCheck';
-import { useProfileStore, Kid, Profile, ParentGender, ParentRelation, calculateAgeInMonths, calculateAgeInWeeks, DEFAULT_VISIBILITY } from '../../store/useProfileStore';
+import { useProfileStore, Kid, Profile, ParentGender, calculateAgeInMonths, calculateAgeInWeeks, DEFAULT_VISIBILITY } from '../../store/useProfileStore';
 import {
   saveFullProfile,
   saveUserProfile,
@@ -752,7 +752,6 @@ function EditKidView({ kid, onBack, onRemove }: { kid: Kid; onBack: () => void; 
   const [name, setName] = useState(kid.name || '');
   const [dob, setDob] = useState(kid.dob ? kid.dob.split('T')[0] : '');
   const [gender, setGender] = useState<'boy' | 'girl' | 'surprise'>(kid.gender || 'surprise');
-  const [relation, setRelation] = useState<ParentRelation>(kid.relation || '');
   const [saving, setSaving] = useState(false);
 
   const GENDER_OPTIONS = [
@@ -761,14 +760,10 @@ function EditKidView({ kid, onBack, onRemove }: { kid: Kid; onBack: () => void; 
     { key: 'surprise', label: 'Surprise' },
   ];
 
-  const RELATION_OPTIONS: { key: ParentRelation; label: string }[] = [
-    { key: 'mother', label: 'Mother' },
-    { key: 'father', label: 'Father' },
-    { key: 'guardian', label: 'Guardian' },
-    { key: 'grandparent', label: 'Grandparent' },
-    { key: 'aunt/uncle', label: 'Aunt / Uncle' },
-    { key: 'other', label: 'Other' },
-  ];
+  // Parent's relation to the child is captured at signup (mother / father /
+  // guardian / …) and reused for every kid on the account. Re-asking it
+  // here would let the user contradict their own profile, so the chip
+  // strip is intentionally absent.
 
   const handleSave = () => {
     setSaving(true);
@@ -783,7 +778,6 @@ function EditKidView({ kid, onBack, onRemove }: { kid: Kid; onBack: () => void; 
       }
     }
     updates.gender = gender;
-    updates.relation = relation || undefined;
     updateKid(kid.id, updates);
     // Persist to Firestore immediately — get the post-update state
     if (user?.uid) {
@@ -818,13 +812,6 @@ function EditKidView({ kid, onBack, onRemove }: { kid: Kid; onBack: () => void; 
         options={GENDER_OPTIONS.map((g) => g.label)}
         selected={GENDER_OPTIONS.find((g) => g.key === gender)?.label ?? 'Surprise'}
         onSelect={(v) => { const found = GENDER_OPTIONS.find((g) => g.label === v); if (found) setGender(found.key as 'boy' | 'girl' | 'surprise'); }}
-      />
-
-      <Text style={s.editSectionTitle}>Your Relation to This Child</Text>
-      <ChipSelect
-        options={RELATION_OPTIONS.map((r) => r.label)}
-        selected={RELATION_OPTIONS.find((r) => r.key === relation)?.label ?? ''}
-        onSelect={(v) => { const found = RELATION_OPTIONS.find((r) => r.label === v); if (found) setRelation(found.key); }}
       />
 
       <TouchableOpacity style={s.saveBtn} onPress={handleSave} activeOpacity={0.85}>

@@ -44,14 +44,14 @@ function TabIcon({
           color={focused ? Colors.primary : '#9ca3af'}
         />
       </Animated.View>
-      <Text
-        style={[
-          styles.tabLabel,
-          { color: focused ? Colors.primary : '#9ca3af' },
-        ]}
-      >
-        {label}
-      </Text>
+      {/* Only the active tab shows its label — labels on every tab were
+          wrapping on smaller Android phones (Galaxy Note 20, M32) and
+          made the bar look broken. */}
+      {focused ? (
+        <Text style={[styles.tabLabel, { color: Colors.primary }]} numberOfLines={1}>
+          {label}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -71,14 +71,13 @@ function AskFab({ focused, onPress }: { focused: boolean; onPress?: () => void }
         <LinearGradient colors={Gradients.primary} style={styles.fabGrad}>
           <Ionicons name="sparkles" size={26} color="#fff" />
         </LinearGradient>
-        <Text
-          style={[
-            styles.fabLabel,
-            { color: focused ? Colors.primary : Colors.textDark },
-          ]}
-        >
-          Ask
-        </Text>
+        {/* Match the rest of the bar: only show the label when the
+            chat tab is the active one. */}
+        {focused ? (
+          <Text style={[styles.fabLabel, { color: Colors.primary }]} numberOfLines={1}>
+            Ask
+          </Text>
+        ) : null}
       </View>
     </TouchableOpacity>
   );

@@ -41,6 +41,7 @@ import ConversationsSheet from '../../components/community/ConversationsSheet';
 import UserSearchSheet from '../../components/community/UserSearchSheet';
 import ReactorsSheet from '../../components/community/ReactorsSheet';
 import type { CommunityPost } from '../../services/social';
+import { countProfilesInState } from '../../services/social';
 import ContextualAskChip from '../../components/ui/ContextualAskChip';
 import { EmailVerifyBanner } from '../../components/ui/EmailVerifyBanner';
 import { Fonts } from '../../constants/theme';
@@ -953,6 +954,27 @@ export default function CommunityScreen() {
       setShowUserSearch(true);
     }
   }, [routeParams?.search]);
+
+  // "Moms near you" count for the in-feed tile — hits Firestore once,
+  // capped at 50. Hidden if state isn't set yet or no one else is there.
+  const [momsInState, setMomsInState] = useState<number>(0);
+  useEffect(() => {
+    if (!profile?.state || !myUid) return;
+    let cancelled = false;
+    countProfilesInState(profile.state, myUid)
+      .then((n) => { if (!cancelled) setMomsInState(n); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [profile?.state, myUid]);
+
+  // Role-aware noun for the moms-in-state tile — father users shouldn't
+  // see "moms in <state>" either as recipient or as described group.
+  const nearbyNoun = useMemo(() => {
+    const pg = useProfileStore.getState().parentGender;
+    const n = momsInState;
+    if (pg === 'father' || pg === 'other') return n === 1 ? 'parent' : 'parents';
+    return n === 1 ? 'mom' : 'moms';
+  }, [momsInState]);
   const [reactorsPost, setReactorsPost] = useState<CommunityPost | null>(null);
   const [reactorsEmoji, setReactorsEmoji] = useState<string | undefined>(undefined);
   const [editingPost, setEditingPost] = useState<import('../../store/useCommunityStore').Post | null>(null);
@@ -1115,6 +1137,29 @@ export default function CommunityScreen() {
               onFollowersPress={() => setShowFollowersList(true)}
               onFollowingPress={() => setShowFollowingList(true)}
             />
+
+            {/* Moms-in-state shortcut — opens the user-search sheet so the
+                user can find people in their state. Hidden when state
+                isn't set or there's no one else there. */}
+            {profile?.state && momsInState > 0 && (
+              <TouchableOpacity
+                activeOpacity={0.9}
+                style={styles.nearbyCard}
+                onPress={() => setShowUserSearch(true)}
+              >
+                <View style={styles.nearbyIconWrap}>
+                  <Ionicons name="people-outline" size={22} color={Colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.nearbyTitle}>
+                    {momsInState >= 50 ? '50+' : momsInState} {nearbyNoun} in {profile.state}
+                  </Text>
+                  <Text style={styles.nearbySub}>Tap to search and connect</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color="#b5a9d5" />
+              </TouchableOpacity>
+            )}
+
             <ComposeCard onPress={() => setShowNewPost(true)} />
 
             {/* Topic filters — below compose so posting is the primary action */}
@@ -1300,6 +1345,37 @@ export default function CommunityScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FAFAFB' },
+  nearbyCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 14,
+    gap: 12,
+    marginTop: 4,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  nearbyIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: '#F5F0FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  nearbyTitle: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 15,
+    color: Colors.textDark,
+  },
+  nearbySub: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: 12,
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
   header: {
     paddingHorizontal: 16,
     paddingBottom: 16,

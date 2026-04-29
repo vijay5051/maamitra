@@ -37,7 +37,7 @@ import { useActiveKid } from '../../hooks/useActiveKid';
 import { useVaccineSchedule } from '../../hooks/useVaccineSchedule';
 import { TEETH } from '../../data/teeth';
 import { BABY_FOODS, isAllowedForDiet } from '../../data/babyFoods';
-import { type AppNotification, fetchRecentPosts, countProfilesInState } from '../../services/social';
+import { type AppNotification, fetchRecentPosts } from '../../services/social';
 import { saveUserProfile } from '../../services/firebase';
 import { ARTICLES, type Article } from '../../data/articles';
 import { GOVERNMENT_SCHEMES } from '../../data/schemes';
@@ -176,17 +176,8 @@ export default function HomeTab() {
     return () => { cancelled = true; };
   }, []);
 
-  // "Moms near you" count — hits Firestore once, capped at 50. Hidden
-  // if the user hasn't set their state yet or no one else is there.
-  const [momsInState, setMomsInState] = useState<number>(0);
-  useEffect(() => {
-    if (!profile?.state || !user?.uid) return;
-    let cancelled = false;
-    countProfilesInState(profile.state, user.uid)
-      .then((n) => { if (!cancelled) setMomsInState(n); })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [profile?.state, user?.uid]);
+  // The "moms in state" count + tile lives on the Community tab now.
+  // (Removed from Home so users encounter it where the action lands.)
 
   // Suggested article — personalised by stage × age × recent mood. The
   // previous implementation just picked the first article whose ageMin/
@@ -759,9 +750,9 @@ export default function HomeTab() {
           </ScrollView>
         )}
 
-        {/* ═══ COMMUNITY ═══ Latest post + local-parents chip. Only renders
-            when there's real content — no placeholder cards. */}
-        {(latestPost || (profile?.state && momsInState > 0)) && (
+        {/* ═══ COMMUNITY ═══ Latest post only. The local-parents tile lives
+            on the Community tab now — no longer gates this header. */}
+        {latestPost && (
           <Text style={styles.groupLabel}>Community</Text>
         )}
         {latestPost && (() => {
@@ -930,46 +921,6 @@ export default function HomeTab() {
               </AnimatedPressable>
             </Reanimated.View>
           </>
-        )}
-
-        {/* ── Moms near you — only shown when state is set and there's
-            at least one other user in that state. Opens the Community
-            tab with the user-search sheet auto-opened (see
-            community.tsx ?search=1 handler). */}
-        {profile?.state && momsInState > 0 && (
-          <TouchableOpacity
-            activeOpacity={0.9}
-            style={styles.nearbyCard}
-            onPress={() =>
-              router.push({
-                pathname: '/(tabs)/community',
-                params: { search: '1' },
-              })
-            }
-          >
-            <View style={styles.nearbyIconWrap}>
-              <Ionicons name="people-outline" size={22} color={Colors.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.nearbyTitle}>
-                {momsInState >= 50 ? '50+' : momsInState}{' '}
-                {(() => {
-                  // Role-aware noun — father users shouldn't see 'moms in
-                  // Maharashtra' either as recipient or as described group.
-                  const pg = useProfileStore.getState().parentGender;
-                  const n = momsInState;
-                  if (pg === 'father') return n === 1 ? 'parent' : 'parents';
-                  if (pg === 'other') return n === 1 ? 'parent' : 'parents';
-                  return n === 1 ? 'mom' : 'moms';
-                })()}{' '}
-                in {profile.state}
-              </Text>
-              <Text style={styles.nearbySub}>
-                Tap to search and connect
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color="#b5a9d5" />
-          </TouchableOpacity>
         )}
 
         {/* Recommended reads — 3–5 age + diet-filtered articles. Sits
@@ -1540,6 +1491,8 @@ function buildTodayCards({
     router.push({ pathname: '/(tabs)/health', params: { tab: 'teeth' } });
   const goFoods = () =>
     router.push({ pathname: '/(tabs)/health', params: { tab: 'foods' } });
+  const goVaccines = () =>
+    router.push({ pathname: '/(tabs)/health', params: { tab: 'vaccines' } });
 
   if (!todayMood) {
     cards.push({
@@ -1608,15 +1561,9 @@ function buildTodayCards({
         }),
       });
     } else if (months < 24) {
-      cards.push({
-        id: 'milestones',
-        icon: 'footsteps-outline',
-        tint: Colors.primary,
-        bg: Colors.bgPink,
-        value: 'Milestones',
-        label: `${activeKid.name} · ${ageLabel}`,
-        onPress: goFamily,
-      });
+      // Skip a generic "Milestones" tile here — the personalised
+      // "next milestone" card below (with the actual title + age) already
+      // covers this age window. Two milestone tiles read as duplicates.
     } else {
       cards.push({
         id: 'dev',
@@ -1654,7 +1601,7 @@ function buildTodayCards({
       bg: nextVaccine.status === 'overdue' ? '#FEE2E2' : Colors.border,
       value: nextVaccine.name,
       label,
-      onPress: goHealth,
+      onPress: goVaccines,
     });
   }
 
@@ -2563,38 +2510,6 @@ const styles = StyleSheet.create({
   weekTileSub: {
     fontFamily: Fonts.sansRegular,
     fontSize: 11,
-    color: Colors.textMuted,
-    marginTop: 2,
-  },
-
-  // ─── Moms near you ───────────────────────────────────────────────
-  nearbyCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 14,
-    gap: 12,
-    marginBottom: Spacing.md,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  nearbyIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: '#F5F0FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  nearbyTitle: {
-    fontFamily: Fonts.sansBold,
-    fontSize: 15,
-    color: Colors.textDark,
-  },
-  nearbySub: {
-    fontFamily: Fonts.sansRegular,
-    fontSize: 12,
     color: Colors.textMuted,
     marginTop: 2,
   },
