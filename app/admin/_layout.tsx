@@ -21,24 +21,28 @@ export default function AdminLayout() {
     // Hard gate: must be signed in AND on the email allow-list OR have a
     // Firestore-stored adminRole. We resolve the role async via useAdminRole;
     // until it loads, the email check covers the founder case so they never
-    // see a redirect flash.
+    // see a redirect flash. The redirect is wrapped in a microtask so it
+    // fires after the navigator's first commit (otherwise expo-router warns
+    // "Attempted to navigate before mounting the Root Layout component").
+    function bounce() {
+      // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+      requestAnimationFrame(() => router.replace('/(auth)/welcome'));
+    }
     if (!user) {
-      router.replace('/(auth)/welcome');
+      bounce();
       return;
     }
-    const onAllowList = isAdminEmail(user.email);
-    // If the role hook has loaded and the user has neither an email match
-    // nor a stored role, kick them out.
-    if (!onAllowList && role === null) {
-      // Allow a beat for the role to load on cold start before redirecting.
+    if (!isAdminEmail(user.email) && role === null) {
+      // Allow a beat for the role to load on cold start before bouncing.
       const t = setTimeout(() => {
-        if (!isAdminEmail(user.email) && role === null) {
-          router.replace('/(auth)/welcome');
-        }
+        if (!isAdminEmail(user.email) && role === null) bounce();
       }, 1500);
       return () => clearTimeout(t);
     }
-  }, [user, role, router]);
+    // user / role check covers it; router is stable so omit from deps to
+    // avoid effect re-runs when the router object changes identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, role]);
 
   return (
     <View style={{ flex: 1 }}>

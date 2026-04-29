@@ -30,7 +30,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors } from '../../constants/theme';
-import { enqueueBroadcastPush } from '../../services/firebase';
+import { enqueueBroadcastPush, getUsers, AdminUser } from '../../services/firebase';
 import {
   cancelScheduledPush,
   listPushOutbox,
@@ -38,6 +38,8 @@ import {
   PushQueueEntry,
   ScheduledPushEntry,
   scheduleBroadcastPush,
+  scheduleCustomListPush,
+  sendPushToUidList,
 } from '../../services/admin';
 import { logAdminAction } from '../../services/audit';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -45,14 +47,15 @@ import { useAdminRole } from '../../lib/useAdminRole';
 import { can } from '../../lib/admin';
 import { confirmAction, infoAlert } from '../../lib/cross-platform-alerts';
 
-type Audience = 'all' | 'pregnant' | 'newborn' | 'toddler';
+type Audience = 'all' | 'pregnant' | 'newborn' | 'toddler' | 'custom';
 type NotifType = 'info' | 'reminder' | 'alert' | 'celebration';
 
 const AUDIENCE_OPTIONS: { key: Audience; label: string; icon: string; desc: string }[] = [
-  { key: 'all',      label: 'All Users',       icon: 'people-outline',       desc: 'Every registered user with push on' },
-  { key: 'pregnant', label: 'Expecting Moms',  icon: 'heart-outline',        desc: 'Users with pregnancy profile' },
-  { key: 'newborn',  label: 'Newborn Parents', icon: 'happy-outline',        desc: 'Babies under 6 months' },
-  { key: 'toddler',  label: 'Toddler Parents', icon: 'walk-outline',         desc: 'Kids 6m – 36m' },
+  { key: 'all',      label: 'All Users',          icon: 'people-outline',         desc: 'Every registered user with push on' },
+  { key: 'pregnant', label: 'Expecting Moms',     icon: 'heart-outline',          desc: 'Users with pregnancy profile' },
+  { key: 'newborn',  label: 'Newborn Parents',    icon: 'happy-outline',          desc: 'Babies under 6 months' },
+  { key: 'toddler',  label: 'Toddler Parents',    icon: 'walk-outline',           desc: 'Kids 6m – 36m' },
+  { key: 'custom',   label: 'Custom recipients',  icon: 'list-outline',           desc: 'Hand-pick one or more users' },
 ];
 
 const TYPE_OPTIONS: { key: NotifType; label: string; emoji: string; color: string }[] = [
@@ -169,8 +172,13 @@ function ComposeTab({ onSent }: { onSent: () => Promise<void> }) {
   const [scheduleEnabled, setScheduleEnabled] = useState(false);
   const [scheduleDate, setScheduleDate] = useState('');
   const [sending, setSending] = useState(false);
+  // Custom recipient list — populated via the picker modal when audience='custom'.
+  const [customUids, setCustomUids] = useState<Set<string>>(new Set());
+  const [customLookup, setCustomLookup] = useState<Map<string, AdminUser>>(new Map());
+  const [pickerOpen, setPickerOpen] = useState(false);
 
-  const isValid = title.trim().length > 0 && body.trim().length > 0;
+  const isValid = title.trim().length > 0 && body.trim().length > 0 &&
+    (audience !== 'custom' || customUids.size > 0);
   const parsedSchedule = scheduleEnabled ? parseScheduleInput(scheduleDate) : null;
 
   function applyTemplate(tpl: typeof QUICK_TEMPLATES[0]) {
@@ -180,7 +188,14 @@ function ComposeTab({ onSent }: { onSent: () => Promise<void> }) {
 
   async function handleSend() {
     if (!isValid || !actor) return;
-    if (!can(role, 'send_broadcast_push')) {
+    // Capability gate: custom-list uses the personal-push capability;
+    // audience targeting uses the broadcast capability. They map to
+    // different roles in lib/admin.ts.
+    if (audience === 'custom' && !can(role, 'send_personal_push')) {
+      infoAlert('Not allowed', 'Your role does not allow sending personal pushes.');
+      return;
+    }
+    if (audience !== 'custom' && !can(role, 'send_broadcast_push')) {
       infoAlert('Not allowed', 'Your role does not allow sending broadcasts.');
       return;
     }
@@ -188,9 +203,11 @@ function ComposeTab({ onSent }: { onSent: () => Promise<void> }) {
       infoAlert('Invalid time', 'Use format YYYY-MM-DD HH:MM and pick a time in the future.');
       return;
     }
-    const audLabel = AUDIENCE_OPTIONS.find((a) => a.key === audience)?.label;
+    const audLabel = audience === 'custom'
+      ? `${customUids.size} hand-picked user${customUids.size === 1 ? '' : 's'}`
+      : AUDIENCE_OPTIONS.find((a) => a.key === audience)?.label;
     const ok = await confirmAction(
-      scheduleEnabled ? 'Schedule push' : 'Send broadcast',
+      scheduleEnabled ? 'Schedule push' : 'Send push',
       scheduleEnabled
         ? `Schedule "${title}" to ${audLabel} at ${parsedSchedule!.toLocaleString('en-IN')}?`
         : `Send "${title}" to ${audLabel} now?`,
@@ -200,7 +217,24 @@ function ComposeTab({ onSent }: { onSent: () => Promise<void> }) {
 
     setSending(true);
     try {
-      if (scheduleEnabled && parsedSchedule) {
+      if (audience === 'custom') {
+        const uids = Array.from(customUids);
+        if (scheduleEnabled && parsedSchedule) {
+          await scheduleCustomListPush(actor, uids, {
+            title: title.trim(),
+            body: body.trim(),
+            pushType: type,
+            scheduledFor: parsedSchedule,
+          });
+          infoAlert('Scheduled', `Will fire to ${uids.length} user${uids.length === 1 ? '' : 's'} at ${parsedSchedule.toLocaleString('en-IN')}.`);
+        } else {
+          const { sent, failed } = await sendPushToUidList(actor, uids, {
+            title: title.trim(),
+            body: body.trim(),
+          });
+          infoAlert('Sent', `${sent} push${sent === 1 ? '' : 'es'} queued${failed ? `, ${failed} failed` : ''}.`);
+        }
+      } else if (scheduleEnabled && parsedSchedule) {
         await scheduleBroadcastPush(actor, {
           title: title.trim(),
           body: body.trim(),
@@ -223,6 +257,11 @@ function ComposeTab({ onSent }: { onSent: () => Promise<void> }) {
       setBody('');
       setScheduleDate('');
       setScheduleEnabled(false);
+      // Keep the picker selection on send so the admin can compose a follow-up
+      // to the same list quickly. Comment out the next two lines if you'd
+      // rather clear it.
+      // setCustomUids(new Set());
+      // setCustomLookup(new Map());
       await onSent();
     } catch (e: any) {
       infoAlert('Failed', e?.message ?? 'Could not enqueue push.');
@@ -315,6 +354,60 @@ function ComposeTab({ onSent }: { onSent: () => Promise<void> }) {
         ))}
       </View>
 
+      {/* Custom recipient picker — only visible when audience='custom' */}
+      {audience === 'custom' ? (
+        <View style={styles.customRecipientsBlock}>
+          <View style={styles.customRecipientsRow}>
+            <Text style={styles.customRecipientsLabel}>
+              {customUids.size === 0
+                ? 'No recipients picked yet'
+                : `${customUids.size} recipient${customUids.size === 1 ? '' : 's'} selected`}
+            </Text>
+            <TouchableOpacity style={styles.customPickBtn} onPress={() => setPickerOpen(true)}>
+              <Ionicons name="people-outline" size={14} color="#fff" />
+              <Text style={styles.customPickBtnText}>{customUids.size === 0 ? 'Pick users' : 'Edit list'}</Text>
+            </TouchableOpacity>
+          </View>
+          {customUids.size > 0 ? (
+            <View style={styles.chipsWrap}>
+              {Array.from(customUids).slice(0, 12).map((uid) => {
+                const u = customLookup.get(uid);
+                const label = u?.name || u?.email || uid.slice(0, 8);
+                return (
+                  <View key={uid} style={styles.recipientChip}>
+                    <Text style={styles.recipientChipText} numberOfLines={1}>{label}</Text>
+                    <Pressable
+                      onPress={() => {
+                        setCustomUids((prev) => { const n = new Set(prev); n.delete(uid); return n; });
+                      }}
+                      hitSlop={6}
+                    >
+                      <Ionicons name="close" size={11} color="#6B7280" />
+                    </Pressable>
+                  </View>
+                );
+              })}
+              {customUids.size > 12 ? (
+                <View style={styles.recipientChip}>
+                  <Text style={styles.recipientChipText}>+{customUids.size - 12} more</Text>
+                </View>
+              ) : null}
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+
+      <RecipientPickerModal
+        visible={pickerOpen}
+        initialSelected={customUids}
+        onClose={() => setPickerOpen(false)}
+        onConfirm={(selectedUids, lookup) => {
+          setCustomUids(selectedUids);
+          setCustomLookup(lookup);
+          setPickerOpen(false);
+        }}
+      />
+
       {/* Schedule */}
       <View style={styles.scheduleHead}>
         <View style={{ flex: 1 }}>
@@ -367,6 +460,161 @@ function ComposeTab({ onSent }: { onSent: () => Promise<void> }) {
         </LinearGradient>
       </TouchableOpacity>
     </ScrollView>
+  );
+}
+
+// ─── Recipient picker modal ──────────────────────────────────────────────────
+//
+// Multi-select user list for custom-recipient pushes. Loads getUsers() once
+// when the modal opens, lets the admin search by name/email/state and toggle
+// selection. "Select all matches" makes it easy to push to every user
+// matching a search term (e.g. all users in a particular state).
+
+function RecipientPickerModal({
+  visible,
+  initialSelected,
+  onClose,
+  onConfirm,
+}: {
+  visible: boolean;
+  initialSelected: Set<string>;
+  onClose: () => void;
+  onConfirm: (selected: Set<string>, lookup: Map<string, AdminUser>) => void;
+}) {
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState('');
+  const [selected, setSelected] = useState<Set<string>>(new Set(initialSelected));
+  const [lookup, setLookup] = useState<Map<string, AdminUser>>(new Map());
+
+  // Reset selection to incoming when re-opening; load list lazily.
+  useEffect(() => {
+    if (!visible) return;
+    setSelected(new Set(initialSelected));
+    if (users.length === 0 && !loading) {
+      setLoading(true);
+      getUsers()
+        .then((data) => {
+          setUsers(data.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')));
+          const m = new Map<string, AdminUser>();
+          data.forEach((u) => m.set(u.uid, u));
+          setLookup(m);
+        })
+        .finally(() => setLoading(false));
+    }
+  }, [visible]);
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    if (!q) return users;
+    return users.filter((u) =>
+      (u.name ?? '').toLowerCase().includes(q) ||
+      (u.email ?? '').toLowerCase().includes(q) ||
+      (u.state ?? '').toLowerCase().includes(q),
+    );
+  }, [users, search]);
+
+  function toggle(uid: string) {
+    setSelected((prev) => {
+      const n = new Set(prev);
+      if (n.has(uid)) n.delete(uid);
+      else n.add(uid);
+      return n;
+    });
+  }
+  function selectAllMatches() {
+    setSelected((prev) => {
+      const n = new Set(prev);
+      filtered.forEach((u) => n.add(u.uid));
+      return n;
+    });
+  }
+  function clearAll() {
+    setSelected(new Set());
+  }
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={styles.modalBackdrop}>
+        <View style={styles.modalCard}>
+          <View style={styles.modalHead}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.modalTitle}>Pick recipients</Text>
+              <Text style={styles.modalSub}>{selected.size} selected · {users.length} total</Text>
+            </View>
+            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+              <Ionicons name="close" size={20} color="#6B7280" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.pickerSearchWrap}>
+            <Ionicons name="search" size={14} color="#9CA3AF" />
+            <TextInput
+              style={styles.pickerSearchInput}
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Search name, email, state…"
+              placeholderTextColor="#9CA3AF"
+              autoCapitalize="none"
+            />
+            {search ? (
+              <TouchableOpacity onPress={() => setSearch('')}>
+                <Ionicons name="close-circle" size={14} color="#9CA3AF" />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+
+          <View style={styles.pickerToolbar}>
+            <TouchableOpacity style={styles.pickerToolbarBtn} onPress={selectAllMatches} disabled={filtered.length === 0}>
+              <Ionicons name="checkmark-done-outline" size={12} color={Colors.primary} />
+              <Text style={styles.pickerToolbarBtnText}>Select all {search ? 'matches' : ''}{filtered.length > 0 ? ` (${filtered.length})` : ''}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.pickerToolbarBtn} onPress={clearAll} disabled={selected.size === 0}>
+              <Ionicons name="close-circle-outline" size={12} color="#EF4444" />
+              <Text style={[styles.pickerToolbarBtnText, { color: '#EF4444' }]}>Clear</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.pickerList} keyboardShouldPersistTaps="handled">
+            {loading ? (
+              <ActivityIndicator color={Colors.primary} style={{ marginTop: 30 }} />
+            ) : filtered.length === 0 ? (
+              <Text style={styles.pickerEmpty}>{search ? 'No users match.' : 'No users yet.'}</Text>
+            ) : filtered.map((u) => {
+              const isSel = selected.has(u.uid);
+              return (
+                <Pressable key={u.uid} style={[styles.pickerRow, isSel && styles.pickerRowSelected]} onPress={() => toggle(u.uid)}>
+                  <View style={[styles.pickerCheckbox, isSel && styles.pickerCheckboxOn]}>
+                    {isSel ? <Ionicons name="checkmark" size={12} color="#fff" /> : null}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.pickerRowName} numberOfLines={1}>{u.name || 'Unnamed'}</Text>
+                    <Text style={styles.pickerRowMeta} numberOfLines={1}>
+                      {u.email || '—'}
+                      {u.state ? ` · ${u.state}` : ''}
+                      {u.kidsCount ? ` · ${u.kidsCount} kid${u.kidsCount === 1 ? '' : 's'}` : ''}
+                    </Text>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
+          <View style={styles.modalActions}>
+            <TouchableOpacity style={styles.modalBtn} onPress={onClose}>
+              <Text style={styles.modalBtnText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modalBtn, styles.modalBtnPrimary, selected.size === 0 && { opacity: 0.5 }]}
+              disabled={selected.size === 0}
+              onPress={() => onConfirm(selected, lookup)}
+            >
+              <Text style={[styles.modalBtnText, { color: '#fff' }]}>Use {selected.size} selected</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -458,7 +706,11 @@ function ScheduleList({
           </View>
           <Text style={styles.outboxBody} numberOfLines={2}>{s.body}</Text>
           <View style={styles.outboxFoot}>
-            <Chip label={`audience: ${s.audience}`} />
+            {s.kind === 'custom' ? (
+              <Chip label={`custom · ${(s.targetUids?.length ?? 0)} recipient${(s.targetUids?.length ?? 0) === 1 ? '' : 's'}`} tint="#EC4899" />
+            ) : (
+              <Chip label={`audience: ${s.audience ?? 'all'}`} />
+            )}
             <View style={{ flex: 1 }} />
             <TouchableOpacity style={styles.cancelBtn} onPress={() => onCancel(s.id)}>
               <Ionicons name="close" size={13} color="#EF4444" />
@@ -481,7 +733,11 @@ function ScheduleList({
               <Text style={styles.outboxBody} numberOfLines={2}>{s.body}</Text>
               <View style={styles.outboxFoot}>
                 <Chip label={`status: ${s.status}`} />
-                <Chip label={`audience: ${s.audience}`} />
+                {s.kind === 'custom' ? (
+                  <Chip label={`custom · ${(s.targetUids?.length ?? 0)} recipient${(s.targetUids?.length ?? 0) === 1 ? '' : 's'}`} tint="#EC4899" />
+                ) : (
+                  <Chip label={`audience: ${s.audience ?? 'all'}`} />
+                )}
               </View>
             </View>
           ))}
@@ -584,4 +840,80 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8,
   },
   cancelBtnText: { fontSize: 11, fontWeight: '700', color: '#EF4444' },
+
+  // Custom recipients block (compose tab, audience='custom')
+  customRecipientsBlock: {
+    backgroundColor: '#fff', borderRadius: 12, padding: 12, marginTop: 4,
+    borderWidth: 1, borderColor: '#E9D5FF', gap: 10,
+  },
+  customRecipientsRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  customRecipientsLabel: { flex: 1, fontSize: 13, fontWeight: '700', color: '#1a1a2e' },
+  customPickBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: Colors.primary, borderRadius: 8,
+    paddingHorizontal: 12, paddingVertical: 7,
+  },
+  customPickBtnText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  recipientChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: '#F3F4F6', borderRadius: 12,
+    paddingHorizontal: 10, paddingVertical: 4,
+    borderWidth: 1, borderColor: '#E5E7EB',
+    maxWidth: 200,
+  },
+  recipientChipText: { fontSize: 11, fontWeight: '600', color: '#1a1a2e' },
+
+  // Picker modal
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalCard: {
+    backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    padding: 16, gap: 10, maxHeight: '90%',
+  },
+  modalHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  modalTitle: { fontSize: 16, fontWeight: '800', color: '#1a1a2e' },
+  modalSub: { fontSize: 12, color: '#6B7280', marginTop: 2 },
+  closeBtn: { padding: 6 },
+
+  pickerSearchWrap: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#F9FAFB', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8,
+    borderWidth: 1, borderColor: '#E5E7EB',
+  },
+  pickerSearchInput: { flex: 1, fontSize: 13, color: '#1a1a2e' },
+
+  pickerToolbar: { flexDirection: 'row', gap: 8 },
+  pickerToolbarBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8,
+    backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB',
+  },
+  pickerToolbarBtnText: { fontSize: 11, fontWeight: '700', color: Colors.primary },
+
+  pickerList: { maxHeight: 380 },
+  pickerEmpty: { textAlign: 'center', color: '#9CA3AF', fontSize: 13, paddingVertical: 30 },
+
+  pickerRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 4, paddingVertical: 8,
+    borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
+  },
+  pickerRowSelected: { backgroundColor: '#FAF5FF' },
+  pickerCheckbox: {
+    width: 20, height: 20, borderRadius: 5,
+    borderWidth: 2, borderColor: '#D1D5DB', backgroundColor: '#fff',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  pickerCheckboxOn: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  pickerRowName: { fontSize: 13, fontWeight: '700', color: '#1a1a2e' },
+  pickerRowMeta: { fontSize: 11, color: '#6B7280', marginTop: 2 },
+
+  modalActions: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  modalBtn: {
+    flex: 1, paddingVertical: 11, borderRadius: 10, alignItems: 'center',
+    backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB',
+    flexDirection: 'row', justifyContent: 'center', gap: 6,
+  },
+  modalBtnPrimary: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  modalBtnText: { fontSize: 13, fontWeight: '700', color: '#1a1a2e' },
 });

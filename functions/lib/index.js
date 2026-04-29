@@ -346,23 +346,49 @@ exports.processScheduledPushes = functions.pubsub
     for (const doc of snap.docs) {
         const data = doc.data();
         try {
-            // Hand off to push_queue — the existing dispatchPush trigger fires on
-            // create and does the actual fan-out.
-            await db.collection('push_queue').add({
-                kind: 'broadcast',
-                audience: data.audience ?? 'all',
-                title: data.title,
-                body: data.body,
-                data: data.data ?? {},
-                pushType: data.pushType ?? 'info',
-                status: 'pending',
-                createdAt: admin.firestore.FieldValue.serverTimestamp(),
-                scheduledFromId: doc.id,
-            });
-            await doc.ref.update({
-                status: 'sent',
-                firedAt: admin.firestore.FieldValue.serverTimestamp(),
-            });
+            if (data.kind === 'custom') {
+                // Custom-list: fan out one personal push per target uid. Each gets
+                // its own push_queue entry so dispatchPush's per-user pref + dead
+                // token logic still applies.
+                const uids = Array.isArray(data.targetUids) ? data.targetUids : [];
+                for (const targetUid of uids) {
+                    await db.collection('push_queue').add({
+                        kind: 'personal',
+                        toUid: targetUid,
+                        fromUid: data.createdByUid ?? null,
+                        title: data.title,
+                        body: data.body,
+                        data: data.data ?? {},
+                        notifType: 'message',
+                        status: 'pending',
+                        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                        scheduledFromId: doc.id,
+                    });
+                }
+                await doc.ref.update({
+                    status: 'sent',
+                    firedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    fanOutCount: uids.length,
+                });
+            }
+            else {
+                // Broadcast: 1 doc, dispatchPush expands to all matching tokens.
+                await db.collection('push_queue').add({
+                    kind: 'broadcast',
+                    audience: data.audience ?? 'all',
+                    title: data.title,
+                    body: data.body,
+                    data: data.data ?? {},
+                    pushType: data.pushType ?? 'info',
+                    status: 'pending',
+                    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                    scheduledFromId: doc.id,
+                });
+                await doc.ref.update({
+                    status: 'sent',
+                    firedAt: admin.firestore.FieldValue.serverTimestamp(),
+                });
+            }
             promoted++;
         }
         catch (err) {

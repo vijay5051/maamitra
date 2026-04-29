@@ -421,6 +421,90 @@ export async function sendPersonalPushFromAdmin(
   await logAdminAction(actor, 'push.personal', { uid: targetUid }, { title: payload.title });
 }
 
+/**
+ * Send the same personal push to a hand-picked list of user uids. Each
+ * recipient gets their own push_queue doc — that's how delivery counts /
+ * dead-token cleanup track per user. The audit log captures the whole
+ * action as one entry with a count, not N entries.
+ *
+ * Returns { sent, failed } so the UI can surface partial failures without
+ * blocking the rest of the list.
+ */
+export async function sendPushToUidList(
+  actor: Actor,
+  uids: string[],
+  payload: { title: string; body: string; data?: Record<string, string> },
+): Promise<{ sent: number; failed: number }> {
+  if (!db) throw new Error('Firestore not configured');
+  let sent = 0;
+  let failed = 0;
+  for (const uid of uids) {
+    try {
+      await addDoc(collection(db, 'push_queue'), {
+        kind: 'personal',
+        toUid: uid,
+        fromUid: actor.uid,
+        title: payload.title,
+        body: payload.body,
+        data: payload.data ?? {},
+        notifType: 'message',
+        status: 'pending',
+        createdAt: serverTimestamp(),
+      });
+      sent++;
+    } catch {
+      failed++;
+    }
+  }
+  await logAdminAction(actor, 'push.personal', { label: 'custom-list' }, {
+    title: payload.title,
+    count: uids.length,
+    sent,
+    failed,
+  });
+  return { sent, failed };
+}
+
+/**
+ * Schedule a future push to a hand-picked list of users. Lives in
+ * `scheduled_pushes` with kind='custom' until the cron promotes it. At
+ * fire time, the cron iterates targetUids and creates one personal
+ * push_queue doc per recipient.
+ */
+export async function scheduleCustomListPush(
+  actor: Actor,
+  uids: string[],
+  payload: {
+    title: string;
+    body: string;
+    pushType?: string;
+    data?: Record<string, string>;
+    scheduledFor: Date;
+  },
+): Promise<string> {
+  if (!db) throw new Error('Firestore not configured');
+  if (uids.length === 0) throw new Error('No recipients selected.');
+  if (uids.length > 1000) throw new Error('Custom list capped at 1000 recipients.');
+  const ref = await addDoc(collection(db, 'scheduled_pushes'), {
+    kind: 'custom',
+    targetUids: uids,
+    title: payload.title,
+    body: payload.body,
+    pushType: payload.pushType ?? 'info',
+    data: payload.data ?? {},
+    scheduledFor: Timestamp.fromDate(payload.scheduledFor),
+    status: 'scheduled',
+    createdByUid: actor.uid,
+    createdAt: serverTimestamp(),
+  });
+  await logAdminAction(actor, 'push.schedule', { docId: ref.id }, {
+    kind: 'custom',
+    count: uids.length,
+    scheduledFor: payload.scheduledFor.toISOString(),
+  });
+  return ref.id;
+}
+
 // ─── Push outbox (delivery log) ──────────────────────────────────────────────
 
 export interface PushQueueEntry {
@@ -513,12 +597,15 @@ export async function scheduleBroadcastPush(
 
 export interface ScheduledPushEntry {
   id: string;
-  kind: 'broadcast';
-  audience: string;
+  kind: 'broadcast' | 'custom';
+  /** For broadcast — the audience filter. For custom, undefined. */
+  audience?: string;
+  /** For custom — the explicit recipient list. */
+  targetUids?: string[];
   title: string;
   body: string;
   scheduledFor: string;
-  status: 'scheduled' | 'sent' | 'cancelled';
+  status: 'scheduled' | 'sent' | 'cancelled' | 'failed';
   createdAt: string;
 }
 
@@ -532,8 +619,9 @@ export async function listScheduledPushes(): Promise<ScheduledPushEntry[]> {
       const ca = data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : '';
       return {
         id: d.id,
-        kind: 'broadcast',
-        audience: data.audience ?? 'all',
+        kind: (data.kind === 'custom' ? 'custom' : 'broadcast') as 'broadcast' | 'custom',
+        audience: data.audience,
+        targetUids: Array.isArray(data.targetUids) ? data.targetUids : undefined,
         title: data.title ?? '',
         body: data.body ?? '',
         scheduledFor: sf,
@@ -880,6 +968,152 @@ export async function getFunnelAndRetention(): Promise<FunnelAndRetention> {
     .slice(0, 8);
 
   return { funnel, retention };
+}
+
+// ─── Chat usage analytics ────────────────────────────────────────────────────
+//
+// Walks `chats/{uid}/threads/{threadId}` via collectionGroup so we can see
+// who's actually using the AI chat and how heavily. The "intensity" metric
+// (messages per day in the last 7 days) is the abuse signal — if a single
+// uid spikes well above the rest, we throttle them.
+//
+// Cost note: this reads every thread doc. For a few thousand threads this
+// is fine; once we cross ~50k we should denormalise per-user counters into
+// users/{uid}.chatStats and read those instead.
+
+export interface ChatUsageRow {
+  uid: string;
+  name: string;
+  email: string;
+  /** Number of separate conversation threads the user has started. */
+  threadCount: number;
+  /** Total messages across all threads (user + assistant + system). */
+  messageCount: number;
+  /** User-authored messages only — i.e. how much they're prompting. */
+  userMessageCount: number;
+  /** Messages in the last 7 days (any role). */
+  messagesLast7d: number;
+  /** Approximate messages per active day (last 7d / unique-active-days). */
+  intensity: number;
+  lastActivity: string | null;
+  firstActivity: string | null;
+}
+
+export interface ChatUsageReport {
+  totals: {
+    chatUsers: number;
+    totalThreads: number;
+    totalMessages: number;
+    activeLast7d: number;
+  };
+  rows: ChatUsageRow[];
+}
+
+function asMillisAdmin(v: any): number | null {
+  if (!v) return null;
+  if (typeof v === 'string') { const t = Date.parse(v); return isNaN(t) ? null : t; }
+  if (v instanceof Date) return v.getTime();
+  if (typeof v?.toDate === 'function') return v.toDate().getTime();
+  if (v?.seconds) return v.seconds * 1000;
+  return null;
+}
+
+export async function getChatUsageReport(): Promise<ChatUsageReport> {
+  if (!db) return { totals: { chatUsers: 0, totalThreads: 0, totalMessages: 0, activeLast7d: 0 }, rows: [] };
+
+  // Index uid → { name, email } from users sweep.
+  const usersSnap = await getDocs(collection(db, 'users'));
+  const profile = new Map<string, { name: string; email: string }>();
+  usersSnap.docs.forEach((d) => {
+    const data = d.data() as any;
+    profile.set(d.id, {
+      name: data.name ?? data.motherName ?? 'Unnamed',
+      email: data.email ?? '',
+    });
+  });
+
+  // Aggregate per-user.
+  const byUid = new Map<string, ChatUsageRow>();
+  const now = Date.now();
+  const sevenDaysAgo = now - 7 * 86400000;
+  let totalThreads = 0;
+  let totalMessages = 0;
+  let activeUidsLast7d = new Set<string>();
+
+  try {
+    // Path: chats/{uid}/threads/{threadId}
+    const threadsSnap = await getDocs(collectionGroup(db, 'threads'));
+    threadsSnap.docs.forEach((d) => {
+      const segs = d.ref.path.split('/');
+      // segs[0] === 'chats', segs[1] === uid, segs[2] === 'threads', segs[3] === threadId
+      if (segs[0] !== 'chats' || segs[2] !== 'threads') return;
+      const uid = segs[1];
+      const data = d.data() as any;
+      const messages: any[] = Array.isArray(data.messages) ? data.messages : [];
+      const lastMsAtMs = asMillisAdmin(data.lastMessageAt);
+      const createdMs = asMillisAdmin(data.createdAt);
+
+      const row = byUid.get(uid) ?? {
+        uid,
+        name: profile.get(uid)?.name ?? 'Unknown',
+        email: profile.get(uid)?.email ?? '',
+        threadCount: 0,
+        messageCount: 0,
+        userMessageCount: 0,
+        messagesLast7d: 0,
+        intensity: 0,
+        lastActivity: null,
+        firstActivity: null,
+      };
+
+      row.threadCount += 1;
+      row.messageCount += messages.length;
+      const activeDays = new Set<string>();
+      for (const msg of messages) {
+        const role = msg.role ?? msg.from ?? '';
+        if (role === 'user') row.userMessageCount += 1;
+        const t = asMillisAdmin(msg.timestamp);
+        if (t === null) continue;
+        if (t >= sevenDaysAgo) {
+          row.messagesLast7d += 1;
+          activeDays.add(new Date(t).toISOString().slice(0, 10));
+          activeUidsLast7d.add(uid);
+        }
+      }
+      // Intensity = msgs in window / # active days in window. Caps the
+      // skew when one heavy day inflates the per-week rate.
+      if (activeDays.size > 0) {
+        const candidate = row.messagesLast7d / activeDays.size;
+        if (candidate > row.intensity) row.intensity = candidate;
+      }
+
+      if (lastMsAtMs !== null) {
+        const iso = new Date(lastMsAtMs).toISOString();
+        if (!row.lastActivity || iso > row.lastActivity) row.lastActivity = iso;
+      }
+      if (createdMs !== null) {
+        const iso = new Date(createdMs).toISOString();
+        if (!row.firstActivity || iso < row.firstActivity) row.firstActivity = iso;
+      }
+
+      byUid.set(uid, row);
+      totalThreads += 1;
+      totalMessages += messages.length;
+    });
+  } catch (err) {
+    console.warn('getChatUsageReport collectionGroup failed:', err);
+  }
+
+  const rows = Array.from(byUid.values()).sort((a, b) => b.messageCount - a.messageCount);
+  return {
+    totals: {
+      chatUsers: rows.length,
+      totalThreads,
+      totalMessages,
+      activeLast7d: activeUidsLast7d.size,
+    },
+    rows,
+  };
 }
 
 // ─── Activity feed (live) ────────────────────────────────────────────────────

@@ -94,8 +94,15 @@ service cloud.firestore {
     }
 
     // ── AI Chat Threads (multi-thread history) ───────────────────────────────
+    // Owner reads/writes their own threads. Admins can also read (but not
+    // write) so the chat-usage analytics page (collectionGroup query on
+    // `threads`) can compute per-user thread + message totals. The page
+    // surfaces counts only — it does not display thread bodies in the UI,
+    // but admins reading the docs can technically see content. That's the
+    // same trust level as reading users/{uid} for support.
     match /chats/{uid}/threads/{threadId} {
-      allow read, write: if isOwner(uid);
+      allow read:  if isOwner(uid) || isAdmin();
+      allow write: if isOwner(uid);
     }
 
     // ── Community Posts (active collection) ──────────────────────────────────
@@ -373,16 +380,24 @@ service cloud.firestore {
     }
 
     // ── Scheduled pushes ─────────────────────────────────────────────────────
-    // Admins schedule a future broadcast here. A Cloud Scheduler-driven
-    // function (`processScheduledPushes`) promotes due entries into
-    // push_queue. Mortal users have no business reading or writing this.
+    // Admins schedule a future broadcast OR a custom-list push here. A Cloud
+    // Scheduler-driven function (`processScheduledPushes`) promotes due
+    // entries into push_queue (broadcast = 1 doc, custom = N docs). Mortal
+    // users have no business reading or writing this.
     match /scheduled_pushes/{schedId} {
       allow read:   if isAdmin();
       allow create: if isAdmin() &&
-        request.resource.data.kind == 'broadcast' &&
-        request.resource.data.audience in ['all', 'pregnant', 'newborn', 'toddler'] &&
+        request.resource.data.kind in ['broadcast', 'custom'] &&
         shortText(request.resource.data.title, 120) &&
-        shortText(request.resource.data.body, 300);
+        shortText(request.resource.data.body, 300) && (
+          (request.resource.data.kind == 'broadcast' &&
+            request.resource.data.audience in ['all', 'pregnant', 'newborn', 'toddler'])
+          ||
+          (request.resource.data.kind == 'custom' &&
+            request.resource.data.targetUids is list &&
+            request.resource.data.targetUids.size() > 0 &&
+            request.resource.data.targetUids.size() <= 1000)
+        );
       allow update, delete: if isAdmin();
     }
 

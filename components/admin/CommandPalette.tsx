@@ -41,6 +41,7 @@ const NAV_ITEMS: PaletteItem[] = [
   { kind: 'nav', title: 'Notifications',     sub: 'Compose · Outbox · Schedule',  href: '/admin/notifications' },
   { kind: 'nav', title: 'Vaccines',          sub: 'IAP / NIS schedule editor',    href: '/admin/vaccines' },
   { kind: 'nav', title: 'Vaccine overdue',   sub: 'Find & nudge',                 href: '/admin/vaccine-overdue' },
+  { kind: 'nav', title: 'Chat usage',        sub: 'Per-user intensity & heavy users', href: '/admin/chat-usage' },
   { kind: 'nav', title: 'Content library',   sub: 'Articles · books · schemes',   href: '/admin/content' },
   { kind: 'nav', title: 'In-app banner',     sub: 'Manage live banner',           href: '/admin/banner' },
   { kind: 'nav', title: 'Audit log',         sub: 'Who did what, when',           href: '/admin/audit' },
