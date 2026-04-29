@@ -465,6 +465,9 @@ export default function OnboardingScreen() {
                     if (errors.kidGender) setErrors((e) => ({ ...e, kidGender: '' }));
                   }}
                 />
+                <Text style={styles.helpText}>
+                  Used only for pronouns and gender-specific health checks. Pick "Surprise" if you'd rather not share.
+                </Text>
                 <InputError msg={errors.kidGender} />
               </View>
             </View>
@@ -506,6 +509,9 @@ export default function OnboardingScreen() {
                   }}
                   columns={2}
                 />
+                <Text style={styles.helpText}>
+                  We filter food and weaning suggestions to match. You can change this later in Profile.
+                </Text>
                 <InputError msg={errors.diet} />
               </View>
 
@@ -525,6 +531,9 @@ export default function OnboardingScreen() {
                   }}
                   columns={2}
                 />
+                <Text style={styles.helpText}>
+                  Helps us tune tone — joint-family tips differ from nuclear ones. Never shown to other users.
+                </Text>
                 <InputError msg={errors.familyType} />
               </View>
             </View>

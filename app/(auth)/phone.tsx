@@ -246,6 +246,19 @@ export default function PhoneScreen() {
             </TouchableOpacity>
           )}
 
+          {isEnterNumber && (
+            <TouchableOpacity
+              onPress={() => {
+                const onboardingComplete = useProfileStore.getState().onboardingComplete;
+                router.replace(onboardingComplete ? '/(tabs)' : '/(auth)/onboarding');
+              }}
+              activeOpacity={0.6}
+              style={styles.skipBtn}
+            >
+              <Text style={styles.skipText}>Skip for now — add later in Profile</Text>
+            </TouchableOpacity>
+          )}
+
           <Text style={styles.privacyHint}>
             By continuing you agree to receive transactional SMS on this number. Standard carrier rates may apply.
           </Text>
@@ -398,6 +411,16 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sansMedium,
     fontSize: 14,
     color: Colors.primary,
+  },
+  skipBtn: {
+    marginTop: 14,
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  skipText: {
+    fontFamily: Fonts.sansMedium,
+    fontSize: 14,
+    color: '#6b7280',
   },
   privacyHint: {
     fontFamily: Fonts.sansRegular,

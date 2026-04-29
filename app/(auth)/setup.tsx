@@ -19,6 +19,7 @@ import { saveFullProfile } from '../../services/firebase';
 import SuccessCheck from '../../components/ui/SuccessCheck';
 import GradientButton from '../../components/ui/GradientButton';
 import { Colors, Fonts } from '../../constants/theme';
+import { requestNotificationPermission } from '../../lib/requestNotificationPermission';
 
 /**
  * Post-onboarding setup screen.
@@ -46,7 +47,7 @@ const STATUS_MESSAGES = [
   'Almost ready…',
 ];
 
-type Phase = 'saving' | 'success' | 'error';
+type Phase = 'saving' | 'success' | 'notify' | 'error';
 
 export default function SetupScreen() {
   const router = useRouter();
@@ -66,26 +67,37 @@ export default function SetupScreen() {
         throw new Error('You appear to be signed out — please sign in again.');
       }
       const st = useProfileStore.getState();
-      await saveFullProfile(authUser.uid, {
-        motherName: st.motherName,
-        profile: st.profile,
-        kids: st.kids,
-        completedVaccines: st.completedVaccines,
-        onboardingComplete: true,
-        parentGender: st.parentGender,
-        bio: st.bio,
-        expertise: st.expertise,
-        photoUrl: st.photoUrl,
-        visibilitySettings: st.visibilitySettings,
+      // 15s ceiling so a stalled Firestore write surfaces a real Retry
+      // button instead of an indefinite spinner. Common on poor mobile
+      // connections during onboarding.
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(
+          () => reject(new Error('Slow connection — your profile didn\'t save in time. Tap Retry.')),
+          15000,
+        );
       });
+      await Promise.race([
+        saveFullProfile(authUser.uid, {
+          motherName: st.motherName,
+          profile: st.profile,
+          kids: st.kids,
+          completedVaccines: st.completedVaccines,
+          onboardingComplete: true,
+          parentGender: st.parentGender,
+          bio: st.bio,
+          expertise: st.expertise,
+          photoUrl: st.photoUrl,
+          visibilitySettings: st.visibilitySettings,
+        }),
+        timeoutPromise,
+      ]);
       // Local flag flips ONLY after Firestore confirms.
       useProfileStore.getState().setOnboardingComplete(true);
       setPhase('success');
-      // Brief success moment so the checkmark animation has time to read.
-      setTimeout(() => {
-        const phone = useProfileStore.getState().phone;
-        (router.replace as any)(phone ? '/(tabs)' : '/(auth)/phone');
-      }, 900);
+      // Brief success moment, then transition to the reminders opt-in.
+      // Phone OTP is no longer a hard gate — users can add and verify
+      // their number later from Profile → Settings.
+      setTimeout(() => setPhase('notify'), 900);
     } catch (err: any) {
       setErrorMsg(err?.message ?? 'Something went wrong while saving.');
       setPhase('error');
@@ -109,6 +121,29 @@ export default function SetupScreen() {
 
   const goBackToOnboarding = () => {
     (router.replace as any)('/(auth)/onboarding');
+  };
+
+  // Compute a friendly, concrete preview of what we'd remind them about.
+  // Falls back to a generic line if we don't yet have a kid name on file
+  // (e.g. expecting parent without a chosen name).
+  const reminderPreview = (() => {
+    const kids = useProfileStore.getState().kids ?? [];
+    const firstKidName = kids.find((k) => k?.name && !k.isExpecting)?.name?.trim();
+    if (firstKidName) return `daily routine and milestone reminders for ${firstKidName}`;
+    return 'daily routine and milestone reminders';
+  })();
+
+  const handleEnableReminders = async () => {
+    const uid = useAuthStore.getState().user?.uid;
+    setPhase('notify'); // keep phase, the helper is async
+    try {
+      await requestNotificationPermission(uid);
+    } catch {}
+    (router.replace as any)('/(tabs)');
+  };
+
+  const handleSkipReminders = () => {
+    (router.replace as any)('/(tabs)');
   };
 
   return (
@@ -139,6 +174,29 @@ export default function SetupScreen() {
             <SuccessCheck size={88} />
             <Text style={styles.heading}>All set!</Text>
             <Text style={styles.status}>Welcome to MaaMitra ✨</Text>
+          </Reanimated.View>
+        )}
+
+        {phase === 'notify' && (
+          <Reanimated.View entering={FadeIn.duration(280)} style={styles.center}>
+            <View style={styles.iconCircle}>
+              <Ionicons name="notifications-outline" size={36} color={Colors.primary} />
+            </View>
+            <Text style={styles.heading}>Stay on top of the little things</Text>
+            <Text style={styles.notifyBody}>
+              Allow notifications and we'll send {reminderPreview} so you never
+              miss a vaccine date or feeding window.
+            </Text>
+            <View style={styles.errorBtns}>
+              <GradientButton
+                title="Yes, remind me"
+                onPress={handleEnableReminders}
+                style={styles.retryBtn}
+              />
+              <TouchableOpacity onPress={handleSkipReminders} style={styles.secondaryBtn}>
+                <Text style={styles.secondaryBtnText}>Not now</Text>
+              </TouchableOpacity>
+            </View>
           </Reanimated.View>
         )}
 
@@ -216,6 +274,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 19,
     maxWidth: 320,
+  },
+  notifyBody: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: 14,
+    color: '#374151',
+    textAlign: 'center',
+    lineHeight: 21,
+    maxWidth: 340,
+    marginBottom: 22,
   },
   errorBtns: {
     width: '100%',

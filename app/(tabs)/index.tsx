@@ -4,6 +4,7 @@ import {
   Easing,
   Image,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -49,6 +50,9 @@ import NotificationsSheet from '../../components/community/NotificationsSheet';
 import ConversationsSheet from '../../components/community/ConversationsSheet';
 import HelpSupportSheet from '../../components/ui/HelpSupportSheet';
 import AppBannerStrip from '../../components/ui/AppBannerStrip';
+import MicroSurveyModal from '../../components/feedback/MicroSurveyModal';
+import { MICRO_SURVEYS, type MicroSurvey } from '../../lib/microSurveys';
+import { submitMicroSurvey } from '../../services/feedback';
 import AnimatedPressable from '../../components/ui/AnimatedPressable';
 import AnimatedNumber from '../../components/ui/AnimatedNumber';
 import Reanimated, {
@@ -526,8 +530,95 @@ export default function HomeTab() {
   // Inbox modal — the bell icon opens the shared NotificationsSheet used
   // everywhere in the app.
 
-  // Intro popup is disabled while we debug sign-in issues. It never auto-opens.
+  // Day 1/3/7 micro-surveys for the closed beta. Anchored on the user's
+  // first home visit (stored once in AsyncStorage). The modal pops at most
+  // once per launch, only after FirstRunHero is done, and never repeats
+  // a survey once submitted or dismissed.
+  const [activeSurvey, setActiveSurvey] = useState<MicroSurvey | null>(null);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    if (firstRunOpen) return; // don't stack on top of the intro
+    let cancelled = false;
+    const ANCHOR_KEY = `maamitra-first-home-at-${user.uid}`;
+    const SEEN_PREFIX = `maamitra-survey-done-${user.uid}-`;
+    (async () => {
+      try {
+        let anchor = await AsyncStorage.getItem(ANCHOR_KEY);
+        if (!anchor) {
+          anchor = String(Date.now());
+          await AsyncStorage.setItem(ANCHOR_KEY, anchor);
+        }
+        const ageDays = (Date.now() - Number(anchor)) / (1000 * 60 * 60 * 24);
+        // Walk surveys newest-first so a Day-7 user doesn't get hit with
+        // the Day-1 question if they skipped it.
+        const candidates = [...MICRO_SURVEYS].sort(
+          (a, b) => b.daysAfterFirstVisit - a.daysAfterFirstVisit,
+        );
+        for (const s of candidates) {
+          if (ageDays < s.daysAfterFirstVisit) continue;
+          const seen = await AsyncStorage.getItem(`${SEEN_PREFIX}${s.key}`);
+          if (seen) continue;
+          if (!cancelled) setActiveSurvey(s);
+          return;
+        }
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, [user?.uid, firstRunOpen]);
+
+  const handleSurveySubmit = async (answer: string, freeText: string) => {
+    const survey = activeSurvey;
+    if (!survey || !user?.uid) return;
+    try {
+      await submitMicroSurvey({
+        uid: user.uid,
+        surveyKey: survey.key,
+        question: survey.question,
+        answer,
+        freeText: freeText || undefined,
+        platform: Platform.OS,
+      });
+    } catch (err) {
+      console.warn('[micro-survey] submit failed', err);
+    }
+    try {
+      await AsyncStorage.setItem(`maamitra-survey-done-${user.uid}-${survey.key}`, '1');
+    } catch {}
+    setActiveSurvey(null);
+  };
+
+  const handleSurveyDismiss = async () => {
+    const survey = activeSurvey;
+    setActiveSurvey(null);
+    if (!survey || !user?.uid) return;
+    // "Maybe later" — record it so we don't reopen this exact survey on
+    // every home visit. The next survey in the schedule will still fire.
+    try {
+      await AsyncStorage.setItem(`maamitra-survey-done-${user.uid}-${survey.key}`, '1');
+    } catch {}
+  };
+
+  // First-run intro: auto-opens once per user on the first home visit.
+  // Gate is double — Firestore `hasSeenIntro` (cross-device) AND a local
+  // AsyncStorage key (offline + brand-new install before profile sync).
   const setHasSeenIntro = useProfileStore((s) => s.setHasSeenIntro);
+  const hasSeenIntro = useProfileStore((s) => s.hasSeenIntro);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!user?.uid) return;
+    if (hasSeenIntro) return;
+    (async () => {
+      try {
+        const seen = await AsyncStorage.getItem(`${FIRST_RUN_KEY}-${user.uid}`);
+        if (!cancelled && !seen) setFirstRunOpen(true);
+      } catch {
+        if (!cancelled) setFirstRunOpen(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.uid, hasSeenIntro]);
 
   const dismissFirstRun = async () => {
     setFirstRunOpen(false);
@@ -754,10 +845,29 @@ export default function HomeTab() {
           </ScrollView>
         )}
 
-        {/* ═══ COMMUNITY ═══ Latest post only. The local-parents tile lives
+        {/* ═══ COMMUNITY ═══ Latest post if any, else a seed CTA pulling
+            users into making the first post. The local-parents tile lives
             on the Community tab now — no longer gates this header. */}
-        {latestPost && (
-          <Text style={styles.groupLabel}>Community</Text>
+        <Text style={styles.groupLabel}>Community</Text>
+        {!latestPost && (
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => router.push('/(tabs)/community')}
+            style={styles.card}
+          >
+            <View style={styles.commEmptyRow}>
+              <View style={styles.commEmptyIcon}>
+                <Ionicons name="sparkles-outline" size={18} color={Colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.commEmptyTitle}>Be the first to share</Text>
+                <Text style={styles.commEmptyText}>
+                  Your post will reach 20 fellow parents in this beta 🌱
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+            </View>
+          </TouchableOpacity>
         )}
         {latestPost && (() => {
           const created = latestPost.createdAt instanceof Date
@@ -1285,6 +1395,14 @@ export default function HomeTab() {
         onDone={dismissFirstRun}
         parentSalutation={parentSalutation}
         firstName={firstName === 'there' ? '' : firstName}
+      />
+
+      {/* Closed-beta micro-surveys (Day 1 / 3 / 7) */}
+      <MicroSurveyModal
+        visible={!!activeSurvey}
+        survey={activeSurvey}
+        onSubmit={handleSurveySubmit}
+        onDismiss={handleSurveyDismiss}
       />
 
       {/* Settings (used for both Edit profile and Privacy). Single source
@@ -2448,6 +2566,31 @@ const styles = StyleSheet.create({
     fontSize: FontSize.xs,
     color: Colors.textMuted,
     marginLeft: 3,
+  },
+  commEmptyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+  },
+  commEmptyIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F5F0FF',
+  },
+  commEmptyTitle: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: FontSize.md,
+    color: Colors.textDark,
+    marginBottom: 2,
+  },
+  commEmptyText: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: FontSize.sm,
+    color: Colors.textMuted,
+    lineHeight: 18,
   },
 
   readCard: {

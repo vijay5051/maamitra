@@ -423,5 +423,23 @@ service cloud.firestore {
         (!('userEmail' in request.resource.data) || shortText(request.resource.data.userEmail, 200));
       allow update, delete: if isAdmin();
     }
+
+    // ── Closed-beta feedback (micro-surveys + free-form reports) ──────────────
+    // Any signed-in user can submit; only admins can read. The doc must
+    // pin its uid to auth.uid so a malicious tester can't impersonate
+    // another user's feedback.
+    match /feedback/{feedbackId} {
+      allow read:   if isAdmin();
+      allow create: if isSignedIn() &&
+        request.resource.data.uid == request.auth.uid &&
+        shortText(request.resource.data.type, 40) &&
+        (!('answer' in request.resource.data) || shortText(request.resource.data.answer, 200)) &&
+        (!('question' in request.resource.data) || shortText(request.resource.data.question, 300)) &&
+        (!('freeText' in request.resource.data) || shortText(request.resource.data.freeText, 1000)) &&
+        (!('surveyKey' in request.resource.data) || shortText(request.resource.data.surveyKey, 20)) &&
+        (!('platform' in request.resource.data) || shortText(request.resource.data.platform, 20)) &&
+        (!('appVersion' in request.resource.data) || shortText(request.resource.data.appVersion, 40));
+      allow update, delete: if isAdmin();
+    }
   }
 }

@@ -62,6 +62,12 @@
         }
       ],
       "expo-web-browser",
+      [
+        "expo-notifications",
+        {
+          "color": "#7C4DFF"
+        }
+      ],
       "@react-native-google-signin/google-signin",
       "@react-native-firebase/app",
       "@react-native-firebase/auth",
