@@ -939,39 +939,6 @@ You are more than a mother. You are a person who became a mother. Both things ca
     audience: 'all',
   },
 
-  // ─── Planning to conceive ─────────────────────────────────────────────────────
-
-  {
-    id: 'a46',
-    title: 'Planning to Conceive: Your Pre-Pregnancy Checklist',
-    preview: 'The three months before conception are as important as pregnancy itself. A healthy start gives your baby the best possible beginning — and improves your pregnancy experience significantly.',
-    body: `3 Months Before Trying:\n\nStart Folic Acid Now:\nFolic acid 400-800 mcg daily for at least 3 months before conception reduces the risk of neural tube defects (like spina bifida) by up to 70%. Neural tube closure happens at just 21-28 days of gestation — often before you know you're pregnant.\n\nHealth Check:\n- Visit your doctor for a preconception check-up\n- Update vaccinations: Rubella (MMR), Varicella (chickenpox), Hepatitis B, Tdap\n- Screen for: Iron-deficiency anaemia, thyroid (TSH), blood sugar, STIs, Vitamin D deficiency\n- If on any regular medication, discuss safety in pregnancy\n\nLifestyle Changes:\n- Alcohol: Stop completely — there is no proven safe amount in pregnancy\n- Smoking: Quit now — smoking reduces fertility and increases miscarriage risk\n- Weight: Being significantly underweight or overweight increases complication risk — discuss target BMI with your doctor\n- Exercise: Moderate exercise is beneficial. If sedentary, begin a gentle walking programme\n\nFor Partners:\n- Sperm take 70-90 days to develop — lifestyle changes in the male partner take 3 months to show up in sperm quality\n- Avoid hot baths, tight underwear (raises testicular temperature), heavy alcohol consumption, and anabolic steroids\n- Folate intake benefits both partners\n\nUnderstanding Fertility:\n- Average time to conceive: 4-6 months for couples under 30; longer if older\n- Seek specialist help after 12 months of trying (under 35) or 6 months (over 35)`,
-    topic: 'Pregnancy',
-    readTime: '6 min',
-    ageMin: -9,
-    ageMax: -9,
-    emoji: '🌸',
-    tag: 'Preconception',
-    imageUrl: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=800&h=400&fit=crop&q=80',
-    url: 'https://iapindia.org/immunization/preconception/',
-    audience: 'all',
-  },
-  {
-    id: 'a47',
-    title: 'Indian Foods That Boost Fertility Naturally',
-    preview: 'Diet plays a proven role in both female and male fertility. Indian cuisine is rich in fertility-supporting nutrients — and many traditional Indian practices around conception nutrition have a scientific basis.',
-    body: `Nutrients That Support Fertility:\n\nFor Women:\n- Folate: Spinach, methi, rajma, fortified atta — 400mcg daily minimum\n- Iron: Dal, leafy greens, seeds — iron-deficiency anaemia impairs ovulation\n- Antioxidants: Colourful vegetables, amla (highest natural source of Vitamin C)\n- Healthy fats: Ghee, avocado, nuts — support hormone production\n- Zinc: Pumpkin seeds, dal, sesame — essential for reproductive hormone regulation\n\nFor Men (Sperm Quality):\n- Zinc: Supports testosterone production and sperm development\n- Lycopene: Tomatoes (especially cooked in oil) — improves sperm motility\n- Selenium: Brazil nuts, sunflower seeds — antioxidant protection for sperm\n- Vitamin C: Amla, guava — reduces sperm DNA damage\n- CoQ10: Found in meat, fish — improves sperm energy production\n\nIndian Foods to Include More Of:\n- Ashwagandha (shatavari for women): Adaptogenic herb with evidence for improving reproductive hormones\n- Sesame seeds (til): Rich in zinc and healthy fats\n- Cow's ghee (in moderation): Traditional fertility food with fat-soluble vitamins\n- Pomegranate: Rich in antioxidants and folate\n\nFoods to Reduce:\n- Trans fats (partially hydrogenated oils in commercial fried snacks): Shown to impair ovulation\n- Excess refined sugar: Disrupts insulin sensitivity and reproductive hormones\n- Processed/packaged foods: High sodium, preservatives`,
-    topic: 'Nutrition',
-    readTime: '5 min',
-    ageMin: -9,
-    ageMax: -9,
-    emoji: '🥗',
-    tag: 'Fertility Nutrition',
-    imageUrl: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=800&h=400&fit=crop&q=80',
-    url: 'https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6079277/',
-    audience: 'all',
-  },
-
   // ─── Vaccination detail ───────────────────────────────────────────────────────
 
   {

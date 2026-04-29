@@ -873,7 +873,7 @@ type MentalTip = { icon: keyof typeof Ionicons.glyphMap; text: string };
 
 interface TipContext {
   parentGender: 'mother' | 'father' | 'other' | '';
-  stage?: 'pregnant' | 'planning' | 'newborn' | null;
+  stage?: 'pregnant' | 'newborn' | null;
   // Primary-kid first name (for natural-sounding copy) and age bucket.
   kidName?: string;
   ageBucket?: 'expecting' | 'newborn' | 'infant' | 'toddler' | 'older' | 'none';
@@ -1153,9 +1153,6 @@ export default function WellnessScreen() {
     const fatherMode = parentGenderForAudience === 'father';
     if (profile?.stage === 'pregnant') {
       return fatherMode ? 'Supporting your partner through pregnancy' : 'Pregnancy wellness for you';
-    }
-    if (profile?.stage === 'planning') {
-      return fatherMode ? 'Preparing your body and mind for fatherhood' : 'Preparing for what\'s next';
     }
     return fatherMode ? 'Being present in early parenthood' : 'Postpartum care & recovery';
   }, [parentGenderForAudience, profile?.stage]);

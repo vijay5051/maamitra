@@ -22,7 +22,7 @@ interface AddChildModalProps {
   onAdd: (kid: Partial<Kid>) => void;
 }
 
-type Stage = 'pregnant' | 'newborn' | 'planning';
+type Stage = 'pregnant' | 'newborn';
 type Gender = 'boy' | 'girl' | 'surprise';
 
 const TOTAL_STEPS = 4;
@@ -30,7 +30,6 @@ const TOTAL_STEPS = 4;
 const STAGES: Array<{ label: string; emoji: string; value: Stage }> = [
   { label: 'Pregnant', emoji: '🤰', value: 'pregnant' },
   { label: 'Baby has arrived', emoji: '👶', value: 'newborn' },
-  { label: 'Planning', emoji: '🌸', value: 'planning' },
 ];
 
 const GENDERS: Array<{ label: string; emoji: string; value: Gender }> = [

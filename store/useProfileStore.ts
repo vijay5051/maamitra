@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export type Stage = 'pregnant' | 'newborn' | 'planning';
+export type Stage = 'pregnant' | 'newborn';
 export type ParentGender = 'mother' | 'father' | 'other' | '';
 export type ParentRelation = 'mother' | 'father' | 'guardian' | 'grandparent' | 'aunt/uncle' | 'other' | '';
 
@@ -179,7 +179,11 @@ export const useProfileStore = create<ProfileState>()(
 
       setMotherName: (name) => set({ motherName: name }),
 
-      setProfile: (profile) => set({ profile }),
+      setProfile: (profile) => set({
+        profile: profile && (profile.stage as string) === 'planning'
+          ? { ...profile, stage: 'pregnant' }
+          : profile,
+      }),
 
       addKid: (kidData) => {
         const id = (kidData as any).id ?? Date.now().toString();
@@ -187,7 +191,8 @@ export const useProfileStore = create<ProfileState>()(
         const dobDate = kidData.dob ? new Date(kidData.dob) : null;
         const dobInFuture = dobDate ? dobDate > new Date() : false;
         const isExpecting = kidData.isExpecting && dobInFuture;
-        const normalizedKidData = { ...kidData, isExpecting, stage: isExpecting ? kidData.stage : 'newborn' as Stage };
+        const incomingStage: Stage = (kidData.stage as string) === 'planning' ? 'pregnant' : kidData.stage;
+        const normalizedKidData = { ...kidData, isExpecting, stage: isExpecting ? incomingStage : 'newborn' as Stage };
         const ageInMonths = isExpecting ? 0 : calculateAgeInMonths(normalizedKidData.dob);
         const ageInWeeks = isExpecting ? 0 : calculateAgeInWeeks(normalizedKidData.dob);
         const kid: Kid = { ...normalizedKidData, id, ageInMonths, ageInWeeks };

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -22,8 +22,8 @@ import { Colors } from '../../constants/theme';
 
 // ─── Domain types ─────────────────────────────────────────────────────────────
 
-type Stage = 'pregnant' | 'newborn' | 'planning';
-type Relation = 'mother' | 'father' | 'other';
+type Stage = 'pregnant' | 'newborn';
+type Relation = 'mother' | 'father';
 type Gender = 'boy' | 'girl' | 'surprise';
 type Diet = 'vegetarian' | 'eggetarian' | 'non-vegetarian' | 'vegan';
 type FamilyType = 'nuclear' | 'joint' | 'in-laws' | 'single-parent';
@@ -156,28 +156,25 @@ export default function OnboardingScreen() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
-  // Prevent re-entry: if already onboarded, redirect appropriately
-  useEffect(() => {
-    if (!onboardingComplete) return;
-    const phone = useProfileStore.getState().phone;
-    router.replace(phone ? '/(tabs)' : '/(auth)/phone');
-  }, [onboardingComplete]);
-
-  // Guard against landing on onboarding while signed out — would otherwise
-  // show as a "signup form" flash after sign-out before the tabs layout
-  // gets its turn to route to welcome.
+  // Re-entry / signed-out guards. We deliberately use <Redirect> instead
+  // of a useEffect+router.replace pair: expo-router's navigation context
+  // isn't ready during a screen's first commit phase, so calling replace()
+  // from a mount effect throws "Attempted to navigate before mounting the
+  // Root Layout component" — which is what users were seeing as the ugly
+  // red error screen on cold-load of /(auth)/onboarding. <Redirect>
+  // schedules navigation safely against the layout lifecycle.
   const isAuthed = useAuthStore((s) => s.isAuthenticated);
-  useEffect(() => {
-    if (!isAuthed) router.replace('/(auth)/welcome');
-  }, [isAuthed]);
+  const phoneOnFile = useProfileStore((s) => s.phone);
+  if (!isAuthed) return <Redirect href="/(auth)/welcome" />;
+  if (onboardingComplete) {
+    return <Redirect href={phoneOnFile ? '/(tabs)' : '/(auth)/phone'} />;
+  }
 
   // ── Derived copy ──
-  const kidDateLabel = stage === 'pregnant' || stage === 'planning' ? 'Due date' : "Baby's date of birth";
+  const kidDateLabel = stage === 'pregnant' ? 'Due date' : "Baby's date of birth";
   const kidDateHelp =
     stage === 'pregnant'
       ? 'Pick the expected due date. You can update this later.'
-      : stage === 'planning'
-      ? "If you don't have a date yet, pick a rough estimate — you can change it anytime."
       : "Pick your baby's date of birth.";
 
   // ── Validation ──
@@ -264,7 +261,7 @@ export default function OnboardingScreen() {
       const primaryName = !cleanedName || cleanedName.toLowerCase() === 'not decided yet'
         ? 'Little one'
         : cleanedName;
-      const isPrimaryExpecting = (stage === 'pregnant' || stage === 'planning') && dateIsFuture;
+      const isPrimaryExpecting = stage === 'pregnant' && dateIsFuture;
       addKid({
         name: primaryName,
         dob: validKeyDate,
@@ -377,7 +374,6 @@ export default function OnboardingScreen() {
                   options={[
                     { value: 'pregnant', label: "We're expecting", icon: 'heart-outline' },
                     { value: 'newborn', label: 'My baby is here', icon: 'happy-outline' },
-                    { value: 'planning', label: 'Planning to conceive', icon: 'calendar-outline' },
                   ]}
                   value={stage}
                   onChange={(v) => {
@@ -394,7 +390,6 @@ export default function OnboardingScreen() {
                   options={[
                     { value: 'mother', label: 'Mother', icon: 'woman-outline' },
                     { value: 'father', label: 'Father', icon: 'man-outline' },
-                    { value: 'other', label: 'Other caregiver', icon: 'people-outline' },
                   ]}
                   value={relation}
                   onChange={(v) => {
@@ -432,7 +427,7 @@ export default function OnboardingScreen() {
                   style={styles.textInput}
                   value={kidName}
                   onChangeText={setKidName}
-                  placeholder={stage === 'pregnant' || stage === 'planning' ? 'Not decided yet is fine' : "e.g. Navsa"}
+                  placeholder={stage === 'pregnant' ? 'Not decided yet is fine' : "e.g. Navsa"}
                   placeholderTextColor="#9ca3af"
                   autoCapitalize="words"
                 />

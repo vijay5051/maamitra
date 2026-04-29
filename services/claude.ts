@@ -274,7 +274,6 @@ export function buildSystemPrompt(
     ? (ctx.parentGender === 'father' ? 'expecting a baby' : 'currently pregnant')
     : ctx.stage === 'pregnant'
       ? (ctx.parentGender === 'father' ? 'expecting a baby' : 'currently pregnant')
-      : ctx.stage === 'planning' ? 'planning to conceive'
       : ctx.kidAgeMonths !== undefined && ctx.kidAgeMonths < 6 ? 'in the newborn phase'
       : labels.roleNoun;
 
