@@ -48,6 +48,7 @@ import SettingsModal from '../../components/ui/SettingsModal';
 import NotificationsSheet from '../../components/community/NotificationsSheet';
 import ConversationsSheet from '../../components/community/ConversationsSheet';
 import HelpSupportSheet from '../../components/ui/HelpSupportSheet';
+import AppBannerStrip from '../../components/ui/AppBannerStrip';
 import AnimatedPressable from '../../components/ui/AnimatedPressable';
 import AnimatedNumber from '../../components/ui/AnimatedNumber';
 import Reanimated, {
@@ -548,6 +549,9 @@ export default function HomeTab() {
         }}
         showsVerticalScrollIndicator={false}
       >
+        {/* Admin-published banner — only renders if app_settings/config.banner is set. */}
+        <AppBannerStrip />
+
         {/* Header row. Tapping the avatar takes you to Edit Profile
             (fast path for "change my name/photo"). The right cluster is
             the same triplet used on every tab with a header:

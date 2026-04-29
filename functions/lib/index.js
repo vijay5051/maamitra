@@ -49,7 +49,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.dispatchPush = void 0;
+exports.processScheduledPushes = exports.adminDeleteUser = exports.dispatchPush = void 0;
 const functions = __importStar(require("firebase-functions/v1"));
 const admin = __importStar(require("firebase-admin"));
 admin.initializeApp();
@@ -207,6 +207,176 @@ function sanitiseData(data) {
     }
     return out;
 }
+// ─── adminDeleteUser ─────────────────────────────────────────────────────────
+// Admin-gated callable that fully removes a user — both their Firebase Auth
+// account AND their Firestore data. Necessary because the client-side
+// `deleteUserData` only wipes Firestore; the Auth record (with any linked
+// phone provider) lingers and blocks the freed phone number from being
+// re-linked to a new account ("auth/credential-already-in-use").
+//
+// Caller must be authenticated AND admin (custom claim or email allowlist —
+// kept in sync with firestore.rules → isAdmin()).
+const ADMIN_EMAILS = new Set([
+    'admin@maamitra.app',
+    'vijay@maamitra.app',
+    'rocking.vsr@gmail.com',
+    'demo@maamitra.app',
+]);
+async function isAdminTokenAsync(token) {
+    if (!token)
+        return false;
+    if (token.admin === true)
+        return true;
+    if (token.email_verified === true && token.email && ADMIN_EMAILS.has(token.email.toLowerCase())) {
+        return true;
+    }
+    // Fallback: stored role on the user doc (matches firestore.rules helper).
+    if (!token.uid)
+        return false;
+    try {
+        const snap = await admin.firestore().doc(`users/${token.uid}`).get();
+        const role = snap.exists ? snap.data()?.adminRole : null;
+        return role === 'super' || role === 'moderator' || role === 'support' || role === 'content';
+    }
+    catch {
+        return false;
+    }
+}
+function isAdminToken(token) {
+    if (!token)
+        return false;
+    if (token.admin === true)
+        return true;
+    if (token.email_verified === true && token.email && ADMIN_EMAILS.has(token.email.toLowerCase())) {
+        return true;
+    }
+    return false;
+}
+exports.adminDeleteUser = functions
+    .runWith({ memory: '256MB', timeoutSeconds: 60 })
+    .https.onCall(async (data, context) => {
+    const ok = await isAdminTokenAsync(context.auth?.token);
+    if (!ok) {
+        throw new functions.https.HttpsError('permission-denied', 'Only admins can delete user accounts.');
+    }
+    const targetUid = data?.uid;
+    if (!targetUid || typeof targetUid !== 'string') {
+        throw new functions.https.HttpsError('invalid-argument', 'A target user uid is required.');
+    }
+    const callerUid = context.auth?.uid;
+    if (callerUid && callerUid === targetUid) {
+        throw new functions.https.HttpsError('failed-precondition', 'Admins cannot delete their own account through this endpoint. Use the regular Delete Account flow in your settings.');
+    }
+    const db = admin.firestore();
+    let firestoreDeleted = false;
+    let authDeleted = false;
+    let authErr = null;
+    // Phase 1: Firestore user doc. Best-effort — phase 2 must run regardless
+    // so an orphan Auth record with a phone provider doesn't get stuck.
+    try {
+        await db.collection('users').doc(targetUid).delete();
+        firestoreDeleted = true;
+    }
+    catch (err) {
+        console.warn(`adminDeleteUser(${targetUid}): firestore delete failed`, err);
+    }
+    // Phase 2: the Auth record. THIS is what frees the phone number.
+    try {
+        await admin.auth().deleteUser(targetUid);
+        authDeleted = true;
+    }
+    catch (err) {
+        // 'auth/user-not-found' is success — already gone.
+        if (err?.code === 'auth/user-not-found') {
+            authDeleted = true;
+        }
+        else {
+            authErr = err?.message ?? String(err);
+        }
+    }
+    // Phase 3: best-effort cleanup of side data — public profile + push
+    // queue subscription markers. Failures here are non-fatal.
+    try {
+        await db.collection('publicProfiles').doc(targetUid).delete();
+    }
+    catch (err) {
+        console.warn(`adminDeleteUser(${targetUid}): publicProfiles cleanup`, err);
+    }
+    if (!authDeleted) {
+        throw new functions.https.HttpsError('internal', `Auth deletion failed: ${authErr ?? 'unknown error'}`);
+    }
+    return {
+        ok: true,
+        firestoreDeleted,
+        authDeleted,
+    };
+});
+// ─── processScheduledPushes ──────────────────────────────────────────────────
+//
+// Runs every 5 minutes. Scans `scheduled_pushes` for entries whose
+// scheduledFor is now-or-past and status === 'scheduled'. For each, it
+// promotes the entry into `push_queue` (which immediately fires the
+// dispatchPush trigger above) and marks the schedule entry as 'sent'.
+//
+// We grant a small grace window (60s) so the dispatcher fires entries that
+// barely cross the boundary between cron ticks.
+//
+// Deploy with:
+//   firebase deploy --only functions:processScheduledPushes
+// Note: the first deploy of a scheduled function asks Firebase to provision
+// a Cloud Scheduler job in the project's region. Free tier covers up to 3
+// jobs total — we currently use 1.
+exports.processScheduledPushes = functions.pubsub
+    .schedule('every 5 minutes')
+    .timeZone('Asia/Kolkata')
+    .onRun(async () => {
+    const db = admin.firestore();
+    const nowMs = Date.now() + 60000; // 60s lead so we don't skip anything
+    const cutoff = admin.firestore.Timestamp.fromMillis(nowMs);
+    const snap = await db
+        .collection('scheduled_pushes')
+        .where('status', '==', 'scheduled')
+        .where('scheduledFor', '<=', cutoff)
+        .limit(100)
+        .get();
+    if (snap.empty) {
+        return null;
+    }
+    let promoted = 0;
+    for (const doc of snap.docs) {
+        const data = doc.data();
+        try {
+            // Hand off to push_queue — the existing dispatchPush trigger fires on
+            // create and does the actual fan-out.
+            await db.collection('push_queue').add({
+                kind: 'broadcast',
+                audience: data.audience ?? 'all',
+                title: data.title,
+                body: data.body,
+                data: data.data ?? {},
+                pushType: data.pushType ?? 'info',
+                status: 'pending',
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                scheduledFromId: doc.id,
+            });
+            await doc.ref.update({
+                status: 'sent',
+                firedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+            promoted++;
+        }
+        catch (err) {
+            console.error(`processScheduledPushes ${doc.id}:`, err);
+            await doc.ref.update({
+                status: 'failed',
+                error: String(err?.message ?? err),
+                firedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+        }
+    }
+    console.log(`processScheduledPushes: promoted ${promoted} of ${snap.size} due entries`);
+    return null;
+});
 async function pruneDeadTokens(db, deadTokens) {
     const chunks = [];
     for (let i = 0; i < deadTokens.length; i += 10)

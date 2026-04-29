@@ -1,14 +1,24 @@
 /**
  * Admin — User Management
- * Lists all registered users from Firestore with profile stats.
- * Supports search, view profile details, and delete user data.
+ *
+ * Lists every signed-up user with quick stats. Tap a row to drop into the
+ * per-user 360 (/admin/users/[uid]) — that's where every action (delete,
+ * role change, DSAR export, push) lives. This screen is just the index.
+ *
+ * Bulk-select lets the admin pick multiple users for a one-shot personal
+ * push (welcome ping, beta survey nudge, etc.). Destructive bulk actions
+ * are intentionally not available — those need the 360 view's per-user
+ * confirmation.
  */
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Modal,
+  Platform,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -18,9 +28,13 @@ import {
   View,
 } from 'react-native';
 
-import { AdminUser, getUsers, adminDeleteUserFully, adminSetUserRole } from '../../services/firebase';
+import { AdminUser, getUsers } from '../../services/firebase';
+import { sendPersonalPushFromAdmin } from '../../services/admin';
+import { useAuthStore } from '../../store/useAuthStore';
+import { useAdminRole } from '../../lib/useAdminRole';
+import { can } from '../../lib/admin';
 import { Colors } from '../../constants/theme';
-import { confirmAction, infoAlert } from '../../lib/cross-platform-alerts';
+import { infoAlert } from '../../lib/cross-platform-alerts';
 
 // ─── Avatar ───────────────────────────────────────────────────────────────────
 
@@ -39,93 +53,126 @@ function Avatar({ name, size = 40 }: { name: string; size?: number }) {
 
 function UserRow({
   user,
-  onDelete,
-  onRoleChange,
+  selectMode,
+  selected,
+  onToggleSelect,
+  onOpen,
 }: {
   user: AdminUser;
-  onDelete: () => void;
-  onRoleChange: (role: 'mother' | 'father' | 'other') => void;
+  selectMode: boolean;
+  selected: boolean;
+  onToggleSelect: () => void;
+  onOpen: () => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
   const joinDate = user.createdAt
     ? new Date(user.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
     : 'Unknown';
 
   return (
-    <View style={styles.userCard}>
-      <TouchableOpacity style={styles.userRow} onPress={() => setExpanded((v) => !v)} activeOpacity={0.75}>
-        <Avatar name={user.name} />
+    <Pressable
+      style={[styles.userCard, selected && styles.userCardSelected]}
+      onPress={selectMode ? onToggleSelect : onOpen}
+      onLongPress={onToggleSelect}
+      android_ripple={{ color: '#f3f4f6' }}
+    >
+      <View style={styles.userRow}>
+        {selectMode ? (
+          <View style={[styles.checkbox, selected && styles.checkboxOn]}>
+            {selected ? <Ionicons name="checkmark" size={14} color="#fff" /> : null}
+          </View>
+        ) : (
+          <Avatar name={user.name} />
+        )}
         <View style={styles.userInfo}>
-          <Text style={styles.userName}>{user.name || 'Unnamed'}</Text>
-          <Text style={styles.userEmail} numberOfLines={1}>{user.email}</Text>
+          <Text style={styles.userName} numberOfLines={1}>{user.name || 'Unnamed'}</Text>
+          <Text style={styles.userEmail} numberOfLines={1}>{user.email || '—'}</Text>
+          <View style={styles.metaRow}>
+            <Ionicons name="calendar-outline" size={11} color="#9ca3af" />
+            <Text style={styles.metaText}>{joinDate}</Text>
+            <Text style={styles.metaDot}>·</Text>
+            <Ionicons name="people-outline" size={11} color="#9ca3af" />
+            <Text style={styles.metaText}>{user.kidsCount} {user.kidsCount === 1 ? 'kid' : 'kids'}</Text>
+            {user.state ? (
+              <>
+                <Text style={styles.metaDot}>·</Text>
+                <Ionicons name="location-outline" size={11} color="#9ca3af" />
+                <Text style={styles.metaText}>{user.state}</Text>
+              </>
+            ) : null}
+          </View>
         </View>
         <View style={styles.userMeta}>
           <View style={[styles.statusDot, { backgroundColor: user.onboardingComplete ? '#22c55e' : '#f59e0b' }]} />
-          <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color="#9ca3af" />
+          {!selectMode && <Ionicons name="chevron-forward" size={16} color="#d1d5db" />}
         </View>
-      </TouchableOpacity>
+      </View>
+    </Pressable>
+  );
+}
 
-      {expanded && (
-        <View style={styles.expandedContent}>
-          <View style={styles.detailRow}>
-            <Ionicons name="calendar-outline" size={13} color="#9ca3af" />
-            <Text style={styles.detailText}>Joined: {joinDate}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Ionicons name="people-outline" size={13} color="#9ca3af" />
-            <Text style={styles.detailText}>{user.kidsCount} child profile{user.kidsCount !== 1 ? 's' : ''}</Text>
-          </View>
-          {user.state ? (
-            <View style={styles.detailRow}>
-              <Ionicons name="location-outline" size={13} color="#9ca3af" />
-              <Text style={styles.detailText}>{user.state}</Text>
-            </View>
-          ) : null}
-          <View style={styles.detailRow}>
-            <Ionicons name="checkmark-circle-outline" size={13} color="#9ca3af" />
-            <Text style={styles.detailText}>
-              Onboarding: {user.onboardingComplete ? '✅ Complete' : '⏳ Incomplete'}
-            </Text>
-          </View>
+// ─── Bulk push modal ─────────────────────────────────────────────────────────
 
-          {/* Role reset — the ONLY place parentGender can be changed
-              once a user finishes onboarding. Users can't change it
-              themselves; this is the support-desk escape hatch. */}
-          <View style={styles.roleRow}>
-            <Ionicons name="person-outline" size={13} color="#9ca3af" />
-            <Text style={styles.detailText}>
-              Role: <Text style={styles.roleCurrent}>{user.parentGender || 'unset'}</Text>
-            </Text>
-            <View style={{ flex: 1 }} />
-            {(['mother', 'father', 'other'] as const).map((r) => (
-              <TouchableOpacity
-                key={r}
-                style={[
-                  styles.roleChip,
-                  user.parentGender === r && styles.roleChipActive,
-                ]}
-                onPress={() => onRoleChange(r)}
-                disabled={user.parentGender === r}
-              >
-                <Text
-                  style={[
-                    styles.roleChipText,
-                    user.parentGender === r && styles.roleChipTextActive,
-                  ]}
-                >
-                  {r}
-                </Text>
-              </TouchableOpacity>
-            ))}
+function BulkPushModal({
+  visible,
+  count,
+  onCancel,
+  onSend,
+}: {
+  visible: boolean;
+  count: number;
+  onCancel: () => void;
+  onSend: (title: string, body: string) => Promise<void>;
+}) {
+  const [title, setTitle] = useState('');
+  const [body, setBody] = useState('');
+  const [sending, setSending] = useState(false);
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+      <View style={styles.modalBackdrop}>
+        <View style={styles.modalCard}>
+          <Text style={styles.modalTitle}>Send push to {count} user{count === 1 ? '' : 's'}</Text>
+          <Text style={styles.modalHint}>
+            Personal push — only these users get it. Used for direct outreach;
+            broadcasts live in the Notifications tab.
+          </Text>
+          <TextInput
+            style={styles.modalInput}
+            placeholder="Title (max 120 chars)"
+            placeholderTextColor="#9ca3af"
+            value={title}
+            onChangeText={setTitle}
+            maxLength={120}
+          />
+          <TextInput
+            style={[styles.modalInput, styles.modalTextarea]}
+            placeholder="Message (max 300 chars)"
+            placeholderTextColor="#9ca3af"
+            value={body}
+            onChangeText={setBody}
+            maxLength={300}
+            multiline
+          />
+          <View style={styles.modalActions}>
+            <TouchableOpacity style={styles.modalBtn} onPress={onCancel} disabled={sending}>
+              <Text style={styles.modalBtnText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modalBtn, styles.modalBtnPrimary]}
+              disabled={sending || !title.trim() || !body.trim()}
+              onPress={async () => {
+                setSending(true);
+                try {
+                  await onSend(title.trim(), body.trim());
+                  setTitle(''); setBody('');
+                } finally { setSending(false); }
+              }}
+            >
+              <Text style={[styles.modalBtnText, { color: '#fff' }]}>{sending ? 'Sending…' : `Send to ${count}`}</Text>
+            </TouchableOpacity>
           </View>
-
-          <TouchableOpacity style={styles.deleteBtn} onPress={onDelete} activeOpacity={0.8}>
-            <Ionicons name="trash-outline" size={14} color="#ef4444" />
-            <Text style={styles.deleteBtnText}>Delete User Data</Text>
-          </TouchableOpacity>
         </View>
-      )}
-    </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -133,12 +180,17 @@ function UserRow({
 
 export default function UsersScreen() {
   const router = useRouter();
+  const { user: authUser } = useAuthStore();
+  const role = useAdminRole();
+
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [pushOpen, setPushOpen] = useState(false);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { void load(); }, []);
 
   async function load() {
     setLoading(true);
@@ -154,50 +206,53 @@ export default function UsersScreen() {
     setRefreshing(false);
   }
 
-  async function handleRoleChange(user: AdminUser, newRole: 'mother' | 'father' | 'other') {
-    const prev = user.parentGender;
-    const ok = await confirmAction(
-      'Change role?',
-      `Reset ${user.name}'s role from ${prev || 'unset'} to ${newRole}?\n\nThis reshapes their role-adaptive content immediately on next app open.`,
-      { confirmLabel: 'Confirm' },
-    );
-    if (!ok) return;
-    try {
-      await adminSetUserRole(user.uid, newRole);
-      setUsers((arr) =>
-        arr.map((u) => (u.uid === user.uid ? { ...u, parentGender: newRole } : u)),
-      );
-    } catch (e: any) {
-      infoAlert('Failed', e?.message ?? 'Could not update role');
-    }
+  function toggleSelect(uid: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(uid)) next.delete(uid);
+      else next.add(uid);
+      return next;
+    });
   }
 
-  async function handleDelete(user: AdminUser) {
-    const ok = await confirmAction(
-      'Delete user permanently',
-      `Permanently delete ${user.name} (${user.email})?\n\nThis removes BOTH their Firebase Auth account and Firestore data. Their phone / email become free for use by a new account. This cannot be undone.`,
-      { confirmLabel: 'Delete Permanently' },
-    );
-    if (!ok) return;
-    try {
-      await adminDeleteUserFully(user.uid);
-      setUsers((prev) => prev.filter((u) => u.uid !== user.uid));
-      infoAlert('Deleted', `${user.name || user.email} has been fully removed.`);
-    } catch (e: any) {
-      const code = e?.code ? `${e.code}\n\n` : '';
-      infoAlert('Delete failed', `${code}${e?.message ?? String(e)}`);
+  function clearSelection() { setSelected(new Set()); }
+
+  async function bulkSend(title: string, body: string) {
+    if (!authUser) return;
+    if (!can(role, 'send_personal_push')) {
+      infoAlert('Not allowed', 'Your role does not allow sending personal push.');
+      return;
     }
+    const uids = Array.from(selected);
+    let sent = 0;
+    let failed = 0;
+    for (const uid of uids) {
+      try {
+        await sendPersonalPushFromAdmin(authUser, uid, { title, body });
+        sent++;
+      } catch {
+        failed++;
+      }
+    }
+    setPushOpen(false);
+    clearSelection();
+    infoAlert('Push queued', `${sent} sent${failed ? `, ${failed} failed` : ''}.`);
   }
 
-  const filtered = users.filter(
-    (u) =>
-      u.name.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase()) ||
-      u.state.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    if (!q) return users;
+    return users.filter(
+      (u) =>
+        u.name.toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q) ||
+        u.state.toLowerCase().includes(q),
+    );
+  }, [users, search]);
 
   const complete = filtered.filter((u) => u.onboardingComplete).length;
   const incomplete = filtered.length - complete;
+  const selectMode = selected.size > 0;
 
   return (
     <ScrollView
@@ -245,6 +300,26 @@ export default function UsersScreen() {
         )}
       </View>
 
+      {/* Selection bar */}
+      {selectMode ? (
+        <View style={styles.selectBar}>
+          <Text style={styles.selectBarText}>{selected.size} selected</Text>
+          <View style={{ flex: 1 }} />
+          <TouchableOpacity style={styles.selectBarBtn} onPress={clearSelection}>
+            <Text style={styles.selectBarBtnText}>Clear</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.selectBarBtn, styles.selectBarBtnPrimary]}
+            onPress={() => setPushOpen(true)}
+          >
+            <Ionicons name="paper-plane-outline" size={13} color="#fff" />
+            <Text style={[styles.selectBarBtnText, { color: '#fff' }]}>Send push</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <Text style={styles.tipLine}>Long-press to multi-select. Tap to open profile 360.</Text>
+      )}
+
       {/* List */}
       {loading ? (
         <ActivityIndicator color={Colors.primary} style={{ marginTop: 40 }} />
@@ -252,17 +327,31 @@ export default function UsersScreen() {
         <View style={styles.empty}>
           <Ionicons name="people-outline" size={40} color="#d1d5db" />
           <Text style={styles.emptyText}>{search ? 'No users match your search' : 'No users yet'}</Text>
+          {search ? (
+            <TouchableOpacity onPress={() => setSearch('')}>
+              <Text style={styles.emptyAction}>Clear search</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       ) : (
         filtered.map((u) => (
           <UserRow
             key={u.uid}
             user={u}
-            onDelete={() => handleDelete(u)}
-            onRoleChange={(role) => handleRoleChange(u, role)}
+            selectMode={selectMode}
+            selected={selected.has(u.uid)}
+            onToggleSelect={() => toggleSelect(u.uid)}
+            onOpen={() => router.push(`/admin/users/${u.uid}` as any)}
           />
         ))
       )}
+
+      <BulkPushModal
+        visible={pushOpen}
+        count={selected.size}
+        onCancel={() => setPushOpen(false)}
+        onSend={bulkSend}
+      />
     </ScrollView>
   );
 }
@@ -285,56 +374,69 @@ const styles = StyleSheet.create({
   searchWrap: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 12,
-    paddingVertical: 10, marginBottom: 16,
+    paddingVertical: 10, marginBottom: 12,
     borderWidth: 1, borderColor: '#e5e7eb',
   },
   searchInput: { flex: 1, fontSize: 14, color: '#1a1a2e' },
 
+  selectBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#EDE4FF', borderRadius: 12, padding: 10, marginBottom: 12,
+    borderWidth: 1, borderColor: Colors.primary,
+  },
+  selectBarText: { fontSize: 13, fontWeight: '700', color: Colors.primary },
+  selectBarBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 8,
+    backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb',
+  },
+  selectBarBtnPrimary: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  selectBarBtnText: { fontSize: 12, fontWeight: '700', color: '#1a1a2e' },
+
+  tipLine: { fontSize: 11, color: '#9ca3af', marginBottom: 8, marginLeft: 4 },
+
   userCard: {
-    backgroundColor: '#fff', borderRadius: 14, marginBottom: 10,
+    backgroundColor: '#fff', borderRadius: 14, marginBottom: 8,
     borderWidth: 1, borderColor: '#f3f4f6', overflow: 'hidden',
   },
-  userRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14,
+  userCardSelected: { borderColor: Colors.primary, backgroundColor: '#FAF5FF' },
+  userRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 },
+  checkbox: {
+    width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: '#d1d5db',
+    alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff',
   },
+  checkboxOn: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   avatar: { alignItems: 'center', justifyContent: 'center' },
   avatarText: { color: '#fff', fontWeight: '800' },
   userInfo: { flex: 1 },
-  userName: { fontSize: 15, fontWeight: '700', color: '#1a1a2e' },
-  userEmail: { fontSize: 12, color: '#6b7280', marginTop: 2 },
-  userMeta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  userName: { fontSize: 14, fontWeight: '700', color: '#1a1a2e' },
+  userEmail: { fontSize: 11, color: '#6b7280', marginTop: 2 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4, flexWrap: 'wrap' },
+  metaText: { fontSize: 10, color: '#9ca3af' },
+  metaDot: { fontSize: 10, color: '#d1d5db' },
+  userMeta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   statusDot: { width: 8, height: 8, borderRadius: 4 },
-
-  expandedContent: {
-    borderTopWidth: 1, borderTopColor: '#f3f4f6',
-    padding: 14, gap: 8, backgroundColor: '#fafafa',
-  },
-  detailRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  detailText: { fontSize: 13, color: '#4b5563' },
-
-  deleteBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6,
-    backgroundColor: 'rgba(239,68,68,0.07)', borderRadius: 8,
-    paddingVertical: 8, paddingHorizontal: 12, alignSelf: 'flex-start',
-    borderWidth: 1, borderColor: 'rgba(239,68,68,0.15)',
-  },
-  deleteBtnText: { fontSize: 13, color: '#ef4444', fontWeight: '700' },
-
-  roleRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2,
-  },
-  roleCurrent: { fontWeight: '700', color: '#1a1a2e' },
-  roleChip: {
-    paddingVertical: 4, paddingHorizontal: 10,
-    borderRadius: 12, backgroundColor: '#f3f4f6',
-    borderWidth: 1, borderColor: '#e5e7eb',
-  },
-  roleChipActive: {
-    backgroundColor: '#ede9fe', borderColor: '#8b5cf6',
-  },
-  roleChipText: { fontSize: 11, color: '#6b7280' },
-  roleChipTextActive: { color: Colors.primary, fontWeight: '700' },
 
   empty: { alignItems: 'center', paddingVertical: 40, gap: 10 },
   emptyText: { fontSize: 14, color: '#9ca3af' },
+  emptyAction: { fontSize: 13, color: Colors.primary, fontWeight: '700' },
+
+  // Bulk push modal
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
+  modalCard: { backgroundColor: '#fff', borderRadius: 16, padding: 20, gap: 12 },
+  modalTitle: { fontSize: 16, fontWeight: '800', color: '#1a1a2e' },
+  modalHint: { fontSize: 12, color: '#6b7280', lineHeight: 17 },
+  modalInput: {
+    backgroundColor: '#f9fafb', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10,
+    fontSize: 13, color: '#1a1a2e', borderWidth: 1, borderColor: '#e5e7eb',
+  },
+  modalTextarea: { height: 88, textAlignVertical: 'top' as any },
+  modalActions: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  modalBtn: {
+    flex: 1, paddingVertical: 11, borderRadius: 10, alignItems: 'center',
+    backgroundColor: '#f3f4f6', borderWidth: 1, borderColor: '#e5e7eb',
+    flexDirection: 'row', justifyContent: 'center', gap: 6,
+  },
+  modalBtnPrimary: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  modalBtnText: { fontSize: 13, fontWeight: '700', color: '#1a1a2e' },
 });

@@ -15,9 +15,21 @@ service cloud.firestore {
     function isOwner(uid) {
       return isSignedIn() && request.auth.uid == uid;
     }
-    // Admins: Firebase custom claim ("admin": true) is the preferred path.
-    // Email-based fallback is kept for bootstrap but requires email_verified
-    // so that an unverified account cannot impersonate an admin address.
+    // Admins: a user is admin if EITHER
+    //   1. Their Firebase custom claim 'admin' is true, OR
+    //   2. Their email is on the founder allow-list AND verified, OR
+    //   3. Their users/{uid} doc has adminRole in {super, moderator, support, content}.
+    //
+    // (3) is the path used by the admin team UI — granting roles inside the
+    // app rather than running scripts/set-admin.mjs. Reading the user doc is
+    // fine here because every authenticated request already has its own doc
+    // cached and rules can read documents.
+    function adminRoleField(uid) {
+      // get() throws if the doc is missing — guard with exists() first.
+      return exists(/databases/$(database)/documents/users/$(uid))
+        ? get(/databases/$(database)/documents/users/$(uid)).data.adminRole
+        : '';
+    }
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.admin == true ||
@@ -25,7 +37,20 @@ service cloud.firestore {
           request.auth.token.email == 'admin@maamitra.app' ||
           request.auth.token.email == 'vijay@maamitra.app' ||
           request.auth.token.email == 'rocking.vsr@gmail.com'
-        ))
+        )) ||
+        adminRoleField(request.auth.uid) in ['super', 'moderator', 'support', 'content']
+      );
+    }
+    // Super-only — destructive actions, role management, settings.
+    function isSuperAdmin() {
+      return isSignedIn() && (
+        request.auth.token.admin == true ||
+        (request.auth.token.email_verified == true && (
+          request.auth.token.email == 'admin@maamitra.app' ||
+          request.auth.token.email == 'vijay@maamitra.app' ||
+          request.auth.token.email == 'rocking.vsr@gmail.com'
+        )) ||
+        adminRoleField(request.auth.uid) == 'super'
       );
     }
     function isParticipant(participants) {
@@ -41,11 +66,21 @@ service cloud.firestore {
     }
 
     // ── Users ─────────────────────────────────────────────────────────────────
+    // Admins can read & update arbitrary user docs, but only SUPER admins can
+    // write the privileged 'adminRole' field — otherwise a moderator could
+    // self-promote. We detect adminRole writes via affectedKeys.
     match /users/{uid} {
       allow read:   if isOwner(uid) || isAdmin();
       allow create: if isOwner(uid);
-      allow update: if isOwner(uid) || isAdmin();
-      allow delete: if isOwner(uid) || isAdmin();
+      allow update: if (
+        // Super admins can write anything, including adminRole.
+        isSuperAdmin()
+      ) || (
+        // Owner / regular admin: allowed if NOT touching adminRole.
+        (isOwner(uid) || isAdmin()) &&
+        !('adminRole' in request.resource.data.diff(resource.data).affectedKeys())
+      );
+      allow delete: if isOwner(uid) || isSuperAdmin();
     }
 
     // ── Mood entries ──────────────────────────────────────────────────────────
@@ -250,6 +285,9 @@ service cloud.firestore {
     }
 
     // ── App settings (admin only write) ──────────────────────────────────────
+    // Read open to all signed-in users so the banner + feature flags + theme
+    // hydrate on app open. Write is admin-gated; manage_banner role gets in
+    // through the same rule because content-editor needs banner access.
     match /app_settings/{docId} {
       allow read:  if isSignedIn();
       allow write: if isAdmin();
@@ -318,6 +356,33 @@ service cloud.firestore {
         request.resource.data.uid == request.auth.uid &&
         shortText(request.resource.data.subject, 200) &&
         shortText(request.resource.data.message, 5000);
+      allow update, delete: if isAdmin();
+    }
+
+    // ── Admin audit log ──────────────────────────────────────────────────────
+    // Append-only. Any signed-in admin can write (the client-side service does
+    // this from every action site). Read is admin-only. Updates and deletes
+    // are forbidden so the log is tamper-resistant.
+    match /admin_audit/{entryId} {
+      allow read:   if isAdmin();
+      allow create: if isAdmin() &&
+        request.resource.data.actorUid == request.auth.uid &&
+        request.resource.data.action is string &&
+        request.resource.data.action.size() <= 64;
+      allow update, delete: if false;
+    }
+
+    // ── Scheduled pushes ─────────────────────────────────────────────────────
+    // Admins schedule a future broadcast here. A Cloud Scheduler-driven
+    // function (`processScheduledPushes`) promotes due entries into
+    // push_queue. Mortal users have no business reading or writing this.
+    match /scheduled_pushes/{schedId} {
+      allow read:   if isAdmin();
+      allow create: if isAdmin() &&
+        request.resource.data.kind == 'broadcast' &&
+        request.resource.data.audience in ['all', 'pregnant', 'newborn', 'toddler'] &&
+        shortText(request.resource.data.title, 120) &&
+        shortText(request.resource.data.body, 300);
       allow update, delete: if isAdmin();
     }
 

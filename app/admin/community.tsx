@@ -6,6 +6,7 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -16,6 +17,10 @@ import {
 } from 'react-native';
 import { Colors } from '../../constants/theme';
 import { confirmAction, infoAlert } from '../../lib/cross-platform-alerts';
+import { useAuthStore } from '../../store/useAuthStore';
+import { useAdminRole } from '../../lib/useAdminRole';
+import { can } from '../../lib/admin';
+import { bulkApprovePosts, bulkHidePosts } from '../../services/admin';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -63,12 +68,18 @@ function PostCard({
   onDelete,
   onHide,
   onUnhide,
+  selectMode,
+  selected,
+  onToggleSelect,
 }: {
   post: CommunityPost;
   onApprove: () => void;
   onDelete: () => void;
   onHide: () => void;
   onUnhide: () => void;
+  selectMode: boolean;
+  selected: boolean;
+  onToggleSelect: () => void;
 }) {
   const dateStr = post.createdAt
     ? new Date(post.createdAt).toLocaleDateString('en-IN', {
@@ -79,7 +90,11 @@ function PostCard({
     : '';
 
   return (
-    <View style={styles.postCard}>
+    <Pressable
+      style={[styles.postCard, selected && styles.postCardSelected]}
+      onPress={selectMode ? onToggleSelect : undefined}
+      onLongPress={onToggleSelect}
+    >
       {/* Header */}
       <View style={styles.postHeader}>
         <View style={styles.postAuthorBlock}>
@@ -147,7 +162,12 @@ function PostCard({
           </Text>
         </View>
       ) : null}
-    </View>
+      {selectMode ? (
+        <View style={[styles.selectFlag, selected && styles.selectFlagOn]}>
+          {selected ? <Ionicons name="checkmark" size={14} color="#fff" /> : null}
+        </View>
+      ) : null}
+    </Pressable>
   );
 }
 
@@ -310,12 +330,55 @@ function FilterTabBtn({
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function AdminCommunity() {
+  const { user: actor } = useAuthStore();
+  const role = useAdminRole();
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [filter, setFilter] = useState<FilterTab>('all');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [hidingPost, setHidingPost] = useState<CommunityPost | null>(null);
   const [hideModalVisible, setHideModalVisible] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+
+  function toggleSelect(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+  function clearSelection() { setSelected(new Set()); }
+  const selectMode = selected.size > 0;
+
+  async function handleBulkApprove() {
+    if (!actor || !can(role, 'moderate_posts')) return;
+    setBulkBusy(true);
+    try {
+      const ids = Array.from(selected).map((id) => ({ id, collection: 'communityPosts' as const }));
+      await bulkApprovePosts(actor, ids);
+      setPosts((prev) => prev.map((p) => selected.has(p.id) ? { ...p, approved: true, hidden: false } : p));
+      clearSelection();
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  async function handleBulkHide() {
+    if (!actor || !can(role, 'moderate_posts')) return;
+    const ok = await confirmAction('Hide posts', `Hide ${selected.size} posts from the public feed?`);
+    if (!ok) return;
+    setBulkBusy(true);
+    try {
+      const ids = Array.from(selected).map((id) => ({ id, collection: 'communityPosts' as const }));
+      await bulkHidePosts(actor, ids, 'Bulk moderation');
+      setPosts((prev) => prev.map((p) => selected.has(p.id) ? { ...p, hidden: true, hiddenReason: 'Bulk moderation' } : p));
+      clearSelection();
+    } finally {
+      setBulkBusy(false);
+    }
+  }
 
   useEffect(() => {
     loadPosts();
@@ -498,6 +561,26 @@ export default function AdminCommunity() {
         <Text style={styles.clearDemoBtnText}>Clear demo posts (Priya / Ananya / etc.)</Text>
       </TouchableOpacity>
 
+      {selectMode ? (
+        <View style={styles.bulkBar}>
+          <Text style={styles.bulkText}>{selected.size} selected</Text>
+          <View style={{ flex: 1 }} />
+          <TouchableOpacity style={styles.bulkBtn} onPress={clearSelection} disabled={bulkBusy}>
+            <Text style={styles.bulkBtnText}>Clear</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.bulkBtn, styles.bulkBtnApprove]} onPress={handleBulkApprove} disabled={bulkBusy}>
+            <Ionicons name="checkmark" size={13} color="#fff" />
+            <Text style={[styles.bulkBtnText, { color: '#fff' }]}>Approve</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.bulkBtn, styles.bulkBtnHide]} onPress={handleBulkHide} disabled={bulkBusy}>
+            <Ionicons name="eye-off-outline" size={13} color="#fff" />
+            <Text style={[styles.bulkBtnText, { color: '#fff' }]}>Hide</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <Text style={styles.bulkHint}>Long-press a post to select. Bulk approve / hide appears once selected.</Text>
+      )}
+
       {/* List */}
       {loading ? (
         <View style={styles.centered}>
@@ -535,6 +618,9 @@ export default function AdminCommunity() {
               <PostCard
                 key={post.id}
                 post={post}
+                selectMode={selectMode}
+                selected={selected.has(post.id)}
+                onToggleSelect={() => toggleSelect(post.id)}
                 onApprove={() => handleApprove(post)}
                 onDelete={() => handleDelete(post)}
                 onHide={() => openHideModal(post)}
@@ -707,4 +793,31 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   clearDemoBtnText: { fontSize: 12, color: '#92400e', fontWeight: '700' },
+
+  postCardSelected: { borderColor: Colors.primary, backgroundColor: '#FAF5FF' },
+  selectFlag: {
+    position: 'absolute', top: 10, right: 10,
+    width: 22, height: 22, borderRadius: 6,
+    borderWidth: 2, borderColor: '#D1D5DB', backgroundColor: '#fff',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  selectFlagOn: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+
+  bulkBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginHorizontal: 16, marginTop: 8,
+    backgroundColor: '#EDE4FF', borderRadius: 12, padding: 10,
+    borderWidth: 1, borderColor: Colors.primary,
+  },
+  bulkText: { fontSize: 13, fontWeight: '700', color: Colors.primary },
+  bulkBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 8,
+    backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB',
+  },
+  bulkBtnApprove: { backgroundColor: '#10b981', borderColor: '#10b981' },
+  bulkBtnHide: { backgroundColor: '#8b5cf6', borderColor: '#8b5cf6' },
+  bulkBtnText: { fontSize: 12, fontWeight: '700', color: '#1a1a2e' },
+
+  bulkHint: { fontSize: 11, color: '#9ca3af', marginHorizontal: 16, marginTop: 6 },
 });

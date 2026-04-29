@@ -228,6 +228,23 @@ const ADMIN_EMAILS = new Set<string>([
   'demo@maamitra.app',
 ]);
 
+async function isAdminTokenAsync(token: admin.auth.DecodedIdToken | undefined): Promise<boolean> {
+  if (!token) return false;
+  if (token.admin === true) return true;
+  if (token.email_verified === true && token.email && ADMIN_EMAILS.has(token.email.toLowerCase())) {
+    return true;
+  }
+  // Fallback: stored role on the user doc (matches firestore.rules helper).
+  if (!token.uid) return false;
+  try {
+    const snap = await admin.firestore().doc(`users/${token.uid}`).get();
+    const role = snap.exists ? (snap.data() as any)?.adminRole : null;
+    return role === 'super' || role === 'moderator' || role === 'support' || role === 'content';
+  } catch {
+    return false;
+  }
+}
+
 function isAdminToken(token: admin.auth.DecodedIdToken | undefined): boolean {
   if (!token) return false;
   if (token.admin === true) return true;
@@ -244,7 +261,8 @@ interface AdminDeleteUserPayload {
 export const adminDeleteUser = functions
   .runWith({ memory: '256MB', timeoutSeconds: 60 })
   .https.onCall(async (data: AdminDeleteUserPayload, context) => {
-    if (!isAdminToken(context.auth?.token)) {
+    const ok = await isAdminTokenAsync(context.auth?.token);
+    if (!ok) {
       throw new functions.https.HttpsError(
         'permission-denied',
         'Only admins can delete user accounts.',
@@ -312,6 +330,76 @@ export const adminDeleteUser = functions
       firestoreDeleted,
       authDeleted,
     };
+  });
+
+// ─── processScheduledPushes ──────────────────────────────────────────────────
+//
+// Runs every 5 minutes. Scans `scheduled_pushes` for entries whose
+// scheduledFor is now-or-past and status === 'scheduled'. For each, it
+// promotes the entry into `push_queue` (which immediately fires the
+// dispatchPush trigger above) and marks the schedule entry as 'sent'.
+//
+// We grant a small grace window (60s) so the dispatcher fires entries that
+// barely cross the boundary between cron ticks.
+//
+// Deploy with:
+//   firebase deploy --only functions:processScheduledPushes
+// Note: the first deploy of a scheduled function asks Firebase to provision
+// a Cloud Scheduler job in the project's region. Free tier covers up to 3
+// jobs total — we currently use 1.
+
+export const processScheduledPushes = functions.pubsub
+  .schedule('every 5 minutes')
+  .timeZone('Asia/Kolkata')
+  .onRun(async () => {
+    const db = admin.firestore();
+    const nowMs = Date.now() + 60_000; // 60s lead so we don't skip anything
+    const cutoff = admin.firestore.Timestamp.fromMillis(nowMs);
+
+    const snap = await db
+      .collection('scheduled_pushes')
+      .where('status', '==', 'scheduled')
+      .where('scheduledFor', '<=', cutoff)
+      .limit(100)
+      .get();
+
+    if (snap.empty) {
+      return null;
+    }
+
+    let promoted = 0;
+    for (const doc of snap.docs) {
+      const data = doc.data() as any;
+      try {
+        // Hand off to push_queue — the existing dispatchPush trigger fires on
+        // create and does the actual fan-out.
+        await db.collection('push_queue').add({
+          kind: 'broadcast',
+          audience: data.audience ?? 'all',
+          title: data.title,
+          body: data.body,
+          data: data.data ?? {},
+          pushType: data.pushType ?? 'info',
+          status: 'pending',
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          scheduledFromId: doc.id,
+        });
+        await doc.ref.update({
+          status: 'sent',
+          firedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        promoted++;
+      } catch (err: any) {
+        console.error(`processScheduledPushes ${doc.id}:`, err);
+        await doc.ref.update({
+          status: 'failed',
+          error: String(err?.message ?? err),
+          firedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+    }
+    console.log(`processScheduledPushes: promoted ${promoted} of ${snap.size} due entries`);
+    return null;
   });
 
 async function pruneDeadTokens(

@@ -3,9 +3,22 @@ import { getAppSettings, updateAppSettings, DEFAULT_APP_SETTINGS } from '../serv
 
 export interface AppSettings {
   featureFlags: Record<string, boolean>;
+  /** Optional rollout map: feature key → percentage (0–100). When present
+   *  alongside featureFlags, the client gates the feature only for users
+   *  whose hashed-uid % 100 < rollout[key]. Null/undefined = full rollout. */
+  flagRollouts?: Record<string, number>;
   theme: { primary: string; secondary: string };
   tabs: Array<{ key: string; label: string; icon: string; visible: boolean }>;
   notificationTexts: Record<string, string>;
+  /** In-app banner — null/absent = no banner. See /admin/banner. */
+  banner?: {
+    title: string;
+    body: string;
+    cta?: { label: string; href: string };
+    tone?: 'info' | 'warn' | 'celebrate';
+    publishedAt: string;
+    expiresAt?: string;
+  } | null;
 }
 
 interface AppSettingsState {

@@ -14,6 +14,13 @@ import {
 } from 'react-native';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useAppSettingsStore } from '../../store/useAppSettingsStore';
+import { useEffect } from 'react';
+import { updateAppSettings, getAppSettings } from '../../services/firebase';
+import { listAdminMembers, setUserAdminRole, AdminMember } from '../../services/admin';
+import { ADMIN_ROLE_LABELS, AdminRole, ADMIN_ROLES } from '../../lib/admin';
+import { useAdminRole } from '../../lib/useAdminRole';
+import { logAdminAction } from '../../services/audit';
+import { confirmAction, infoAlert } from '../../lib/cross-platform-alerts';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -385,6 +392,12 @@ export default function AdminSettings() {
         ))}
       </Section>
 
+      {/* Section 1b: % Rollout — gradual feature exposure by uid bucket */}
+      <RolloutSection featureRows={featureRows} />
+
+      {/* Section 1c: Admin team — RBAC */}
+      <AdminTeamSection />
+
       {/* Section 2: App Theme */}
       <Section title="App Theme">
         <ColorRow label="Primary Color" value={primaryColor} onChange={setPrimaryColor} />
@@ -483,6 +496,153 @@ export default function AdminSettings() {
     </ScrollView>
   );
 }
+
+// ─── Rollout % Section ───────────────────────────────────────────────────────
+
+function RolloutSection({ featureRows }: { featureRows: { key: string; label: string; icon: string }[] }) {
+  const { user: actor } = useAuthStore();
+  const [rollouts, setRollouts] = useState<Record<string, number>>({});
+  const [busy, setBusy] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const cfg: any = await getAppSettings();
+      setRollouts((cfg?.flagRollouts ?? {}) as Record<string, number>);
+      setLoaded(true);
+    })();
+  }, []);
+
+  async function save(key: string, pct: number) {
+    if (!actor) return;
+    const next = { ...rollouts, [key]: Math.min(100, Math.max(0, Math.round(pct))) };
+    setRollouts(next);
+    setBusy(true);
+    try {
+      await updateAppSettings({ flagRollouts: next } as any);
+      await logAdminAction(actor, 'flag.update', { label: key }, { pct: next[key] });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Section title="Rollout % per feature">
+      {featureRows.map((row, i) => {
+        const pct = rollouts[row.key] ?? 100;
+        return (
+          <View key={row.key}>
+            <View style={localStyles.rolloutRow}>
+              <Text style={localStyles.rolloutLabel}>{row.label}</Text>
+              <View style={{ flex: 1 }} />
+              {[0, 25, 50, 75, 100].map((p) => (
+                <TouchableOpacity
+                  key={p}
+                  style={[localStyles.rolloutChip, pct === p && localStyles.rolloutChipActive]}
+                  disabled={busy}
+                  onPress={() => save(row.key, p)}
+                >
+                  <Text style={[localStyles.rolloutChipText, pct === p && { color: '#fff' }]}>{p}%</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {i < featureRows.length - 1 && <View style={styles.divider} />}
+          </View>
+        );
+      })}
+      {!loaded ? <Text style={localStyles.rolloutHint}>Loading current rollout…</Text> : (
+        <Text style={localStyles.rolloutHint}>Each user is bucketed by a stable hash of their uid. Rollout changes save instantly.</Text>
+      )}
+    </Section>
+  );
+}
+
+// ─── Admin Team Section ──────────────────────────────────────────────────────
+
+function AdminTeamSection() {
+  const { user: actor } = useAuthStore();
+  const role = useAdminRole();
+  const [members, setMembers] = useState<AdminMember[]>([]);
+  const [loading, setLoading] = useState(true);
+  const isSuper = role === 'super';
+
+  useEffect(() => { void load(); }, []);
+  async function load() {
+    setLoading(true);
+    setMembers(await listAdminMembers());
+    setLoading(false);
+  }
+
+  async function changeRole(member: AdminMember, next: AdminRole | null) {
+    if (!actor || !isSuper) return;
+    const ok = await confirmAction(
+      'Change role',
+      next ? `Set ${member.email} to ${ADMIN_ROLE_LABELS[next]}?` : `Remove admin access from ${member.email}?`,
+    );
+    if (!ok) return;
+    try {
+      await setUserAdminRole(actor, member.uid, next);
+      await load();
+    } catch (e: any) {
+      infoAlert('Failed', e?.message ?? '');
+    }
+  }
+
+  return (
+    <Section title="Admin team">
+      {loading ? (
+        <Text style={localStyles.rolloutHint}>Loading…</Text>
+      ) : members.length === 0 ? (
+        <Text style={localStyles.rolloutHint}>No admin roles assigned. The email allow-list still grants super to founders.</Text>
+      ) : members.map((m, i) => (
+        <View key={m.uid}>
+          <View style={localStyles.memberRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={localStyles.memberName}>{m.name}</Text>
+              <Text style={localStyles.memberEmail}>{m.email}</Text>
+            </View>
+            {ADMIN_ROLES.map((r) => (
+              <TouchableOpacity
+                key={r}
+                style={[localStyles.memberChip, m.role === r && localStyles.memberChipActive]}
+                disabled={!isSuper || m.role === r}
+                onPress={() => changeRole(m, r)}
+              >
+                <Text style={[localStyles.memberChipText, m.role === r && { color: '#fff' }]}>{ADMIN_ROLE_LABELS[r].split(' ')[0]}</Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              style={[localStyles.memberChip, { backgroundColor: '#FEF2F2', borderColor: '#FECACA' }]}
+              disabled={!isSuper}
+              onPress={() => changeRole(m, null)}
+            >
+              <Text style={[localStyles.memberChipText, { color: '#EF4444' }]}>×</Text>
+            </TouchableOpacity>
+          </View>
+          {i < members.length - 1 && <View style={styles.divider} />}
+        </View>
+      ))}
+      {!isSuper ? <Text style={[localStyles.rolloutHint, { marginTop: 6 }]}>Only super admins can change roles.</Text> : null}
+      <Text style={[localStyles.rolloutHint, { marginTop: 6 }]}>Grant roles from any user 360 page (admin role button). They appear here once set.</Text>
+    </Section>
+  );
+}
+
+const localStyles = StyleSheet.create({
+  rolloutRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 10 },
+  rolloutLabel: { fontSize: 13, fontWeight: '600', color: '#1a1a2e' },
+  rolloutChip: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB' },
+  rolloutChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  rolloutChipText: { fontSize: 10, fontWeight: '700', color: '#1a1a2e' },
+  rolloutHint: { fontSize: 11, color: '#9CA3AF', paddingHorizontal: 12, paddingVertical: 8 },
+
+  memberRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 10, flexWrap: 'wrap' as any },
+  memberName: { fontSize: 13, fontWeight: '700', color: '#1a1a2e' },
+  memberEmail: { fontSize: 11, color: '#6B7280' },
+  memberChip: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB' },
+  memberChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  memberChipText: { fontSize: 10, fontWeight: '700', color: '#1a1a2e' },
+});
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 

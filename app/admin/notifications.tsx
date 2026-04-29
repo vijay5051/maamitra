@@ -1,13 +1,23 @@
 /**
- * Admin — Push Notifications
- * Compose and send targeted push notifications to all users or specific segments.
- * Uses Expo Push Notification API via a server-side call to Firestore trigger.
+ * Admin · Notifications.
+ *
+ * Three tabs:
+ *   1. Compose  — broadcast push (audience-targeted) + send-now or schedule
+ *   2. Outbox   — every push_queue entry with delivery counts + status
+ *   3. Schedule — pending scheduled_pushes the cron will fire
+ *
+ * Audit-logged via services/admin. Personal pushes happen from the
+ * per-user 360 — we don't expose a free-form recipient picker here so
+ * the "who could I be sending to" surface stays simple.
  */
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
+  Modal,
+  Platform,
+  Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Switch,
@@ -17,49 +27,141 @@ import {
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { createContent, enqueueBroadcastPush } from '../../services/firebase';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { Colors } from '../../constants/theme';
+import { enqueueBroadcastPush } from '../../services/firebase';
+import {
+  cancelScheduledPush,
+  listPushOutbox,
+  listScheduledPushes,
+  PushQueueEntry,
+  ScheduledPushEntry,
+  scheduleBroadcastPush,
+} from '../../services/admin';
+import { logAdminAction } from '../../services/audit';
+import { useAuthStore } from '../../store/useAuthStore';
+import { useAdminRole } from '../../lib/useAdminRole';
+import { can } from '../../lib/admin';
+import { confirmAction, infoAlert } from '../../lib/cross-platform-alerts';
 
 type Audience = 'all' | 'pregnant' | 'newborn' | 'toddler';
 type NotifType = 'info' | 'reminder' | 'alert' | 'celebration';
 
 const AUDIENCE_OPTIONS: { key: Audience; label: string; icon: string; desc: string }[] = [
-  { key: 'all',      label: 'All Users',       icon: 'people-outline',       desc: 'Every registered user' },
+  { key: 'all',      label: 'All Users',       icon: 'people-outline',       desc: 'Every registered user with push on' },
   { key: 'pregnant', label: 'Expecting Moms',  icon: 'heart-outline',        desc: 'Users with pregnancy profile' },
-  { key: 'newborn',  label: 'Newborn Parents', icon: 'baby-outline',         desc: 'Babies under 6 months' },
-  { key: 'toddler',  label: 'Toddler Parents', icon: 'walk-outline',         desc: 'Kids 1–3 years old' },
+  { key: 'newborn',  label: 'Newborn Parents', icon: 'happy-outline',        desc: 'Babies under 6 months' },
+  { key: 'toddler',  label: 'Toddler Parents', icon: 'walk-outline',         desc: 'Kids 6m – 36m' },
 ];
 
 const TYPE_OPTIONS: { key: NotifType; label: string; emoji: string; color: string }[] = [
-  { key: 'info',        label: 'Info',        emoji: '💬', color: '#6b7280' },
-  { key: 'reminder',    label: 'Reminder',    emoji: '⏰', color: '#8b5cf6' },
-  { key: 'alert',       label: 'Alert',       emoji: '🚨', color: '#ef4444' },
-  { key: 'celebration', label: 'Celebration', emoji: '🎉', color: Colors.primary },
+  { key: 'info',        label: 'Info',        emoji: 'i', color: '#6b7280' },
+  { key: 'reminder',    label: 'Reminder',    emoji: '!', color: '#8b5cf6' },
+  { key: 'alert',       label: 'Alert',       emoji: '*', color: '#ef4444' },
+  { key: 'celebration', label: 'Celebrate',   emoji: '+', color: Colors.primary },
 ];
 
 const QUICK_TEMPLATES = [
-  { title: 'Vaccine Reminder', body: 'Your baby\'s next vaccine appointment may be coming up soon. Check your schedule in MaaMitra 💉' },
-  { title: 'New Article', body: 'We just added new articles to the library — curated for your baby\'s age. Tap to read 📚' },
-  { title: 'Community Tip', body: 'Mothers in your community are sharing helpful tips today. Join the conversation! 👥' },
-  { title: 'Wellness Check', body: 'How are you feeling today? Log your mood in the Wellness tab and track your wellbeing 💙' },
-  { title: 'New Government Scheme', body: 'A new benefit scheme is available for mothers in India. Check the Health tab for details 🇮🇳' },
+  { title: 'Vaccine Reminder', body: 'Your baby\'s next vaccine appointment may be coming up soon. Check your schedule in MaaMitra.' },
+  { title: 'New Article', body: 'We just added new articles to the library — curated for your baby\'s age. Tap to read.' },
+  { title: 'Community Tip', body: 'Mothers in your community are sharing helpful tips today. Join the conversation!' },
+  { title: 'Wellness Check', body: 'How are you feeling today? Log your mood in the Wellness tab and track your wellbeing.' },
+  { title: 'New Government Scheme', body: 'A new benefit scheme is available for mothers in India. Check the Health tab for details.' },
 ];
 
-// ─── History Item ─────────────────────────────────────────────────────────────
+const STATUS_COLOR: Record<PushQueueEntry['status'], string> = {
+  pending: '#F59E0B',
+  scheduled: '#3B82F6',
+  sent: '#10B981',
+  failed: '#EF4444',
+  skipped: '#6B7280',
+};
 
-interface NotifRecord {
-  id: string;
-  title: string;
-  body: string;
-  audience: Audience;
-  type: NotifType;
-  sentAt: string;
-  status: 'sent' | 'scheduled' | 'failed';
+// Validate ISO-ish "YYYY-MM-DD HH:MM" or "YYYY-MM-DDTHH:MM" — return Date or null.
+function parseScheduleInput(s: string): Date | null {
+  if (!s) return null;
+  const cleaned = s.trim().replace(' ', 'T');
+  const t = Date.parse(cleaned);
+  if (isNaN(t)) return null;
+  const d = new Date(t);
+  if (d.getTime() < Date.now() - 60_000) return null; // can't schedule into the past
+  return d;
 }
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
+// ─── Tabs ────────────────────────────────────────────────────────────────────
+
+type Tab = 'compose' | 'outbox' | 'schedule';
 
 export default function NotificationsScreen() {
+  const insets = useSafeAreaInsets();
+  const { user: actor } = useAuthStore();
+  const role = useAdminRole();
+
+  const [tab, setTab] = useState<Tab>('compose');
+  const [outbox, setOutbox] = useState<PushQueueEntry[]>([]);
+  const [scheduled, setScheduled] = useState<ScheduledPushEntry[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => { void loadAll(); }, []);
+  useEffect(() => { if (tab !== 'compose') void loadAll(); }, [tab]);
+
+  async function loadAll() {
+    setRefreshing(true);
+    const [o, s] = await Promise.all([listPushOutbox(60), listScheduledPushes()]);
+    setOutbox(o);
+    setScheduled(s);
+    setRefreshing(false);
+  }
+
+  return (
+    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
+      {/* Tab bar */}
+      <View style={styles.tabBar}>
+        <TabBtn label="Compose"  active={tab === 'compose'}  onPress={() => setTab('compose')}  />
+        <TabBtn label={`Outbox (${outbox.length})`} active={tab === 'outbox'} onPress={() => setTab('outbox')} />
+        <TabBtn label={`Scheduled (${scheduled.filter((s) => s.status === 'scheduled').length})`} active={tab === 'schedule'} onPress={() => setTab('schedule')} />
+      </View>
+
+      {tab === 'compose' && <ComposeTab onSent={loadAll} />}
+      {tab === 'outbox' && (
+        <OutboxList outbox={outbox} refreshing={refreshing} onRefresh={loadAll} />
+      )}
+      {tab === 'schedule' && (
+        <ScheduleList
+          scheduled={scheduled}
+          refreshing={refreshing}
+          onRefresh={loadAll}
+          onCancel={async (id) => {
+            if (!actor) return;
+            const ok = await confirmAction('Cancel scheduled push?', 'It will not be sent. This is logged.');
+            if (!ok) return;
+            try {
+              await cancelScheduledPush(actor, id);
+              await loadAll();
+            } catch (e: any) { infoAlert('Failed', e?.message ?? ''); }
+          }}
+        />
+      )}
+    </View>
+  );
+}
+
+function TabBtn({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  return (
+    <TouchableOpacity style={[styles.tabBtn, active && styles.tabBtnActive]} onPress={onPress}>
+      <Text style={[styles.tabBtnText, active && styles.tabBtnTextActive]}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+// ─── Compose tab ─────────────────────────────────────────────────────────────
+
+function ComposeTab({ onSent }: { onSent: () => Promise<void> }) {
+  const insets = useSafeAreaInsets();
+  const { user: actor } = useAuthStore();
+  const role = useAdminRole();
+
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [audience, setAudience] = useState<Audience>('all');
@@ -67,9 +169,9 @@ export default function NotificationsScreen() {
   const [scheduleEnabled, setScheduleEnabled] = useState(false);
   const [scheduleDate, setScheduleDate] = useState('');
   const [sending, setSending] = useState(false);
-  const [sent, setSent] = useState<NotifRecord[]>([]);
 
   const isValid = title.trim().length > 0 && body.trim().length > 0;
+  const parsedSchedule = scheduleEnabled ? parseScheduleInput(scheduleDate) : null;
 
   function applyTemplate(tpl: typeof QUICK_TEMPLATES[0]) {
     setTitle(tpl.title);
@@ -77,110 +179,116 @@ export default function NotificationsScreen() {
   }
 
   async function handleSend() {
-    if (!isValid) return;
-    Alert.alert(
-      'Send Notification',
-      `Send "${title}" to ${AUDIENCE_OPTIONS.find((a) => a.key === audience)?.label}?\n\nThis will appear as a push notification on all matching devices.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Send Now',
-          onPress: async () => {
-            setSending(true);
-            const payload = {
-              title,
-              body,
-              audience,
-              type,
-              scheduleDate: scheduleEnabled ? scheduleDate : null,
-              sentAt: new Date().toISOString(),
-              status: 'sent',
-            };
-            // 1. Log entry (for the admin history view).
-            await createContent('push_notifications', payload);
-            // 2. Actual dispatch job — the push dispatcher (Cloud Function
-            //    / Worker reading push_queue) picks this up and fans out
-            //    to every matching user's fcmTokens.
-            await enqueueBroadcastPush({
-              title,
-              body,
-              audience,
-              type,
-            });
-            setSent((prev) => [
-              { ...payload, id: Date.now().toString(), status: 'sent' as const },
-              ...prev,
-            ]);
-            setTitle('');
-            setBody('');
-            setSending(false);
-            Alert.alert('✅ Notification Queued', 'The push notification has been saved. Make sure your backend Cloud Function is deployed to dispatch it via Expo Push API.');
-          },
-        },
-      ]
+    if (!isValid || !actor) return;
+    if (!can(role, 'send_broadcast_push')) {
+      infoAlert('Not allowed', 'Your role does not allow sending broadcasts.');
+      return;
+    }
+    if (scheduleEnabled && !parsedSchedule) {
+      infoAlert('Invalid time', 'Use format YYYY-MM-DD HH:MM and pick a time in the future.');
+      return;
+    }
+    const audLabel = AUDIENCE_OPTIONS.find((a) => a.key === audience)?.label;
+    const ok = await confirmAction(
+      scheduleEnabled ? 'Schedule push' : 'Send broadcast',
+      scheduleEnabled
+        ? `Schedule "${title}" to ${audLabel} at ${parsedSchedule!.toLocaleString('en-IN')}?`
+        : `Send "${title}" to ${audLabel} now?`,
+      { confirmLabel: scheduleEnabled ? 'Schedule' : 'Send' },
     );
+    if (!ok) return;
+
+    setSending(true);
+    try {
+      if (scheduleEnabled && parsedSchedule) {
+        await scheduleBroadcastPush(actor, {
+          title: title.trim(),
+          body: body.trim(),
+          audience,
+          pushType: type,
+          scheduledFor: parsedSchedule,
+        });
+        infoAlert('Scheduled', `Will fire at ${parsedSchedule.toLocaleString('en-IN')}.`);
+      } else {
+        const id = await enqueueBroadcastPush({
+          title: title.trim(),
+          body: body.trim(),
+          audience,
+          type,
+        });
+        await logAdminAction(actor, 'push.broadcast', { docId: id ?? undefined, label: title.trim() }, { audience, type });
+        infoAlert('Sent', 'The push job is queued. The dispatcher fans out to matching devices in seconds.');
+      }
+      setTitle('');
+      setBody('');
+      setScheduleDate('');
+      setScheduleEnabled(false);
+      await onSent();
+    } catch (e: any) {
+      infoAlert('Failed', e?.message ?? 'Could not enqueue push.');
+    } finally {
+      setSending(false);
+    }
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-
-      {/* Info Banner */}
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.composeContent, { paddingBottom: insets.bottom + 60 }]}>
       <View style={styles.infoBanner}>
         <Ionicons name="information-circle-outline" size={16} color="#8b5cf6" />
         <Text style={styles.infoText}>
-          Notifications are queued in Firestore. A backend Cloud Function or Expo push service must be deployed to dispatch them to devices.
+          Broadcasts are queued in Firestore and dispatched by the deployed
+          <Text style={{ fontWeight: '700' }}> dispatchPush</Text> Cloud Function. Scheduled
+          pushes wait in <Text style={{ fontWeight: '700' }}>scheduled_pushes</Text> until the
+          scheduler promotes them. Users with announcements opt-out are skipped.
         </Text>
       </View>
 
       {/* Compose */}
-      <Text style={styles.sectionTitle}>Compose</Text>
+      <Text style={styles.sectionTitle}>Message</Text>
       <View style={styles.card}>
-        <Text style={styles.fieldLabel}>Title</Text>
         <TextInput
           style={styles.input}
           value={title}
           onChangeText={setTitle}
-          placeholder="e.g. Vaccine Reminder"
+          placeholder="Title (max 60 chars)"
           placeholderTextColor="#9ca3af"
           maxLength={60}
         />
-        <Text style={styles.charCount}>{title.length}/60</Text>
-
-        <Text style={styles.fieldLabel}>Message</Text>
         <TextInput
-          style={[styles.input, styles.textArea]}
+          style={[styles.input, styles.textArea, { marginTop: 10 }]}
           value={body}
           onChangeText={setBody}
-          placeholder="Write your message here…"
+          placeholder="Message body (max 200)"
           placeholderTextColor="#9ca3af"
           multiline
           maxLength={200}
         />
-        <Text style={styles.charCount}>{body.length}/200</Text>
+        <Text style={styles.charCount}>{title.length}/60 · {body.length}/200</Text>
       </View>
 
-      {/* Quick Templates */}
-      <Text style={styles.sectionTitle}>Quick Templates</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.templateScroll} contentContainerStyle={styles.templateRow}>
+      {/* Templates */}
+      <Text style={styles.sectionTitle}>Quick templates</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.templateRow}>
         {QUICK_TEMPLATES.map((t) => (
-          <TouchableOpacity key={t.title} style={styles.templateChip} onPress={() => applyTemplate(t)} activeOpacity={0.75}>
+          <TouchableOpacity key={t.title} style={styles.templateChip} onPress={() => applyTemplate(t)}>
             <Text style={styles.templateText}>{t.title}</Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
 
-      {/* Notification Type */}
+      {/* Type */}
       <Text style={styles.sectionTitle}>Type</Text>
       <View style={styles.typeRow}>
         {TYPE_OPTIONS.map((t) => (
           <TouchableOpacity
             key={t.key}
-            style={[styles.typeChip, type === t.key && { backgroundColor: t.color + '18', borderColor: t.color, borderWidth: 1.5 }]}
+            style={[styles.typeChip, type === t.key && { backgroundColor: t.color + '18', borderColor: t.color }]}
             onPress={() => setType(t.key)}
-            activeOpacity={0.75}
           >
-            <Text style={styles.typeEmoji}>{t.emoji}</Text>
-            <Text style={[styles.typeLabel, type === t.key && { color: t.color }]}>{t.label}</Text>
+            <View style={[styles.typeBadge, { backgroundColor: t.color }]}>
+              <Text style={styles.typeBadgeText}>{t.emoji}</Text>
+            </View>
+            <Text style={[styles.typeLabel, type === t.key && { color: t.color, fontWeight: '700' }]}>{t.label}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -190,11 +298,7 @@ export default function NotificationsScreen() {
       <View style={styles.card}>
         {AUDIENCE_OPTIONS.map((a, i) => (
           <View key={a.key}>
-            <TouchableOpacity
-              style={styles.audienceRow}
-              onPress={() => setAudience(a.key)}
-              activeOpacity={0.75}
-            >
+            <TouchableOpacity style={styles.audienceRow} onPress={() => setAudience(a.key)}>
               <View style={[styles.audienceIcon, audience === a.key && { backgroundColor: Colors.primary }]}>
                 <Ionicons name={a.icon as any} size={16} color={audience === a.key ? '#fff' : '#9ca3af'} />
               </View>
@@ -203,7 +307,7 @@ export default function NotificationsScreen() {
                 <Text style={styles.audienceDesc}>{a.desc}</Text>
               </View>
               <View style={[styles.radio, audience === a.key && styles.radioActive]}>
-                {audience === a.key && <View style={styles.radioDot} />}
+                {audience === a.key ? <View style={styles.radioDot} /> : null}
               </View>
             </TouchableOpacity>
             {i < AUDIENCE_OPTIONS.length - 1 && <View style={styles.divider} />}
@@ -212,10 +316,10 @@ export default function NotificationsScreen() {
       </View>
 
       {/* Schedule */}
-      <View style={styles.scheduleRow}>
-        <View>
-          <Text style={styles.sectionTitle}>Schedule for Later</Text>
-          <Text style={styles.scheduleSub}>Send at a specific date/time</Text>
+      <View style={styles.scheduleHead}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.sectionTitle}>Schedule for later</Text>
+          <Text style={styles.scheduleSub}>Off = send now. On = wait until the time below.</Text>
         </View>
         <Switch
           value={scheduleEnabled}
@@ -227,23 +331,26 @@ export default function NotificationsScreen() {
 
       {scheduleEnabled && (
         <View style={styles.card}>
-          <Text style={styles.fieldLabel}>Date & Time (YYYY-MM-DD HH:MM)</Text>
           <TextInput
             style={styles.input}
             value={scheduleDate}
             onChangeText={setScheduleDate}
-            placeholder="e.g. 2026-05-01 09:00"
+            placeholder="YYYY-MM-DD HH:MM (e.g. 2026-05-01 09:00)"
             placeholderTextColor="#9ca3af"
+            autoCapitalize="none"
           />
+          {parsedSchedule ? (
+            <Text style={styles.scheduleParsed}>Will fire at {parsedSchedule.toLocaleString('en-IN')}</Text>
+          ) : (
+            <Text style={[styles.scheduleParsed, { color: '#ef4444' }]}>Enter a future timestamp.</Text>
+          )}
         </View>
       )}
 
-      {/* Send Button */}
       <TouchableOpacity
-        style={[styles.sendBtn, !isValid && styles.sendBtnDim]}
+        style={[styles.sendBtn, (!isValid || sending) && styles.sendBtnDim]}
         onPress={handleSend}
-        disabled={!isValid || sending}
-        activeOpacity={0.85}
+        disabled={!isValid || sending || (scheduleEnabled && !parsedSchedule)}
       >
         <LinearGradient
           colors={[Colors.primary, '#8b5cf6']}
@@ -252,86 +359,229 @@ export default function NotificationsScreen() {
         >
           {sending
             ? <ActivityIndicator color="#fff" size="small" />
-            : <><Ionicons name="send" size={16} color="#fff" /><Text style={styles.sendBtnText}>Send Notification</Text></>
+            : <>
+                <Ionicons name={scheduleEnabled ? 'time-outline' : 'send'} size={16} color="#fff" />
+                <Text style={styles.sendBtnText}>{scheduleEnabled ? 'Schedule' : 'Send Now'}</Text>
+              </>
           }
         </LinearGradient>
       </TouchableOpacity>
-
-      {/* History */}
-      {sent.length > 0 && (
-        <>
-          <Text style={styles.sectionTitle}>Sent This Session</Text>
-          {sent.map((n) => (
-            <View key={n.id} style={styles.historyCard}>
-              <View style={styles.historyHeader}>
-                <Text style={styles.historyTitle}>{n.title}</Text>
-                <View style={styles.sentBadge}><Text style={styles.sentBadgeText}>Sent</Text></View>
-              </View>
-              <Text style={styles.historyBody} numberOfLines={2}>{n.body}</Text>
-              <Text style={styles.historyMeta}>
-                {AUDIENCE_OPTIONS.find((a) => a.key === n.audience)?.label} · {new Date(n.sentAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-              </Text>
-            </View>
-          ))}
-        </>
-      )}
-
-      <View style={{ height: 40 }} />
     </ScrollView>
   );
 }
 
+// ─── Outbox tab ──────────────────────────────────────────────────────────────
+
+function OutboxList({
+  outbox,
+  refreshing,
+  onRefresh,
+}: {
+  outbox: PushQueueEntry[];
+  refreshing: boolean;
+  onRefresh: () => Promise<void>;
+}) {
+  const insets = useSafeAreaInsets();
+  return (
+    <ScrollView
+      style={{ flex: 1 }}
+      contentContainerStyle={[styles.composeContent, { paddingBottom: insets.bottom + 40 }]}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+    >
+      {outbox.length === 0 ? (
+        <View style={styles.empty}>
+          <Ionicons name="paper-plane-outline" size={40} color="#D1D5DB" />
+          <Text style={styles.emptyText}>No pushes have been sent yet.</Text>
+        </View>
+      ) : outbox.map((e) => (
+        <View key={e.id} style={styles.outboxCard}>
+          <View style={styles.outboxHead}>
+            <View style={[styles.statusDot, { backgroundColor: STATUS_COLOR[e.status] }]} />
+            <Text style={styles.outboxTitle} numberOfLines={1}>{e.title || '(no title)'}</Text>
+            <Text style={styles.outboxTime}>{e.sentAt ? new Date(e.sentAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : new Date(e.createdAt || Date.now()).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</Text>
+          </View>
+          <Text style={styles.outboxBody} numberOfLines={2}>{e.body}</Text>
+          <View style={styles.outboxFoot}>
+            <Chip label={e.kind === 'broadcast' ? `audience: ${e.audience ?? 'all'}` : 'personal'} />
+            <Chip label={`status: ${e.status}`} tint={STATUS_COLOR[e.status]} />
+            {typeof e.successCount === 'number' ? <Chip label={`✓ ${e.successCount}`} tint="#10B981" /> : null}
+            {typeof e.failureCount === 'number' && e.failureCount > 0 ? <Chip label={`✗ ${e.failureCount}`} tint="#EF4444" /> : null}
+          </View>
+        </View>
+      ))}
+    </ScrollView>
+  );
+}
+
+function Chip({ label, tint }: { label: string; tint?: string }) {
+  return (
+    <View style={[styles.outboxChip, tint ? { backgroundColor: `${tint}15`, borderColor: `${tint}40` } : null]}>
+      <Text style={[styles.outboxChipText, tint ? { color: tint } : null]}>{label}</Text>
+    </View>
+  );
+}
+
+// ─── Schedule tab ────────────────────────────────────────────────────────────
+
+function ScheduleList({
+  scheduled,
+  refreshing,
+  onRefresh,
+  onCancel,
+}: {
+  scheduled: ScheduledPushEntry[];
+  refreshing: boolean;
+  onRefresh: () => Promise<void>;
+  onCancel: (id: string) => Promise<void>;
+}) {
+  const insets = useSafeAreaInsets();
+  const upcoming = scheduled.filter((s) => s.status === 'scheduled');
+  const past = scheduled.filter((s) => s.status !== 'scheduled');
+  return (
+    <ScrollView
+      style={{ flex: 1 }}
+      contentContainerStyle={[styles.composeContent, { paddingBottom: insets.bottom + 40 }]}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+    >
+      <Text style={styles.sectionTitle}>Upcoming</Text>
+      {upcoming.length === 0 ? (
+        <View style={styles.empty}>
+          <Ionicons name="time-outline" size={36} color="#D1D5DB" />
+          <Text style={styles.emptyText}>Nothing scheduled.</Text>
+        </View>
+      ) : upcoming.map((s) => (
+        <View key={s.id} style={styles.outboxCard}>
+          <View style={styles.outboxHead}>
+            <Ionicons name="time-outline" size={14} color="#3B82F6" />
+            <Text style={styles.outboxTitle} numberOfLines={1}>{s.title}</Text>
+            <Text style={styles.outboxTime}>{new Date(s.scheduledFor).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</Text>
+          </View>
+          <Text style={styles.outboxBody} numberOfLines={2}>{s.body}</Text>
+          <View style={styles.outboxFoot}>
+            <Chip label={`audience: ${s.audience}`} />
+            <View style={{ flex: 1 }} />
+            <TouchableOpacity style={styles.cancelBtn} onPress={() => onCancel(s.id)}>
+              <Ionicons name="close" size={13} color="#EF4444" />
+              <Text style={styles.cancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ))}
+
+      {past.length > 0 ? (
+        <>
+          <Text style={[styles.sectionTitle, { marginTop: 18 }]}>History</Text>
+          {past.map((s) => (
+            <View key={s.id} style={[styles.outboxCard, { opacity: 0.7 }]}>
+              <View style={styles.outboxHead}>
+                <Ionicons name="checkmark-circle-outline" size={14} color={s.status === 'sent' ? '#10B981' : '#9CA3AF'} />
+                <Text style={styles.outboxTitle} numberOfLines={1}>{s.title}</Text>
+                <Text style={styles.outboxTime}>{new Date(s.scheduledFor).toLocaleString('en-IN', { day: 'numeric', month: 'short' })}</Text>
+              </View>
+              <Text style={styles.outboxBody} numberOfLines={2}>{s.body}</Text>
+              <View style={styles.outboxFoot}>
+                <Chip label={`status: ${s.status}`} />
+                <Chip label={`audience: ${s.audience}`} />
+              </View>
+            </View>
+          ))}
+        </>
+      ) : null}
+    </ScrollView>
+  );
+}
+
+// ─── Styles ──────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fafafa' },
-  content: { padding: 16 },
+
+  tabBar: {
+    flexDirection: 'row', gap: 6, padding: 12, paddingBottom: 6,
+    backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#f3f4f6',
+  },
+  tabBtn: {
+    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 14,
+    backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB',
+  },
+  tabBtnActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  tabBtnText: { fontSize: 12, fontWeight: '700', color: '#6b7280' },
+  tabBtnTextActive: { color: '#fff' },
+
+  composeContent: { padding: 16 },
 
   infoBanner: {
     flexDirection: 'row', gap: 8, alignItems: 'flex-start',
-    backgroundColor: '#ede9fe', borderRadius: 12, padding: 12, marginBottom: 16,
+    backgroundColor: '#ede9fe', borderRadius: 12, padding: 12, marginBottom: 12,
   },
   infoText: { flex: 1, fontSize: 12, color: '#5b21b6', lineHeight: 17 },
 
-  sectionTitle: { fontSize: 14, fontWeight: '800', color: '#1a1a2e', marginBottom: 10, marginTop: 16 },
+  sectionTitle: { fontSize: 13, fontWeight: '800', color: '#1a1a2e', marginBottom: 8, marginTop: 12 },
 
-  card: { backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#f3f4f6', padding: 14, marginBottom: 4 },
-  fieldLabel: { fontSize: 11, fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6, marginTop: 10 },
+  card: { backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#f3f4f6', padding: 12, marginBottom: 4 },
   input: { backgroundColor: '#f9fafb', borderRadius: 10, padding: 10, fontSize: 14, color: '#1a1a2e', borderWidth: 1, borderColor: '#e5e7eb' },
-  textArea: { minHeight: 80, textAlignVertical: 'top' },
-  charCount: { fontSize: 11, color: '#d1d5db', textAlign: 'right', marginTop: 4, marginBottom: 2 },
+  textArea: { minHeight: 80, textAlignVertical: 'top' as any },
+  charCount: { fontSize: 11, color: '#d1d5db', textAlign: 'right', marginTop: 6 },
 
-  templateScroll: { marginBottom: 4 },
   templateRow: { gap: 8, paddingBottom: 4 },
-  templateChip: { backgroundColor: '#fff', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: '#e5e7eb' },
-  templateText: { fontSize: 13, color: '#374151', fontWeight: '600' },
+  templateChip: { backgroundColor: '#fff', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 7, borderWidth: 1, borderColor: '#e5e7eb' },
+  templateText: { fontSize: 12, color: '#374151', fontWeight: '600' },
 
-  typeRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginBottom: 4 },
-  typeChip: { flex: 1, minWidth: '45%', flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#fff', borderRadius: 12, padding: 10, borderWidth: 1, borderColor: '#f3f4f6' },
-  typeEmoji: { fontSize: 18 },
-  typeLabel: { fontSize: 13, fontWeight: '600', color: '#6b7280' },
+  typeRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
+  typeChip: {
+    flex: 1, minWidth: '48%',
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#fff', borderRadius: 12, padding: 10,
+    borderWidth: 1, borderColor: '#f3f4f6',
+  },
+  typeBadge: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  typeBadgeText: { color: '#fff', fontWeight: '800', fontSize: 12 },
+  typeLabel: { fontSize: 12, fontWeight: '600', color: '#6b7280' },
 
-  audienceRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
-  audienceIcon: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#f3f4f6', alignItems: 'center', justifyContent: 'center' },
+  audienceRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
+  audienceIcon: { width: 32, height: 32, borderRadius: 10, backgroundColor: '#f3f4f6', alignItems: 'center', justifyContent: 'center' },
   audienceInfo: { flex: 1 },
-  audienceLabel: { fontSize: 14, fontWeight: '700', color: '#1a1a2e' },
-  audienceDesc: { fontSize: 12, color: '#9ca3af', marginTop: 1 },
-  radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: '#d1d5db', alignItems: 'center', justifyContent: 'center' },
+  audienceLabel: { fontSize: 13, fontWeight: '700', color: '#1a1a2e' },
+  audienceDesc: { fontSize: 11, color: '#9ca3af', marginTop: 1 },
+  radio: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: '#d1d5db', alignItems: 'center', justifyContent: 'center' },
   radioActive: { borderColor: Colors.primary },
-  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: Colors.primary },
+  radioDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.primary },
   divider: { height: 1, backgroundColor: '#f9fafb' },
 
-  scheduleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
-  scheduleSub: { fontSize: 12, color: '#9ca3af', marginBottom: 8 },
+  scheduleHead: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 6 },
+  scheduleSub: { fontSize: 11, color: '#9ca3af' },
+  scheduleParsed: { fontSize: 11, color: '#10B981', marginTop: 8, fontWeight: '700' },
 
-  sendBtn: { borderRadius: 14, overflow: 'hidden', marginTop: 20 },
+  sendBtn: { borderRadius: 12, overflow: 'hidden', marginTop: 16 },
   sendBtnDim: { opacity: 0.4 },
-  sendBtnGrad: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 16 },
-  sendBtnText: { color: '#fff', fontWeight: '800', fontSize: 16 },
+  sendBtnGrad: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14 },
+  sendBtnText: { color: '#fff', fontWeight: '800', fontSize: 14 },
 
-  historyCard: { backgroundColor: '#fff', borderRadius: 14, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: '#f3f4f6' },
-  historyHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
-  historyTitle: { fontSize: 14, fontWeight: '700', color: '#1a1a2e' },
-  sentBadge: { backgroundColor: '#dcfce7', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
-  sentBadgeText: { fontSize: 11, color: '#16a34a', fontWeight: '700' },
-  historyBody: { fontSize: 13, color: '#6b7280', lineHeight: 18, marginBottom: 6 },
-  historyMeta: { fontSize: 11, color: '#9ca3af' },
+  // Outbox / schedule list
+  empty: { alignItems: 'center', padding: 30, gap: 8 },
+  emptyText: { fontSize: 13, color: '#9ca3af' },
+
+  outboxCard: {
+    backgroundColor: '#fff', borderRadius: 12, padding: 12, marginBottom: 8,
+    borderWidth: 1, borderColor: '#F0EDF5', gap: 6,
+  },
+  outboxHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  statusDot: { width: 8, height: 8, borderRadius: 4 },
+  outboxTitle: { flex: 1, fontSize: 13, fontWeight: '800', color: '#1a1a2e' },
+  outboxTime: { fontSize: 10, color: '#9CA3AF' },
+  outboxBody: { fontSize: 12, color: '#4B5563', lineHeight: 17 },
+  outboxFoot: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4, alignItems: 'center' },
+  outboxChip: {
+    flexDirection: 'row', gap: 4, alignItems: 'center',
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8,
+    backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB',
+  },
+  outboxChipText: { fontSize: 10, fontWeight: '700', color: '#6B7280' },
+
+  cancelBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FECACA',
+    paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8,
+  },
+  cancelBtnText: { fontSize: 11, fontWeight: '700', color: '#EF4444' },
 });

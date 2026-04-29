@@ -30,6 +30,9 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { Colors } from '../../constants/theme';
 import { getAnalyticsSnapshot, AnalyticsSnapshot, FeatureAdoption } from '../../services/analytics';
 import { approveCommunityPost, deleteCommunityPost, getAllCommunityPosts } from '../../services/firebase';
+import { getFunnelAndRetention, FunnelStep, RetentionCohort, subscribeActivity, ActivityItem } from '../../services/admin';
+import { useAdminRole } from '../../lib/useAdminRole';
+import { ADMIN_ROLE_LABELS, can } from '../../lib/admin';
 
 // ─── Stat card ────────────────────────────────────────────────────────────────
 
@@ -164,8 +167,18 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [acting, setActing] = useState<string | null>(null);
+  const [funnel, setFunnel] = useState<FunnelStep[]>([]);
+  const [retention, setRetention] = useState<RetentionCohort[]>([]);
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
+  const role = useAdminRole();
 
   useEffect(() => { load(); }, []);
+
+  // Live activity feed — subscribes to signups / posts / audit / support.
+  useEffect(() => {
+    const unsub = subscribeActivity(setActivity, 30);
+    return () => unsub();
+  }, []);
 
   async function load() {
     setLoading(true);
@@ -181,12 +194,15 @@ export default function AdminDashboard() {
 
   async function fetchAll() {
     try {
-      const [s, posts] = await Promise.all([
+      const [s, posts, fr] = await Promise.all([
         getAnalyticsSnapshot(),
         getAllCommunityPosts().catch(() => []),
+        getFunnelAndRetention().catch(() => ({ funnel: [], retention: [] })),
       ]);
       setSnap(s);
       setPendingPosts(posts.filter((p: any) => !p.approved).slice(0, 5));
+      setFunnel(fr.funnel);
+      setRetention(fr.retention);
     } catch {
       /* swallow — dashboard still renders with skeleton values */
     }
@@ -443,18 +459,106 @@ export default function AdminDashboard() {
             </View>
           </View>
 
+          {/* ── Funnel ─────────────────────────────────────────── */}
+          <View style={[s.section, wide && s.colHalf]}>
+            <Text style={s.sectionLabel}>Activation funnel</Text>
+            <View style={s.card}>
+              {funnel.length === 0 ? (
+                <Text style={s.mutedLine}>Nothing to show yet.</Text>
+              ) : funnel.map((step, i) => {
+                const w = `${Math.min(100, step.pct)}%` as const;
+                return (
+                  <View key={step.key} style={{ marginBottom: i === funnel.length - 1 ? 0 : 8 }}>
+                    <View style={s.adoptionLabelRow}>
+                      <Text style={s.adoptionLabel}>{step.label}</Text>
+                      <Text style={s.adoptionStat}>{step.users} · {step.pct}%</Text>
+                    </View>
+                    <View style={s.adoptionBarTrack}>
+                      <View style={[s.adoptionBarFill, { width: w, backgroundColor: Colors.primary }]} />
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* ── Retention ──────────────────────────────────────── */}
+          <View style={[s.section, wide && s.colHalf]}>
+            <Text style={s.sectionLabel}>Weekly cohort retention</Text>
+            <View style={s.card}>
+              {retention.length === 0 ? (
+                <Text style={s.mutedLine}>No cohort data yet.</Text>
+              ) : (
+                <>
+                  <View style={[s.signupRow, { borderBottomWidth: 1, borderBottomColor: '#F0EDF5' }]}>
+                    <Text style={[s.signupName, { flex: 1 }]}>Cohort</Text>
+                    <Text style={s.signupDate}>Size</Text>
+                    <Text style={[s.signupDate, { marginLeft: 12 }]}>D1</Text>
+                    <Text style={[s.signupDate, { marginLeft: 12 }]}>D7</Text>
+                    <Text style={[s.signupDate, { marginLeft: 12 }]}>D30</Text>
+                  </View>
+                  {retention.map((c) => (
+                    <View key={c.cohort} style={s.signupRow}>
+                      <Text style={[s.signupName, { flex: 1 }]}>{c.cohort}</Text>
+                      <Text style={s.signupDate}>{c.size}</Text>
+                      <Text style={[s.signupDate, { marginLeft: 12 }]}>{c.d1}</Text>
+                      <Text style={[s.signupDate, { marginLeft: 12 }]}>{c.d7}</Text>
+                      <Text style={[s.signupDate, { marginLeft: 12 }]}>{c.d30}</Text>
+                    </View>
+                  ))}
+                </>
+              )}
+            </View>
+          </View>
+
+          {/* ── Live activity ──────────────────────────────────── */}
+          <View style={[s.section, wide && { width: '100%' }]}>
+            <Text style={s.sectionLabel}>Live activity</Text>
+            <View style={s.card}>
+              {activity.length === 0 ? (
+                <Text style={s.mutedLine}>No activity yet — signups, posts, support tickets, and admin actions will stream in here.</Text>
+              ) : activity.slice(0, 12).map((a) => (
+                <TouchableOpacity
+                  key={`${a.kind}_${a.id}`}
+                  disabled={!a.href}
+                  onPress={() => a.href && router.push(a.href as any)}
+                  style={s.signupRow}
+                >
+                  <View style={[s.signupAvatar, { backgroundColor: a.kind === 'signup' ? '#DDD6FE' : a.kind === 'post' ? '#FBCFE8' : a.kind === 'support' ? '#BAE6FD' : '#FEF3C7' }]}>
+                    <Ionicons name={a.kind === 'signup' ? 'person-add-outline' : a.kind === 'post' ? 'chatbubble-outline' : a.kind === 'support' ? 'help-buoy-outline' : 'shield-outline'} size={13} color="#1a1a2e" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.signupName} numberOfLines={1}>{a.title}</Text>
+                    {a.sub ? <Text style={s.signupEmail} numberOfLines={1}>{a.sub}</Text> : null}
+                  </View>
+                  <Text style={s.signupDate}>{new Date(a.at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
           {/* ── Manage (nav) ───────────────────────────────────── */}
           <View style={[s.section, wide && { width: '100%' }]}>
             <Text style={s.sectionLabel}>Manage</Text>
             <View style={s.navGrid}>
               <NavTile icon="people-outline"           label="Users"             sub={`${snap?.totalUsers ?? 0} accounts`}                tint="#8B5CF6"         onPress={() => router.push('/admin/users')} />
-              <NavTile icon="chatbubbles-outline"      label="Community"         sub="Moderate posts, comments, blocks"                    tint={Colors.primary} badge={snap?.vigilance.pendingPosts} onPress={() => router.push('/admin/community')} />
-              <NavTile icon="library-outline"          label="Content library"   sub="Articles, books, products, schemes"                  tint="#06B6D4"         onPress={() => router.push('/admin/content')} />
-              <NavTile icon="medkit-outline"           label="Vaccines"          sub="Edit the IAP schedule"                                tint="#10B981"         onPress={() => router.push('/admin/vaccines')} />
-              <NavTile icon="notifications-outline"    label="Notifications"     sub="Send push + in-app announcements"                     tint="#F59E0B"         onPress={() => router.push('/admin/notifications')} />
-              <NavTile icon="chatbubble-ellipses-outline" label="Tester feedback" sub="Ratings, pricing signal, loved / frustrated tags"   tint="#EC4899"         onPress={() => router.push('/admin/feedback')} />
-              <NavTile icon="settings-outline"         label="App settings"      sub="Feature flags, tabs, theme, copy"                     tint="#6B7280"         onPress={() => router.push('/admin/settings')} />
+              <NavTile icon="chatbubbles-outline"      label="Community"         sub="Posts (bulk approve / hide)"                          tint={Colors.primary} badge={snap?.vigilance.pendingPosts} onPress={() => router.push('/admin/community')} />
+              <NavTile icon="chatbubble-outline"       label="Comments"          sub="Latest comments across all posts"                     tint="#0EA5E9"         onPress={() => router.push('/admin/comments')} />
+              <NavTile icon="help-buoy-outline"        label="Support inbox"     sub="Reply, close, reopen tickets"                          tint="#3B82F6"         badge={snap?.vigilance.openTickets} onPress={() => router.push('/admin/support')} />
+              <NavTile icon="medkit-outline"           label="Vaccines"          sub="Edit the IAP / NIS schedule"                          tint="#10B981"         onPress={() => router.push('/admin/vaccines')} />
+              <NavTile icon="alert-circle-outline"     label="Vaccine overdue"   sub="Find & nudge parents missing doses"                   tint="#F97316"         onPress={() => router.push('/admin/vaccine-overdue')} />
+              <NavTile icon="library-outline"          label="Content library"   sub="Articles, books, products, schemes (drafts + Hindi)" tint="#06B6D4"         onPress={() => router.push('/admin/content')} />
+              <NavTile icon="notifications-outline"    label="Notifications"     sub="Compose · Outbox · Schedule"                          tint="#F59E0B"         onPress={() => router.push('/admin/notifications')} />
+              <NavTile icon="megaphone-outline"        label="In-app banner"     sub="Live banner on the home tab"                          tint="#EC4899"         onPress={() => router.push('/admin/banner')} />
+              <NavTile icon="chatbubble-ellipses-outline" label="Tester feedback" sub="Ratings, pricing signal, tags"                       tint="#EC4899"         onPress={() => router.push('/admin/feedback')} />
+              <NavTile icon="document-text-outline"    label="Audit log"         sub="Who did what, when"                                    tint="#6366F1"         onPress={() => router.push('/admin/audit')} />
+              <NavTile icon="settings-outline"         label="App settings"      sub="Flags, % rollout, admin team, theme"                  tint="#6B7280"         onPress={() => router.push('/admin/settings')} />
             </View>
+            {role ? (
+              <Text style={[s.mutedLine, { marginTop: 8, marginLeft: 4 }]}>
+                Signed in as {ADMIN_ROLE_LABELS[role]}.
+              </Text>
+            ) : null}
           </View>
         </View>
       )}
