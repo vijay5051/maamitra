@@ -328,7 +328,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signOut: async () => {
-    // Always wipe ALL local data immediately on sign-out — before any async calls
+    // Flip auth FIRST so route guards send the user straight to welcome.
+    // Resetting the profile store before flipping `isAuthenticated` used
+    // to leave the app in a half-state (authenticated but onboarding=false)
+    // for the brief window before `firebaseSignOut` resolved — the
+    // (tabs) layout would route to /(auth)/onboarding in that window,
+    // causing the "signup form" flash users reported on web/Android.
+    set({ user: null, isAuthenticated: false });
     useProfileStore.getState().resetProfile();
     useWellnessStore.getState().resetWellness();
     useChatStore.getState().resetAll();
@@ -338,13 +344,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     useDMStore.getState().reset();
     getSocialStore().getState().reset();
     getCommunityStore().getState().resetCommunity();
-    if (!isFirebaseConfigured() || !auth) {
-      set({ user: null, isAuthenticated: false });
-      return;
-    }
+    if (!isFirebaseConfigured() || !auth) return;
     try {
       await firebaseSignOut(auth);
-      set({ user: null, isAuthenticated: false });
     } catch (error) {
       console.error('signOut error:', error);
       throw error;

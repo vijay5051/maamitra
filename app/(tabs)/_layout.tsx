@@ -8,6 +8,7 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import { useEffect } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Fonts, Gradients } from '../../constants/theme';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useProfileStore } from '../../store/useProfileStore';
@@ -85,6 +86,7 @@ function AskFab({ focused, onPress }: { focused: boolean; onPress?: () => void }
 
 export default function TabLayout() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { isAuthenticated, isLoading, user } = useAuthStore();
   const { onboardingComplete } = useProfileStore();
 
@@ -128,9 +130,16 @@ export default function TabLayout() {
           backgroundColor: 'rgba(255,255,255,0.98)',
           borderTopWidth: 1,
           borderTopColor: Colors.border,
-          // Extra height so the lifted Ask FAB has room to sit above.
-          height: Platform.OS === 'ios' ? 84 : 74,
-          paddingBottom: Platform.OS === 'ios' ? 20 : 10,
+          // Add the bottom safe-area inset on top of the base height so
+          // the gesture nav bar on edge-to-edge Androids (Galaxy Note
+          // 20, M32) doesn't overlay the tab buttons. Base height keeps
+          // room for the lifted Ask FAB.
+          height:
+            (Platform.OS === 'ios' ? 84 : 74) +
+            (Platform.OS === 'android' ? insets.bottom : 0),
+          paddingBottom:
+            (Platform.OS === 'ios' ? 20 : 10) +
+            (Platform.OS === 'android' ? insets.bottom : 0),
           paddingTop: 8,
           // Neutral subtle lift — was a pink shadow.
           shadowColor: '#1C1033',

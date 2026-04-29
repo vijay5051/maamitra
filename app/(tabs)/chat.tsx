@@ -444,10 +444,15 @@ export default function ChatScreen() {
       {/* ── Chat Body ── */}
       <KeyboardAvoidingView
         style={styles.flex}
-        // Android: let windowSoftInputMode=adjustResize do the work alone.
-        // Setting behavior="height" here fights the OS resize and causes
-        // a visible wobble on Gboard (seen on Galaxy Note 20).
-        behavior={Platform.OS === 'ios' || Platform.OS === 'web' ? 'padding' : undefined}
+        // app.json sets android.softwareKeyboardLayoutMode="resize" so
+        // the OS shrinks the window when the keyboard opens. On top of
+        // that we use behavior="padding" to add bottom padding equal
+        // to the keyboard height — together this reliably lifts the
+        // input above the keyboard on iOS, Android, and web. We
+        // previously tried behavior="height" on Android and it fought
+        // the OS resize, causing a Gboard wobble on Galaxy Note 20;
+        // padding doesn't have that problem.
+        behavior="padding"
         keyboardVerticalOffset={0}
       >
         {/* Radial glow bloom behind message list */}

@@ -33,6 +33,7 @@
       "package": "in.maamitra.app",
       "versionCode": 13,
       "googleServicesFile": "./google-services.json",
+      "softwareKeyboardLayoutMode": "resize",
       "permissions": [
         "android.permission.RECORD_AUDIO"
       ]

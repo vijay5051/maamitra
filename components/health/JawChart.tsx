@@ -1,6 +1,6 @@
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, G, Line, Text as SvgText } from 'react-native-svg';
+import React, { useState } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Svg, { Circle, Line, Text as SvgText } from 'react-native-svg';
 import { TEETH, ToothJaw, ToothRef } from '../../data/teeth';
 import { KidTeethMap, ToothState } from '../../store/useTeethStore';
 import { Fonts } from '../../constants/theme';
@@ -58,79 +58,109 @@ interface Props {
 }
 
 export default function JawChart({ teeth, selectedToothId, onSelect }: Props) {
-  const upperTeeth = TEETH.filter((t) => t.jaw === 'upper');
-  const lowerTeeth = TEETH.filter((t) => t.jaw === 'lower');
+  // SVG <G onPress> is unreliable on Android (Galaxy Note 20 reported the
+  // tooth tiles as completely untappable). Overlay native TouchableOpacity
+  // hit-targets positioned over each tooth instead — RN's gesture system
+  // is platform-correct, the SVG is just a paint layer underneath.
+  const [renderedWidth, setRenderedWidth] = useState<number>(0);
+  const scale = renderedWidth > 0 ? renderedWidth / VIEW_W : 0;
+  const renderedHeight = scale > 0 ? VIEW_H * scale : VIEW_H;
 
   return (
-    <View style={styles.wrapper}>
-      <Svg width="100%" height={VIEW_H} viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}>
-        {/* Mid-mouth divider (UPPER / LOWER hint) */}
-        <Line
-          x1={0}
-          y1={VIEW_H / 2}
-          x2={VIEW_W}
-          y2={VIEW_H / 2}
-          stroke="#F0EBF8"
-          strokeWidth={1}
-          strokeDasharray="4 6"
-        />
-        <SvgText
-          x={VIEW_W / 2}
-          y={VIEW_H / 2 - 6}
-          fontSize={9}
-          fontWeight="700"
-          fill="#c9b7f7"
-          textAnchor="middle"
-        >
-          UPPER JAW
-        </SvgText>
-        <SvgText
-          x={VIEW_W / 2}
-          y={VIEW_H / 2 + 14}
-          fontSize={9}
-          fontWeight="700"
-          fill="#c9b7f7"
-          textAnchor="middle"
-        >
-          LOWER JAW
-        </SvgText>
+    <View
+      style={styles.wrapper}
+      onLayout={(e) => setRenderedWidth(e.nativeEvent.layout.width - 12)}
+    >
+      <View style={{ width: '100%', height: renderedHeight, position: 'relative' }}>
+        <Svg width="100%" height={renderedHeight} viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}>
+          {/* Mid-mouth divider (UPPER / LOWER hint) */}
+          <Line
+            x1={0}
+            y1={VIEW_H / 2}
+            x2={VIEW_W}
+            y2={VIEW_H / 2}
+            stroke="#F0EBF8"
+            strokeWidth={1}
+            strokeDasharray="4 6"
+          />
+          <SvgText
+            x={VIEW_W / 2}
+            y={VIEW_H / 2 - 6}
+            fontSize={9}
+            fontWeight="700"
+            fill="#c9b7f7"
+            textAnchor="middle"
+          >
+            UPPER JAW
+          </SvgText>
+          <SvgText
+            x={VIEW_W / 2}
+            y={VIEW_H / 2 + 14}
+            fontSize={9}
+            fontWeight="700"
+            fill="#c9b7f7"
+            textAnchor="middle"
+          >
+            LOWER JAW
+          </SvgText>
 
-        {/* Side labels (R / L from baby's perspective). Baby's right is on screen-left. */}
-        <SvgText x={6}  y={VIEW_H / 2 + 4} fontSize={11} fontWeight="700" fill={STONE}>R</SvgText>
-        <SvgText x={VIEW_W - 12} y={VIEW_H / 2 + 4} fontSize={11} fontWeight="700" fill={STONE}>L</SvgText>
+          {/* Side labels (R / L from baby's perspective). Baby's right is on screen-left. */}
+          <SvgText x={6}  y={VIEW_H / 2 + 4} fontSize={11} fontWeight="700" fill={STONE}>R</SvgText>
+          <SvgText x={VIEW_W - 12} y={VIEW_H / 2 + 4} fontSize={11} fontWeight="700" fill={STONE}>L</SvgText>
 
-        {[...upperTeeth, ...lowerTeeth].map((t) => {
+          {TEETH.map((t) => {
+            const { x, y } = positionFor(t.jaw, t.position);
+            const entry = teeth[t.id];
+            const fill = fillFor(entry?.state);
+            const stroke = strokeFor(entry?.state);
+            const isSelected = selectedToothId === t.id;
+            return (
+              <React.Fragment key={t.id}>
+                <Circle
+                  cx={x}
+                  cy={y}
+                  r={TOOTH_R}
+                  fill={fill}
+                  stroke={isSelected ? ROSE : stroke}
+                  strokeWidth={isSelected ? 2.5 : 1}
+                />
+                <SvgText
+                  x={x}
+                  y={y + 3.5}
+                  fontSize={10}
+                  fontWeight="700"
+                  fill={textColorFor(entry?.state)}
+                  textAnchor="middle"
+                >
+                  {t.position}
+                </SvgText>
+              </React.Fragment>
+            );
+          })}
+        </Svg>
+
+        {/* Native hit-targets — sit above the SVG so taps go through RN's
+            gesture system, not SVG's. Sized HIT_R*2 around each tooth. */}
+        {scale > 0 && TEETH.map((t) => {
           const { x, y } = positionFor(t.jaw, t.position);
-          const entry = teeth[t.id];
-          const fill = fillFor(entry?.state);
-          const stroke = strokeFor(entry?.state);
-          const isSelected = selectedToothId === t.id;
           return (
-            <G key={t.id} onPress={() => onSelect(t)}>
-              {/* Invisible larger hit area for easier tapping */}
-              <Circle cx={x} cy={y} r={HIT_R} fill="transparent" />
-              <Circle
-                cx={x}
-                cy={y}
-                r={TOOTH_R}
-                fill={fill}
-                stroke={isSelected ? ROSE : stroke}
-                strokeWidth={isSelected ? 2.5 : 1}
-              />
-              <SvgText
-                x={x}
-                y={y + 3.5}
-                fontSize={10}
-                fontWeight="700"
-                fill={textColorFor(entry?.state)}
-                textAnchor="middle"
-              >
-                {t.position}
-              </SvgText>
-            </G>
+            <TouchableOpacity
+              key={`hit-${t.id}`}
+              activeOpacity={0.6}
+              onPress={() => onSelect(t)}
+              accessibilityLabel={`Tap to log ${t.name}`}
+              style={{
+                position: 'absolute',
+                left: x * scale - HIT_R,
+                top: y * scale - HIT_R,
+                width: HIT_R * 2,
+                height: HIT_R * 2,
+                borderRadius: HIT_R,
+              }}
+            />
           );
         })}
-      </Svg>
+      </View>
 
       {/* Legend */}
       <View style={styles.legendRow}>

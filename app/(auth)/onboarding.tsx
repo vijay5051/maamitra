@@ -163,6 +163,14 @@ export default function OnboardingScreen() {
     router.replace(phone ? '/(tabs)' : '/(auth)/phone');
   }, [onboardingComplete]);
 
+  // Guard against landing on onboarding while signed out — would otherwise
+  // show as a "signup form" flash after sign-out before the tabs layout
+  // gets its turn to route to welcome.
+  const isAuthed = useAuthStore((s) => s.isAuthenticated);
+  useEffect(() => {
+    if (!isAuthed) router.replace('/(auth)/welcome');
+  }, [isAuthed]);
+
   // ── Derived copy ──
   const kidDateLabel = stage === 'pregnant' || stage === 'planning' ? 'Due date' : "Baby's date of birth";
   const kidDateHelp =
