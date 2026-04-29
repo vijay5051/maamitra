@@ -1,4 +1,4 @@
-import { Tabs, useRouter } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
 import { StyleSheet, Text, View, ActivityIndicator, TouchableOpacity, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -85,29 +85,19 @@ function AskFab({ focused, onPress }: { focused: boolean; onPress?: () => void }
 }
 
 export default function TabLayout() {
-  const router = useRouter();
   const insets = useSafeAreaInsets();
   const { isAuthenticated, isLoading, user } = useAuthStore();
   const { onboardingComplete } = useProfileStore();
 
-  useEffect(() => {
-    if (isLoading) return;
-    if (!isAuthenticated) {
-      router.replace('/(auth)/welcome');
-      return;
-    }
-    // Admin accounts never land in the parent experience — if they somehow
-    // end up inside /(tabs), boot them to the admin dashboard. Avoids the
-    // confusing state where an admin sees the onboarding prompt.
-    if (isAdminEmail(user?.email)) {
-      router.replace('/admin');
-      return;
-    }
-    if (!onboardingComplete) {
-      router.replace('/(auth)/onboarding');
-      return;
-    }
-  }, [isLoading, isAuthenticated, onboardingComplete, user?.email]);
+  // Auth/onboarding guards as <Redirect> rather than useEffect+router.replace.
+  // Mount-time imperative navigation throws "Attempted to navigate before
+  // mounting the Root Layout" because expo-router's nav context isn't yet
+  // ready during a screen's first commit phase. <Redirect> waits for it.
+  if (!isLoading) {
+    if (!isAuthenticated) return <Redirect href="/(auth)/welcome" />;
+    if (isAdminEmail(user?.email)) return <Redirect href="/admin" />;
+    if (!onboardingComplete) return <Redirect href="/(auth)/onboarding" />;
+  }
 
   if (isLoading) {
     return (
