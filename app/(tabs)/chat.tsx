@@ -444,7 +444,10 @@ export default function ChatScreen() {
       {/* ── Chat Body ── */}
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === 'ios' || Platform.OS === 'web' ? 'padding' : 'height'}
+        // Android: let windowSoftInputMode=adjustResize do the work alone.
+        // Setting behavior="height" here fights the OS resize and causes
+        // a visible wobble on Gboard (seen on Galaxy Note 20).
+        behavior={Platform.OS === 'ios' || Platform.OS === 'web' ? 'padding' : undefined}
         keyboardVerticalOffset={0}
       >
         {/* Radial glow bloom behind message list */}
