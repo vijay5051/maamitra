@@ -5,16 +5,18 @@
  *   - SpeechRecognition (webkitSpeechRecognition on Safari/Chrome) for STT
  *   - SpeechSynthesis for TTS
  *
- * Native (iOS/Android via Expo): we gracefully fall back to "unsupported"
- * until we add expo-speech + expo-speech-recognition packages. Today's
- * product is web-first, so this is fine — the mic button hides on native.
+ * Native (iOS/Android): Uses
+ *   - expo-speech-recognition for STT (jamsch/expo-speech-recognition)
+ *   - expo-speech for TTS
  *
  * Regional language coverage — both STT and TTS use standard BCP-47
  * language tags. All 22 scheduled languages of India are listed. Actual
- * support depends on the user's browser + OS install — Chrome on Desktop
- * + Android is strongest, Safari on iOS is more limited.
+ * support depends on the device's installed speech engines (Android: Google
+ * speech services; iOS: on-device Siri voices) and Google Chrome on web.
  */
 import { Platform } from 'react-native';
+import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition';
+import * as Speech from 'expo-speech';
 
 export interface LanguageOption {
   code: string;      // BCP-47 tag (e.g. 'hi-IN')
@@ -52,7 +54,7 @@ export const INDIAN_LANGUAGES: LanguageOption[] = [
 
 // ─── Detection helpers ──────────────────────────────────────────────────────
 
-function getSpeechRecognitionCtor(): any | null {
+function getWebSpeechRecognitionCtor(): any | null {
   if (Platform.OS !== 'web') return null;
   if (typeof window === 'undefined') return null;
   return (
@@ -62,13 +64,21 @@ function getSpeechRecognitionCtor(): any | null {
   );
 }
 
-export const isSpeechRecognitionSupported = (): boolean =>
-  !!getSpeechRecognitionCtor();
+export const isSpeechRecognitionSupported = (): boolean => {
+  if (Platform.OS === 'web') return !!getWebSpeechRecognitionCtor();
+  // Native: expo-speech-recognition is bundled. Whether the device actually
+  // has a recognizer installed is checked at start() time and surfaced via
+  // an error event if missing.
+  return true;
+};
 
 export const isSpeechSynthesisSupported = (): boolean => {
-  if (Platform.OS !== 'web') return false;
-  if (typeof window === 'undefined') return false;
-  return typeof (window as any).speechSynthesis !== 'undefined';
+  if (Platform.OS === 'web') {
+    if (typeof window === 'undefined') return false;
+    return typeof (window as any).speechSynthesis !== 'undefined';
+  }
+  // Native: expo-speech is always available.
+  return true;
 };
 
 // ─── Speech-to-text ─────────────────────────────────────────────────────────
@@ -88,7 +98,12 @@ export interface STTOptions {
 }
 
 export function startSpeechRecognition(opts: STTOptions): STTHandle | null {
-  const Ctor = getSpeechRecognitionCtor();
+  if (Platform.OS === 'web') return startWebSpeechRecognition(opts);
+  return startNativeSpeechRecognition(opts);
+}
+
+function startWebSpeechRecognition(opts: STTOptions): STTHandle | null {
+  const Ctor = getWebSpeechRecognitionCtor();
   if (!Ctor) {
     opts.onError?.('Speech recognition is not supported on this browser.');
     return null;
@@ -113,8 +128,7 @@ export function startSpeechRecognition(opts: STTOptions): STTHandle | null {
 
   rec.onerror = (event: any) => {
     const code = event.error || 'unknown';
-    // Common codes: 'no-speech', 'aborted', 'not-allowed', 'network'
-    if (code === 'aborted') return; // silent
+    if (code === 'aborted') return;
     if (code === 'not-allowed') {
       opts.onError?.('Microphone permission denied. Allow it in your browser settings.');
       return;
@@ -142,6 +156,99 @@ export function startSpeechRecognition(opts: STTOptions): STTHandle | null {
       try { rec.stop(); } catch { /* no-op */ }
     },
   };
+}
+
+function startNativeSpeechRecognition(opts: STTOptions): STTHandle | null {
+  let finalText = '';
+  let lastInterim = '';
+  let stopped = false;
+  const subs: { remove: () => void }[] = [];
+
+  const cleanup = () => {
+    for (const s of subs) {
+      try { s.remove(); } catch { /* no-op */ }
+    }
+    subs.length = 0;
+  };
+
+  const safeStop = () => {
+    if (stopped) return;
+    stopped = true;
+    try { ExpoSpeechRecognitionModule.stop(); } catch { /* no-op */ }
+  };
+
+  // Wire up event listeners before calling start().
+  subs.push(
+    ExpoSpeechRecognitionModule.addListener('result', (event: any) => {
+      const transcript: string = event?.results?.[0]?.transcript ?? '';
+      if (!transcript) return;
+      if (event.isFinal) {
+        finalText = transcript;
+      } else {
+        lastInterim = transcript;
+        opts.onInterim?.(transcript);
+      }
+    }),
+  );
+
+  subs.push(
+    ExpoSpeechRecognitionModule.addListener('error', (event: any) => {
+      const code: string = event?.error || 'unknown';
+      if (code === 'aborted') return;
+      if (code === 'not-allowed' || code === 'permissions') {
+        opts.onError?.('Microphone permission denied. Allow it in your phone settings.');
+        return;
+      }
+      if (code === 'no-speech') {
+        opts.onError?.("I didn't catch that — try again.");
+        return;
+      }
+      if (code === 'language-not-supported') {
+        opts.onError?.('That language isn\'t installed on your phone\'s speech engine yet.');
+        return;
+      }
+      if (code === 'service-not-allowed' || code === 'recognizer-not-available') {
+        opts.onError?.('Voice typing isn\'t available on this device. Install Google\'s speech services and try again.');
+        return;
+      }
+      const msg = event?.message ? `Voice error: ${event.message}` : `Voice error: ${code}`;
+      opts.onError?.(msg);
+    }),
+  );
+
+  subs.push(
+    ExpoSpeechRecognitionModule.addListener('end', () => {
+      const text = (finalText || lastInterim).trim();
+      if (text) opts.onFinal(text);
+      cleanup();
+    }),
+  );
+
+  // Request mic + recognizer permissions, then start.
+  (async () => {
+    try {
+      const perm = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+      if (!perm?.granted) {
+        opts.onError?.('Microphone permission denied. Allow it in your phone settings.');
+        cleanup();
+        return;
+      }
+      if (stopped) { cleanup(); return; }
+      ExpoSpeechRecognitionModule.start({
+        lang: opts.languageCode,
+        interimResults: !!opts.onInterim,
+        maxAlternatives: 1,
+        continuous: false,
+        requiresOnDeviceRecognition: false,
+        addsPunctuation: true,
+      });
+    } catch (e: any) {
+      opts.onError?.(e?.message ?? 'Could not start the microphone.');
+      cleanup();
+    }
+  })();
+
+  return { stop: safeStop };
 }
 
 // ─── Text-to-speech ─────────────────────────────────────────────────────────
@@ -183,31 +290,27 @@ function pickBestVoice(
   ];
 
   const scored = voices
-    // Language filter — exact match scores higher than base match.
     .map((v) => {
-      const vLang = (v.lang || '').toLowerCase();
+      const vLang = (v.lang || v.language || '').toLowerCase();
       let langScore = 0;
       if (vLang === full) langScore = 100;
       else if (vLang.startsWith(base + '-')) langScore = 60;
       else if (vLang.startsWith(base)) langScore = 40;
       else return null;
 
-      const name = `${v.name || ''} ${v.voiceURI || ''}`.toLowerCase();
+      const name = `${v.name || ''} ${v.identifier || ''} ${v.voiceURI || ''}`.toLowerCase();
       let qualityScore = 0;
       for (const hint of NEURAL_HINTS) {
         if (name.includes(hint)) qualityScore += 25;
       }
-      // Google voices on Chrome desktop are generally much better than
-      // Apple's defaults when no explicit hint is present.
+      // expo-speech exposes a `quality` field — "Enhanced" is the premium
+      // tier on iOS.
+      const q = (v.quality || '').toLowerCase();
+      if (q === 'enhanced') qualityScore += 30;
       if (name.includes('google')) qualityScore += 15;
-      // Microsoft "Online" voices on Edge are neural.
       if (name.includes('microsoft') && name.includes('online')) qualityScore += 20;
-      // Samantha (macOS), Ava (macOS), Karen (iOS) are the nicer defaults.
       if (/\b(samantha|ava|karen|serena|allison|fiona|tessa)\b/.test(name)) qualityScore += 10;
-      // Penalise compact / "Lite" / "novelty" voices.
       if (/\b(compact|lite|novelty|whisper|cellos|bells|junior|bad|hysterical|organ|pipe|trinoids|zarvox)\b/.test(name)) qualityScore -= 40;
-      // Default voices (default:true) are often the robotic baseline —
-      // slight penalty unless their name already scored well.
       if (v.default) qualityScore -= 5;
 
       return { v, score: langScore + qualityScore };
@@ -224,7 +327,7 @@ function pickBestVoice(
  * on first call. This helper waits (up to timeoutMs) until voices become
  * available so pickBestVoice has something to choose from.
  */
-async function waitForVoices(timeoutMs: number = 1500): Promise<any[]> {
+async function waitForWebVoices(timeoutMs: number = 1500): Promise<any[]> {
   const synth: any = (typeof window !== 'undefined') ? (window as any).speechSynthesis : null;
   if (!synth) return [];
   const immediate = synth.getVoices();
@@ -242,33 +345,27 @@ async function waitForVoices(timeoutMs: number = 1500): Promise<any[]> {
 }
 
 export function speak(text: string, languageCode: string): TTSHandle | null {
+  if (Platform.OS === 'web') return speakWeb(text, languageCode);
+  return speakNative(text, languageCode);
+}
+
+function speakWeb(text: string, languageCode: string): TTSHandle | null {
   if (!isSpeechSynthesisSupported()) return null;
   const synth: any = (window as any).speechSynthesis;
-  // Cancel any in-flight utterance so taps don't queue up.
   try { synth.cancel(); } catch { /* no-op */ }
 
   const utter = new (window as any).SpeechSynthesisUtterance(text);
   utter.lang = languageCode;
-
-  // Natural-feeling defaults. Rate slightly under 1 reads as considered
-  // rather than monotone; pitch slightly over 1 adds warmth without
-  // sounding chipmunky. Volume left at 1.
   utter.rate = 0.96;
   utter.pitch = 1.05;
 
   let cancelled = false;
 
-  // Kick off voice selection. If voices aren't ready yet, start speaking
-  // with the default voice so the user isn't waiting silently, then swap
-  // to the better voice as soon as it's available — too late to apply to
-  // the current utterance, but right in time for the next one.
   const applyVoice = async () => {
-    const voices = await waitForVoices();
+    const voices = await waitForWebVoices();
     if (cancelled) return;
     const best = pickBestVoice(voices, languageCode);
     if (best && !utter.voice) {
-      // Only assign if speaking hasn't started — some browsers ignore
-      // voice reassignment mid-utterance.
       try { utter.voice = best; } catch { /* no-op */ }
     }
   };
@@ -284,6 +381,45 @@ export function speak(text: string, languageCode: string): TTSHandle | null {
   };
 }
 
+function speakNative(text: string, languageCode: string): TTSHandle | null {
+  let cancelled = false;
+  // Stop any in-flight utterance so taps don't queue up.
+  Speech.stop().catch(() => {});
+
+  // Try to pick the best installed voice for the language. expo-speech
+  // accepts a voice identifier; if we don't pass one it uses the system
+  // default for that language.
+  Speech.getAvailableVoicesAsync()
+    .then((voices) => {
+      if (cancelled) return;
+      const best = pickBestVoice(voices, languageCode);
+      Speech.speak(text, {
+        language: languageCode,
+        voice: best?.identifier,
+        rate: 0.96,
+        pitch: 1.05,
+      });
+    })
+    .catch(() => {
+      if (cancelled) return;
+      // Fall back to the default voice for the language.
+      try {
+        Speech.speak(text, {
+          language: languageCode,
+          rate: 0.96,
+          pitch: 1.05,
+        });
+      } catch { /* no-op */ }
+    });
+
+  return {
+    stop: () => {
+      cancelled = true;
+      Speech.stop().catch(() => {});
+    },
+  };
+}
+
 // ─── Language auto-detect ───────────────────────────────────────────────────
 // Very cheap Unicode-range heuristic. Returns the best-guess BCP-47 code
 // or null. Used to pre-select a TTS voice for replies — the LLM itself
@@ -292,16 +428,16 @@ export function speak(text: string, languageCode: string): TTSHandle | null {
 export function detectLanguage(text: string): string | null {
   if (!text) return null;
   const ranges: Array<{ re: RegExp; code: string }> = [
-    { re: /[\u0900-\u097F]/, code: 'hi-IN' },   // Devanagari (Hindi, Marathi, Sanskrit, Konkani, Maithili, Nepali)
-    { re: /[\u0980-\u09FF]/, code: 'bn-IN' },   // Bengali / Assamese
-    { re: /[\u0A00-\u0A7F]/, code: 'pa-IN' },   // Gurmukhi (Punjabi)
-    { re: /[\u0A80-\u0AFF]/, code: 'gu-IN' },   // Gujarati
-    { re: /[\u0B00-\u0B7F]/, code: 'or-IN' },   // Odia
-    { re: /[\u0B80-\u0BFF]/, code: 'ta-IN' },   // Tamil
-    { re: /[\u0C00-\u0C7F]/, code: 'te-IN' },   // Telugu
-    { re: /[\u0C80-\u0CFF]/, code: 'kn-IN' },   // Kannada
-    { re: /[\u0D00-\u0D7F]/, code: 'ml-IN' },   // Malayalam
-    { re: /[\u0600-\u06FF]/, code: 'ur-IN' },   // Arabic/Persian (Urdu, Kashmiri, Sindhi)
+    { re: /[ऀ-ॿ]/, code: 'hi-IN' },   // Devanagari (Hindi, Marathi, Sanskrit, Konkani, Maithili, Nepali)
+    { re: /[ঀ-৿]/, code: 'bn-IN' },   // Bengali / Assamese
+    { re: /[਀-੿]/, code: 'pa-IN' },   // Gurmukhi (Punjabi)
+    { re: /[઀-૿]/, code: 'gu-IN' },   // Gujarati
+    { re: /[଀-୿]/, code: 'or-IN' },   // Odia
+    { re: /[஀-௿]/, code: 'ta-IN' },   // Tamil
+    { re: /[ఀ-౿]/, code: 'te-IN' },   // Telugu
+    { re: /[ಀ-೿]/, code: 'kn-IN' },   // Kannada
+    { re: /[ഀ-ൿ]/, code: 'ml-IN' },   // Malayalam
+    { re: /[؀-ۿ]/, code: 'ur-IN' },   // Arabic/Persian (Urdu, Kashmiri, Sindhi)
   ];
   for (const { re, code } of ranges) {
     if (re.test(text)) return code;

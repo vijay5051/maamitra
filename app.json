@@ -2,7 +2,7 @@
   "expo": {
     "name": "MaaMitra",
     "slug": "maamitra",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -18,9 +18,11 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "in.maamitra.app",
-      "buildNumber": "4",
+      "buildNumber": "5",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSMicrophoneUsageDescription": "MaaMitra uses your microphone so you can speak to the chat in your preferred language.",
+        "NSSpeechRecognitionUsageDescription": "MaaMitra converts your voice to text so you can ask questions hands-free."
       }
     },
     "android": {
@@ -29,8 +31,11 @@
         "backgroundColor": "#fdf6ff"
       },
       "package": "in.maamitra.app",
-      "versionCode": 11,
-      "googleServicesFile": "./google-services.json"
+      "versionCode": 12,
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -68,6 +73,16 @@
           "android": {
             "extraMavenRepos": []
           }
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "MaaMitra uses your microphone so you can speak to the chat in your preferred language.",
+          "speechRecognitionPermission": "MaaMitra converts your voice to text so you can ask questions hands-free.",
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox"
+          ]
         }
       ]
     ],
