@@ -165,17 +165,15 @@ export const useSocialStore = create<SocialState>((set, get) => ({
         photoUrl || ''
       );
 
-      // Wipe the follow_request notification(s) that point to this request
-      // so reopening the sheet doesn't show Accept/Decline again. Picks up
-      // any stale duplicates too (e.g. from an earlier retry). Fire-and-
-      // forget — the subscription will remove them from UI as soon as the
-      // deletes land.
-      const toDelete = get()
+      // Mark the matching follow_request notification(s) as accepted
+      // instead of deleting them — users wanted the row to stay in the
+      // feed with an "Accepted ✓" badge so they can see the outcome.
+      const toMark = get()
         .notifications
         .filter((n) => n.type === 'follow_request' && (n as any).requestId === requestId)
         .map((n) => n.id);
-      if (toDelete.length > 0) {
-        SocialService.deleteNotifications(uid, toDelete).catch(() => {});
+      if (toMark.length > 0) {
+        SocialService.markNotificationRequestStatus(uid, toMark, 'accepted').catch(() => {});
       }
 
       // Optimistic in-store updates — the live subscription will confirm
@@ -195,8 +193,10 @@ export const useSocialStore = create<SocialState>((set, get) => ({
         followersCount: state.followers.some((f) => f.uid === fromUid)
           ? state.followersCount
           : state.followersCount + 1,
-        notifications: state.notifications.filter(
-          (n) => !(n.type === 'follow_request' && (n as any).requestId === requestId),
+        notifications: state.notifications.map((n) =>
+          n.type === 'follow_request' && (n as any).requestId === requestId
+            ? { ...n, requestStatus: 'accepted' as const, read: true }
+            : n,
         ),
         unreadCount: state.notifications
           .filter(
@@ -216,20 +216,22 @@ export const useSocialStore = create<SocialState>((set, get) => ({
     try {
       await SocialService.declineFollowRequest(requestId);
 
-      // Same cleanup as accept — don't leave a stale actionable
-      // notification sitting in the feed after the user has declined.
-      const toDelete = get()
+      // Mark as declined instead of deleting — the notification row
+      // stays in the feed with a "Declined" badge.
+      const toMark = get()
         .notifications
         .filter((n) => n.type === 'follow_request' && (n as any).requestId === requestId)
         .map((n) => n.id);
-      if (toDelete.length > 0) {
-        SocialService.deleteNotifications(uid, toDelete).catch(() => {});
+      if (toMark.length > 0) {
+        SocialService.markNotificationRequestStatus(uid, toMark, 'declined').catch(() => {});
       }
 
       set((state) => ({
         incomingRequests: state.incomingRequests.filter((r) => r.id !== requestId),
-        notifications: state.notifications.filter(
-          (n) => !(n.type === 'follow_request' && (n as any).requestId === requestId),
+        notifications: state.notifications.map((n) =>
+          n.type === 'follow_request' && (n as any).requestId === requestId
+            ? { ...n, requestStatus: 'declined' as const, read: true }
+            : n,
         ),
         unreadCount: state.notifications
           .filter(

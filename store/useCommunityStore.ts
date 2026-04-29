@@ -333,7 +333,15 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
         showComments: false,
       };
 
-      set((state) => ({ posts: [newPost, ...state.posts] }));
+      // Dedupe by id: if a refresh fired during the create round-trip
+      // and pulled this post back from Firestore, prepending again would
+      // double it for one render — users reported "shows 2 entries and 1
+      // disappears on next load" on the web app.
+      set((state) => ({
+        posts: state.posts.some((p) => p.id === newPost.id)
+          ? state.posts
+          : [newPost, ...state.posts],
+      }));
     } catch (error) {
       console.error('addPostFirestore error:', error);
       throw error;
@@ -447,14 +455,23 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
         createdAt: comment.createdAt instanceof Date ? comment.createdAt : new Date(comment.createdAt),
       };
 
+      // Dedupe by id when appending: a concurrent fetchPostComments
+      // (e.g. user expanded the comment list mid-send) can deliver this
+      // comment from the server before the optimistic add runs.
       set((state) => ({
         posts: state.posts.map((p) => {
           if (p.id !== postId) return p;
+          const commentsAlreadyHas = p.comments.some((c) => c.id === localComment.id);
+          const listAlreadyHas = (p.commentList ?? []).some((c) => c.id === comment.id);
           return {
             ...p,
-            comments: [...p.comments, localComment],
-            commentList: [...(p.commentList ?? []), comment],
-            commentCount: (p.commentCount ?? p.comments.length) + 1,
+            comments: commentsAlreadyHas ? p.comments : [...p.comments, localComment],
+            commentList: listAlreadyHas
+              ? (p.commentList ?? [])
+              : [...(p.commentList ?? []), comment],
+            commentCount: commentsAlreadyHas || listAlreadyHas
+              ? (p.commentCount ?? p.comments.length)
+              : (p.commentCount ?? p.comments.length) + 1,
             showComments: true,
           };
         }),

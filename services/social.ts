@@ -102,6 +102,13 @@ export interface AppNotification {
   postText?: string;
   emoji?: string;
   requestId?: string;
+  /** For follow_request notifs: tracks whether the user has acted on it.
+   *  We retain the row in the feed after Accept/Decline (just stripped of
+   *  the action buttons) so the user can see what happened — instead of
+   *  silently deleting the notification, which used to confuse people. */
+  requestStatus?: 'pending' | 'accepted' | 'declined';
+  text?: string;
+  commentId?: string;
   read: boolean;
   createdAt: Date;
 }
@@ -1109,6 +1116,9 @@ export async function getNotifications(uid: string, limitN = 40): Promise<AppNot
         postText: data.postText,
         emoji: data.emoji,
         requestId: data.requestId,
+        requestStatus: data.requestStatus,
+        text: data.text,
+        commentId: data.commentId,
         read: data.read ?? false,
         createdAt: firestoreDate(data.createdAt),
       } as AppNotification;
@@ -1125,6 +1135,32 @@ export async function markNotificationRead(uid: string, notifId: string): Promis
     await updateDoc(doc(db, 'notifications', uid, 'items', notifId), { read: true });
   } catch (error) {
     console.error('markNotificationRead error:', error);
+  }
+}
+
+/**
+ * Mark a follow-request notification with the action the user took
+ * (accepted or declined). Replaces the old "delete on action" flow —
+ * we now keep the row in the feed so the user can see the outcome
+ * instead of having it silently disappear.
+ */
+export async function markNotificationRequestStatus(
+  uid: string,
+  notifIds: string[],
+  status: 'accepted' | 'declined',
+): Promise<void> {
+  if (!db || notifIds.length === 0) return;
+  try {
+    const batch = writeBatch(db);
+    notifIds.forEach((id) => {
+      batch.update(doc(db!, 'notifications', uid, 'items', id), {
+        requestStatus: status,
+        read: true,
+      });
+    });
+    await batch.commit();
+  } catch (error) {
+    console.error('markNotificationRequestStatus error:', error);
   }
 }
 
@@ -1394,6 +1430,7 @@ export function subscribeNotifications(
           text: data.text,
           emoji: data.emoji,
           requestId: data.requestId,
+          requestStatus: data.requestStatus,
           createdAt: firestoreDate(data.createdAt),
           read: data.read === true,
         } as AppNotification;

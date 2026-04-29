@@ -17,6 +17,7 @@ import GradientAvatar from '../ui/GradientAvatar';
 import { Fonts } from '../../constants/theme';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useDMStore } from '../../store/useDMStore';
+import { useSocialStore } from '../../store/useSocialStore';
 import type { DMConversation } from '../../services/messages';
 import { Colors } from '../../constants/theme';
 
@@ -103,12 +104,22 @@ export default function ConversationsSheet({ visible, onClose }: Props) {
     isLoadingConversations,
     loadConversations,
   } = useDMStore();
+  const blockedUids = useSocialStore((s) => s.blockedUids);
 
   useEffect(() => {
     if (visible && myUid) {
       loadConversations();
     }
   }, [visible, myUid]);
+
+  // Hide conversations whose other participant is on my block list. The
+  // blocked user can still write to Firestore, but I never see the
+  // thread in my Messages list. (The conversation screen also filters
+  // their messages out if I land there directly via deep link.)
+  const visibleConversations = conversations.filter((conv) => {
+    const otherUid = conv.participants.find((p) => p !== myUid) ?? '';
+    return !blockedUids.includes(otherUid);
+  });
 
   const handleOpenConversation = (conv: DMConversation) => {
     const otherUid = conv.participants.find((p) => p !== myUid) ?? '';
@@ -143,7 +154,7 @@ export default function ConversationsSheet({ visible, onClose }: Props) {
           </View>
         ) : (
           <FlatList
-            data={conversations}
+            data={visibleConversations}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
               <ConversationRow

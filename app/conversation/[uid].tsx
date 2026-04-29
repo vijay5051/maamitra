@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useDMStore } from '../../store/useDMStore';
 import { useProfileStore } from '../../store/useProfileStore';
+import { useSocialStore } from '../../store/useSocialStore';
 import { getPublicProfile, type UserPublicProfile } from '../../services/social';
 import { getOrCreateConversation, conversationId } from '../../services/messages';
 import { uploadDMImage } from '../../services/storage';
@@ -167,6 +168,16 @@ export default function ConversationScreen() {
   const listRef = useRef<FlatList>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // If I've blocked the other person, hide their messages and disable
+  // the composer. Block enforcement is client-side here — the blocked
+  // user can still write to Firestore (their own send succeeds), they
+  // just don't appear in my view.
+  const blockedUids = useSocialStore((s) => s.blockedUids);
+  const isBlocked = !!otherUid && blockedUids.includes(otherUid);
+  const visibleMessages = isBlocked
+    ? activeMessages.filter((m) => m.senderUid === myUid)
+    : activeMessages;
+
   // Load other user's profile + eagerly create the conversation doc if
   // it doesn't exist yet, then load messages. Without the eager create
   // the messages read rule fails — the rule does `get(conv).data.
@@ -220,6 +231,7 @@ export default function ConversationScreen() {
     const trimmed = text.trim();
     // Allow sending image-only messages (no text)
     if ((!trimmed && !attachment) || isSending || !otherUid || !myUid) return;
+    if (isBlocked) return; // composer is hidden, but belt-and-suspenders
 
     let imageUrl: string | undefined;
     if (attachment) {
@@ -306,16 +318,22 @@ export default function ConversationScreen() {
           <View style={styles.centered}>
             <ActivityIndicator size="large" color={Colors.primary} />
           </View>
-        ) : activeMessages.length === 0 ? (
+        ) : visibleMessages.length === 0 ? (
           <View style={styles.centered}>
-            <Text style={styles.emptyEmoji}>💬</Text>
-            <Text style={styles.emptyTitle}>Start the conversation</Text>
-            <Text style={styles.emptySubtext}>Say hi to {otherName}!</Text>
+            <Text style={styles.emptyEmoji}>{isBlocked ? '🚫' : '💬'}</Text>
+            <Text style={styles.emptyTitle}>
+              {isBlocked ? 'You blocked this user' : 'Start the conversation'}
+            </Text>
+            <Text style={styles.emptySubtext}>
+              {isBlocked
+                ? `Their messages are hidden. Unblock ${otherName} from their profile to see them again.`
+                : `Say hi to ${otherName}!`}
+            </Text>
           </View>
         ) : (
           <FlatList
             ref={listRef}
-            data={activeMessages}
+            data={visibleMessages}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
               <MessageBubble
@@ -368,50 +386,60 @@ export default function ConversationScreen() {
             })
           : null}
 
-        {/* Input */}
-        <View style={[styles.inputRow, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-          <TouchableOpacity
-            onPress={handleAttachPress}
-            style={styles.attachBtn}
-            accessibilityLabel="Attach photo"
-            disabled={uploading}
-          >
-            <Ionicons
-              name={uploading ? 'hourglass-outline' : 'image-outline'}
-              size={20}
-              color={uploading ? '#9ca3af' : Colors.primary}
-            />
-          </TouchableOpacity>
-          <TextInput
-            style={styles.input}
-            value={text}
-            onChangeText={setText}
-            placeholder="Type a message..."
-            placeholderTextColor="#9ca3af"
-            multiline
-            maxLength={2000}
-            onSubmitEditing={handleSend}
-            returnKeyType="send"
-          />
-          <TouchableOpacity
-            onPress={handleSend}
-            disabled={(!text.trim() && !attachment) || isSending || uploading}
-            style={[styles.sendBtn, ((!text.trim() && !attachment) || isSending || uploading) && { opacity: 0.4 }]}
-          >
-            <LinearGradient
-              colors={[Colors.primary, Colors.primary]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.sendBtnGrad}
+        {/* Input — hidden while the other user is blocked. Replying
+            after a block would silently fail and confuse the user. */}
+        {isBlocked ? (
+          <View style={[styles.blockedNotice, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+            <Ionicons name="ban-outline" size={16} color="#9ca3af" />
+            <Text style={styles.blockedNoticeText}>
+              You blocked {otherName}. Unblock them from their profile to message again.
+            </Text>
+          </View>
+        ) : (
+          <View style={[styles.inputRow, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+            <TouchableOpacity
+              onPress={handleAttachPress}
+              style={styles.attachBtn}
+              accessibilityLabel="Attach photo"
+              disabled={uploading}
             >
-              {isSending || uploading ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Ionicons name="send" size={18} color="#ffffff" />
-              )}
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
+              <Ionicons
+                name={uploading ? 'hourglass-outline' : 'image-outline'}
+                size={20}
+                color={uploading ? '#9ca3af' : Colors.primary}
+              />
+            </TouchableOpacity>
+            <TextInput
+              style={styles.input}
+              value={text}
+              onChangeText={setText}
+              placeholder="Type a message..."
+              placeholderTextColor="#9ca3af"
+              multiline
+              maxLength={2000}
+              onSubmitEditing={handleSend}
+              returnKeyType="send"
+            />
+            <TouchableOpacity
+              onPress={handleSend}
+              disabled={(!text.trim() && !attachment) || isSending || uploading}
+              style={[styles.sendBtn, ((!text.trim() && !attachment) || isSending || uploading) && { opacity: 0.4 }]}
+            >
+              <LinearGradient
+                colors={[Colors.primary, Colors.primary]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.sendBtnGrad}
+              >
+                {isSending || uploading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Ionicons name="send" size={18} color="#ffffff" />
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        )}
       </KeyboardAvoidingView>
     </View>
   );
@@ -456,6 +484,23 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#EDE9F6',
     backgroundColor: '#FAFAFB',
+  },
+  blockedNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#EDE9F6',
+    backgroundColor: '#F5F0FF',
+  },
+  blockedNoticeText: {
+    flex: 1,
+    fontFamily: Fonts.sansMedium,
+    fontSize: 12.5,
+    color: '#6b7280',
+    lineHeight: 18,
   },
   input: {
     flex: 1,

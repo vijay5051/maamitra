@@ -128,8 +128,16 @@ export const useDMStore = create<DMState>((set, get) => ({
       const msg = await sendDM(convId, uid, myName, myPhoto, text, otherUid, imageUrl);
 
       if (msg) {
+        // Dedupe by id: the active onSnapshot listener can deliver the
+        // same message before this optimistic add runs (firestore writes
+        // notify the listener as soon as they hit the cache). Without
+        // this, the message rendered twice and the duplicate disappeared
+        // on the next load when activeMessages was rebuilt from the
+        // listener.
         set((state) => ({
-          activeMessages: [...state.activeMessages, msg],
+          activeMessages: state.activeMessages.some((m) => m.id === msg.id)
+            ? state.activeMessages
+            : [...state.activeMessages, msg],
           activeConvId: convId,
         }));
       }

@@ -279,7 +279,12 @@ export default function NotificationsSheet({ visible, onClose, onViewProfile }: 
             renderItem={({ item }) => (
               <NotifRow
                 notif={item}
-                handled={handledRequests[item.id]}
+                handled={
+                  handledRequests[item.id]
+                  ?? (item.requestStatus === 'accepted' || item.requestStatus === 'declined'
+                      ? item.requestStatus
+                      : undefined)
+                }
                 freshName={freshProfiles[item.fromUid]?.name || undefined}
                 freshPhotoUrl={freshProfiles[item.fromUid]?.photoUrl || undefined}
                 onAccept={() => handleAccept(item)}
