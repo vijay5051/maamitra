@@ -507,11 +507,18 @@ function RecipientPickerModal({
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
     if (!q) return users;
-    return users.filter((u) =>
-      (u.name ?? '').toLowerCase().includes(q) ||
-      (u.email ?? '').toLowerCase().includes(q) ||
-      (u.state ?? '').toLowerCase().includes(q),
-    );
+    const tokens = q.split(/\s+/).filter(Boolean);
+    return users.filter((u) => {
+      const blob = [
+        u.name ?? '',
+        u.email ?? '',
+        u.state ?? '',
+        u.uid,
+      ]
+        .join(' ')
+        .toLowerCase();
+      return tokens.every((t) => blob.includes(t));
+    });
   }, [users, search]);
 
   function toggle(uid: string) {

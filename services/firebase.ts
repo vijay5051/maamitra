@@ -336,8 +336,15 @@ export async function saveFullProfile(uid: string, data: FullProfileData): Promi
   // Throws on failure — callers that don't care can `.catch(console.error)`,
   // but onboarding submit MUST await + surface so the user isn't stranded
   // in a state where local says "onboarded" but Firestore disagrees.
+  // Read auth identity once so the user doc carries the searchable
+  // email + display name. Without this, admin search by email returns
+  // nothing for anyone who onboarded before the email field was wired
+  // (most users).
+  const authUser = auth?.currentUser;
   await setDoc(doc(db, 'users', uid), {
     motherName: data.motherName,
+    name: data.motherName ?? authUser?.displayName ?? '',
+    email: authUser?.email ?? '',
     profile: data.profile ?? null,
     kids: data.kids,
     completedVaccines: data.completedVaccines,

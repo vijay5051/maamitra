@@ -29,6 +29,7 @@ const BUILTIN_ADMIN_EMAILS = [
   'admin@maamitra.app',
   'vijay@maamitra.app',
   'rocking.vsr@gmail.com',
+  'divyashekhawat44@yahoo.in',
   'demo@maamitra.app', // preview / demo mode
 ] as const;
 
