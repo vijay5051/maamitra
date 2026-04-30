@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Alert,
   Image as RNImage,
+  Linking,
   Modal,
   ScrollView,
   StyleSheet,
@@ -255,23 +256,72 @@ function NotificationsPanel({ uid }: { uid?: string }) {
   const handleToggle = async () => {
     if (!uid) return;
 
-    // Native (Android/iOS): use the FCM-backed permission flow. The
-    // checkPushSupport helper returns 'platform-native' for native builds
-    // because that helper is web-only — we do not want to surface that
-    // as an error to the user.
+    // Native (Android/iOS) — FCM-backed flow. Three branches:
+    //   1. Currently ON     → unregister this device's token + ask the user
+    //                         to also revoke at OS level (we can't do that
+    //                         programmatically). Open native settings on
+    //                         confirm.
+    //   2. Previously DENIED → can't re-prompt the OS dialog; escort the
+    //                         user to native app settings.
+    //   3. Default / fresh   → request permission; if the OS prompt comes
+    //                         back denied, offer to open settings.
     if (Platform.OS !== 'web') {
       setBusy(true);
       try {
+        if (enabled) {
+          // Turn OFF: unregister this device's token so we stop pushing
+          // here. The OS-level permission has to be flipped in Settings.
+          try {
+            const messagingModule = await import('@react-native-firebase/messaging');
+            const messaging = messagingModule.default;
+            const currentToken = await messaging().getToken().catch(() => null);
+            if (currentToken) {
+              const { unregisterFcmToken } = await import('../../services/firebase');
+              await unregisterFcmToken(uid, currentToken);
+            }
+          } catch (err) {
+            console.warn('[push] unregister token failed:', err);
+          }
+          setToken(null);
+          setPermission('default');
+          Alert.alert(
+            'Notifications paused',
+            'This device will stop receiving MaaMitra notifications. To fully turn off (or back on) at the OS level, open device settings.',
+            [
+              { text: 'OK', style: 'cancel' },
+              { text: 'Open settings', onPress: () => Linking.openSettings() },
+            ],
+          );
+          return;
+        }
+
+        if (permission === 'denied') {
+          // OS already said no — re-prompting won't show the dialog.
+          Alert.alert(
+            'Enable in settings',
+            'Notifications were turned off earlier. Open device settings to enable them, then come back here.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Open settings', onPress: () => Linking.openSettings() },
+            ],
+          );
+          return;
+        }
+
         const { requestNotificationPermission } = await import('../../lib/requestNotificationPermission');
         const result = await requestNotificationPermission(uid);
         if (result.status === 'granted') {
           setPermission('granted');
-          setToken('native'); // sentinel — we know a token was registered
+          setToken('native');
         } else if (result.status === 'denied') {
           setPermission('denied');
           Alert.alert(
             'Notifications turned off',
-            'You declined the system prompt. To enable, open the device settings → Apps → MaaMitra → Notifications.',
+            'You declined the system prompt. Open device settings to enable them whenever you\'re ready.',
+            [
+              { text: 'Not now', style: 'cancel' },
+              { text: 'Open settings', onPress: () => Linking.openSettings() },
+            ],
           );
         } else if (result.status === 'unsupported') {
           Alert.alert('Not supported', 'This device does not support push notifications.');
