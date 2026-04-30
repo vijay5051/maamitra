@@ -529,11 +529,7 @@ export default function ChatScreen() {
               </View>
               <View style={styles.onlineDot} />
             </View>
-            <View style={styles.headerInfo}>
-              <View style={styles.headerNameRow}>
-                <Text style={styles.headerName}>MaaMitra</Text>
-              </View>
-            </View>
+            <View style={styles.headerInfo} />
           </View>
 
           {/* Right: Kid pill + settings (history is the back arrow now) */}
