@@ -903,11 +903,15 @@ export default function HomeTab() {
           style={styles.card}
         >
           <View style={styles.familyRow}>
-            <LinearGradient colors={Gradients.childRose} style={styles.kidAvatar}>
-              <Text style={styles.kidInitial}>
-                {activeKid?.name?.charAt(0).toUpperCase() ?? '+'}
-              </Text>
-            </LinearGradient>
+            {activeKid?.photoUrl ? (
+              <Image source={{ uri: activeKid.photoUrl }} style={styles.kidAvatar} />
+            ) : (
+              <LinearGradient colors={Gradients.childRose} style={styles.kidAvatar}>
+                <Text style={styles.kidInitial}>
+                  {activeKid?.name?.charAt(0).toUpperCase() ?? '+'}
+                </Text>
+              </LinearGradient>
+            )}
             <View style={{ flex: 1 }}>
               <Text style={styles.kidName}>
                 {activeKid?.name ?? 'Add your first child'}
