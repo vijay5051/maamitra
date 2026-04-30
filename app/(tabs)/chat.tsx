@@ -533,7 +533,6 @@ export default function ChatScreen() {
               <View style={styles.headerNameRow}>
                 <Text style={styles.headerName}>MaaMitra</Text>
               </View>
-              <Text style={styles.headerSub}>Always here for you ✨</Text>
             </View>
           </View>
 
@@ -578,7 +577,6 @@ export default function ChatScreen() {
           <View style={styles.emptyState}>
             <Illustration name="chatMascot" style={styles.emptyMascot} contentFit="contain" />
             <Text style={styles.emptyGreet}>Namaste{motherName ? `, ${motherName.split(' ')[0]}` : ''}! 🙏</Text>
-            <Text style={styles.emptyDesc}>I'm MaaMitra, your personal companion.{'\n'}Ask me anything about your pregnancy, baby, health, or wellbeing.</Text>
             <View style={styles.emptySeparator}>
               <View style={styles.separatorLine} />
               <Text style={styles.separatorText}>TODAY</Text>
