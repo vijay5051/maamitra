@@ -45,6 +45,7 @@ import { countProfilesInState } from '../../services/social';
 import ContextualAskChip from '../../components/ui/ContextualAskChip';
 import { EmailVerifyBanner } from '../../components/ui/EmailVerifyBanner';
 import { Illustration } from '../../components/ui/Illustration';
+import { SkeletonPostCard } from '../../components/ui/Skeleton';
 import type { IllustrationName } from '../../lib/illustrations';
 import { Fonts } from '../../constants/theme';
 import { uploadPostImage } from '../../services/storage';
@@ -891,6 +892,7 @@ export default function CommunityScreen() {
     loadPostsFromFirestore,
     loadMorePosts,
     isLoadingMore,
+    isLoadingPosts,
     hasMorePosts,
     addPostFirestore,
     toggleReactionFirestore,
@@ -1287,10 +1289,18 @@ export default function CommunityScreen() {
           />
         )}
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Illustration name="emptyCommunity" style={styles.emptyIllus} contentFit="contain" />
-            <Text style={styles.emptyText}>No posts in this category yet.{'\n'}Be the first to share!</Text>
-          </View>
+          isLoadingPosts ? (
+            <View>
+              <SkeletonPostCard />
+              <SkeletonPostCard />
+              <SkeletonPostCard />
+            </View>
+          ) : (
+            <View style={styles.empty}>
+              <Illustration name="emptyCommunity" style={styles.emptyIllus} contentFit="contain" />
+              <Text style={styles.emptyText}>No posts in this category yet.{'\n'}Be the first to share!</Text>
+            </View>
+          )
         }
         onEndReached={() => {
           if (hasMorePosts && !isLoadingMore) loadMorePosts();

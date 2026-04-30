@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import GradientButton from '../ui/GradientButton';
 import { Illustration } from '../ui/Illustration';
+import { Confetti } from '../ui/Confetti';
 import type { IllustrationName } from '../../lib/illustrations';
 import { YogaSession, YogaPose } from '../../data/yogaSessions';
 import { Colors } from '../../constants/theme';
@@ -174,6 +175,7 @@ export default function YogaModal({ session, visible, onClose }: YogaModalProps)
               />
             </View>
           </SafeAreaView>
+          <Confetti show onDone={() => undefined} />
         </LinearGradient>
       </Modal>
     );
