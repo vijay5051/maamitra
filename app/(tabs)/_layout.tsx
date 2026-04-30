@@ -10,6 +10,7 @@ import Animated, {
 import { useEffect } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Fonts, Gradients } from '../../constants/theme';
+import { AppIcon } from '../../components/ui/AppIcon';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useProfileStore } from '../../store/useProfileStore';
 import { isAdminEmail } from '../../lib/admin';
@@ -71,7 +72,7 @@ function AskFab({ focused, onPress }: { focused: boolean; onPress?: () => void }
     >
       <View style={styles.fabLift}>
         <LinearGradient colors={Gradients.primary} style={styles.fabGrad}>
-          <Ionicons name="sparkles" size={26} color="#fff" />
+          <AppIcon name="object.sparkles" size={26} color="#fff" />
         </LinearGradient>
         {/* Match the rest of the bar: only show the label when the
             chat tab is the active one. */}

@@ -1,98 +1,87 @@
 /**
- * AppIcon — unified gradient / light icon system for MaaMitra
+ * AppIcon — brand-aware semantic icon component.
+ *
+ * Wraps Ionicons via a registry (`constants/icons.ts`) so every icon in the
+ * app inherits a consistent palette by default. Replaces the older
+ * 4-variant icon component (gradient/soft/white/plain) — that pattern had
+ * zero callers other than `TabIcon` (preserved below for the existing
+ * library tab caller).
  *
  * Usage:
- *   <AppIcon name="heart-outline" variant="gradient" size={20} />
- *   <AppIcon name="book-outline"  variant="soft"     size={18} />
- *   <AppIcon name="shield-checkmark-outline" variant="plain" color={Colors.primary} size={22} />
+ *   <AppIcon name="health.vaccine" />            // default role from registry
+ *   <AppIcon name="action.delete" role="muted"/> // override per call site
+ *   <AppIcon name="object.user" size={24}/>      // size override (default 20)
+ *
+ * To color an icon, in order from least to most surgical:
+ *   1. Default — `<AppIcon name="..." />`. Picks the registry's defaultRole.
+ *   2. Role override — `<AppIcon name="..." role="muted" />`.
+ *   3. Color override — `<AppIcon name="..." color="#fff" />`. Last
+ *      resort. Prefer adding a new role to ROLE_COLOR over hardcoded hex.
  */
 
 import React from 'react';
-import { View, ViewStyle } from 'react-native';
+import { StyleProp, TextStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Colors } from '../../constants/theme';
 
-export type IconVariant = 'gradient' | 'soft' | 'white' | 'plain';
+import { Colors } from '../../constants/theme';
+import { ICONS, IconKey, IconRole } from '../../constants/icons';
+
+// Resolve a semantic IconRole to the actual hex from the brand palette.
+// Centralised here so the next time the brand colour shifts, every icon
+// across the app inherits the new value via this single map.
+const ROLE_COLOR: Record<IconRole, string> = {
+  action:  Colors.primary,
+  success: Colors.sageMild,
+  warning: Colors.ochreMild,
+  error:   Colors.error,
+  info:    Colors.lavenderMild,
+  love:    Colors.primary,        // active heart inherits primary
+  muted:   Colors.textMuted,
+};
 
 interface AppIconProps {
-  name: string;
+  name: IconKey;
   size?: number;
-  variant?: IconVariant;
-  /** gradient stop colours — only used when variant='gradient' */
-  colors?: [string, string];
-  /** icon tint — used by variant='soft' and 'plain' */
+  role?: IconRole;
+  /** Hard-override the resolved colour. Prefer `role` over hardcoded hex. */
   color?: string;
-  /** border-radius as a fraction of box size (0–1). default: 0.3 */
-  radiusFactor?: number;
-  style?: ViewStyle;
+  accessibilityLabel?: string;
+  style?: StyleProp<TextStyle>;
 }
-
-const DEFAULT_GRADIENT: [string, string] = [Colors.primary, Colors.primary];
-const DEFAULT_COLOR = Colors.primary;
 
 export function AppIcon({
   name,
   size = 20,
-  variant = 'plain',
-  colors = DEFAULT_GRADIENT,
-  color = DEFAULT_COLOR,
-  radiusFactor = 0.3,
+  role,
+  color,
+  accessibilityLabel,
   style,
-}: AppIconProps) {
-  if (variant === 'plain') {
-    return <Ionicons name={name as any} size={size} color={color} />;
-  }
-
-  const padding = Math.round(size * 0.42);
-  const boxSize = size + padding * 2;
-  const radius = Math.round(boxSize * radiusFactor);
-
-  const boxBase: ViewStyle = {
-    width: boxSize,
-    height: boxSize,
-    borderRadius: radius,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...(style as object),
-  };
-
-  if (variant === 'gradient') {
-    return (
-      <LinearGradient
-        colors={colors}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={boxBase}
-      >
-        <Ionicons name={name as any} size={size} color="#fff" />
-      </LinearGradient>
-    );
-  }
-
-  if (variant === 'white') {
-    return (
-      <View style={[boxBase, { backgroundColor: 'rgba(255,255,255,0.15)' }]}>
-        <Ionicons name={name as any} size={size} color="#fff" />
-      </View>
-    );
-  }
-
-  // soft — light rose tint box
+}: AppIconProps): React.JSX.Element {
+  const entry = ICONS[name];
+  const finalColor = color ?? ROLE_COLOR[role ?? entry.defaultRole];
   return (
-    <View style={[boxBase, { backgroundColor: 'rgba(28, 16, 51, 0.054)' }]}>
-      <Ionicons name={name as any} size={size} color={color} />
-    </View>
+    <Ionicons
+      name={entry.glyph}
+      size={size}
+      color={finalColor}
+      accessibilityLabel={accessibilityLabel}
+      style={style}
+    />
   );
 }
 
-/** Convenience: sub-tab icon, 16px plain rose/plum */
+/**
+ * Sub-tab icon used by the Library subtab pill bar (active/inactive
+ * white-on-tint pattern). Kept on raw Ionicons names because the library
+ * sub-tab data passes glyph names directly. Refactor to AppIcon if those
+ * call sites ever migrate to semantic keys.
+ */
 export function TabIcon({ name, active }: { name: string; active: boolean }) {
   return (
     <Ionicons
-      name={name as any}
+      name={name as keyof typeof Ionicons.glyphMap}
       size={15}
-      color={active ? '#fff' : '#A78BCA'}
+      color={active ? '#ffffff' : '#A78BCA'}
     />
   );
 }
