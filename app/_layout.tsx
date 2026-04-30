@@ -4,7 +4,7 @@ import 'react-native-reanimated';
 // so it has to be imported here (the root) and not inside a useEffect.
 import { attachForegroundMessaging } from '../lib/setupNativeMessaging';
 import { useEffect, useState } from 'react';
-import { Platform } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { Stack, usePathname } from 'expo-router';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
@@ -16,6 +16,7 @@ import { useAppSettingsStore } from '../store/useAppSettingsStore';
 import { useFeedbackStore } from '../store/useFeedbackStore';
 import FeedbackSurveyModal from '../components/feedback/FeedbackSurveyModal';
 import RootErrorBoundary from '../components/ui/RootErrorBoundary';
+import { SplashAnimation } from '../components/ui/SplashAnimation';
 import { hasSubmittedTesterFeedback } from '../services/firebase';
 // Importing useThemeStore at the root runs its rehydration (via zustand
 // persist's onRehydrateStorage) which calls setPrimaryAtRuntime() before
@@ -45,6 +46,7 @@ export default function RootLayout() {
   const { markInstalledIfNeeded, manualOpen, closeSurvey } = useFeedbackStore();
   const pathname = usePathname();
   const [autoSurveyVisible, setAutoSurveyVisible] = useState(false);
+  const [splashDone, setSplashDone] = useState(false);
   const surveyVisible = autoSurveyVisible || manualOpen;
 
   // All fonts loaded from local assets — guarantees they're bundled and served
@@ -147,6 +149,11 @@ export default function RootLayout() {
             visible={surveyVisible}
             onClose={() => { setAutoSurveyVisible(false); closeSurvey(); }}
           />
+          {!splashDone && (fontsLoaded || fontError) && (
+            <View style={StyleSheet.absoluteFill} pointerEvents="none">
+              <SplashAnimation onComplete={() => setSplashDone(true)} />
+            </View>
+          )}
         </SafeAreaProvider>
       </GestureHandlerRootView>
     </RootErrorBoundary>
