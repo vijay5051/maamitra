@@ -57,6 +57,7 @@ import AnimatedPressable from '../../components/ui/AnimatedPressable';
 import AnimatedNumber from '../../components/ui/AnimatedNumber';
 import { Illustration } from '../../components/ui/Illustration';
 import type { IllustrationName } from '../../lib/illustrations';
+import { affirmationForDate } from '../../data/affirmations';
 
 // Quick-action card id → brand illustration. Cards without a mapping fall back
 // to the existing Lucide/Ionicons glyph. Keep this small — over-illustrated
@@ -182,6 +183,10 @@ export default function HomeTab() {
   }, []);
   const parentSalutation =
     parentGender === 'father' ? 'dad' : parentGender === 'other' ? 'parent' : 'mama';
+
+  // Daily affirmation — rotates once per local day via day-of-year index.
+  // Stable for the entire session so it doesn't flicker on re-render.
+  const affirmationToday = useMemo(() => affirmationForDate(), []);
 
   // Latest real community post for the "From the community" card.
   // Falls back to null if no posts exist — the card is hidden in that case.
@@ -759,6 +764,14 @@ export default function HomeTab() {
             </View>
           </View>
         </TouchableOpacity>
+
+        {/* ═══ DAILY AFFIRMATION ═══ A gentle Lora-italic line that rotates
+            once a day. Sits between the AI bar and the action grid so the
+            user gets a moment of warmth before scanning what's "due". */}
+        <View style={styles.affirmationCard}>
+          <Text style={styles.affirmationQuoteMark}>“</Text>
+          <Text style={styles.affirmationText}>{affirmationToday}</Text>
+        </View>
 
         {/* ═══ QUICK ACTIONS ═══ Urgent/actionable cards. */}
         <Text style={styles.groupLabel}>Quick actions</Text>
@@ -2341,6 +2354,34 @@ const styles = StyleSheet.create({
   homeHeroImg: {
     width: '100%',
     height: '100%',
+  },
+
+  // Daily affirmation card — soft cream surface, Lora italic line, gentle
+  // brand-purple opening quote mark. Sits between the AI bar and the action
+  // grid; aim is "moment of warmth before triage", not another action prompt.
+  affirmationCard: {
+    marginHorizontal: Spacing.xl,
+    marginTop: Spacing.xl,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.xl,
+    backgroundColor: Colors.creamWarm,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: Colors.borderSoft,
+  },
+  affirmationQuoteMark: {
+    fontFamily: Fonts.serif,
+    fontSize: 36,
+    lineHeight: 28,
+    color: Colors.lavenderMild,
+    marginBottom: 4,
+  },
+  affirmationText: {
+    fontFamily: Fonts.serifMedium,
+    fontSize: 16,
+    lineHeight: 24,
+    color: Colors.textDark,
+    fontStyle: 'italic',
   },
 
   heroWrap: {
