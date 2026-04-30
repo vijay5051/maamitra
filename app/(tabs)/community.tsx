@@ -45,6 +45,7 @@ import { countProfilesInState } from '../../services/social';
 import ContextualAskChip from '../../components/ui/ContextualAskChip';
 import { EmailVerifyBanner } from '../../components/ui/EmailVerifyBanner';
 import { Illustration } from '../../components/ui/Illustration';
+import { AppIcon } from '../../components/ui/AppIcon';
 import { SkeletonPostCard } from '../../components/ui/Skeleton';
 import type { IllustrationName } from '../../lib/illustrations';
 import { Fonts } from '../../constants/theme';
@@ -160,10 +161,9 @@ function AnimatedHeartButton({
       activeOpacity={0.75}
     >
       <Animated.View style={[heartStyles.inner, animatedStyle]}>
-        <Ionicons
-          name={hasReacted ? 'heart' : 'heart-outline'}
+        <AppIcon
+          name={hasReacted ? 'community.heart-filled' : 'community.heart'}
           size={13}
-          color={hasReacted ? Colors.primary : Colors.primary}
         />
         <Text style={heartStyles.text}>React</Text>
       </Animated.View>
@@ -297,7 +297,7 @@ function NewPostModal({
           <View style={newPostStyles.header}>
             <Text style={newPostStyles.title}>New Post ✍️</Text>
             <TouchableOpacity onPress={onClose}>
-              <Ionicons name="close-circle-outline" size={26} color="#9ca3af" />
+              <AppIcon name="nav.close-circle-outline" size={26} />
             </TouchableOpacity>
           </View>
 
@@ -353,7 +353,7 @@ function NewPostModal({
                   </View>
                 )}
                 <TouchableOpacity style={newPostStyles.removeImageBtn} onPress={handleRemoveImage}>
-                  <Ionicons name="close-circle" size={22} color="#ffffff" />
+                  <AppIcon name="nav.close-circle" size={22} color="#ffffff" />
                 </TouchableOpacity>
               </View>
               {/* Ratio selector */}
@@ -375,7 +375,7 @@ function NewPostModal({
             </View>
           ) : (
             <TouchableOpacity style={newPostStyles.photoBtn} onPress={handlePickImage} activeOpacity={0.75}>
-              <Ionicons name="camera-outline" size={18} color={Colors.primary} />
+              <AppIcon name="object.camera" size={18} />
               <Text style={newPostStyles.photoBtnText}>Add Photo</Text>
             </TouchableOpacity>
           )}
@@ -625,7 +625,7 @@ function MyProfileCard({
           glass" white-on-white style made it disappear once the card went
           light. */}
       <TouchableOpacity style={heroStyles.editBtn} onPress={onEdit} activeOpacity={0.75}>
-        <Ionicons name="create-outline" size={14} color={Colors.primary} />
+        <AppIcon name="object.create" size={14} />
         <Text style={heroStyles.editBtnText}>Edit</Text>
       </TouchableOpacity>
 
@@ -719,7 +719,7 @@ function MyProfileCard({
       {/* Complete profile link */}
       {!isProfileComplete && (
         <TouchableOpacity style={heroStyles.completeLink} onPress={onEdit} activeOpacity={0.75}>
-          <Ionicons name="sparkles-outline" size={13} color={Colors.primary} />
+          <AppIcon name="object.sparkles-outline" size={13} />
           <Text style={heroStyles.completeLinkText}>Complete your profile</Text>
         </TouchableOpacity>
       )}
@@ -1043,7 +1043,7 @@ export default function CommunityScreen() {
               activeOpacity={0.75}
               accessibilityLabel="Search people"
             >
-              <Ionicons name="search-outline" size={20} color="#374151" />
+              <AppIcon name="nav.search-outline" size={20} color="#374151" />
             </TouchableOpacity>
 
             {/* Messages */}
@@ -1052,7 +1052,7 @@ export default function CommunityScreen() {
               onPress={() => setShowMessages(true)}
               activeOpacity={0.75}
             >
-              <Ionicons name="chatbubbles-outline" size={20} color="#374151" />
+              <AppIcon name="nav.messages" size={20} color="#374151" />
               {unreadDMs > 0 && (
                 <View style={styles.notifBadge}>
                   <Text style={styles.notifBadgeText}>{unreadDMs > 9 ? '9+' : unreadDMs}</Text>
@@ -1066,7 +1066,7 @@ export default function CommunityScreen() {
               onPress={() => setShowNotifications(true)}
               activeOpacity={0.75}
             >
-              <Ionicons name="notifications-outline" size={22} color="#374151" />
+              <AppIcon name="nav.notifications" size={22} color="#374151" />
               {unreadCount > 0 && (
                 <View style={styles.notifBadge}>
                   <Text style={styles.notifBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
@@ -1163,7 +1163,7 @@ export default function CommunityScreen() {
                 onPress={() => setShowUserSearch(true)}
               >
                 <View style={styles.nearbyIconWrap}>
-                  <Ionicons name="people-outline" size={22} color={Colors.primary} />
+                  <AppIcon name="object.family" size={22} color={Colors.primary} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.nearbyTitle}>
@@ -1171,7 +1171,7 @@ export default function CommunityScreen() {
                   </Text>
                   <Text style={styles.nearbySub}>Tap to search and connect</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={18} color="#b5a9d5" />
+                <AppIcon name="nav.forward" size={18} color="#b5a9d5" />
               </TouchableOpacity>
             )}
 

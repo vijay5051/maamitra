@@ -34,6 +34,7 @@ import { filterByAudience, parentGenderToAudience } from '../../data/audience';
 import YogaModalComponent from '../../components/wellness/YogaModal';
 import ContextualAskChip from '../../components/ui/ContextualAskChip';
 import { Illustration } from '../../components/ui/Illustration';
+import { AppIcon } from '../../components/ui/AppIcon';
 import { Confetti } from '../../components/ui/Confetti';
 import type { IllustrationName } from '../../lib/illustrations';
 import { successBump } from '../../lib/haptics';
@@ -283,7 +284,7 @@ function MoodChart() {
             style={chartStyles.navBtn}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name="chevron-back" size={16} color={Colors.primary} />
+            <AppIcon name="nav.back" size={16} color={Colors.primary} />
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => shiftWeek(7)}
@@ -291,7 +292,7 @@ function MoodChart() {
             style={[chartStyles.navBtn, isThisWeek && { opacity: 0.3 }]}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name="chevron-forward" size={16} color={Colors.primary} />
+            <AppIcon name="nav.forward" size={16} color={Colors.primary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -348,12 +349,12 @@ function MoodChart() {
         activeOpacity={0.75}
         style={chartStyles.calToggle}
       >
-        <Ionicons name="calendar-outline" size={14} color={Colors.primary} />
+        <AppIcon name="object.calendar" size={14} color={Colors.primary} />
         <Text style={chartStyles.calToggleText}>
           {showCalendar ? 'Hide full history' : 'View full history'}
         </Text>
-        <Ionicons
-          name={showCalendar ? 'chevron-up' : 'chevron-down'}
+        <AppIcon
+          name={showCalendar ? 'action.collapse' : 'action.expand'}
           size={14}
           color={Colors.primary}
         />
@@ -364,7 +365,7 @@ function MoodChart() {
           {/* Month header */}
           <View style={chartStyles.calHeaderRow}>
             <TouchableOpacity onPress={() => shiftCalMonth(-1)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+              <AppIcon name="nav.back" size={18} color={Colors.primary} />
             </TouchableOpacity>
             <Text style={chartStyles.calMonthLabel}>{calMonthLabel}</Text>
             <TouchableOpacity
@@ -372,7 +373,7 @@ function MoodChart() {
               disabled={isFutureMonth}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Ionicons name="chevron-forward" size={18} color={isFutureMonth ? '#D1D5DB' : Colors.primary} />
+              <AppIcon name="nav.forward" size={18} color={isFutureMonth ? '#D1D5DB' : Colors.primary} />
             </TouchableOpacity>
           </View>
 
@@ -656,7 +657,7 @@ function YogaGallery({
               {/* Top pills row */}
               <View style={yogaGalleryStyles.pillsRow}>
                 <View style={yogaGalleryStyles.pill}>
-                  <Ionicons name="time-outline" size={11} color="#374151" />
+                  <AppIcon name="object.history" size={11} color="#374151" />
                   <Text style={yogaGalleryStyles.pillText}>{session.duration} min</Text>
                 </View>
                 <View style={yogaGalleryStyles.pill}>
@@ -670,7 +671,7 @@ function YogaGallery({
                   {session.name}
                 </Text>
                 <View style={yogaGalleryStyles.playBtn}>
-                  <Ionicons name="play" size={20} color="#ffffff" />
+                  <AppIcon name="object.play" size={20} color="#ffffff" />
                 </View>
               </View>
             </TouchableOpacity>
@@ -1253,14 +1254,14 @@ export default function WellnessScreen() {
           activeOpacity={0.8}
         >
           <View style={styles.condBannerLeft}>
-            <Ionicons name="options-outline" size={14} color={Colors.primary} />
+            <AppIcon name="object.options" size={14} color={Colors.primary} />
             <Text style={styles.condBannerText}>
               {healthConditions === null
                 ? 'Personalise sessions for your health conditions'
                 : 'Update health conditions'}
             </Text>
           </View>
-          <Ionicons name="chevron-forward" size={14} color="#A78BCA" />
+          <AppIcon name="nav.forward" size={14} color="#A78BCA" />
         </TouchableOpacity>
 
         <YogaGallery

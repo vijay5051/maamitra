@@ -27,6 +27,7 @@ import NotificationsSheet from '../../components/community/NotificationsSheet';
 import ConversationsSheet from '../../components/community/ConversationsSheet';
 import ContextualAskChip from '../../components/ui/ContextualAskChip';
 import { Illustration } from '../../components/ui/Illustration';
+import { AppIcon } from '../../components/ui/AppIcon';
 import { useSocialStore } from '../../store/useSocialStore';
 import { useDMStore } from '../../store/useDMStore';
 import { Fonts } from '../../constants/theme';
@@ -71,15 +72,15 @@ function ChildCard({
     >
       <View style={[childCardStyles.inner, isActive && childCardStyles.innerActive]}>
         <View style={[childCardStyles.iconBox, isActive && { backgroundColor: '#F5F0FF' }]}>
-          <Ionicons
+          <AppIcon
             name={
               isActuallyExpecting
-                ? 'heart-outline'
+                ? 'object.heart'
                 : kid.gender === 'boy'
-                ? 'male-outline'
+                ? 'object.gender-boy'
                 : kid.gender === 'girl'
-                ? 'female-outline'
-                : 'help-circle-outline'
+                ? 'object.gender-girl'
+                : 'object.gender-other'
             }
             size={20}
             color={isActive ? accent : '#6b7280'}
@@ -160,11 +161,11 @@ function MilestoneRow({
       <View style={milestoneStyles.info}>
         <View style={milestoneStyles.titleRow}>
           <View style={milestoneStyles.iconBox}>
-            <Ionicons name="star" size={12} color={Colors.primary} />
+            <AppIcon name="object.star" size={12} color={Colors.primary} />
           </View>
           <Text style={milestoneStyles.title}>{milestone.title}</Text>
           {reached && (
-            <Ionicons name="checkmark-circle" size={16} color="#22c55e" style={{ marginLeft: 4 }} />
+            <AppIcon name="status.success" size={16} color="#22c55e" style={{ marginLeft: 4 }} />
           )}
         </View>
         <Text style={milestoneStyles.ageLabel}>{milestone.ageLabel}</Text>
@@ -251,7 +252,7 @@ function AddChildModal({
           <View style={addChildStyles.headerRow}>
             <Text style={addChildStyles.title}>Add a Child 👶</Text>
             <TouchableOpacity onPress={() => { reset(); onClose(); }}>
-              <Ionicons name="close-circle-outline" size={26} color="#9CA3AF" />
+              <AppIcon name="nav.close-circle-outline" size={26} />
             </TouchableOpacity>
           </View>
 
@@ -493,7 +494,7 @@ export default function FamilyScreen() {
               activeOpacity={0.8}
               accessibilityLabel="Add child"
             >
-              <Ionicons name="add" size={20} color="#ffffff" />
+              <AppIcon name="action.add" size={20} color="#ffffff" />
             </TouchableOpacity>
 
             {/* Global: notifications → messages → settings, same order as Home & Community */}
@@ -503,7 +504,7 @@ export default function FamilyScreen() {
               activeOpacity={0.75}
               accessibilityLabel="Notifications"
             >
-              <Ionicons name="notifications-outline" size={18} color="#6b7280" />
+              <AppIcon name="nav.notifications" size={18} color="#6b7280" />
               {socialUnread > 0 && (
                 <View style={styles.headerBadge}>
                   <Text style={styles.headerBadgeText}>{socialUnread > 9 ? '9+' : socialUnread}</Text>
@@ -516,7 +517,7 @@ export default function FamilyScreen() {
               activeOpacity={0.75}
               accessibilityLabel="Messages"
             >
-              <Ionicons name="chatbubbles-outline" size={18} color="#6b7280" />
+              <AppIcon name="nav.messages" size={18} color="#6b7280" />
               {unreadDMs > 0 && (
                 <View style={styles.headerBadge}>
                   <Text style={styles.headerBadgeText}>{unreadDMs > 9 ? '9+' : unreadDMs}</Text>
@@ -529,7 +530,7 @@ export default function FamilyScreen() {
               activeOpacity={0.7}
               accessibilityLabel="Settings"
             >
-              <Ionicons name="settings-outline" size={18} color="#6b7280" />
+              <AppIcon name="nav.settings" size={18} color="#6b7280" />
             </TouchableOpacity>
           </View>
         </View>
@@ -604,7 +605,7 @@ export default function FamilyScreen() {
               activeOpacity={0.75}
             >
               <View style={styles.addKidInner}>
-                <Ionicons name="add" size={26} color={Colors.primary} />
+                <AppIcon name="action.add" size={26} />
                 <Text style={styles.addKidText}>Add</Text>
               </View>
             </TouchableOpacity>
@@ -720,7 +721,7 @@ export default function FamilyScreen() {
                         elevation: isCurrent ? 3 : 0,
                       }}>
                         {isPast
-                          ? <Ionicons name="checkmark" size={11} color="#fff" />
+                          ? <AppIcon name="status.check" size={11} color="#ffffff" />
                           : <Text style={{ fontSize: isCurrent ? 14 : 10 }}>{m.emoji}</Text>}
                       </View>
                       {idx < PREGNANCY_MILESTONES.length - 1 && (
