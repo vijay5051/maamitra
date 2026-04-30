@@ -1,8 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -92,16 +93,39 @@ function NativeDatePickerField({
   const initial = useMemo(() => parseIso(value) ?? today, [value, today]);
   const [viewYear, setViewYear] = useState(initial.getFullYear());
   const [viewMonth, setViewMonth] = useState(initial.getMonth()); // 0-11
+  const [mode, setMode] = useState<'days' | 'years'>('days');
+  const yearScrollRef = useRef<ScrollView | null>(null);
 
   const minDt = useMemo(() => parseIso(minDate), [minDate]);
   const maxDt = useMemo(() => parseIso(maxDate), [maxDate]);
+
+  const yearRange = useMemo(() => {
+    const maxYear = maxDt ? maxDt.getFullYear() : today.getFullYear();
+    const minYear = minDt ? minDt.getFullYear() : maxYear - 100;
+    const arr: number[] = [];
+    for (let y = maxYear; y >= minYear; y--) arr.push(y);
+    return arr;
+  }, [minDt, maxDt, today]);
 
   const openPicker = () => {
     const seed = parseIso(value) ?? today;
     setViewYear(seed.getFullYear());
     setViewMonth(seed.getMonth());
+    setMode('days');
     setOpen(true);
   };
+
+  // When switching to years view, scroll the selected year into the middle.
+  useEffect(() => {
+    if (mode !== 'years' || !yearScrollRef.current) return;
+    const idx = yearRange.indexOf(viewYear);
+    if (idx < 0) return;
+    const ROW_HEIGHT = 44;
+    const offset = Math.max(0, idx * ROW_HEIGHT - 120);
+    requestAnimationFrame(() => {
+      yearScrollRef.current?.scrollTo({ y: offset, animated: false });
+    });
+  }, [mode, viewYear, yearRange]);
 
   const pick = (day: number) => {
     const iso = formatIso(viewYear, viewMonth, day);
@@ -158,15 +182,65 @@ function NativeDatePickerField({
         <Pressable style={styles.backdrop} onPress={() => setOpen(false)}>
           <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
             <View style={styles.sheetHeader}>
-              <TouchableOpacity onPress={goPrev} hitSlop={8} style={styles.navBtn}>
+              <TouchableOpacity
+                onPress={mode === 'days' ? goPrev : undefined}
+                hitSlop={8}
+                style={[styles.navBtn, mode === 'years' && styles.navBtnHidden]}
+                disabled={mode === 'years'}
+              >
                 <Ionicons name="chevron-back" size={20} color="#1a1a2e" />
               </TouchableOpacity>
-              <Text style={styles.sheetTitle}>{monthLabel}</Text>
-              <TouchableOpacity onPress={goNext} hitSlop={8} style={styles.navBtn}>
+              <TouchableOpacity
+                onPress={() => setMode((m) => (m === 'days' ? 'years' : 'days'))}
+                hitSlop={6}
+                style={styles.titleBtn}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.sheetTitle}>{monthLabel}</Text>
+                <Ionicons
+                  name={mode === 'years' ? 'chevron-up' : 'chevron-down'}
+                  size={16}
+                  color={Colors.primary}
+                  style={{ marginLeft: 4 }}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={mode === 'days' ? goNext : undefined}
+                hitSlop={8}
+                style={[styles.navBtn, mode === 'years' && styles.navBtnHidden]}
+                disabled={mode === 'years'}
+              >
                 <Ionicons name="chevron-forward" size={20} color="#1a1a2e" />
               </TouchableOpacity>
             </View>
 
+            {mode === 'years' ? (
+              <ScrollView
+                ref={yearScrollRef}
+                style={styles.yearList}
+                showsVerticalScrollIndicator
+              >
+                {yearRange.map((y) => {
+                  const isSelected = y === viewYear;
+                  return (
+                    <TouchableOpacity
+                      key={y}
+                      style={[styles.yearRow, isSelected && styles.yearRowSelected]}
+                      onPress={() => {
+                        setViewYear(y);
+                        setMode('days');
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.yearText, isSelected && styles.yearTextSelected]}>
+                        {y}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            ) : (
+              <>
             <View style={styles.weekRow}>
               {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
                 <Text key={i} style={styles.weekDay}>
@@ -215,6 +289,8 @@ function NativeDatePickerField({
                 );
               })}
             </View>
+              </>
+            )}
 
             <View style={styles.sheetFooter}>
               <TouchableOpacity onPress={() => setOpen(false)} style={styles.footerBtn}>
@@ -338,12 +414,45 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1a1a2e',
   },
+  titleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
   navBtn: {
     width: 36,
     height: 36,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 18,
+  },
+  navBtnHidden: {
+    opacity: 0,
+  },
+  yearList: {
+    maxHeight: 280,
+    marginVertical: 4,
+  },
+  yearRow: {
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    borderRadius: 10,
+    marginVertical: 2,
+  },
+  yearRowSelected: {
+    backgroundColor: Colors.primary,
+  },
+  yearText: {
+    fontSize: 16,
+    color: '#1a1a2e',
+    fontWeight: '500',
+  },
+  yearTextSelected: {
+    color: '#ffffff',
+    fontWeight: '700',
   },
   weekRow: {
     flexDirection: 'row',
