@@ -137,27 +137,32 @@ function MoodSelector({
 const moodStyles = StyleSheet.create({
   row: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
     paddingVertical: 8,
+    paddingHorizontal: 4,
   },
   moodBtn: {
+    flex: 1,
+    minWidth: 0,
     alignItems: 'center',
     gap: 6,
+    paddingHorizontal: 2,
   },
   emojiContainer: {
-    width: 56,
-    height: 56,
+    width: 48,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
   moodImg: {
-    width: 56,
-    height: 56,
+    width: 48,
+    height: 48,
   },
   moodLabel: {
     fontFamily: Fonts.sansMedium,
     fontSize: 11,
     color: '#9CA3AF',
+    textAlign: 'center',
   },
   moodLabelSelected: {
     color: Colors.primary,
@@ -1213,27 +1218,8 @@ export default function WellnessScreen() {
           }
         />
 
-        {/* Mood check-in */}
-        <Card
-          style={{ ...styles.moodCard, backgroundColor: moodCardTint || '#ffffff' }}
-          shadow="md"
-        >
-          <Text style={styles.moodTitle}>{moodPromptCopy}</Text>
-          <MoodSelector selectedScore={selectedMoodScore} onSelect={handleMoodSelect} />
-
-          {moodResponse && (
-            <>
-              <MoodDividerLine />
-              <View style={styles.moodResponse}>
-                <Text style={styles.moodResponseText}>{moodResponse}</Text>
-              </View>
-            </>
-          )}
-
-          <MoodChart />
-        </Card>
-
-        {/* Yoga section */}
+        {/* Yoga section — moved above mood so sessions are visible without
+            scrolling past the mood + chart on small screens. */}
         <Text style={styles.sectionTitle}>Yoga &amp; Movement</Text>
 
         <TouchableOpacity
@@ -1259,6 +1245,26 @@ export default function WellnessScreen() {
             setShowYogaModal(true);
           }}
         />
+
+        {/* Mood check-in */}
+        <Card
+          style={{ ...styles.moodCard, backgroundColor: moodCardTint || '#ffffff', marginTop: 20 }}
+          shadow="md"
+        >
+          <Text style={styles.moodTitle}>{moodPromptCopy}</Text>
+          <MoodSelector selectedScore={selectedMoodScore} onSelect={handleMoodSelect} />
+
+          {moodResponse && (
+            <>
+              <MoodDividerLine />
+              <View style={styles.moodResponse}>
+                <Text style={styles.moodResponseText}>{moodResponse}</Text>
+              </View>
+            </>
+          )}
+
+          <MoodChart />
+        </Card>
 
         {/* Mental Wellness tips — role + stage + kid-age tailored */}
         <Text style={[styles.sectionTitle, { marginTop: 20 }]}>{mentalSectionTitle}</Text>

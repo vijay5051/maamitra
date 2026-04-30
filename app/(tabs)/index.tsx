@@ -802,7 +802,13 @@ export default function HomeTab() {
                 onPress={hero.onPress}
                 style={[styles.todayHeroCard, { backgroundColor: hero.bg }]}
               >
-                {QUICK_ILLUS[hero.id] ? (
+                {hero.illustration ? (
+                  <Illustration
+                    name={hero.illustration}
+                    style={styles.todayHeroIllus}
+                    contentFit="contain"
+                  />
+                ) : QUICK_ILLUS[hero.id] ? (
                   <Illustration
                     name={QUICK_ILLUS[hero.id]!}
                     style={styles.todayHeroIllus}
@@ -846,7 +852,13 @@ export default function HomeTab() {
                 onPress={c.onPress}
                 style={[styles.todayCard, { backgroundColor: c.bg }]}
               >
-                {QUICK_ILLUS[c.id] ? (
+                {c.illustration ? (
+                  <Illustration
+                    name={c.illustration}
+                    style={styles.todayCardIllus}
+                    contentFit="contain"
+                  />
+                ) : QUICK_ILLUS[c.id] ? (
                   <Illustration
                     name={QUICK_ILLUS[c.id]!}
                     style={styles.todayCardIllus}
@@ -1659,6 +1671,7 @@ type TodayCard = {
   value: string;
   label: string;
   emoji?: string;
+  illustration?: IllustrationName;
   onPress?: () => void;
 };
 
@@ -1720,12 +1733,19 @@ function buildTodayCards({
       onPress: goWellness,
     });
   } else {
+    const moodIllustrationByScore: Record<number, IllustrationName> = {
+      5: 'mood1',
+      4: 'mood2',
+      3: 'mood3',
+      2: 'mood4',
+      1: 'mood5',
+    };
     cards.push({
       id: 'mood',
       icon: 'happy-outline',
       tint: Colors.primary,
       bg: '#F5F0FF',
-      emoji: todayMood.emoji,
+      illustration: moodIllustrationByScore[todayMood.score],
       value: todayMood.label,
       label: "Today's mood",
       onPress: goWellness,

@@ -2,7 +2,9 @@ import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import TagPill from '../ui/TagPill';
-import { YogaSession } from '../../data/yogaSessions';
+import { Illustration } from '../ui/Illustration';
+import type { IllustrationName } from '../../lib/illustrations';
+import { YogaSession, YogaPose } from '../../data/yogaSessions';
 import { Fonts } from '../../constants/theme';
 import { Colors } from '../../constants/theme';
 
@@ -11,8 +13,27 @@ interface YogaCardProps {
   onPress: () => void;
 }
 
-// Map the session's emoji to an outline Ionicon. Keeps the visual cue
-// without the cartoonish colour of an emoji.
+function poseToIllustration(name: string): IllustrationName | null {
+  const n = (name || '').toLowerCase();
+  if (n.includes('cat') && n.includes('cow')) return 'yogaCatCow';
+  if (n.includes('child')) return 'yogaChildsPose';
+  if (n.includes('seated forward') || n.includes('seated fold')) return 'yogaSeatedForward';
+  if (n.includes('bridge')) return 'yogaBridge';
+  if (n.includes('pelvic')) return 'yogaPelvicTilt';
+  if (n.includes('supine') && n.includes('twist')) return 'yogaSupineTwist';
+  if (n.includes('legs') && n.includes('wall')) return 'yogaLegsUpWall';
+  if (n.includes('savasana') || n.includes('corpse')) return 'yogaSavasana';
+  return null;
+}
+
+function illustrationForSession(session: YogaSession): IllustrationName | null {
+  for (const pose of session.poses as YogaPose[]) {
+    const match = poseToIllustration(pose.name);
+    if (match) return match;
+  }
+  return null;
+}
+
 function iconForSession(session: YogaSession): keyof typeof Ionicons.glyphMap {
   const name = (session.name || '').toLowerCase();
   if (name.includes('morning') || name.includes('stretch')) return 'sunny-outline';
@@ -31,13 +52,20 @@ export default function YogaCard({ session, onPress }: YogaCardProps) {
     0,
   );
   const minutes = Math.ceil(totalDuration / 60);
+  const illustration = illustrationForSession(session);
 
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={styles.card}>
       <View style={styles.topRow}>
-        <View style={styles.iconBox}>
-          <Ionicons name={iconForSession(session)} size={22} color={Colors.primary} />
-        </View>
+        {illustration ? (
+          <View style={styles.illusBox}>
+            <Illustration name={illustration} style={styles.illusImg} contentFit="contain" />
+          </View>
+        ) : (
+          <View style={styles.iconBox}>
+            <Ionicons name={iconForSession(session)} size={22} color={Colors.primary} />
+          </View>
+        )}
         <View style={{ flex: 1 }}>
           <Text style={styles.name}>{session.name}</Text>
           <Text style={styles.level}>{session.level}</Text>
@@ -83,6 +111,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F0FF',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  illusBox: {
+    width: 64,
+    height: 64,
+    borderRadius: 14,
+    backgroundColor: '#FFFCF7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  illusImg: {
+    width: 60,
+    height: 60,
   },
   name: {
     fontFamily: Fonts.sansBold,
