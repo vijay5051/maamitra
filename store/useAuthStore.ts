@@ -10,6 +10,7 @@ import {
 import {
   isFirebaseConfigured,
   auth,
+  ensureWebAuthPersistence,
   saveUserProfile,
   loadFullProfile,
   loadFullProfileStrict,
@@ -429,88 +430,79 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return;
     }
 
-    // If the user just came back from a Google redirect sign-in (mobile web
-    // flow), resolve it here. This writes the profile doc for first-time
-    // Google users so the subsequent onAuthStateChanged + hydrate can find
-    // their name. Fire-and-forget — onAuthStateChanged picks up the user
-    // state regardless of this resolving first.
-    getGoogleRedirectResult().catch(() => {});
+    let unsubscribe: (() => void) | undefined;
 
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        // CRITICAL: do NOT wipe + rehydrate the profile if we already have
-        // this user in the store. That's a classic race — signIn() is in
-        // flight, it already hydrated the profile and set the user; then
-        // Firebase fires this listener with the same uid. If we resetProfile
-        // here, any code that reads the store AFTER signIn resolves (like
-        // sign-in.tsx's routeAfterSignIn) sees `onboardingComplete: false`
-        // for a brief window and routes the user to the onboarding flow
-        // even though they're already onboarded.
-        const existing = get().user;
-        if (existing && existing.uid === firebaseUser.uid) {
-          // Same user, already hydrated. Just make sure isLoading is false
-          // (covers the boot path where signIn didn't run but we were
-          // already in state). No re-hydrate needed.
-          if (get().isLoading) set({ isLoading: false });
-          // Make sure social subscriptions are live even on the
-          // same-user fast path (e.g. after a token refresh).
-          try { getSocialStore().getState().subscribeAll(firebaseUser.uid); } catch {}
-          try { useDMStore.getState().subscribeConversations(firebaseUser.uid); } catch {}
-          return;
-        }
+    void (async () => {
+      // Critical on incognito/private browsers: establish a working
+      // persistence layer BEFORE we subscribe to auth state or route based
+      // on it. Otherwise the first boot after refresh can transiently look
+      // signed-out and bounce the user to /welcome.
+      try {
+        await ensureWebAuthPersistence();
+      } catch (err) {
+        console.warn('ensureWebAuthPersistence failed:', err);
+      }
 
-        const providerIds = firebaseUser.providerData.map((p) => p.providerId);
-        const isGoogle = providerIds.includes('google.com');
-        // Only wipe the persisted profile if the cached uid is for a
-        // DIFFERENT user. When the same user signs back in after a session
-        // (common on app reload) we keep the cache so a flaky Firestore
-        // hydrate doesn't reset onboardingComplete and route to onboarding.
-        try { await awaitProfileHydration(); } catch {}
-        const cachedUid = useProfileStore.getState().cachedProfileUid;
-        if (cachedUid && cachedUid !== firebaseUser.uid) {
-          useProfileStore.getState().resetProfile();
-        }
-        try {
-          // Single Firestore read via hydrate (was previously two — hydrate +
-          // getUserProfile for the name). Name is pulled from hydrated state.
-          await hydrateProfileFromFirestore(firebaseUser.uid);
-          const hydratedName = useProfileStore.getState().motherName;
-          const authUser: AuthUser = {
-            uid: firebaseUser.uid,
-            name: hydratedName || firebaseUser.displayName || 'Mom',
-            email: firebaseUser.email ?? '',
-            emailVerified: firebaseUser.emailVerified,
-            isGoogleSignIn: isGoogle,
-          };
-          set({ user: authUser, isAuthenticated: true, isLoading: false });
-          // Open real-time social listeners (notifications, followers,
-          // following, incoming + outgoing requests). Critical for the
-          // 'Requested → Following' UI transition and for live
-          // notification badges.
-          try { getSocialStore().getState().subscribeAll(firebaseUser.uid); } catch {}
-          try { useDMStore.getState().subscribeConversations(firebaseUser.uid); } catch {}
-        } catch {
-          // Even on error, try to hydrate then set authenticated
-          await hydrateProfileFromFirestore(firebaseUser.uid);
-          set({
-            user: {
+      // If the user just came back from a Google redirect sign-in (mobile web
+      // flow), resolve it here. This writes the profile doc for first-time
+      // Google users so the subsequent onAuthStateChanged + hydrate can find
+      // their name. Fire-and-forget — onAuthStateChanged picks up the user
+      // state regardless of this resolving first.
+      getGoogleRedirectResult().catch(() => {});
+
+      unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        if (firebaseUser) {
+          const existing = get().user;
+          if (existing && existing.uid === firebaseUser.uid) {
+            if (get().isLoading) set({ isLoading: false });
+            try { getSocialStore().getState().subscribeAll(firebaseUser.uid); } catch {}
+            try { useDMStore.getState().subscribeConversations(firebaseUser.uid); } catch {}
+            return;
+          }
+
+          const providerIds = firebaseUser.providerData.map((p) => p.providerId);
+          const isGoogle = providerIds.includes('google.com');
+          try { await awaitProfileHydration(); } catch {}
+          const cachedUid = useProfileStore.getState().cachedProfileUid;
+          if (cachedUid && cachedUid !== firebaseUser.uid) {
+            useProfileStore.getState().resetProfile();
+          }
+          try {
+            await hydrateProfileFromFirestore(firebaseUser.uid);
+            const hydratedName = useProfileStore.getState().motherName;
+            const authUser: AuthUser = {
               uid: firebaseUser.uid,
-              name: firebaseUser.displayName ?? 'Mom',
+              name: hydratedName || firebaseUser.displayName || 'Mom',
               email: firebaseUser.email ?? '',
               emailVerified: firebaseUser.emailVerified,
               isGoogleSignIn: isGoogle,
-            },
-            isAuthenticated: true,
-            isLoading: false,
-          });
+            };
+            set({ user: authUser, isAuthenticated: true, isLoading: false });
+            try { getSocialStore().getState().subscribeAll(firebaseUser.uid); } catch {}
+            try { useDMStore.getState().subscribeConversations(firebaseUser.uid); } catch {}
+          } catch {
+            await hydrateProfileFromFirestore(firebaseUser.uid);
+            set({
+              user: {
+                uid: firebaseUser.uid,
+                name: firebaseUser.displayName ?? 'Mom',
+                email: firebaseUser.email ?? '',
+                emailVerified: firebaseUser.emailVerified,
+                isGoogleSignIn: isGoogle,
+              },
+              isAuthenticated: true,
+              isLoading: false,
+            });
+          }
+        } else {
+          useProfileStore.getState().resetProfile();
+          set({ user: null, isAuthenticated: false, isLoading: false });
         }
-      } else {
-        useProfileStore.getState().resetProfile();
-        set({ user: null, isAuthenticated: false, isLoading: false });
-      }
-    });
+      });
+    })();
 
-    // Return unsubscribe — callers can store this if needed
-    return unsubscribe;
+    return () => {
+      try { unsubscribe?.(); } catch {}
+    };
   },
 }));

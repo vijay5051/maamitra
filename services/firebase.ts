@@ -9,12 +9,16 @@ import {
   getAuth,
   initializeAuth,
   Auth,
+  browserLocalPersistence,
+  browserSessionPersistence,
   deleteUser,
   GoogleAuthProvider,
+  inMemoryPersistence,
   signInWithPopup,
   signInWithRedirect,
   signInWithCredential,
   getRedirectResult,
+  setPersistence,
   UserCredential,
   sendEmailVerification,
   sendPasswordResetEmail,
@@ -126,6 +130,45 @@ if (isFirebaseConfigured()) {
 }
 
 export { app, auth, db, storage, appCheck };
+
+let _webAuthPersistenceReady: Promise<void> | null = null;
+
+/**
+ * On privacy-restricted browsers / incognito, Firebase's default web auth
+ * persistence can fail or fall back unpredictably. Establish it explicitly
+ * before route guards start reading auth state:
+ *   1. Prefer local persistence for normal browsers
+ *   2. Fall back to session persistence for incognito/private windows
+ *   3. Fall back to in-memory only as a last resort
+ */
+export async function ensureWebAuthPersistence(): Promise<void> {
+  if (Platform.OS !== 'web' || !auth) return;
+  if (_webAuthPersistenceReady) return _webAuthPersistenceReady;
+
+  _webAuthPersistenceReady = (async () => {
+    try {
+      await setPersistence(auth, browserLocalPersistence);
+      return;
+    } catch (localErr) {
+      console.warn('browserLocalPersistence unavailable, trying session persistence:', localErr);
+    }
+
+    try {
+      await setPersistence(auth, browserSessionPersistence);
+      return;
+    } catch (sessionErr) {
+      console.warn('browserSessionPersistence unavailable, falling back to memory:', sessionErr);
+    }
+
+    try {
+      await setPersistence(auth, inMemoryPersistence);
+    } catch (memoryErr) {
+      console.warn('inMemoryPersistence setup failed:', memoryErr);
+    }
+  })();
+
+  return _webAuthPersistenceReady;
+}
 
 // ─── Default App Settings ─────────────────────────────────────────────────────
 
