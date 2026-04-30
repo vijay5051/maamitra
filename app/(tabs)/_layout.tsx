@@ -1,7 +1,7 @@
 import { Redirect, Tabs } from 'expo-router';
 import { StyleSheet, Text, View, ActivityIndicator, TouchableOpacity, Platform } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Image as ExpoImage } from 'expo-image';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -15,8 +15,26 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useProfileStore } from '../../store/useProfileStore';
 import { isAdminEmail } from '../../lib/admin';
 import { selectionTick } from '../../lib/haptics';
+import { tabIcons, type TabIconName } from '../../lib/illustrations';
 
 const SPRING_CONFIG = { damping: 12, stiffness: 180 };
+
+function TabBarIllustration({
+  name,
+  focused,
+}: {
+  name: TabIconName;
+  focused: boolean;
+}) {
+  return (
+    <ExpoImage
+      source={tabIcons[name]}
+      style={{ width: 28, height: 28, opacity: focused ? 1 : 0.5 }}
+      contentFit="contain"
+      transition={0}
+    />
+  );
+}
 
 // ─── Tab icon with subtle scale animation on focus ──────────────
 function TabIcon({
@@ -24,7 +42,7 @@ function TabIcon({
   focused,
   label,
 }: {
-  name: string;
+  name: TabIconName;
   focused: boolean;
   label: string;
 }) {
@@ -41,11 +59,7 @@ function TabIcon({
   return (
     <View style={styles.tabWrap}>
       <Animated.View style={animatedStyle}>
-        <Ionicons
-          name={name as any}
-          size={22}
-          color={focused ? Colors.primary : '#9ca3af'}
-        />
+        <TabBarIllustration name={name} focused={focused} />
       </Animated.View>
       {/* Only the active tab shows its label — labels on every tab were
           wrapping on smaller Android phones (Galaxy Note 20, M32) and
@@ -153,7 +167,7 @@ export default function TabLayout() {
           title: 'Home',
           tabBarIcon: ({ focused }) => (
             <TabIcon
-              name={focused ? 'home' : 'home-outline'}
+              name="home"
               focused={focused}
               label="Home"
             />
@@ -166,7 +180,7 @@ export default function TabLayout() {
           title: 'Health',
           tabBarIcon: ({ focused }) => (
             <TabIcon
-              name={focused ? 'medkit' : 'medkit-outline'}
+              name="health"
               focused={focused}
               label="Health"
             />
@@ -191,7 +205,7 @@ export default function TabLayout() {
           title: 'Community',
           tabBarIcon: ({ focused }) => (
             <TabIcon
-              name={focused ? 'heart-circle' : 'heart-circle-outline'}
+              name="community"
               focused={focused}
               label="Community"
             />
@@ -204,7 +218,7 @@ export default function TabLayout() {
           title: 'Wellness',
           tabBarIcon: ({ focused }) => (
             <TabIcon
-              name={focused ? 'leaf' : 'leaf-outline'}
+              name="wellness"
               focused={focused}
               label="Wellness"
             />
