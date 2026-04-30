@@ -230,7 +230,7 @@ const headerStyles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#F0EBF8',
-    backgroundColor: '#FAFAFB',
+    backgroundColor: Colors.bgLight,
   },
   backBtn: {
     flexDirection: 'row',
@@ -918,7 +918,7 @@ const scStyles = StyleSheet.create({
   } as any,
   cardRelevant: {
     borderColor: Colors.primaryAlpha25,
-    backgroundColor: '#FAFAFB',
+    backgroundColor: Colors.bgLight,
   },
   eligibleBadge: {
     alignSelf: 'flex-start',
@@ -1602,7 +1602,7 @@ export default function HealthScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FAFAFB' },
+  container: { flex: 1, backgroundColor: Colors.bgLight },
   header: {
     paddingHorizontal: 20,
     paddingBottom: 20,

@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     paddingHorizontal: 22,
-    backgroundColor: '#FAFAFB',
+    backgroundColor: Colors.bgLight,
   },
   iconCircle: {
     width: 56,

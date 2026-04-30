@@ -843,7 +843,7 @@ const condStyles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#FAFAFB',
+    backgroundColor: Colors.bgLight,
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     paddingHorizontal: 24,
@@ -1291,7 +1291,7 @@ export default function WellnessScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FAFAFB' },
+  container: { flex: 1, backgroundColor: Colors.bgLight },
   // Dark header
   header: {
     paddingHorizontal: 20,

@@ -238,7 +238,7 @@ export default function UserSearchSheet({ visible, onClose, onSelectUser }: Prop
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FAFAFB' },
+  container: { flex: 1, backgroundColor: Colors.bgLight },
   header: {
     paddingBottom: 14,
     paddingHorizontal: 20,

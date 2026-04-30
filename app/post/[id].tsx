@@ -225,7 +225,7 @@ export default function PublicPostScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#FAFAFB' },
+  root: { flex: 1, backgroundColor: Colors.bgLight },
   flex: { flex: 1 },
   topBar: {
     flexDirection: 'row',

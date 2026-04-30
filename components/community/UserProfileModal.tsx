@@ -163,7 +163,7 @@ const innerStyles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   followListContainer: {
-    backgroundColor: '#FAFAFB',
+    backgroundColor: Colors.bgLight,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '60%',
@@ -781,7 +781,7 @@ export default function UserProfileModal({ uid, visible, onClose, onEditProfile 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAFAFB',
+    backgroundColor: Colors.bgLight,
   },
   header: {
     paddingTop: Platform.OS === 'ios' ? 16 : 24,

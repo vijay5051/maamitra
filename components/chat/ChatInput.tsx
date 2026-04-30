@@ -580,7 +580,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 12,
     marginBottom: 6,
-    backgroundColor: '#FAFAFB',
+    backgroundColor: Colors.bgLight,
   },
   langRowActive: {
     backgroundColor: '#F5F0FF',

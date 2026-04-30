@@ -294,7 +294,7 @@ export default function UserPostsSheet({ uid, name, visible, onClose, onEditPost
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FAFAFB' },
+  container: { flex: 1, backgroundColor: Colors.bgLight },
   header: {
     paddingTop: Platform.OS === 'ios' ? 16 : 24,
     paddingBottom: 20,

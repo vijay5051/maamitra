@@ -178,7 +178,7 @@ const milestoneStyles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 14, marginBottom: 16 },
   dotCol: { alignItems: 'center', paddingTop: 4 },
   dotReached: { width: 12, height: 12, borderRadius: 6 },
-  dotPending: { width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: '#EDE9F6', backgroundColor: '#FAFAFB' },
+  dotPending: { width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: '#EDE9F6', backgroundColor: Colors.bgLight },
   connector: { width: 2, flex: 1, backgroundColor: '#EDE9F6', marginTop: 4, minHeight: 16 },
   info: { flex: 1, paddingBottom: 8 },
   titleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
@@ -337,7 +337,7 @@ const addChildStyles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#FAFAFB',
+    backgroundColor: Colors.bgLight,
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     paddingHorizontal: 24,
@@ -767,7 +767,7 @@ export default function FamilyScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FAFAFB' },
+  container: { flex: 1, backgroundColor: Colors.bgLight },
 
   // ── Header ──
   header: {

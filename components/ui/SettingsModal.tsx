@@ -1790,7 +1790,7 @@ export default function SettingsModal({
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FAFAFB' },
+  container: { flex: 1, backgroundColor: Colors.bgLight },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

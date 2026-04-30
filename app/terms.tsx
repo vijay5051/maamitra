@@ -129,7 +129,7 @@ const H2 = ({ children }: { children: React.ReactNode }) => <Text style={styles.
 const B  = ({ children }: { children: React.ReactNode }) => <Text style={styles.bold}>{children}</Text>;
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#FAFAFB' },
+  root: { flex: 1, backgroundColor: Colors.bgLight },
   scroll: { flexGrow: 1 },
   container: { paddingHorizontal: 22, alignSelf: 'stretch' },
   containerWide: { maxWidth: 760, alignSelf: 'center', width: '100%', paddingHorizontal: 32 },

@@ -380,7 +380,7 @@ const s = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md,
     padding: 12, fontSize: 14, fontFamily: Fonts.sansRegular, color: Colors.textDark,
     minHeight: 60, maxHeight: 100, textAlignVertical: 'top',
-    backgroundColor: '#FAFAFB',
+    backgroundColor: Colors.bgLight,
   },
 
   errorText: { fontSize: 12, color: Colors.error, marginTop: 10, fontFamily: Fonts.sansMedium },

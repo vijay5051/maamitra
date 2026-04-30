@@ -235,7 +235,7 @@ function NativeWelcome({
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#FAFAFB' },
+  root: { flex: 1, backgroundColor: Colors.bgLight },
   scroll: { flexGrow: 1 },
   container: { paddingHorizontal: 22, alignSelf: 'stretch' },
   containerWide: {
@@ -267,8 +267,8 @@ const styles = StyleSheet.create({
   featuresGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   featureCard: {
     flexBasis: '48%', flexGrow: 1,
-    backgroundColor: '#ffffff', borderRadius: 14,
-    paddingVertical: 14, paddingHorizontal: 14,
+    backgroundColor: Colors.cardBg, borderRadius: 18,
+    paddingVertical: 16, paddingHorizontal: 16,
     borderWidth: 1, borderColor: '#F0EDF5',
   },
   featureCardWide: { flexBasis: '31%', flexGrow: 0 },
@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
   steps: { gap: 12 },
   step: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 12,
-    backgroundColor: '#ffffff', borderRadius: 14, padding: 14,
+    backgroundColor: Colors.cardBg, borderRadius: 18, padding: 14,
     borderWidth: 1, borderColor: '#F0EDF5',
   },
   stepBadge: {

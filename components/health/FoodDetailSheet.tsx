@@ -353,7 +353,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1.5,
     borderColor: '#E5DCEF',
-    backgroundColor: '#FAFAFB',
+    backgroundColor: Colors.bgLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
   },
   noteInput: {
-    backgroundColor: '#FAFAFB',
+    backgroundColor: Colors.bgLight,
     borderWidth: 1,
     borderColor: MIST,
     borderRadius: 10,

@@ -23,8 +23,8 @@ export const Colors = {
   primaryAlpha12: 'rgba(124,58,237,0.12)',
   primaryAlpha20: 'rgba(124,58,237,0.20)',
   primaryAlpha25: 'rgba(124,58,237,0.25)',
-  bgLight: '#FAFAFB',           // page background (neutral, was warm cream)
-  bgPink: '#F5F0FF',            // alias retained for older screens — now lilac
+  bgLight: '#FBF7F1',           // warm cream page bg (lifted from neutral grey)
+  bgPink: '#F5F0FF',            // alias retained for older screens — lilac
   bgTint: '#F5F0FF',            // preferred name for the tinted tile bg
   white: '#ffffff',
   textDark: '#1C1033',          // ink-plum
@@ -35,12 +35,28 @@ export const Colors = {
   error: '#ef4444',
   border: '#E5E1EE',            // 1px dividers (was EDE9F6 — tuned)
   borderSoft: '#F0EDF5',        // even quieter dividers
-  cardBg: '#ffffff',
+  cardBg: '#FFFCF7',            // whisper-cream cards (was pure white — fintech-y)
   overlay: 'rgba(0,0,0,0.5)',
+
+  // ─── Brand semantic accents ──────────────────────────────────────
+  // Soft motherly palette extracted from the illustration set. Use
+  // sparingly and *semantically* — one accent per card max — so the
+  // app stops reading as a wall of purple. Rule of thumb:
+  //   - sageMild  → health/wellness/positive (vaccine done, mood logged)
+  //   - blushMild → love/community/social warmth
+  //   - ochreMild → milestones / celebrations / premium badges
+  //   - lavenderMild → decorative, secondary surfaces
+  //   - creamWarm → illustration-matched bg (#FFF8F1) for hero plates
+  sageMild: '#B7D8B5',
+  blushMild: '#FDD9D2',
+  ochreMild: '#F4C97A',
+  lavenderMild: '#C9B6F2',
+  creamWarm: '#FFF8F1',
 
   // ─── DEPRECATED — do not use in new code ─────────────────────────
   // Kept only for backward compatibility. Touching a file? Replace these
-  // with primary/neutrals. They'll be removed once every screen is migrated.
+  // with primary/neutrals or the new semantic accents above. They'll be
+  // removed once every screen is migrated.
   secondary: '#7C3AED',
   gold: '#F59E0B',
   sage: '#34D399',
@@ -283,12 +299,17 @@ export const Shadow = {
 //   - Use `sansSemiBold` for section titles and card headings.
 //   - Use `sansRegular` for body copy, `sansMedium` for captions / metadata.
 //
-// `Fonts.serif` is a deprecated alias kept for backward compatibility with
-// ~30 existing callers. It now resolves to DM Sans Bold — we dropped the
-// DM Serif Display face in favour of a single-family system. In new code,
-// use `Fonts.sansBold` directly.
+// `Fonts.serif` is the warm humanist serif (Lora 700) used for greetings,
+// section titles, hero copy, and other headline moments. Pairs with DM Sans
+// for body. Reintroduced after the all-sans phase was found to read fintech-y;
+// the existing ~30 callsites that already use `Fonts.serif` get auto-uplifted
+// to the real serif just by changing this alias.
+//
+// `Fonts.serifMedium` (Lora 500) is for italics-style accent moments — quiet
+// affirmations on Home, "Today for Aarav" caption text, etc.
 export const Fonts = {
-  serif: 'DMSans_700Bold',
+  serif: 'Lora_700Bold',
+  serifMedium: 'Lora_500Medium',
   sansRegular: 'DMSans_400Regular',
   sansMedium: 'DMSans_500Medium',
   sansSemiBold: 'DMSans_600SemiBold',

@@ -403,7 +403,7 @@ function NewPostModal({
 const newPostStyles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   sheet: {
-    backgroundColor: '#FAFAFB',
+    backgroundColor: Colors.bgLight,
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     paddingHorizontal: 24,
@@ -1368,7 +1368,7 @@ export default function CommunityScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FAFAFB' },
+  container: { flex: 1, backgroundColor: Colors.bgLight },
   nearbyCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1477,7 +1477,7 @@ const styles = StyleSheet.create({
   },
 
   filtersWrap: {
-    backgroundColor: '#FAFAFB',
+    backgroundColor: Colors.bgLight,
     borderBottomWidth: 1,
     borderBottomColor: '#EDE9F6',
     flexShrink: 0,
