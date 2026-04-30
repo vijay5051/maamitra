@@ -810,6 +810,10 @@ export default function HomeTab() {
                     style={styles.todayHeroIllus}
                     contentFit="contain"
                   />
+                ) : hero.emoji ? (
+                  <View style={[styles.todayHeroIconWrap, { backgroundColor: '#ffffff' }]}>
+                    <Text style={{ fontSize: 28, lineHeight: 32 }}>{hero.emoji}</Text>
+                  </View>
                 ) : (
                   <View style={[styles.todayHeroIconWrap, { backgroundColor: '#ffffff' }]}>
                     <Ionicons name={hero.icon as any} size={22} color={hero.tint} />
@@ -850,6 +854,8 @@ export default function HomeTab() {
                     style={styles.todayCardIllus}
                     contentFit="contain"
                   />
+                ) : c.emoji ? (
+                  <Text style={styles.todayCardEmoji}>{c.emoji}</Text>
                 ) : (
                   <Ionicons name={c.icon as any} size={16} color={c.tint} />
                 )}
@@ -1654,6 +1660,7 @@ type TodayCard = {
   bg: string;
   value: string;
   label: string;
+  emoji?: string;
   onPress?: () => void;
 };
 
@@ -1720,7 +1727,8 @@ function buildTodayCards({
       icon: 'happy-outline',
       tint: Colors.primary,
       bg: '#F5F0FF',
-      value: `${todayMood.emoji} ${todayMood.label}`,
+      emoji: todayMood.emoji,
+      value: todayMood.label,
       label: "Today's mood",
       onPress: goWellness,
     });
@@ -2565,6 +2573,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.borderSoft,
   },
   todayCardIllus: { width: 32, height: 32, marginBottom: 2 },
+  todayCardEmoji: { fontSize: 28, lineHeight: 32, marginBottom: 2 },
 
   // Today-for-<kid> hero card — promoted from todayCards[0]. Full-width,
   // larger illustration on the left, content stack in the middle, chevron

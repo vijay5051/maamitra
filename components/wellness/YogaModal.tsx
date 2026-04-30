@@ -157,7 +157,7 @@ export default function YogaModal({ session, visible, onClose }: YogaModalProps)
   if (completed) {
     return (
       <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-        <LinearGradient colors={['#1e1b4b', '#4c1d95']} style={styles.flex}>
+        <LinearGradient colors={['#FFFCF7', '#F5F0FF']} style={styles.flex}>
           <SafeAreaView style={[styles.flex, styles.completedContainer]}>
             <Text style={styles.completedEmoji}>🎉</Text>
             <Text style={styles.completedTitle}>Session Complete!</Text>
@@ -187,7 +187,7 @@ export default function YogaModal({ session, visible, onClose }: YogaModalProps)
   // ── Main session screen ───────────────────────────────────────────────────
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <LinearGradient colors={['#1e1b4b', '#4c1d95']} style={styles.flex}>
+      <LinearGradient colors={['#FFFCF7', '#F5F0FF']} style={styles.flex}>
         <SafeAreaView style={styles.flex}>
 
           {/* ── Header ── */}
@@ -197,7 +197,7 @@ export default function YogaModal({ session, visible, onClose }: YogaModalProps)
               <Text style={styles.stepLabel}>Step {poseIndex + 1} of {poses.length}</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="close" size={24} color="#ffffff" />
+              <Ionicons name="close" size={24} color="#1C1033" />
             </TouchableOpacity>
           </View>
 
@@ -231,8 +231,6 @@ export default function YogaModal({ session, visible, onClose }: YogaModalProps)
             contentContainerStyle={styles.poseScrollContent}
             showsVerticalScrollIndicator={false}
           >
-            {/* Pose header — illustration if we have one for this pose,
-                otherwise fall back to the emoji it was authored with. */}
             <View style={styles.poseHeader}>
               {currentPose && poseToIllustration(currentPose.name) ? (
                 <Illustration
@@ -246,7 +244,6 @@ export default function YogaModal({ session, visible, onClose }: YogaModalProps)
               <Text style={styles.poseName}>{currentPose?.name}</Text>
             </View>
 
-            {/* Instructions card */}
             <View style={styles.poseCard}>
               <Text style={styles.poseInstruction}>{currentPose?.instruction}</Text>
               <View style={styles.breathingRow}>
@@ -269,14 +266,14 @@ export default function YogaModal({ session, visible, onClose }: YogaModalProps)
               style={[styles.controlBtn, poseIndex === 0 && styles.controlBtnDisabled]}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
-              <Ionicons name="play-back" size={26} color="#ffffff" />
+              <Ionicons name="play-back" size={26} color={Colors.primary} />
             </TouchableOpacity>
 
             <TouchableOpacity onPress={handlePlayPause} style={styles.playBtn}>
               <Ionicons
                 name={isPlaying ? 'pause' : 'play'}
                 size={34}
-                color="#1e1b4b"
+                color="#ffffff"
               />
             </TouchableOpacity>
 
@@ -285,7 +282,7 @@ export default function YogaModal({ session, visible, onClose }: YogaModalProps)
               style={styles.controlBtn}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
-              <Ionicons name="play-forward" size={26} color="#ffffff" />
+              <Ionicons name="play-forward" size={26} color={Colors.primary} />
             </TouchableOpacity>
           </View>
 
@@ -311,13 +308,13 @@ const styles = StyleSheet.create({
   },
   headerLeft: { flex: 1, marginRight: 12 },
   sessionName: {
-    color: '#ffffff',
+    color: '#1C1033',
     fontSize: 18,
     fontWeight: '700',
     marginBottom: 2,
   },
   stepLabel: {
-    color: 'rgba(255,255,255,0.6)',
+    color: 'rgba(28,16,51,0.55)',
     fontSize: 12,
     fontWeight: '500',
   },
@@ -325,7 +322,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(28,16,51,0.06)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -344,7 +341,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    backgroundColor: 'rgba(28,16,51,0.14)',
   },
   dotActive: {
     backgroundColor: Colors.primary,
@@ -352,13 +349,13 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   dotDone: {
-    backgroundColor: 'rgba(28, 16, 51, 0.2)',
+    backgroundColor: 'rgba(109, 26, 122, 0.45)',
   },
 
   // Progress bar
   progressTrack: {
     height: 2,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(28,16,51,0.10)',
     marginHorizontal: 20,
     borderRadius: 1,
     overflow: 'hidden',
@@ -380,34 +377,40 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
 
-  // Pose header: emoji + name inline
+  // Pose header: hero illustration centered, name below
   poseHeader: {
-    flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginBottom: 4,
+    marginBottom: 8,
+    marginTop: 4,
   },
   poseEmoji: {
-    fontSize: 40,
+    fontSize: 96,
+    textAlign: 'center',
   },
-  poseIllus: { width: 56, height: 56 },
+  poseIllus: { width: 220, height: 220 },
   poseName: {
-    flex: 1,
-    color: '#ffffff',
-    fontSize: 22,
+    color: '#1C1033',
+    fontSize: 19,
     fontWeight: '700',
-    lineHeight: 28,
+    lineHeight: 26,
+    letterSpacing: -0.2,
+    textAlign: 'center',
+    paddingHorizontal: 16,
   },
 
   // Instruction card
   poseCard: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: '#ffffff',
     borderRadius: 16,
     padding: 18,
     gap: 12,
+    borderWidth: 1,
+    borderColor: '#F0EDF5',
+    boxShadow: '0px 2px 12px rgba(28, 16, 51, 0.04)',
   },
   poseInstruction: {
-    color: 'rgba(255,255,255,0.88)',
+    color: '#3F3553',
     fontSize: 14,
     lineHeight: 22,
   },
@@ -416,13 +419,13 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 6,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.12)',
+    borderTopColor: 'rgba(28,16,51,0.08)',
     paddingTop: 10,
   },
   breathLeaf: { fontSize: 14, marginTop: 1 },
   breathingText: {
     flex: 1,
-    color: 'rgba(255,255,255,0.7)',
+    color: '#6b7280',
     fontSize: 13,
     fontStyle: 'italic',
     lineHeight: 20,
@@ -453,21 +456,23 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#F0EDF5',
     alignItems: 'center',
     justifyContent: 'center',
   },
   controlBtnDisabled: {
-    opacity: 0.3,
+    opacity: 0.35,
   },
   playBtn: {
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    boxShadow: '0px 4px 16px rgba(28, 16, 51, 0.2)',
+    boxShadow: '0px 6px 20px rgba(109, 26, 122, 0.28)',
   },
 
   bottomSpacer: { height: 16 },
@@ -481,13 +486,13 @@ const styles = StyleSheet.create({
   },
   completedEmoji: { fontSize: 72 },
   completedTitle: {
-    color: '#ffffff',
+    color: '#1C1033',
     fontSize: 28,
     fontWeight: '700',
     textAlign: 'center',
   },
   completedMsg: {
-    color: 'rgba(255,255,255,0.8)',
+    color: '#5b5470',
     fontSize: 16,
     lineHeight: 24,
     textAlign: 'center',

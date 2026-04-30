@@ -173,7 +173,7 @@ function MoodChart() {
   const getWeekHistoryFor = useWellnessStore((s) => s.getWeekHistoryFor);
   const getMonthHistoryFor = useWellnessStore((s) => s.getMonthHistoryFor);
   // Subscribe to moodHistory so the chart re-renders when entries change
-  useWellnessStore((s) => s.moodHistory);
+  const moodHistory = useWellnessStore((s) => s.moodHistory);
 
   // ── Week view anchor ──────────────────────────────────────────────────
   // Anchored on Monday of the currently-viewed week. ← / → shift by 7 days.
@@ -195,7 +195,7 @@ function MoodChart() {
     return d;
   });
 
-  const weekHistory = useMemo(() => getWeekHistoryFor(weekAnchor), [getWeekHistoryFor, weekAnchor]);
+  const weekHistory = useMemo(() => getWeekHistoryFor(weekAnchor), [getWeekHistoryFor, weekAnchor, moodHistory]);
 
   // Day columns (abbr + day-of-month + isToday) derived from weekAnchor
   const dayColumns = useMemo(() => {
@@ -253,7 +253,7 @@ function MoodChart() {
 
   const monthDays = useMemo(
     () => getMonthHistoryFor(calMonthAnchor.getFullYear(), calMonthAnchor.getMonth()),
-    [getMonthHistoryFor, calMonthAnchor],
+    [getMonthHistoryFor, calMonthAnchor, moodHistory],
   );
 
   // Leading blanks so the 1st lands on the right day column (Mon = 0)
