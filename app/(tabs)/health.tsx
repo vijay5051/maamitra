@@ -38,6 +38,8 @@ import TeethTab from '../../components/health/TeethTab';
 import FoodTrackerTab from '../../components/health/FoodTrackerTab';
 import GrowthTab, { RoutineTab } from '../../components/health/GrowthTab';
 import NuskheTab from '../../components/health/NuskheTab';
+import { Illustration } from '../../components/ui/Illustration';
+import type { IllustrationName } from '../../lib/illustrations';
 import { Fonts, Gradients } from '../../constants/theme';
 import { Colors } from '../../constants/theme';
 
@@ -84,10 +86,10 @@ const SUB_TABS: SubTabMeta[] = [
   { key: 'schemes',  label: 'Schemes',    icon: 'ribbon-outline',           description: 'Government benefits for you',          category: 'benefits' },
 ];
 
-const CATEGORY_ORDER: { key: CategoryKey; title: string; subtitle: string }[] = [
-  { key: 'baby',     title: "Your baby",     subtitle: 'Track everything day-to-day' },
-  { key: 'mother',   title: 'You',           subtitle: 'Recurring checks for mother' },
-  { key: 'benefits', title: 'Benefits',      subtitle: 'Schemes you may qualify for' },
+const CATEGORY_ORDER: { key: CategoryKey; title: string; subtitle: string; illustration: IllustrationName }[] = [
+  { key: 'baby',     title: "Your baby",     subtitle: 'Track everything day-to-day',     illustration: 'healthCatBaby'     },
+  { key: 'mother',   title: 'You',           subtitle: 'Recurring checks for mother',     illustration: 'healthCatMother'   },
+  { key: 'benefits', title: 'Benefits',      subtitle: 'Schemes you may qualify for',     illustration: 'healthCatBenefits' },
 ];
 
 // ─── Landing grid ─────────────────────────────────────────────────────────────
@@ -104,8 +106,11 @@ function CategoryGrid({ onPick }: { onPick: (t: SubTab) => void }) {
         return (
           <View key={cat.key} style={gridStyles.section}>
             <View style={gridStyles.sectionHeader}>
-              <Text style={gridStyles.sectionTitle}>{cat.title}</Text>
-              <Text style={gridStyles.sectionSub}>{cat.subtitle}</Text>
+              <Illustration name={cat.illustration} style={gridStyles.sectionIllus} contentFit="contain" />
+              <View style={{ flex: 1 }}>
+                <Text style={gridStyles.sectionTitle}>{cat.title}</Text>
+                <Text style={gridStyles.sectionSub}>{cat.subtitle}</Text>
+              </View>
             </View>
             <View style={gridStyles.cardsRow}>
               {items.map((item) => (
@@ -134,7 +139,8 @@ function CategoryGrid({ onPick }: { onPick: (t: SubTab) => void }) {
 
 const gridStyles = StyleSheet.create({
   section: { marginBottom: 18 },
-  sectionHeader: { marginBottom: 10 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 },
+  sectionIllus: { width: 56, height: 56 },
   sectionTitle: {
     fontFamily: Fonts.sansBold,
     fontSize: 13,

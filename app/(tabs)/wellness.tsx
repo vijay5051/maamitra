@@ -33,8 +33,19 @@ import { YOGA_SESSIONS, YogaSession } from '../../data/yogaSessions';
 import { filterByAudience, parentGenderToAudience } from '../../data/audience';
 import YogaModalComponent from '../../components/wellness/YogaModal';
 import ContextualAskChip from '../../components/ui/ContextualAskChip';
+import { Illustration } from '../../components/ui/Illustration';
+import type { IllustrationName } from '../../lib/illustrations';
 import { Fonts } from '../../constants/theme';
 import { Colors } from '../../constants/theme';
+
+// Score → illustration mapping. Score 5 (best) → glowing, score 1 (lowest) → overwhelmed.
+const MOOD_ILLUSTRATION: Record<number, IllustrationName> = {
+  5: 'mood1',
+  4: 'mood2',
+  3: 'mood3',
+  2: 'mood4',
+  1: 'mood5',
+};
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -83,7 +94,12 @@ function MoodEmojiItem({
       style={moodStyles.moodBtn}
     >
       <Animated.View style={[moodStyles.emojiContainer, animStyle]}>
-        <Text style={moodStyles.moodEmoji}>{item.emoji}</Text>
+        <Illustration
+          name={MOOD_ILLUSTRATION[item.score]}
+          style={moodStyles.moodImg}
+          contentFit="contain"
+          accessibilityLabel={item.label}
+        />
       </Animated.View>
       <Text style={[moodStyles.moodLabel, isSelected && moodStyles.moodLabelSelected]}>
         {item.label}
@@ -126,14 +142,14 @@ const moodStyles = StyleSheet.create({
     gap: 6,
   },
   emojiContainer: {
-    width: 48,
-    height: 48,
+    width: 56,
+    height: 56,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  moodEmoji: {
-    fontSize: 34,
-    lineHeight: 42,
+  moodImg: {
+    width: 56,
+    height: 56,
   },
   moodLabel: {
     fontFamily: Fonts.sansMedium,
@@ -1183,6 +1199,10 @@ export default function WellnessScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}
         showsVerticalScrollIndicator={false}
       >
+        <View style={styles.wellnessHeroWrap}>
+          <Illustration name="wellnessHero" style={styles.wellnessHeroImg} contentFit="cover" />
+        </View>
+
         <ContextualAskChip
           prompt={
             parentGenderForAudience === 'father'
@@ -1312,6 +1332,14 @@ const styles = StyleSheet.create({
     color: '#6b7280',
   },
   content: { paddingHorizontal: 16, paddingTop: 16 },
+  wellnessHeroWrap: {
+    marginBottom: 14,
+    borderRadius: 18,
+    overflow: 'hidden',
+    backgroundColor: '#FFF8F1',
+    aspectRatio: 12 / 5,
+  },
+  wellnessHeroImg: { width: '100%', height: '100%' },
   moodCard: { marginBottom: 24 },
   moodTitle: {
     fontFamily: Fonts.sansBold,

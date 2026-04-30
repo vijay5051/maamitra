@@ -44,6 +44,8 @@ import type { CommunityPost } from '../../services/social';
 import { countProfilesInState } from '../../services/social';
 import ContextualAskChip from '../../components/ui/ContextualAskChip';
 import { EmailVerifyBanner } from '../../components/ui/EmailVerifyBanner';
+import { Illustration } from '../../components/ui/Illustration';
+import type { IllustrationName } from '../../lib/illustrations';
 import { Fonts } from '../../constants/theme';
 import { uploadPostImage } from '../../services/storage';
 import { useDMStore } from '../../store/useDMStore';
@@ -51,6 +53,17 @@ import { Colors } from '../../constants/theme';
 
 const FILTERS: CommunityFilter[] = ['All', 'Newborn', 'Pregnancy', 'Nutrition', 'Mental Health', 'Milestones', 'Products'];
 const TOPICS = ['Newborn', 'Pregnancy', 'Nutrition', 'Mental Health', 'Milestones', 'Products', 'General'];
+
+// Map a feed filter to its illustration. 'All' has no banner.
+const TOPIC_ILLUSTRATION: Record<string, IllustrationName> = {
+  Newborn: 'topicNewborn',
+  Pregnancy: 'topicPregnancy',
+  Nutrition: 'topicNutrition',
+  'Mental Health': 'topicMentalHealth',
+  Milestones: 'topicMilestones',
+  Products: 'topicProducts',
+  General: 'topicGeneral',
+};
 
 // ─── Topic color map ──────────────────────────────────────────────────────────
 
@@ -1204,6 +1217,17 @@ export default function CommunityScreen() {
                 />
               </View>
             </View>
+
+            {activeFilter !== 'All' && TOPIC_ILLUSTRATION[activeFilter] ? (
+              <View style={styles.topicBannerWrap}>
+                <Illustration
+                  name={TOPIC_ILLUSTRATION[activeFilter]}
+                  style={styles.topicBannerImg}
+                  contentFit="cover"
+                  accessibilityLabel={`${activeFilter} topic`}
+                />
+              </View>
+            ) : null}
           </>
         }
         renderItem={({ item }) => (
@@ -1264,7 +1288,7 @@ export default function CommunityScreen() {
         )}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyEmoji}>💬</Text>
+            <Illustration name="emptyCommunity" style={styles.emptyIllus} contentFit="contain" />
             <Text style={styles.emptyText}>No posts in this category yet.{'\n'}Be the first to share!</Text>
           </View>
         }
@@ -1438,6 +1462,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   postBtnText: { fontFamily: Fonts.sansBold, color: '#ffffff', fontSize: 14 },
+  topicBannerWrap: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 6,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#FFF8F1',
+    aspectRatio: 5 / 2,
+  },
+  topicBannerImg: {
+    width: '100%',
+    height: '100%',
+  },
+
   filtersWrap: {
     backgroundColor: '#FAFAFB',
     borderBottomWidth: 1,
@@ -1476,8 +1514,9 @@ const styles = StyleSheet.create({
     width: 40,
   },
   listContent: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8 },
-  empty: { alignItems: 'center', paddingTop: 60 },
+  empty: { alignItems: 'center', paddingTop: 32 },
   emptyEmoji: { fontSize: 48, marginBottom: 12 },
+  emptyIllus: { width: 220, height: 180, marginBottom: 8 },
   emptyText: { fontFamily: Fonts.sansRegular, fontSize: 15, color: '#9CA3AF', textAlign: 'center', lineHeight: 22 },
   footerLoader: { alignItems: 'center', paddingVertical: 20, gap: 8 },
   footerText: { fontFamily: Fonts.sansRegular, fontSize: 13, color: '#9CA3AF', textAlign: 'center', paddingVertical: 16 },

@@ -55,6 +55,21 @@ import { MICRO_SURVEYS, type MicroSurvey } from '../../lib/microSurveys';
 import { submitMicroSurvey } from '../../services/feedback';
 import AnimatedPressable from '../../components/ui/AnimatedPressable';
 import AnimatedNumber from '../../components/ui/AnimatedNumber';
+import { Illustration } from '../../components/ui/Illustration';
+import type { IllustrationName } from '../../lib/illustrations';
+
+// Quick-action card id → brand illustration. Cards without a mapping fall back
+// to the existing Lucide/Ionicons glyph. Keep this small — over-illustrated
+// quick-action grids feel busy.
+const QUICK_ILLUS: Partial<Record<string, IllustrationName>> = {
+  newborn: 'quickSleep',
+  solids: 'quickDiet',
+  foods: 'quickDiet',
+  vaccine: 'quickVaccines',
+  scheme: 'quickSchemes',
+  milestone: 'quickMilestones',
+  dev: 'quickMilestones',
+};
 import Reanimated, {
   FadeInDown,
   FadeInUp,
@@ -713,6 +728,10 @@ export default function HomeTab() {
           </TouchableOpacity>
         </View>
 
+        <View style={styles.homeHeroWrap}>
+          <Illustration name="homeHero" style={styles.homeHeroImg} />
+        </View>
+
         {/* HERO: Ask Maamitra AI bar — flat lilac card, brand-purple icon.
             Previously a gradient-bordered card with a gradient icon tile;
             simplified to match the rest of the refreshed UI. */}
@@ -759,7 +778,15 @@ export default function HomeTab() {
                 onPress={c.onPress}
                 style={[styles.todayCard, { backgroundColor: c.bg }]}
               >
-                <Ionicons name={c.icon as any} size={16} color={c.tint} />
+                {QUICK_ILLUS[c.id] ? (
+                  <Illustration
+                    name={QUICK_ILLUS[c.id]!}
+                    style={styles.todayCardIllus}
+                    contentFit="contain"
+                  />
+                ) : (
+                  <Ionicons name={c.icon as any} size={16} color={c.tint} />
+                )}
                 <Text style={styles.todayVal} numberOfLines={2}>{c.value}</Text>
                 <Text style={styles.todaySub} numberOfLines={1}>{c.label}</Text>
               </AnimatedPressable>
@@ -2303,6 +2330,19 @@ const styles = StyleSheet.create({
   },
   badgeTxt: { color: '#fff', fontFamily: Fonts.sansBold, fontSize: 10 },
 
+  homeHeroWrap: {
+    marginHorizontal: Spacing.xl,
+    marginTop: Spacing.lg,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#FFF8F1',
+    aspectRatio: 2,
+  },
+  homeHeroImg: {
+    width: '100%',
+    height: '100%',
+  },
+
   heroWrap: {
     marginHorizontal: Spacing.xl,
     marginTop: Spacing.xl,
@@ -2435,6 +2475,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.borderSoft,
   },
+  todayCardIllus: { width: 32, height: 32, marginBottom: 2 },
   todayVal: {
     fontFamily: Fonts.sansBold,
     fontSize: FontSize.sm,

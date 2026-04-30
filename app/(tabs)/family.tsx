@@ -26,6 +26,7 @@ import SettingsModal from '../../components/ui/SettingsModal';
 import NotificationsSheet from '../../components/community/NotificationsSheet';
 import ConversationsSheet from '../../components/community/ConversationsSheet';
 import ContextualAskChip from '../../components/ui/ContextualAskChip';
+import { Illustration } from '../../components/ui/Illustration';
 import { useSocialStore } from '../../store/useSocialStore';
 import { useDMStore } from '../../store/useDMStore';
 import { Fonts } from '../../constants/theme';
@@ -571,9 +572,7 @@ export default function FamilyScreen() {
 
         {kids.length === 0 ? (
           <Card style={styles.emptyCard} shadow="sm">
-            <View style={styles.emptyIconBox}>
-              <Ionicons name="happy-outline" size={30} color={Colors.primary} />
-            </View>
+            <Illustration name="emptyFamily" style={styles.emptyIllus} contentFit="contain" />
             <Text style={styles.emptyText}>
               Add your child to get personalised milestones, vaccine schedules, and more!
             </Text>
@@ -876,8 +875,9 @@ const styles = StyleSheet.create({
   addKidText: { fontFamily: Fonts.sansSemiBold, color: Colors.primary, fontSize: 12 },
 
   // ── Empty / expecting ──
-  emptyCard: { alignItems: 'center', paddingVertical: 32, marginBottom: 20 },
+  emptyCard: { alignItems: 'center', paddingVertical: 24, marginBottom: 20 },
   emptyIconBox: { width: 66, height: 66, borderRadius: 20, backgroundColor: 'rgba(28, 16, 51, 0.054)', alignItems: 'center', justifyContent: 'center', marginBottom: 12, alignSelf: 'center' },
+  emptyIllus: { width: 200, height: 160, marginBottom: 8 },
   emptyText: { fontFamily: Fonts.sansRegular, fontSize: 15, color: '#9CA3AF', textAlign: 'center', lineHeight: 22, maxWidth: 260 },
   milestonesCard: { marginBottom: 24, paddingTop: 20 },
   expectingCard: { alignItems: 'center', paddingVertical: 32, marginBottom: 20 },
