@@ -69,3 +69,19 @@ export const illustrations = {
 } as const;
 
 export type IllustrationName = keyof typeof illustrations;
+
+// Tab-bar icons — small brand mini-illustrations, ~256×256.
+// Distinct from full illustrations (above) so it's clear these are
+// for chrome surfaces, not hero scenes.
+export const tabIcons = {
+  home: require('../assets/icons/tab-home.webp'),
+  health: require('../assets/icons/tab-health.webp'),
+  wellness: require('../assets/icons/tab-wellness.webp'),
+  library: require('../assets/icons/tab-library.webp'),
+  community: require('../assets/icons/tab-community.webp'),
+  family: require('../assets/icons/tab-family.webp'),
+  chat: require('../assets/icons/tab-chat.webp'),
+  profile: require('../assets/icons/tab-profile.webp'),
+} as const;
+
+export type TabIconName = keyof typeof tabIcons;

@@ -186,6 +186,8 @@ function NotifRow({
 const DEFAULT_FEATURES = {
   community: true,
   library: true,
+  libraryBooks: true,
+  libraryProducts: true,
   wellness: true,
   health: true,
   family: true,
@@ -287,25 +289,25 @@ export default function AdminSettings() {
 
   // Feature Flags
   const [features, setFeatures] = useState<Record<string, boolean>>(
-    (settingsStore as any).features ?? DEFAULT_FEATURES
+    settingsStore.settings.featureFlags ?? DEFAULT_FEATURES
   );
 
   // Theme
   const [primaryColor, setPrimaryColor] = useState<string>(
-    (settingsStore as any).primaryColor ?? Colors.primary
+    settingsStore.settings.theme?.primary ?? Colors.primary
   );
   const [secondaryColor, setSecondaryColor] = useState<string>(
-    (settingsStore as any).secondaryColor ?? '#8b5cf6'
+    settingsStore.settings.theme?.secondary ?? '#8b5cf6'
   );
 
   // Tabs
   const [tabs, setTabs] = useState<TabConfig[]>(
-    (settingsStore as any).tabs ?? DEFAULT_TABS
+    settingsStore.settings.tabs ?? DEFAULT_TABS
   );
 
   // Notifications
   const [notifs, setNotifs] = useState<Record<string, string>>(
-    (settingsStore as any).notificationTexts ?? DEFAULT_NOTIFS
+    settingsStore.settings.notificationTexts ?? DEFAULT_NOTIFS
   );
 
   const [saving, setSaving] = useState(false);
@@ -335,15 +337,16 @@ export default function AdminSettings() {
   async function handleSaveAll() {
     setSaving(true);
     try {
-      if (typeof (settingsStore as any).updateSettings === 'function') {
-        await (settingsStore as any).updateSettings({
-          features,
-          primaryColor,
-          secondaryColor,
-          tabs,
-          notificationTexts: notifs,
-        });
-      }
+      await settingsStore.updateSettings({
+        featureFlags: features,
+        theme: { primary: primaryColor, secondary: secondaryColor },
+        tabs,
+        notificationTexts: {
+          ...notifs,
+          vaccineReminder: notifs.vaccine ?? notifs.vaccineReminder,
+          moodReminder: notifs.mood ?? notifs.moodReminder,
+        },
+      });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch {
@@ -370,6 +373,8 @@ export default function AdminSettings() {
   const featureRows: { key: string; label: string; icon: string }[] = [
     { key: 'community', label: 'Community Tab', icon: 'people-outline' },
     { key: 'library', label: 'Library Tab', icon: 'book-outline' },
+    { key: 'libraryBooks', label: 'Library Books Section', icon: 'albums-outline' },
+    { key: 'libraryProducts', label: 'Library Products Section', icon: 'bag-handle-outline' },
     { key: 'wellness', label: 'Wellness Tab', icon: 'heart-outline' },
     { key: 'health', label: 'Health Tab', icon: 'medical-outline' },
     { key: 'family', label: 'Family Tab', icon: 'home-outline' },

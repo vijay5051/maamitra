@@ -611,7 +611,7 @@ function MyProfileCard({
 
   const postCount = getUserPostCount(motherName);
   const initial = (motherName || 'M').charAt(0).toUpperCase();
-  const genderLabel = parentGender === 'mother' ? 'Mother' : parentGender === 'father' ? 'Father' : parentGender === 'other' ? 'Parent' : 'Parent';
+  const genderLabel = 'Mother';
   const kidsLabel = kids.length === 0 ? 'No kids added' : kids.length === 1 ? `${genderLabel} of 1` : `${genderLabel} of ${kids.length}`;
 
   const hasPhoto = photoUrl && !imgErr;
@@ -987,7 +987,7 @@ export default function CommunityScreen() {
   const nearbyNoun = useMemo(() => {
     const pg = useProfileStore.getState().parentGender;
     const n = momsInState;
-    if (pg === 'father' || pg === 'other') return n === 1 ? 'parent' : 'parents';
+    if (pg === 'other') return n === 1 ? 'parent' : 'parents';
     return n === 1 ? 'mom' : 'moms';
   }, [momsInState]);
   const [reactorsPost, setReactorsPost] = useState<CommunityPost | null>(null);

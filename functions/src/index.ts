@@ -258,6 +258,13 @@ interface AdminDeleteUserPayload {
   uid: string;
 }
 
+interface AdminCreateUserPayload {
+  email: string;
+  password: string;
+  name: string;
+  adminRole?: 'super' | 'moderator' | 'support' | 'content' | null;
+}
+
 export const adminDeleteUser = functions
   .runWith({ memory: '256MB', timeoutSeconds: 60 })
   .https.onCall(async (data: AdminDeleteUserPayload, context) => {
@@ -329,6 +336,84 @@ export const adminDeleteUser = functions
       ok: true,
       firestoreDeleted,
       authDeleted,
+    };
+  });
+
+export const adminCreateUser = functions
+  .runWith({ memory: '256MB', timeoutSeconds: 60 })
+  .https.onCall(async (data: AdminCreateUserPayload, context) => {
+    const ok = await isAdminTokenAsync(context.auth?.token);
+    if (!ok) {
+      throw new functions.https.HttpsError(
+        'permission-denied',
+        'Only admins can create user accounts.',
+      );
+    }
+
+    const email = String(data?.email ?? '').trim().toLowerCase();
+    const password = String(data?.password ?? '');
+    const name = String(data?.name ?? '').trim();
+    const requestedRole = data?.adminRole ?? null;
+
+    if (!email || !name) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'Name and email are required.',
+      );
+    }
+    if (password.length < 8) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'Password must be at least 8 characters.',
+      );
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'Please provide a valid email address.',
+      );
+    }
+    if (
+      requestedRole !== null &&
+      requestedRole !== 'super' &&
+      requestedRole !== 'moderator' &&
+      requestedRole !== 'support' &&
+      requestedRole !== 'content'
+    ) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'Invalid admin role.',
+      );
+    }
+
+    const authUser = await admin.auth().createUser({
+      email,
+      password,
+      displayName: name,
+      emailVerified: false,
+    });
+
+    const profileDoc: Record<string, any> = {
+      uid: authUser.uid,
+      name,
+      email,
+      motherName: name,
+      onboardingComplete: false,
+      parentGender: 'mother',
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+    if (requestedRole) {
+      profileDoc.adminRole = requestedRole;
+    }
+
+    await admin.firestore().doc(`users/${authUser.uid}`).set(profileDoc, { merge: true });
+
+    return {
+      ok: true,
+      uid: authUser.uid,
+      email,
+      adminRole: requestedRole,
     };
   });
 

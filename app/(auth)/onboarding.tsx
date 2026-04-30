@@ -23,7 +23,7 @@ import { Colors } from '../../constants/theme';
 // ─── Domain types ─────────────────────────────────────────────────────────────
 
 type Stage = 'pregnant' | 'newborn';
-type Relation = 'mother' | 'father';
+type Relation = 'mother';
 type Gender = 'boy' | 'girl' | 'surprise';
 type Diet = 'vegetarian' | 'eggetarian' | 'non-vegetarian' | 'vegan';
 type FamilyType = 'nuclear' | 'joint' | 'in-laws' | 'single-parent';
@@ -136,7 +136,7 @@ export default function OnboardingScreen() {
   // ── Step 1: You ──
   const [name, setName] = useState(initialName);
   const [stage, setStage] = useState<Stage | null>(null);
-  const [relation, setRelation] = useState<Relation | null>(null);
+  const [relation] = useState<Relation>('mother');
 
   // ── Step 2: Your baby ──
   const [kidName, setKidName] = useState('');
@@ -176,6 +176,13 @@ export default function OnboardingScreen() {
     stage === 'pregnant'
       ? 'Pick the expected due date. You can update this later.'
       : "Pick your baby's date of birth.";
+  const showKidGender = stage === 'newborn';
+  const kidGenderOptions: Array<ChipOption<Gender>> = showKidGender
+    ? [
+        { value: 'boy', label: 'Boy', icon: 'male-outline' },
+        { value: 'girl', label: 'Girl', icon: 'female-outline' },
+      ]
+    : [];
 
   // ── Validation ──
   const validateStep = useCallback((s: number): boolean => {
@@ -183,11 +190,10 @@ export default function OnboardingScreen() {
     if (s === 0) {
       if (!name.trim()) e.name = 'Please tell us your name.';
       if (!stage) e.stage = 'Pick the option that best describes you right now.';
-      if (!relation) e.relation = 'What is your relation to this little one?';
     }
     if (s === 1) {
       if (!keyDate) e.keyDate = 'A date helps us personalise every tip to the right week.';
-      if (!kidGender) e.kidGender = 'Pick one (Surprise is fine if you want to wait).';
+      if (showKidGender && !kidGender) e.kidGender = 'Pick one so we can personalise the experience.';
     }
     if (s === 2) {
       if (!state) e.state = 'Which state do you live in?';
@@ -196,14 +202,14 @@ export default function OnboardingScreen() {
     }
     setErrors(e);
     return Object.keys(e).length === 0;
-  }, [name, stage, relation, keyDate, kidGender, state, diet, familyType]);
+  }, [name, stage, keyDate, kidGender, showKidGender, state, diet, familyType]);
 
   const canGoNext = useMemo(() => {
-    if (step === 0) return !!(name.trim() && stage && relation);
-    if (step === 1) return !!(keyDate && kidGender);
+    if (step === 0) return !!(name.trim() && stage);
+    if (step === 1) return !!(keyDate && (!showKidGender || kidGender));
     if (step === 2) return !!(state && diet && familyType);
     return true;
-  }, [step, name, stage, relation, keyDate, kidGender, state, diet, familyType]);
+  }, [step, name, stage, keyDate, kidGender, showKidGender, state, diet, familyType]);
 
   const handleNext = () => {
     if (!validateStep(step)) return;
@@ -234,8 +240,8 @@ export default function OnboardingScreen() {
     // in history without the step-by-step validation firing.
     if (!validateStep(0) || !validateStep(1) || !validateStep(2)) {
       // Jump to the first failing step
-      if (!name.trim() || !stage || !relation) setStep(0);
-      else if (!keyDate || !kidGender) setStep(1);
+      if (!name.trim() || !stage) setStep(0);
+      else if (!keyDate || (showKidGender && !kidGender)) setStep(1);
       else setStep(2);
       return;
     }
@@ -266,7 +272,7 @@ export default function OnboardingScreen() {
         name: primaryName,
         dob: validKeyDate,
         stage: isPrimaryExpecting ? 'pregnant' : 'newborn',
-        gender: kidGender!,
+        gender: showKidGender ? kidGender! : 'surprise',
         isExpecting: isPrimaryExpecting,
       });
 
@@ -384,31 +390,11 @@ export default function OnboardingScreen() {
                 <InputError msg={errors.stage} />
               </View>
 
-              <View style={styles.field}>
-                <FieldLabel>Your relation to the baby</FieldLabel>
-                <ChipGroup<Relation>
-                  options={[
-                    { value: 'mother', label: 'Mother', icon: 'woman-outline' },
-                    { value: 'father', label: 'Father', icon: 'man-outline' },
-                  ]}
-                  value={relation}
-                  onChange={(v) => {
-                    setRelation(v);
-                    if (errors.relation) setErrors((e) => ({ ...e, relation: '' }));
-                  }}
-                  columns={2}
-                />
-                {/* Role is content-defining AND locked. Making this
-                    explicit now prevents a confused user from setting
-                    it wrong and getting stuck in the wrong content
-                    variant forever. */}
-                <View style={styles.lockNotice}>
-                  <Ionicons name="lock-closed-outline" size={13} color="#6d1a7a" />
-                  <Text style={styles.lockNoticeText}>
-                    This shapes your whole experience — content, tips, and guides — and can't be changed later. Pick carefully.
-                  </Text>
-                </View>
-                <InputError msg={errors.relation} />
+              <View style={styles.lockNotice}>
+                <Ionicons name="heart-outline" size={13} color="#6d1a7a" />
+                <Text style={styles.lockNoticeText}>
+                  MaaMitra is currently tailored for mothers in this launch phase.
+                </Text>
               </View>
             </View>
           )}
@@ -446,25 +432,23 @@ export default function OnboardingScreen() {
                 <InputError msg={errors.keyDate} />
               </View>
 
-              <View style={styles.field}>
-                <FieldLabel>Gender</FieldLabel>
-                <ChipGroup<Gender>
-                  options={[
-                    { value: 'boy', label: 'Boy', icon: 'male-outline' },
-                    { value: 'girl', label: 'Girl', icon: 'female-outline' },
-                    { value: 'surprise', label: 'Surprise', icon: 'help-circle-outline' },
-                  ]}
-                  value={kidGender}
-                  onChange={(v) => {
-                    setKidGender(v);
-                    if (errors.kidGender) setErrors((e) => ({ ...e, kidGender: '' }));
-                  }}
-                />
-                <Text style={styles.helpText}>
-                  Used only for pronouns and gender-specific health checks. Pick "Surprise" if you'd rather not share.
-                </Text>
-                <InputError msg={errors.kidGender} />
-              </View>
+              {showKidGender && (
+                <View style={styles.field}>
+                  <FieldLabel>Gender</FieldLabel>
+                  <ChipGroup<Gender>
+                    options={kidGenderOptions}
+                    value={kidGender}
+                    onChange={(v) => {
+                      setKidGender(v);
+                      if (errors.kidGender) setErrors((e) => ({ ...e, kidGender: '' }));
+                    }}
+                  />
+                  <Text style={styles.helpText}>
+                    Used only for pronouns and gender-specific health checks.
+                  </Text>
+                  <InputError msg={errors.kidGender} />
+                </View>
+              )}
             </View>
           )}
 

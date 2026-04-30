@@ -4,6 +4,7 @@
  * Paths:
  *   posts/{uid}/{timestamp}.jpg   — community post images
  *   avatars/{uid}.jpg             — profile photos
+ *   kid-avatars/{uid}/{kidId}.jpg — child profile photos
  */
 
 import { storage } from './firebase';
@@ -53,6 +54,12 @@ export async function uploadPostImage(uid: string, dataUrl: string): Promise<str
 /** Upload a profile avatar. Returns the download URL. */
 export async function uploadAvatar(uid: string, dataUrl: string): Promise<string> {
   const path = `avatars/${uid}.jpg`;
+  return uploadImage(path, dataUrl);
+}
+
+/** Upload a child's profile photo. Returns the download URL. */
+export async function uploadKidAvatar(uid: string, kidId: string, dataUrl: string): Promise<string> {
+  const path = `kid-avatars/${uid}/${kidId}.jpg`;
   return uploadImage(path, dataUrl);
 }
 

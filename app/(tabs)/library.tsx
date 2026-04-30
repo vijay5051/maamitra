@@ -22,6 +22,7 @@ import { useChatStore } from '../../store/useChatStore';
 import { useBookStore, DynamicBook } from '../../store/useBookStore';
 import { useArticleStore, DynamicArticle } from '../../store/useArticleStore';
 import { useProductStore, DynamicProduct } from '../../store/useProductStore';
+import { useAppSettingsStore } from '../../store/useAppSettingsStore';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuthStore } from '../../store/useAuthStore';
 import { isAdminEmail } from '../../lib/admin';
@@ -273,14 +274,24 @@ const BOOKS: Book[] = [
 
 // ─── Sub-tab selector ──────────────────────────────────────────────────────────
 
-function SubTabSelector({ active, onChange }: { active: SubTab; onChange: (t: SubTab) => void }) {
+function SubTabSelector({
+  active,
+  onChange,
+  showBooks,
+  showProducts,
+}: {
+  active: SubTab;
+  onChange: (t: SubTab) => void;
+  showBooks: boolean;
+  showProducts: boolean;
+}) {
   const tabs: { key: SubTab; label: string; icon: string }[] = [
     { key: 'read',     label: 'Articles', icon: 'newspaper-outline' },
-    { key: 'books',    label: 'Books',    icon: 'book-outline' },
-    { key: 'products', label: 'Products', icon: 'bag-handle-outline' },
     { key: 'saved',    label: 'Saved',    icon: 'bookmark-outline' },
     { key: 'journey',  label: 'Journey',  icon: 'map-outline' },
   ];
+  if (showBooks) tabs.splice(1, 0, { key: 'books', label: 'Books', icon: 'book-outline' });
+  if (showProducts) tabs.splice(showBooks ? 2 : 1, 0, { key: 'products', label: 'Products', icon: 'bag-handle-outline' });
 
   return (
     <View style={subTabStyles.wrapper}>
@@ -1140,9 +1151,17 @@ export default function LibraryScreen() {
   //                                            (implies tab=read)
   //   ?topic=Feeding                          — seed the articles topic filter
   const params = useLocalSearchParams<{ tab?: string; articleId?: string; topic?: string }>();
+  const featureFlags = useAppSettingsStore((s) => s.settings.featureFlags);
+  const showBooks = featureFlags.libraryBooks !== false;
+  const showProducts = featureFlags.libraryProducts !== false;
+  const isAllowedSubTab = (tab: string | undefined): tab is SubTab => {
+    if (tab === 'read' || tab === 'saved' || tab === 'journey') return true;
+    if (tab === 'books') return showBooks;
+    if (tab === 'products') return showProducts;
+    return false;
+  };
   const initialSubTab: SubTab =
-    params?.tab === 'books' || params?.tab === 'products' ||
-    params?.tab === 'saved' || params?.tab === 'journey'
+    isAllowedSubTab(params?.tab)
       ? (params.tab as SubTab)
       : params?.articleId
       ? 'read'
@@ -1166,10 +1185,8 @@ export default function LibraryScreen() {
 
   // Re-apply params if they change after mount (navigation without unmount).
   useEffect(() => {
-    if (params?.tab === 'books' || params?.tab === 'products' ||
-        params?.tab === 'saved' || params?.tab === 'journey' ||
-        params?.tab === 'read') {
-      setSubTab(params.tab as SubTab);
+    if (isAllowedSubTab(params?.tab)) {
+      setSubTab(params.tab);
     }
     if (typeof params?.articleId === 'string' && params.articleId) {
       setPendingArticleId(params.articleId);
@@ -1179,7 +1196,12 @@ export default function LibraryScreen() {
       setArticleTopicFilter(params.topic);
       setSubTab('read');
     }
-  }, [params?.tab, params?.articleId, params?.topic]);
+  }, [params?.tab, params?.articleId, params?.topic, showBooks, showProducts]);
+
+  useEffect(() => {
+    if (subTab === 'books' && !showBooks) setSubTab('read');
+    if (subTab === 'products' && !showProducts) setSubTab('read');
+  }, [subTab, showBooks, showProducts]);
 
   const user = useAuthStore((s) => s.user);
   const isAdmin = isAdminEmail(user?.email);
@@ -1415,7 +1437,12 @@ export default function LibraryScreen() {
         </View>
       </LinearGradient>
 
-      <SubTabSelector active={subTab} onChange={setSubTab} />
+      <SubTabSelector
+        active={subTab}
+        onChange={setSubTab}
+        showBooks={showBooks}
+        showProducts={showProducts}
+      />
 
       {/* ── READ ── */}
       {subTab === 'read' && (
@@ -1505,7 +1532,7 @@ export default function LibraryScreen() {
       )}
 
       {/* ── BOOKS ── */}
-      {subTab === 'books' && (
+      {showBooks && subTab === 'books' && (
         <ScrollView
           contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}
           showsVerticalScrollIndicator={false}
@@ -1525,7 +1552,7 @@ export default function LibraryScreen() {
       )}
 
       {/* ── PRODUCTS ── */}
-      {subTab === 'products' && (
+      {showProducts && subTab === 'products' && (
         <View style={styles.flex}>
           {/* Category filter — fixed at top, outside FlatList */}
           <ScrollView

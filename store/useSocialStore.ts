@@ -455,10 +455,10 @@ export const useSocialStore = create<SocialState>((set, get) => ({
       useProfileStore.getState();
     const { followersCount, followingCount } = get();
 
-    const roleLabel = parentGender === 'mother' ? 'Maa' : parentGender === 'father' ? 'Dad' : 'Parent';
+    const roleLabel = 'Maa';
     const badge = profile?.state
       ? `${roleLabel} · ${profile.state}`
-      : roleLabel !== 'Parent' ? roleLabel : 'Community Member';
+      : roleLabel;
 
     const postsCount = useCommunityStore.getState().posts.filter(
       (p) => p.authorUid === uid

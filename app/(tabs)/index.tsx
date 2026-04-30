@@ -184,7 +184,7 @@ export default function HomeTab() {
     return 'Good evening';
   }, []);
   const parentSalutation =
-    parentGender === 'father' ? 'dad' : parentGender === 'other' ? 'parent' : 'mama';
+    parentGender === 'other' ? 'parent' : 'mama';
 
   // Daily affirmation — rotates once per local day via day-of-year index.
   // Stable for the entire session so it doesn't flicker on re-render.
@@ -1267,11 +1267,7 @@ export default function HomeTab() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.sheetName}>{motherName || firstName || 'Welcome'}</Text>
                   <Text style={styles.sheetEmail}>
-                    {parentGender === 'father'
-                      ? 'Dad'
-                      : parentGender === 'other'
-                      ? 'Parent'
-                      : 'Mom'}
+                    Mom
                     {activeKid ? ` · ${activeKid.name}` : ''}
                   </Text>
                 </View>

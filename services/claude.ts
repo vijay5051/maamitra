@@ -63,11 +63,11 @@ type RoleLabels = {
 function getRoleLabels(pg: ParentGenderCtx | undefined): RoleLabels {
   if (pg === 'father') {
     return {
-      audience: 'Indian fathers',
-      roleNoun: 'a new dad',
-      parentNoun: 'father',
-      pronounSubj: 'He',
-      pronounPoss: 'His',
+      audience: 'Indian mothers',
+      roleNoun: 'a mother',
+      parentNoun: 'mother',
+      pronounSubj: 'She',
+      pronounPoss: 'Her',
     };
   }
   if (pg === 'other') {
@@ -271,9 +271,9 @@ export function buildSystemPrompt(
   }
 
   const stageDesc = ctx.isExpecting
-    ? (ctx.parentGender === 'father' ? 'expecting a baby' : 'currently pregnant')
+    ? 'currently pregnant'
     : ctx.stage === 'pregnant'
-      ? (ctx.parentGender === 'father' ? 'expecting a baby' : 'currently pregnant')
+      ? 'currently pregnant'
       : ctx.kidAgeMonths !== undefined && ctx.kidAgeMonths < 6 ? 'in the newborn phase'
       : labels.roleNoun;
 
@@ -344,7 +344,7 @@ export function buildSystemPrompt(
 WHO YOU'RE TALKING TO:
 ${ctx.motherName} is ${stageDesc}.${pregnancyWeekLine} ${labels.pronounSubj} ${labels.pronounSubj === 'They' ? 'live' : 'lives'} in ${ctx.state}, India, in ${familyDesc}. ${labels.pronounSubj} ${labels.pronounSubj === 'They' ? 'follow' : 'follows'} a ${ctx.diet} diet.${kidLine ? ` ${kidLine}` : ''}${ctx.allergies?.length ? ` Known allergies: ${ctx.allergies.join(', ')}.` : ''}${ctx.healthConditions?.length ? ` Health conditions: ${ctx.healthConditions.join(', ')}.` : ''}${extraBlock}${groundingBlock}${moodToneLine}
 
-This user is ${labels.parentNoun === 'mother' ? 'a mother' : labels.parentNoun === 'father' ? 'a father' : 'a parent/caregiver'} — address them accordingly. Never assume they are a mother if they are not. Do not use "mama" / "mother" language if the user is a father; use "papa" / "dad" / or simply their name. Use their name warmly and naturally.
+This user is ${labels.parentNoun === 'mother' ? 'a mother' : 'a parent/caregiver'} — address them warmly and naturally. Use her name where it helps the reply feel personal.
 
 LANGUAGE: ${
   ctx.preferredLanguageCode &&

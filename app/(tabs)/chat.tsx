@@ -306,7 +306,7 @@ export default function ChatScreen() {
     );
 
     return {
-      motherName: motherName || (parentGender === 'father' ? 'Dad' : 'Mom'),
+      motherName: motherName || 'Mom',
       stage: profile?.stage ?? 'newborn',
       state: profile?.state ?? 'India',
       diet: profile?.diet ?? 'vegetarian',

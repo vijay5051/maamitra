@@ -139,7 +139,7 @@ export default function UserSearchSheet({ visible, onClose, onSelectUser }: Prop
           <View style={styles.headerRow}>
             <View style={{ flex: 1 }}>
               <Text style={styles.headerTitle}>Find people</Text>
-              <Text style={styles.headerSub}>Moms & dads on MaaMitra</Text>
+              <Text style={styles.headerSub}>Moms on MaaMitra</Text>
             </View>
             <TouchableOpacity
               style={styles.closeButton}

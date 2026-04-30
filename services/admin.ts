@@ -24,7 +24,7 @@ import {
   where,
   Timestamp,
 } from 'firebase/firestore';
-import { db } from './firebase';
+import { app, db } from './firebase';
 import { logAdminAction } from './audit';
 import { AdminRole } from '../lib/admin';
 import { VACCINE_SCHEDULE } from '../data/vaccines';
@@ -67,6 +67,29 @@ export async function setUserAdminRole(actor: Actor, targetUid: string, role: Ad
     { merge: true },
   );
   await logAdminAction(actor, 'user.adminRole.change', { uid: targetUid }, { role: role ?? 'none' });
+}
+
+export async function createAdminManagedUser(
+  actor: Actor,
+  input: { name: string; email: string; password: string; adminRole?: AdminRole | null },
+): Promise<{ uid: string; email: string; adminRole: AdminRole | null }> {
+  if (!app) throw new Error('Firebase app not configured');
+  const { getFunctions, httpsCallable } = await import('firebase/functions');
+  const functions = getFunctions(app);
+  const call = httpsCallable<
+    { name: string; email: string; password: string; adminRole?: AdminRole | null },
+    { ok: boolean; uid: string; email: string; adminRole: AdminRole | null }
+  >(functions, 'adminCreateUser');
+  const result = await call(input);
+  await logAdminAction(actor, 'user.create', { uid: result.data.uid }, {
+    email: result.data.email,
+    adminRole: result.data.adminRole ?? 'none',
+  });
+  return {
+    uid: result.data.uid,
+    email: result.data.email,
+    adminRole: result.data.adminRole ?? null,
+  };
 }
 
 // ─── Per-user 360 ────────────────────────────────────────────────────────────

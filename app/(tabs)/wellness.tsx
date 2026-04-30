@@ -1148,7 +1148,7 @@ export default function WellnessScreen() {
   const mentalTips = useMemo(
     () =>
       buildMentalTips({
-        parentGender: (parentGenderForAudience as TipContext['parentGender']) || '',
+        parentGender: ((parentGenderForAudience === 'father' ? 'mother' : parentGenderForAudience) as TipContext['parentGender']) || '',
         stage: profile?.stage ?? null,
         kidName: primaryKid?.name,
         ageBucket: ageBucketFor(primaryKid?.dob, primaryKid?.isExpecting),
@@ -1158,29 +1158,21 @@ export default function WellnessScreen() {
 
   // Copy strings that change with role + stage + kid.
   const mentalSectionTitle = useMemo(() => {
-    if (parentGenderForAudience === 'father') return 'Mental wellness for dads';
-    if (parentGenderForAudience === 'other') return 'Caregiver wellness';
     return 'Mental wellness';
   }, [parentGenderForAudience]);
 
   const moodPromptCopy = useMemo(() => {
     const firstName = primaryKid?.name && primaryKid.name !== 'Little one' ? primaryKid.name : '';
-    if (parentGenderForAudience === 'father') {
-      if (profile?.stage === 'pregnant') return "How's your headspace today, Dad?";
-      if (firstName) return `How are you feeling today${firstName ? `, with ${firstName}` : ''}?`;
-      return 'How are you feeling today?';
-    }
     if (firstName && profile?.stage !== 'pregnant') return `How are you feeling today${firstName ? `, with ${firstName}` : ''}?`;
     if (profile?.stage === 'pregnant') return 'How are you feeling today, mama?';
     return 'How are you feeling today?';
   }, [parentGenderForAudience, profile?.stage, primaryKid?.name]);
 
   const headerSub = useMemo(() => {
-    const fatherMode = parentGenderForAudience === 'father';
     if (profile?.stage === 'pregnant') {
-      return fatherMode ? 'Supporting your partner through pregnancy' : 'Pregnancy wellness for you';
+      return 'Pregnancy wellness for you';
     }
-    return fatherMode ? 'Being present in early parenthood' : 'Postpartum care & recovery';
+    return 'Postpartum care & recovery';
   }, [parentGenderForAudience, profile?.stage]);
   const filteredSessions = healthConditions !== null
     ? audienceFiltered.filter(
@@ -1215,13 +1207,9 @@ export default function WellnessScreen() {
 
         <ContextualAskChip
           prompt={
-            parentGenderForAudience === 'father'
-              ? profile?.stage === 'pregnant'
-                ? 'Ask about supporting my partner during pregnancy'
-                : 'Ask about fatherhood and mental load'
-              : profile?.stage === 'pregnant'
-                ? 'Ask about my energy and mood during pregnancy'
-                : 'Ask about postpartum recovery and self-care'
+            profile?.stage === 'pregnant'
+              ? 'Ask about my energy and mood during pregnancy'
+              : 'Ask about postpartum recovery and self-care'
           }
         />
 
