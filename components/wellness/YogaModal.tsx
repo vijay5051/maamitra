@@ -17,6 +17,7 @@ import { Confetti } from '../ui/Confetti';
 import type { IllustrationName } from '../../lib/illustrations';
 import { YogaSession, YogaPose } from '../../data/yogaSessions';
 import { Colors } from '../../constants/theme';
+import { successBump } from '../../lib/haptics';
 
 // Pose name → brand illustration. Loose substring match; falls back to the
 // pose's authored emoji if no match.
@@ -109,6 +110,7 @@ export default function YogaModal({ session, visible, onClose }: YogaModalProps)
                 if (nextIndex >= poses.length) {
                   setIsPlaying(false);
                   setCompleted(true);
+                  successBump();
                   return pi;
                 }
                 setTimeLeft(poses[nextIndex].durationSeconds);
@@ -136,6 +138,7 @@ export default function YogaModal({ session, visible, onClose }: YogaModalProps)
     } else {
       setCompleted(true);
       setIsPlaying(false);
+      successBump();
     }
   }, [poseIndex, poses.length]);
 

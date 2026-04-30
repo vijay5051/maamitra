@@ -8,6 +8,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useActiveKid } from '../../hooks/useActiveKid';
 import { syncCompletedVaccines } from '../../services/firebase';
 import { Colors, Fonts } from '../../constants/theme';
+import { successBump } from '../../lib/haptics';
 
 interface VaccineCardProps {
   vaccine: VaccineWithDate;
@@ -61,6 +62,7 @@ export default function VaccineCard({ vaccine }: VaccineCardProps) {
     }
     setDateError('');
     markVaccineDone(vaccine.id, kidId, chosen.toISOString());
+    successBump();
     setShowDateInput(false);
     syncToCloud();
   };
