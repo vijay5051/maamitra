@@ -59,7 +59,11 @@ async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
     // propagation to the Firestore SDK for the first few hundred ms after
     // sign-in). We only retry on 'error'; a definitive 'missing' means the
     // user genuinely has no doc and should go to onboarding.
-    const delays = [0, 400, 900]; // ms — cumulative ~1.3s max
+    // Retry budget extended from ~1.3s to ~6s. Web App Check (reCAPTCHA v3)
+    // can take 2-3s to mint its first token in a fresh tab, especially on
+    // slow connections; the original 1.3s ceiling left existing users
+    // staring at "error" and getting routed back through onboarding.
+    const delays = [0, 500, 1000, 1500, 3000]; // ms — cumulative ~6s
     let res: { status: 'ok' | 'missing' | 'error'; data?: FullProfileData; error?: unknown } =
       { status: 'error' };
     for (const wait of delays) {
@@ -72,17 +76,37 @@ async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
 
     if (!fullProfile) {
       // `res.status` is either 'missing' (new account, route to onboarding)
-      // or 'error' (still unreachable after retries). For the error case we
-      // trust the cache if it matches this uid — that's the returning-user
-      // escape hatch that prevents a flaky network from sending a real
-      // user through onboarding again.
+      // or 'error' (still unreachable after retries).
       const cached = useProfileStore.getState().cachedProfileUid;
+
+      // Returning-user fast path: if we have cache for this uid, trust it.
       if (res.status === 'error' && cached === uid) {
         return useProfileStore.getState().onboardingComplete;
       }
-      // If error + no cache match: we still can't tell for sure it's a new
-      // user, but the caller will surface this as onboarding. At least we
-      // tried three times over ~1.3s before giving up.
+
+      // New-tab existing-user safety net: if Firestore says 'error' AND we
+      // have no cache match BUT Firebase auth says this account was created
+      // more than 2 minutes ago, this is NOT a new user — it's an existing
+      // user whose Firestore read failed transiently (App Check cold start,
+      // network hiccup). Do NOT dump them in onboarding. Mark onboarding
+      // complete locally; the home tab's listeners will re-attempt the
+      // hydrate in the background and fill in the rest of the profile.
+      // Without this, a returning user signing in on a fresh browser hits
+      // the 4-step onboarding form again — exactly the bug Vijay reported.
+      if (res.status === 'error' && auth?.currentUser?.uid === uid) {
+        const creationTime = auth.currentUser.metadata.creationTime;
+        const ageMs = creationTime ? Date.now() - new Date(creationTime).getTime() : 0;
+        if (ageMs > 2 * 60 * 1000) {
+          // Existing account → assume onboarded.
+          useProfileStore.getState().setOnboardingComplete(true);
+          useProfileStore.getState().setCachedProfileUid(uid);
+          return true;
+        }
+      }
+
+      // Truly new (status='missing') OR fresh account (created <2min ago)
+      // with a transient error — caller will route to onboarding. Both are
+      // safe outcomes: the user re-fills the form and we re-write the doc.
       return false;
     }
     useProfileStore.getState().resetProfile();
@@ -273,6 +297,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isGoogleSignIn: false,
       };
       await saveUserProfile(credential.user.uid, { name, email, createdAt: new Date().toISOString() });
+      // Pin this uid as the "owner" of the local profile cache. Without this,
+      // newly-signed-up users who complete onboarding but never trigger a
+      // full hydrate (= never cold-reboot the app) leave cachedProfileUid
+      // as null. When they later sign in from a new tab and Firestore is
+      // briefly unreachable, the cache-fallback branch in
+      // hydrateProfileFromFirestore can't match and they get routed back
+      // through onboarding. Setting it here closes that gap.
+      useProfileStore.getState().setCachedProfileUid(credential.user.uid);
       // Send email verification
       await sendVerificationEmail().catch(() => {}); // non-blocking
       set({ user: authUser, isAuthenticated: true, isLoading: false });
