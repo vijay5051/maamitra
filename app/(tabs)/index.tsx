@@ -784,10 +784,51 @@ export default function HomeTab() {
           <Text style={styles.affirmationText}>{affirmationToday}</Text>
         </View>
 
-        {/* ═══ QUICK ACTIONS ═══ Urgent/actionable cards. */}
+        {/* ═══ TODAY'S FOCUS ═══ The most-prioritized card from todayCards
+            promoted to a hero treatment — personalised "Today for <kid>"
+            heading, full-width, larger illustration. Pure visual emphasis,
+            same data + onPress as the underlying card. The remaining cards
+            stay in the grid below. */}
+        {todayCards.length > 0 && (() => {
+          const hero = todayCards[0];
+          const heroLabel = activeKid?.name && activeKid.name !== 'Little one'
+            ? `Today for ${activeKid.name}`
+            : 'Today';
+          return (
+            <Reanimated.View
+              entering={FadeInDown.duration(360).springify().damping(15)}
+              style={styles.todayHeroWrap}
+            >
+              <AnimatedPressable
+                onPress={hero.onPress}
+                style={[styles.todayHeroCard, { backgroundColor: hero.bg }]}
+              >
+                {QUICK_ILLUS[hero.id] ? (
+                  <Illustration
+                    name={QUICK_ILLUS[hero.id]!}
+                    style={styles.todayHeroIllus}
+                    contentFit="contain"
+                  />
+                ) : (
+                  <View style={[styles.todayHeroIconWrap, { backgroundColor: '#ffffff' }]}>
+                    <Ionicons name={hero.icon as any} size={22} color={hero.tint} />
+                  </View>
+                )}
+                <View style={styles.todayHeroContent}>
+                  <Text style={styles.todayHeroLabel} numberOfLines={1}>{heroLabel}</Text>
+                  <Text style={styles.todayHeroValue} numberOfLines={2}>{hero.value}</Text>
+                  <Text style={styles.todayHeroSub} numberOfLines={1}>{hero.label}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
+              </AnimatedPressable>
+            </Reanimated.View>
+          );
+        })()}
+
+        {/* ═══ QUICK ACTIONS ═══ Remaining urgent/actionable cards (index 1+). */}
         <Text style={styles.groupLabel}>Quick actions</Text>
         <View style={styles.todayGrid}>
-          {(quickActionsExpanded ? todayCards : todayCards.slice(0, 6)).map((c, i) => (
+          {(quickActionsExpanded ? todayCards.slice(1) : todayCards.slice(1, 7)).map((c, i) => (
             // Outer wrapper handles the mount animation (fade + slide up,
             // staggered by 60ms per card so the grid reveals itself in
             // sequence). Inner Pressable drives the press-scale via
@@ -817,7 +858,7 @@ export default function HomeTab() {
             </Reanimated.View>
           ))}
         </View>
-        {todayCards.length > 6 && (
+        {todayCards.length > 7 && (
           <TouchableOpacity
             onPress={() => setQuickActionsExpanded((v) => !v)}
             activeOpacity={0.75}
@@ -829,7 +870,7 @@ export default function HomeTab() {
               color={Colors.primary}
             />
             <Text style={styles.quickActionsExpanderText}>
-              {quickActionsExpanded ? 'Show less' : `Show all (+${todayCards.length - 6})`}
+              {quickActionsExpanded ? 'Show less' : `Show all (+${todayCards.length - 7})`}
             </Text>
           </TouchableOpacity>
         )}
@@ -2528,6 +2569,56 @@ const styles = StyleSheet.create({
     borderColor: Colors.borderSoft,
   },
   todayCardIllus: { width: 32, height: 32, marginBottom: 2 },
+
+  // Today-for-<kid> hero card — promoted from todayCards[0]. Full-width,
+  // larger illustration on the left, content stack in the middle, chevron
+  // on the right. Soft brand-purple shadow, generous padding for breathing
+  // room. Same `bg` as the underlying card so the colour signal still maps.
+  todayHeroWrap: {
+    marginHorizontal: Spacing.xl,
+    marginTop: Spacing.xl,
+  },
+  todayHeroCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.lg,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: Colors.borderSoft,
+  },
+  todayHeroIllus: { width: 64, height: 64 },
+  todayHeroIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  todayHeroContent: {
+    flex: 1,
+    gap: 2,
+  },
+  todayHeroLabel: {
+    fontFamily: Fonts.sansMedium,
+    fontSize: FontSize.xs,
+    color: Colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  todayHeroValue: {
+    fontFamily: Fonts.serif,
+    fontSize: FontSize.lg,
+    color: Colors.textDark,
+    marginTop: 2,
+  },
+  todayHeroSub: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: FontSize.sm,
+    color: Colors.textLight,
+    marginTop: 2,
+  },
   todayVal: {
     fontFamily: Fonts.sansBold,
     fontSize: FontSize.sm,
