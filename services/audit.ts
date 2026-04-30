@@ -13,6 +13,7 @@ import { addDoc, collection, getDocs, limit, orderBy, query, serverTimestamp } f
 import { db } from './firebase';
 
 export type AdminAction =
+  | 'user.create'
   | 'user.delete'
   | 'user.role.change'
   | 'user.adminRole.change'

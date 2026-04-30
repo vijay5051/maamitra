@@ -23,7 +23,7 @@ import { Colors } from '../../constants/theme';
 // ─── Domain types ─────────────────────────────────────────────────────────────
 
 type Stage = 'pregnant' | 'newborn';
-type Relation = 'mother' | 'father';
+type Relation = 'mother';
 type Gender = 'boy' | 'girl' | 'surprise';
 type Diet = 'vegetarian' | 'eggetarian' | 'non-vegetarian' | 'vegan';
 type FamilyType = 'nuclear' | 'joint' | 'in-laws' | 'single-parent';
@@ -136,7 +136,7 @@ export default function OnboardingScreen() {
   // ── Step 1: You ──
   const [name, setName] = useState(initialName);
   const [stage, setStage] = useState<Stage | null>(null);
-  const [relation, setRelation] = useState<Relation | null>(null);
+  const [relation] = useState<Relation>('mother');
 
   // ── Step 2: Your baby ──
   const [kidName, setKidName] = useState('');
@@ -183,7 +183,6 @@ export default function OnboardingScreen() {
     if (s === 0) {
       if (!name.trim()) e.name = 'Please tell us your name.';
       if (!stage) e.stage = 'Pick the option that best describes you right now.';
-      if (!relation) e.relation = 'What is your relation to this little one?';
     }
     if (s === 1) {
       if (!keyDate) e.keyDate = 'A date helps us personalise every tip to the right week.';
@@ -199,7 +198,7 @@ export default function OnboardingScreen() {
   }, [name, stage, relation, keyDate, kidGender, state, diet, familyType]);
 
   const canGoNext = useMemo(() => {
-    if (step === 0) return !!(name.trim() && stage && relation);
+    if (step === 0) return !!(name.trim() && stage);
     if (step === 1) return !!(keyDate && kidGender);
     if (step === 2) return !!(state && diet && familyType);
     return true;
@@ -234,7 +233,7 @@ export default function OnboardingScreen() {
     // in history without the step-by-step validation firing.
     if (!validateStep(0) || !validateStep(1) || !validateStep(2)) {
       // Jump to the first failing step
-      if (!name.trim() || !stage || !relation) setStep(0);
+      if (!name.trim() || !stage) setStep(0);
       else if (!keyDate || !kidGender) setStep(1);
       else setStep(2);
       return;
@@ -384,31 +383,11 @@ export default function OnboardingScreen() {
                 <InputError msg={errors.stage} />
               </View>
 
-              <View style={styles.field}>
-                <FieldLabel>Your relation to the baby</FieldLabel>
-                <ChipGroup<Relation>
-                  options={[
-                    { value: 'mother', label: 'Mother', icon: 'woman-outline' },
-                    { value: 'father', label: 'Father', icon: 'man-outline' },
-                  ]}
-                  value={relation}
-                  onChange={(v) => {
-                    setRelation(v);
-                    if (errors.relation) setErrors((e) => ({ ...e, relation: '' }));
-                  }}
-                  columns={2}
-                />
-                {/* Role is content-defining AND locked. Making this
-                    explicit now prevents a confused user from setting
-                    it wrong and getting stuck in the wrong content
-                    variant forever. */}
-                <View style={styles.lockNotice}>
-                  <Ionicons name="lock-closed-outline" size={13} color="#6d1a7a" />
-                  <Text style={styles.lockNoticeText}>
-                    This shapes your whole experience — content, tips, and guides — and can't be changed later. Pick carefully.
-                  </Text>
-                </View>
-                <InputError msg={errors.relation} />
+              <View style={styles.lockNotice}>
+                <Ionicons name="heart-outline" size={13} color="#6d1a7a" />
+                <Text style={styles.lockNoticeText}>
+                  MaaMitra is currently tailored for mothers in this launch phase.
+                </Text>
               </View>
             </View>
           )}

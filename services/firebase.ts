@@ -133,6 +133,8 @@ export const DEFAULT_APP_SETTINGS = {
   featureFlags: {
     community: true,
     library: true,
+    libraryBooks: true,
+    libraryProducts: true,
     wellness: true,
     health: true,
     family: true,

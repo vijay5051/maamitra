@@ -48,10 +48,6 @@ const FAQ: Array<{ q: string; a: string }> = [
     a: 'MaaMitra aligns with IAP 2024 and FOGSI guidelines and is trained to be cautious about medical advice. For anything urgent, always consult your doctor — the AI will tell you when to do so.',
   },
   {
-    q: 'Why do I see "mama" even though I\'m a dad?',
-    a: 'Make sure your profile gender is set to Father in Settings → Edit Profile. The AI adapts its language — "dad", "papa", pronouns — once that field is set.',
-  },
-  {
     q: 'Can I delete my account?',
     a: 'Yes. Open the Profile sheet → Edit profile → scroll to Account → Delete Account. This permanently removes your data.',
   },

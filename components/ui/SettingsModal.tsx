@@ -12,6 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -32,7 +33,7 @@ import {
 } from '../../services/firebase';
 import { confirmAction, infoAlert } from '../../lib/cross-platform-alerts';
 import { isAdminEmail } from '../../lib/admin';
-import { uploadAvatar } from '../../services/storage';
+import { uploadAvatar, uploadKidAvatar } from '../../services/storage';
 import DatePickerField from './DatePickerField';
 import StateSelectorComponent from '../onboarding/StateSelector';
 import { Fonts, ACCENT_PRESETS } from '../../constants/theme';
@@ -78,12 +79,14 @@ function SettingsRow({
   value,
   onPress,
   danger,
+  avatarUri,
 }: {
   icon: string;
   label: string;
   value?: string;
   onPress?: () => void;
   danger?: boolean;
+  avatarUri?: string;
 }) {
   return (
     <TouchableOpacity
@@ -92,9 +95,13 @@ function SettingsRow({
       activeOpacity={onPress ? 0.7 : 1}
       disabled={!onPress}
     >
-      <View style={[s.rowIcon, danger && s.rowIconDanger]}>
-        <Ionicons name={icon as any} size={18} color={danger ? '#ef4444' : Colors.primary} />
-      </View>
+      {avatarUri ? (
+        <RNImage source={{ uri: avatarUri }} style={s.rowAvatar} />
+      ) : (
+        <View style={[s.rowIcon, danger && s.rowIconDanger]}>
+          <Ionicons name={icon as any} size={18} color={danger ? '#ef4444' : Colors.primary} />
+        </View>
+      )}
       <View style={s.rowContent}>
         <Text style={[s.rowLabel, danger && s.rowLabelDanger]}>{label}</Text>
         {value ? <Text style={s.rowValue}>{value}</Text> : null}
@@ -510,6 +517,34 @@ function getExpertiseOptions(parentGender: ParentGender): string[] {
   return [...EXPERTISE_COMMON, ...EXPERTISE_MOTHER];
 }
 
+async function pickSquareImage(): Promise<string | null> {
+  if (Platform.OS !== 'web') {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Permission needed', 'Please allow photo access to choose an image.');
+      return null;
+    }
+  }
+
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    allowsEditing: true,
+    aspect: [1, 1],
+    quality: 0.82,
+    base64: true,
+  });
+
+  if (result.canceled || !result.assets?.length) return null;
+  const asset = result.assets[0];
+  if (asset.base64) {
+    return `data:${asset.mimeType ?? 'image/jpeg'};base64,${asset.base64}`;
+  }
+  if (typeof asset.uri === 'string' && asset.uri.startsWith('data:')) {
+    return asset.uri;
+  }
+  throw new Error('Could not read image data from the selected file.');
+}
+
 function EditProfileView({ onBack }: { onBack: () => void }) {
   const {
     motherName, profile, photoUrl, parentGender, bio, expertise,
@@ -544,58 +579,36 @@ function EditProfileView({ onBack }: { onBack: () => void }) {
   const [saving, setSaving] = useState(false);
   const [photoLoading, setPhotoLoading] = useState(false);
 
-  const handlePickPhoto = () => {
-    if (typeof document === 'undefined') return;
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.onchange = (e: any) => {
-      const file = e.target?.files?.[0];
-      if (!file) return;
+  const handlePickPhoto = async () => {
+    try {
       setPhotoLoading(true);
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const img = new Image();
-        img.onload = async () => {
-          const MAX = 300;
-          let w = img.width, h = img.height;
-          if (w > h) { h = Math.round((h / w) * MAX); w = MAX; }
-          else { w = Math.round((w / h) * MAX); h = MAX; }
-          const canvas = document.createElement('canvas');
-          canvas.width = w; canvas.height = h;
-          canvas.getContext('2d')?.drawImage(img, 0, 0, w, h);
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
-          // Upload to Firebase Storage and use the download URL
-          const uid = user?.uid;
-          if (uid) {
-            try {
-              const downloadUrl = await uploadAvatar(uid, dataUrl);
-              setPhoto(downloadUrl);
-            } catch (uploadErr) {
-              console.error('Avatar upload failed, using data URL:', uploadErr);
-              setPhoto(dataUrl);
-            }
-          } else {
-            setPhoto(dataUrl);
-          }
-          setImgError(false);
-          setPhotoLoading(false);
-        };
-        img.onerror = () => setPhotoLoading(false);
-        img.src = ev.target?.result as string;
-      };
-      reader.onerror = () => setPhotoLoading(false);
-      reader.readAsDataURL(file);
-    };
-    input.click();
+      const dataUrl = await pickSquareImage();
+      if (!dataUrl) return;
+      const uid = user?.uid;
+      if (uid) {
+        try {
+          const downloadUrl = await uploadAvatar(uid, dataUrl);
+          setPhoto(downloadUrl);
+        } catch (uploadErr) {
+          console.error('Avatar upload failed, using data URL:', uploadErr);
+          setPhoto(dataUrl);
+        }
+      } else {
+        setPhoto(dataUrl);
+      }
+      setImgError(false);
+    } catch (error) {
+      console.error('pick profile photo failed:', error);
+      Alert.alert('Could not use that photo', 'Please try a different image.');
+    } finally {
+      setPhotoLoading(false);
+    }
   };
 
   const DIET_OPTIONS = ['vegetarian', 'eggetarian', 'non-vegetarian', 'vegan'];
   const FAMILY_OPTIONS = ['nuclear', 'joint', 'in-laws', 'single-parent'];
   const GENDER_OPTIONS: { key: ParentGender; label: string }[] = [
     { key: 'mother', label: 'Mother 👩' },
-    { key: 'father', label: 'Father 👨' },
-    { key: 'other', label: 'Other 🧑' },
   ];
 
   const toggleExpertise = (tag: string) =>
@@ -648,8 +661,7 @@ function EditProfileView({ onBack }: { onBack: () => void }) {
         {/* Avatar preview */}
         <View style={s.photoPreviewCircle}>
           {photo && !imgError ? (
-            // @ts-ignore
-            <img src={photo} alt="profile" style={{ width: 80, height: 80, borderRadius: 40, objectFit: 'cover' }} onError={() => setImgError(true)} />
+            <RNImage source={{ uri: photo }} style={{ width: 80, height: 80, borderRadius: 40 }} onError={() => setImgError(true)} />
           ) : (
             <View style={s.photoPlaceholder}>
               <Ionicons name="person" size={36} color="#d1d5db" />
@@ -690,8 +702,7 @@ function EditProfileView({ onBack }: { onBack: () => void }) {
         <Ionicons name="lock-closed" size={14} color="#9ca3af" />
       </View>
       <Text style={s.lockedRoleHint}>
-        Your role shapes the whole app and can't be changed here. Contact
-        support if it was set incorrectly.
+        MaaMitra is currently tailored for mothers in this launch phase.
       </Text>
 
       <Text style={s.editSectionTitle}>State</Text>
@@ -752,6 +763,9 @@ function EditKidView({ kid, onBack, onRemove }: { kid: Kid; onBack: () => void; 
   const [name, setName] = useState(kid.name || '');
   const [dob, setDob] = useState(kid.dob ? kid.dob.split('T')[0] : '');
   const [gender, setGender] = useState<'boy' | 'girl' | 'surprise'>(kid.gender || 'surprise');
+  const [photo, setPhoto] = useState(kid.photoUrl || '');
+  const [photoLoading, setPhotoLoading] = useState(false);
+  const [imgError, setImgError] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const GENDER_OPTIONS = [
@@ -764,6 +778,32 @@ function EditKidView({ kid, onBack, onRemove }: { kid: Kid; onBack: () => void; 
   // guardian / …) and reused for every kid on the account. Re-asking it
   // here would let the user contradict their own profile, so the chip
   // strip is intentionally absent.
+
+  const handlePickKidPhoto = async () => {
+    try {
+      setPhotoLoading(true);
+      const dataUrl = await pickSquareImage();
+      if (!dataUrl) return;
+      const uid = user?.uid;
+      if (uid) {
+        try {
+          const downloadUrl = await uploadKidAvatar(uid, kid.id, dataUrl);
+          setPhoto(downloadUrl);
+        } catch (uploadErr) {
+          console.error('Kid avatar upload failed, using data URL:', uploadErr);
+          setPhoto(dataUrl);
+        }
+      } else {
+        setPhoto(dataUrl);
+      }
+      setImgError(false);
+    } catch (error) {
+      console.error('pick child photo failed:', error);
+      Alert.alert('Could not use that photo', 'Please try a different image.');
+    } finally {
+      setPhotoLoading(false);
+    }
+  };
 
   const handleSave = () => {
     setSaving(true);
@@ -778,6 +818,7 @@ function EditKidView({ kid, onBack, onRemove }: { kid: Kid; onBack: () => void; 
       }
     }
     updates.gender = gender;
+    updates.photoUrl = photo.trim();
     updateKid(kid.id, updates);
     // Persist to Firestore immediately — get the post-update state
     if (user?.uid) {
@@ -801,6 +842,31 @@ function EditKidView({ kid, onBack, onRemove }: { kid: Kid; onBack: () => void; 
 
   return (
     <ScrollView contentContainerStyle={s.editContent} showsVerticalScrollIndicator={false}>
+      <Text style={s.editSectionTitle}>Child Photo</Text>
+      <View style={s.photoPickerWrap}>
+        <View style={s.photoPreviewCircle}>
+          {photo && !imgError ? (
+            <RNImage source={{ uri: photo }} style={{ width: 80, height: 80, borderRadius: 40 }} onError={() => setImgError(true)} />
+          ) : (
+            <View style={s.photoPlaceholder}>
+              <Ionicons name="happy-outline" size={36} color="#d1d5db" />
+            </View>
+          )}
+        </View>
+        <View style={s.photoActions}>
+          <TouchableOpacity style={s.photoUploadBtn} onPress={handlePickKidPhoto} activeOpacity={0.8} disabled={photoLoading}>
+            <Ionicons name="camera-outline" size={18} color="#ffffff" />
+            <Text style={s.photoUploadText}>{photoLoading ? 'Processing…' : photo ? 'Change Photo' : 'Upload Photo'}</Text>
+          </TouchableOpacity>
+          {photo ? (
+            <TouchableOpacity style={s.photoRemoveBtn} onPress={() => { setPhoto(''); setImgError(false); }} activeOpacity={0.7}>
+              <Ionicons name="trash-outline" size={16} color="#ef4444" />
+              <Text style={s.photoRemoveText}>Remove</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      </View>
+
       <Text style={s.editSectionTitle}>Child's Name</Text>
       <TextInput style={s.textInput} value={name} onChangeText={setName} placeholder="Name" placeholderTextColor="#9ca3af" />
 
@@ -1589,6 +1655,7 @@ export default function SettingsModal({
                           icon={kidIcon}
                           label={kid.name || 'Baby'}
                           value={ageStr}
+                          avatarUri={kid.photoUrl}
                           onPress={() => { setEditingKidId(kid.id); setViewMode('edit-kid'); }}
                         />
                       </React.Fragment>
@@ -1598,40 +1665,14 @@ export default function SettingsModal({
               </>
             )}
 
-            {/* ─── 5. Appearance ─── */}
-            <SectionHeader
-              title="Appearance"
-              subtitle="Your accent colour across the whole app"
-            />
-            <View style={s.card}>
-              <View style={s.accentPickerWrap}>
-                <AccentPicker
-                  uid={user?.uid}
-                  onChosen={() => {
-                    // Web reloads ~250ms after save so every StyleSheet.create()
-                    // cache rebuilds with the new accent. Native would need a
-                    // manual restart — flag that to the user.
-                    if (Platform.OS === 'web') {
-                      reloadForThemeChange();
-                    } else {
-                      Alert.alert(
-                        'Colour saved',
-                        'Restart MaaMitra to see the new accent across every screen.',
-                      );
-                    }
-                  }}
-                />
-              </View>
-            </View>
-
-            {/* ─── 6. Notifications ─── */}
+            {/* ─── 5. Notifications ─── */}
             <SectionHeader
               title="Notifications"
               subtitle="Push alerts on reactions, comments, messages, and announcements"
             />
             <NotificationsPanel uid={user?.uid} />
 
-            {/* ─── 7. Profile visibility ─── */}
+            {/* ─── 6. Profile visibility ─── */}
             <View
               onLayout={(e) => {
                 privacyAnchorY.current = e.nativeEvent.layout.y;
@@ -1931,6 +1972,12 @@ const s = StyleSheet.create({
     backgroundColor: '#F5F0FF',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  rowAvatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: '#F5F0FF',
   },
   rowIconDanger: {
     backgroundColor: 'rgba(239,68,68,0.08)',

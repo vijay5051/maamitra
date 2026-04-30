@@ -14,6 +14,7 @@ export interface Kid {
   dob: string; // ISO date string
   stage: Stage;
   gender: 'boy' | 'girl' | 'surprise';
+  photoUrl?: string;
   ageInMonths: number;
   ageInWeeks: number;
   isExpecting: boolean;

@@ -29,10 +29,10 @@ import {
 } from 'react-native';
 
 import { AdminUser, getUsers } from '../../services/firebase';
-import { sendPersonalPushFromAdmin } from '../../services/admin';
+import { createAdminManagedUser, sendPersonalPushFromAdmin } from '../../services/admin';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useAdminRole } from '../../lib/useAdminRole';
-import { can } from '../../lib/admin';
+import { ADMIN_ROLE_LABELS, ADMIN_ROLES, AdminRole, can } from '../../lib/admin';
 import { Colors } from '../../constants/theme';
 import { infoAlert } from '../../lib/cross-platform-alerts';
 
@@ -176,6 +176,120 @@ function BulkPushModal({
   );
 }
 
+function CreateUserModal({
+  visible,
+  canManageAdminRoles,
+  onCancel,
+  onCreate,
+}: {
+  visible: boolean;
+  canManageAdminRoles: boolean;
+  onCancel: () => void;
+  onCreate: (payload: { name: string; email: string; password: string; adminRole: AdminRole | null }) => Promise<void>;
+}) {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [adminRole, setAdminRole] = useState<AdminRole | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const reset = () => {
+    setName('');
+    setEmail('');
+    setPassword('');
+    setAdminRole(null);
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+      <View style={styles.modalBackdrop}>
+        <View style={styles.modalCard}>
+          <Text style={styles.modalTitle}>Add user</Text>
+          <Text style={styles.modalHint}>
+            Create an email-password account for a user, then optionally grant an admin role.
+          </Text>
+          <TextInput
+            style={styles.modalInput}
+            placeholder="Full name"
+            placeholderTextColor="#9ca3af"
+            value={name}
+            onChangeText={setName}
+          />
+          <TextInput
+            style={styles.modalInput}
+            placeholder="Email address"
+            placeholderTextColor="#9ca3af"
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+          />
+          <TextInput
+            style={styles.modalInput}
+            placeholder="Temporary password (min 8 chars)"
+            placeholderTextColor="#9ca3af"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            autoCapitalize="none"
+          />
+          {canManageAdminRoles ? (
+            <View style={styles.rolePickerWrap}>
+              <Text style={styles.rolePickerLabel}>Admin access</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rolePickerRow}>
+                <TouchableOpacity
+                  style={[styles.roleChip, adminRole === null && styles.roleChipActive]}
+                  onPress={() => setAdminRole(null)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.roleChipText, adminRole === null && styles.roleChipTextActive]}>User only</Text>
+                </TouchableOpacity>
+                {ADMIN_ROLES.map((role) => (
+                  <TouchableOpacity
+                    key={role}
+                    style={[styles.roleChip, adminRole === role && styles.roleChipActive]}
+                    onPress={() => setAdminRole(role)}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={[styles.roleChipText, adminRole === role && styles.roleChipTextActive]}>
+                      {ADMIN_ROLE_LABELS[role]}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          ) : null}
+          <View style={styles.modalActions}>
+            <TouchableOpacity style={styles.modalBtn} onPress={onCancel} disabled={saving}>
+              <Text style={styles.modalBtnText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modalBtn, styles.modalBtnPrimary]}
+              disabled={saving || !name.trim() || !email.trim() || password.length < 8}
+              onPress={async () => {
+                setSaving(true);
+                try {
+                  await onCreate({
+                    name: name.trim(),
+                    email: email.trim(),
+                    password,
+                    adminRole,
+                  });
+                  reset();
+                } finally {
+                  setSaving(false);
+                }
+              }}
+            >
+              <Text style={[styles.modalBtnText, { color: '#fff' }]}>{saving ? 'Creating…' : 'Create user'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function UsersScreen() {
@@ -189,6 +303,7 @@ export default function UsersScreen() {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [pushOpen, setPushOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
 
   useEffect(() => { void load(); }, []);
 
@@ -239,6 +354,29 @@ export default function UsersScreen() {
     infoAlert('Push queued', `${sent} sent${failed ? `, ${failed} failed` : ''}.`);
   }
 
+  async function handleCreateUser(payload: { name: string; email: string; password: string; adminRole: AdminRole | null }) {
+    if (!authUser) return;
+    if (!can(role, 'view_users')) {
+      infoAlert('Not allowed', 'Your role does not allow creating users.');
+      return;
+    }
+    try {
+      const result = await createAdminManagedUser(authUser, payload);
+      setCreateOpen(false);
+      await refresh();
+      infoAlert(
+        'User created',
+        payload.adminRole
+          ? `${payload.name} was created and promoted as ${ADMIN_ROLE_LABELS[payload.adminRole]}.`
+          : `${payload.name} was created successfully.`,
+      );
+      router.push(`/admin/users/${result.uid}` as any);
+    } catch (error: any) {
+      console.error('create user failed:', error);
+      Alert.alert('Could not create user', error?.message || 'Please try again.');
+    }
+  }
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     if (!q) return users;
@@ -284,6 +422,17 @@ export default function UsersScreen() {
       </View>
 
       {/* Search */}
+      <View style={styles.headerActions}>
+        <TouchableOpacity
+          style={styles.addUserBtn}
+          onPress={() => setCreateOpen(true)}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="person-add-outline" size={16} color="#fff" />
+          <Text style={styles.addUserBtnText}>Add user</Text>
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.searchWrap}>
         <Ionicons name="search" size={16} color="#9ca3af" />
         <TextInput
@@ -352,6 +501,12 @@ export default function UsersScreen() {
         onCancel={() => setPushOpen(false)}
         onSend={bulkSend}
       />
+      <CreateUserModal
+        visible={createOpen}
+        canManageAdminRoles={can(role, 'manage_admin_roles')}
+        onCancel={() => setCreateOpen(false)}
+        onCreate={handleCreateUser}
+      />
     </ScrollView>
   );
 }
@@ -363,6 +518,17 @@ const styles = StyleSheet.create({
   content: { padding: 16, paddingBottom: 40 },
 
   statsRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+  headerActions: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 12 },
+  addUserBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: Colors.primary,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  addUserBtnText: { color: '#fff', fontSize: 13, fontWeight: '800' },
   statChip: {
     flex: 1, backgroundColor: '#fff', borderRadius: 12,
     paddingVertical: 10, alignItems: 'center',
@@ -430,6 +596,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9fafb', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10,
     fontSize: 13, color: '#1a1a2e', borderWidth: 1, borderColor: '#e5e7eb',
   },
+  rolePickerWrap: { gap: 8 },
+  rolePickerLabel: { fontSize: 12, fontWeight: '700', color: '#4b5563' },
+  rolePickerRow: { gap: 8, paddingRight: 4 },
+  roleChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#fff',
+  },
+  roleChipActive: {
+    backgroundColor: '#F3E8FF',
+    borderColor: Colors.primary,
+  },
+  roleChipText: { fontSize: 12, fontWeight: '700', color: '#4b5563' },
+  roleChipTextActive: { color: Colors.primary },
   modalTextarea: { height: 88, textAlignVertical: 'top' as any },
   modalActions: { flexDirection: 'row', gap: 8, marginTop: 4 },
   modalBtn: {
