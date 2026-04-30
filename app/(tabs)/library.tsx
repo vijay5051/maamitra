@@ -494,7 +494,7 @@ function ArticleCard({
 
 const articleStyles = StyleSheet.create({
   card: {
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.cardBg,
     borderRadius: 16,
     marginBottom: 14,
     overflow: 'hidden',
@@ -736,7 +736,7 @@ function BookCard({ book, highlighted }: { book: Book; highlighted?: boolean }) 
 
 const bookStyles = StyleSheet.create({
   card: {
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.cardBg,
     borderRadius: 16,
     padding: 14,
     marginBottom: 14,
@@ -958,7 +958,7 @@ function ProductCard({ product }: { product: Product }) {
 const productCardStyles = StyleSheet.create({
   card: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.cardBg,
     borderRadius: 14,
     padding: 12,
     margin: 4,
@@ -1097,7 +1097,7 @@ const journeyStyles = StyleSheet.create({
   line: { width: 2, flex: 1, backgroundColor: '#f3e8ff', marginVertical: 2 },
   card: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.cardBg,
     borderRadius: 14,
     padding: 14,
     marginBottom: 10,
@@ -1771,7 +1771,7 @@ const styles = StyleSheet.create({
   searchWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.cardBg,
     borderRadius: 14,
     marginHorizontal: 16,
     marginTop: 12,
@@ -1798,7 +1798,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingVertical: 6,
     paddingHorizontal: 12,
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.cardBg,
     borderWidth: 1.5,
     borderColor: '#EDE9F6',
   },
@@ -1848,7 +1848,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingVertical: 7,
     paddingHorizontal: 14,
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.cardBg,
     borderWidth: 1.5,
     borderColor: '#EDE9F6',
   },

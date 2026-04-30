@@ -107,7 +107,7 @@ const childCardStyles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#E5E1EE',
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.cardBg,
   } as any,
   cardActive: {
     borderColor: Colors.primary,
@@ -117,7 +117,7 @@ const childCardStyles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 12,
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.cardBg,
   },
   innerActive: { backgroundColor: '#FAF7FF' },
   iconBox: {
@@ -349,7 +349,7 @@ const addChildStyles = StyleSheet.create({
   title: { fontFamily: Fonts.sansBold, fontSize: 20, color: '#1C1033' },
   label: { fontFamily: Fonts.sansSemiBold, fontSize: 10, color: '#9CA3AF', letterSpacing: 1.2, marginBottom: 8, marginTop: 16 },
   input: {
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.cardBg,
     borderRadius: 14,
     padding: 14,
     fontFamily: Fonts.sansRegular,
@@ -367,7 +367,7 @@ const addChildStyles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1.5,
     borderColor: '#EDE9F6',
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.cardBg,
   },
   stageBtnActive: { borderColor: Colors.primary, backgroundColor: 'rgba(28, 16, 51, 0.036)' },
   stageBtnText: { fontFamily: Fonts.sansMedium, fontSize: 14, color: '#9CA3AF' },

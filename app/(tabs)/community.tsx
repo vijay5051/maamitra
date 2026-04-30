@@ -428,13 +428,13 @@ const newPostStyles = StyleSheet.create({
     paddingVertical: 7,
     paddingHorizontal: 14,
     marginRight: 6,
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.cardBg,
   },
   topicChipActive: { borderColor: Colors.primary, backgroundColor: Colors.primaryAlpha05 },
   topicChipText: { fontFamily: Fonts.sansMedium, fontSize: 13, color: '#9CA3AF' },
   topicChipTextActive: { fontFamily: Fonts.sansBold, color: Colors.primary },
   textArea: {
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.cardBg,
     borderRadius: 14,
     padding: 14,
     fontFamily: Fonts.sansRegular,
@@ -457,7 +457,7 @@ const newPostStyles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 14,
     marginBottom: 12,
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.cardBg,
   },
   photoBtnText: { fontFamily: Fonts.sansSemiBold, fontSize: 14, color: Colors.primary },
   imageCropWrap: {
@@ -546,7 +546,7 @@ function ComposeCard({ onPress }: { onPress: () => void }) {
 
 const composeStyles = StyleSheet.create({
   card: {
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.cardBg,
     borderRadius: 16,
     marginHorizontal: 16,
     marginBottom: 12,
@@ -735,7 +735,7 @@ const heroStyles = StyleSheet.create({
     padding: 16,
     paddingTop: 16,
     position: 'relative',
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.cardBg,
     borderWidth: 1,
     borderColor: '#F0EDF5',
   },

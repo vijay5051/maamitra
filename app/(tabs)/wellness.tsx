@@ -464,7 +464,7 @@ const chartStyles = StyleSheet.create({
   calendarWrap: {
     marginTop: 8,
     padding: 14,
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.cardBg,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: '#EDE9F6',
@@ -875,7 +875,7 @@ const condStyles = StyleSheet.create({
     borderRadius: 20,
     paddingVertical: 8,
     paddingHorizontal: 14,
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.cardBg,
   },
   chipSelected: { borderColor: Colors.primary, backgroundColor: Colors.primaryAlpha05 },
   chipText: { fontFamily: Fonts.sansMedium, fontSize: 13, color: '#9CA3AF' },
@@ -1036,7 +1036,7 @@ function PullQuoteTip({ tip }: { tip: { icon: keyof typeof Ionicons.glyphMap; te
 
 const tipStyles = StyleSheet.create({
   card: {
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.cardBg,
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 14,
