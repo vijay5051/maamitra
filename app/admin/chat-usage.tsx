@@ -214,7 +214,7 @@ function Metric({ label, value }: { label: string; value: number | string }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FAFAFB' },
+  container: { flex: 1, backgroundColor: Colors.bgLight },
   content: { padding: 16, gap: 12 },
 
   headerCard: { borderRadius: 16, padding: 16 },
@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
 
   rowMetricsGrid: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
   metric: {
-    flex: 1, minWidth: 80, backgroundColor: '#FAFAFB', borderRadius: 8, padding: 8,
+    flex: 1, minWidth: 80, backgroundColor: Colors.bgLight, borderRadius: 8, padding: 8,
     borderWidth: 1, borderColor: '#F0EDF5',
   },
   metricValue: { fontSize: 14, fontWeight: '800', color: '#1a1a2e' },

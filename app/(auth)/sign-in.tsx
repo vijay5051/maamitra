@@ -450,7 +450,7 @@ export default function SignInScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#FAFAFB' },
+  root: { flex: 1, backgroundColor: Colors.bgLight },
   flex: { flex: 1 },
   scrollContent: {
     paddingHorizontal: 22,

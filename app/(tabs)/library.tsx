@@ -316,7 +316,7 @@ function SubTabSelector({ active, onChange }: { active: SubTab; onChange: (t: Su
 
 const subTabStyles = StyleSheet.create({
   wrapper: {
-    backgroundColor: '#FAFAFB',
+    backgroundColor: Colors.bgLight,
     borderBottomWidth: 1,
     borderBottomColor: '#F0EBF8',
     paddingVertical: 10,
@@ -1733,7 +1733,7 @@ export default function LibraryScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FAFAFB' },
+  container: { flex: 1, backgroundColor: Colors.bgLight },
   flex: { flex: 1 },
   // Dark header
   header: {
@@ -1834,7 +1834,7 @@ const styles = StyleSheet.create({
   categoriesScrollView: {
     flexGrow: 0,
     flexShrink: 0,
-    backgroundColor: '#FAFAFB',
+    backgroundColor: Colors.bgLight,
     borderBottomWidth: 1,
     borderBottomColor: '#EDE9F6',
   },
@@ -1886,7 +1886,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sortSheet: {
-    backgroundColor: '#FAFAFB',
+    backgroundColor: Colors.bgLight,
     borderRadius: 20,
     padding: 20,
     width: 220,

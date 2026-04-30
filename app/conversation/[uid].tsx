@@ -446,7 +446,7 @@ export default function ConversationScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FAFAFB' },
+  container: { flex: 1, backgroundColor: Colors.bgLight },
   flex1: { flex: 1 },
   header: {
     flexDirection: 'row',
@@ -483,7 +483,7 @@ const styles = StyleSheet.create({
     gap: 8,
     borderTopWidth: 1,
     borderTopColor: '#EDE9F6',
-    backgroundColor: '#FAFAFB',
+    backgroundColor: Colors.bgLight,
   },
   blockedNotice: {
     flexDirection: 'row',

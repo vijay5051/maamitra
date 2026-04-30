@@ -140,7 +140,7 @@ export default function AuditLog() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FAFAFB' },
+  container: { flex: 1, backgroundColor: Colors.bgLight },
   content: { padding: 16, gap: 8 },
 
   headerCard: { borderRadius: 16, padding: 16 },

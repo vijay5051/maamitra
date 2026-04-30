@@ -299,7 +299,7 @@ function friendlyOtpError(e: any): string {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#FAFAFB' },
+  root: { flex: 1, backgroundColor: Colors.bgLight },
   flex: { flex: 1 },
   content: {
     flex: 1,

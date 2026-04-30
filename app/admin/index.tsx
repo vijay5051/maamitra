@@ -570,7 +570,7 @@ export default function AdminDashboard() {
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FAFAFB' },
+  container: { flex: 1, backgroundColor: Colors.bgLight },
   content: { paddingBottom: 40 },
 
   // Header
@@ -650,7 +650,7 @@ const s = StyleSheet.create({
   vigilanceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   vigilanceChip: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: '#FAFAFB', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6,
+    backgroundColor: Colors.bgLight, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6,
     borderWidth: 1, borderColor: '#F0EDF5',
   },
   vigilanceChipText: { fontSize: 11, fontWeight: '700', color: '#1C1033' },

@@ -326,7 +326,7 @@ function ResponseCard({ row }: { row: TesterFeedbackEntry }) {
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FAFAFB' },
+  container: { flex: 1, backgroundColor: Colors.bgLight },
   content: { paddingBottom: 40 },
 
   header: { paddingHorizontal: 20, paddingBottom: 22 },
@@ -384,7 +384,7 @@ const s = StyleSheet.create({
   starsInline: { flexDirection: 'row', gap: 1 },
 
   respMetaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 },
-  metaPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, backgroundColor: '#FAFAFB', borderWidth: 1, borderColor: '#F0EDF5' },
+  metaPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, backgroundColor: Colors.bgLight, borderWidth: 1, borderColor: '#F0EDF5' },
   metaPillText: { fontSize: 11, fontWeight: '700', color: '#1C1033' },
 
   respHint: { fontSize: 10, color: '#9CA3AF', marginTop: 8, marginBottom: 4, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.8 },

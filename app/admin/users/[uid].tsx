@@ -521,7 +521,7 @@ export default function UserDetail() {
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FAFAFB' },
+  container: { flex: 1, backgroundColor: Colors.bgLight },
   content: { padding: 16, gap: 12 },
 
   notFound: { fontSize: 14, color: '#6B7280' },

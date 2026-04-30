@@ -182,7 +182,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#E5E1EE',
-    backgroundColor: '#FAFAFB',
+    backgroundColor: Colors.bgLight,
   },
   optionSelected: {
     borderColor: Colors.primary,
@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sansRegular,
     fontSize: 14,
     color: '#1C1033',
-    backgroundColor: '#FAFAFB',
+    backgroundColor: Colors.bgLight,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#E5E1EE',

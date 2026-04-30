@@ -162,7 +162,7 @@ export default function ForgotPasswordScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#FAFAFB' },
+  root: { flex: 1, backgroundColor: Colors.bgLight },
   flex: { flex: 1 },
   scrollContent: { paddingHorizontal: 22 },
   backButton: { alignSelf: 'flex-start', paddingVertical: 4, marginBottom: 6 },

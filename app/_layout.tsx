@@ -57,6 +57,11 @@ export default function RootLayout() {
     DMSans_700Bold:            require('../assets/fonts/DMSans_700Bold.ttf'),
     DMMono_400Regular:         require('../assets/fonts/DMMono_400Regular.ttf'),
     DMMono_500Medium:          require('../assets/fonts/DMMono_500Medium.ttf'),
+    // Lora — warm humanist serif for greetings, section titles, and other
+    // headline moments. Pairs with DM Sans for body. Adds the motherly/
+    // editorial feel the brand wanted (vs. the prior all-sans uniform look).
+    Lora_500Medium:            require('@expo-google-fonts/lora/500Medium/Lora_500Medium.ttf'),
+    Lora_700Bold:              require('@expo-google-fonts/lora/700Bold/Lora_700Bold.ttf'),
   });
 
   useEffect(() => {

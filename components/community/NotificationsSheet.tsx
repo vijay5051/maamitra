@@ -331,7 +331,7 @@ export default function NotificationsSheet({ visible, onClose, onViewProfile }: 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAFAFB',
+    backgroundColor: Colors.bgLight,
   },
   header: {
     paddingTop: Platform.OS === 'ios' ? 16 : 24,

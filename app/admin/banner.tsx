@@ -207,7 +207,7 @@ export default function BannerScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FAFAFB' },
+  container: { flex: 1, backgroundColor: Colors.bgLight },
   content: { padding: 16, gap: 12 },
 
   headerCard: { borderRadius: 16, padding: 16 },

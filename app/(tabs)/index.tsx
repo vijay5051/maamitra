@@ -2428,7 +2428,7 @@ const styles = StyleSheet.create({
     boxShadow: '0px 2px 6px rgba(28,16,51,0.04)',
   },
   babyHealthCardEmpty: {
-    backgroundColor: '#FAFAFB',
+    backgroundColor: Colors.bgLight,
     borderStyle: 'dashed',
     borderColor: Colors.border,
   },
