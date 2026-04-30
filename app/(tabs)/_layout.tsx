@@ -11,6 +11,7 @@ import { useEffect } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Fonts, Gradients } from '../../constants/theme';
 import { AppIcon } from '../../components/ui/AppIcon';
+import { TabSwipeEdges } from '../../components/ui/TabSwipeEdges';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useProfileStore } from '../../store/useProfileStore';
 import { isAdminEmail } from '../../lib/admin';
@@ -129,6 +130,7 @@ export default function TabLayout() {
   }
 
   return (
+    <View style={{ flex: 1 }}>
     <Tabs
       initialRouteName="index"
       screenListeners={{ tabPress: () => selectionTick() }}
@@ -232,6 +234,8 @@ export default function TabLayout() {
       <Tabs.Screen name="family" options={{ href: null }} />
       <Tabs.Screen name="library" options={{ href: null }} />
     </Tabs>
+    <TabSwipeEdges />
+    </View>
   );
 }
 
