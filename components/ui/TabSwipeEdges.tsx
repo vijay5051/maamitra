@@ -8,7 +8,7 @@ import { runOnJS } from 'react-native-reanimated';
 // it's launched from the lifted FAB in the center of the bar, not by
 // swipe (so swipe never accidentally lands a parent on the chat screen
 // mid-scroll).
-const TAB_ROUTES: ReadonlyArray<{ pathname: string; href: `/${string}` }> = [
+const TAB_ROUTES: ReadonlyArray<{ pathname: string; href: any }> = [
   { pathname: '/',          href: '/(tabs)/' },
   { pathname: '/health',    href: '/(tabs)/health' },
   { pathname: '/community', href: '/(tabs)/community' },
