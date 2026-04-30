@@ -47,7 +47,7 @@ function previewText(thread: ChatThread): string {
 
 // ─── Thread Row ──────────────────────────────────────────────────────────────
 
-function ThreadRow({
+export function ThreadRow({
   thread,
   isActive,
   onPress,

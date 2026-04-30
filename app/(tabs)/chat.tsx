@@ -28,7 +28,7 @@ import { TEETH } from '../../data/teeth';
 import ChatBubble from '../../components/chat/ChatBubble';
 import ChatInput from '../../components/chat/ChatInput';
 import QuickChips from '../../components/chat/QuickChips';
-import ChatHistorySheet from '../../components/chat/ChatHistorySheet';
+import ChatHistorySheet, { ThreadRow } from '../../components/chat/ChatHistorySheet';
 import TypingIndicator from '../../components/ui/TypingIndicator';
 import GradientAvatar from '../../components/ui/GradientAvatar';
 import { Illustration } from '../../components/ui/Illustration';
@@ -217,7 +217,13 @@ export default function ChatScreen() {
     saveAnswer,
     setAllergies,
     loadThreadsFromFirestore,
+    createThread,
+    switchThread,
+    deleteThread,
+    renameThread,
   } = useChatStore();
+  const streamingId = useChatStore((s) => s.streamingId);
+  const streamingContent = useChatStore((s) => s.streamingContent);
   // Subscribe to threads + activeThreadId so messages re-render on thread switch
   const activeThreadId = useChatStore((s) => s.activeThreadId);
   const threads = useChatStore((s) => s.threads);
@@ -235,6 +241,9 @@ export default function ChatScreen() {
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  // WhatsApp-style nav: tab opens to threads list; tap a thread or "New
+  // chat" to enter the conversation; back arrow returns to the list.
+  const [view, setView] = useState<'list' | 'conversation'>('list');
 
   // Load chat threads from Firestore on login
   useEffect(() => {
@@ -243,6 +252,28 @@ export default function ChatScreen() {
   }, [user?.uid]);
 
   const flatListRef = useRef<FlatList>(null);
+
+  // If the user opened the chat tab via a deep link with a `prefill` param
+  // (a contextual "Ask Maamitra" chip from another tab), drop them straight
+  // into the conversation view rather than the threads list.
+  useEffect(() => {
+    if (typeof prefill === 'string' && prefill.length > 0) {
+      setView('conversation');
+    }
+  }, [prefill]);
+
+  const handleNewChat = useCallback(() => {
+    createThread('New chat');
+    setView('conversation');
+  }, [createThread]);
+
+  const handleOpenThread = useCallback(
+    (threadId: string) => {
+      switchThread(threadId);
+      setView('conversation');
+    },
+    [switchThread],
+  );
 
   // ── Rich context builders — every extra signal makes the AI's answer
   // more specific to this parent. All lookups read cached store values;
@@ -382,6 +413,71 @@ export default function ChatScreen() {
 
   const data = [...messages];
 
+  // ── Thread list view (WhatsApp-style chat list) ──────────────────────
+  if (view === 'list') {
+    const sortedThreads = [...threads].sort((a, b) => {
+      const aT = new Date(a.lastMessageAt).getTime();
+      const bT = new Date(b.lastMessageAt).getTime();
+      return bT - aT;
+    });
+    return (
+      <View style={styles.container}>
+        <LinearGradient
+          colors={['#FFFFFF', '#FFFFFF', '#FFFFFF']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.header, { paddingTop: insets.top + 12 }]}
+        >
+          <View style={styles.glowTopRight} pointerEvents="none" />
+          <View style={styles.glowBottomLeft} pointerEvents="none" />
+          <View style={styles.headerInner}>
+            <View style={styles.headerLeft}>
+              <View style={styles.headerInfo}>
+                <Text style={styles.headerName}>Chats</Text>
+                <Text style={styles.headerSub}>Your conversations with MaaMitra</Text>
+              </View>
+            </View>
+            <View style={styles.headerRight}>
+              <TouchableOpacity
+                onPress={handleNewChat}
+                style={[styles.gearBtn, { backgroundColor: Colors.primary }]}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="add" size={22} color="#ffffff" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </LinearGradient>
+        <FlatList
+          data={sortedThreads}
+          keyExtractor={(t) => t.id}
+          renderItem={({ item }) => (
+            <ThreadRow
+              thread={item}
+              isActive={item.id === activeThreadId}
+              onPress={() => handleOpenThread(item.id)}
+              onRename={(newTitle) => renameThread(item.id, newTitle)}
+              onDelete={() => deleteThread(item.id)}
+            />
+          )}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Illustration name="chatMascot" style={styles.emptyMascot} contentFit="contain" />
+              <Text style={styles.emptyGreet}>
+                Namaste{motherName ? `, ${motherName.split(' ')[0]}` : ''}! 🙏
+              </Text>
+              <Text style={styles.emptyDesc}>
+                Tap the + button above to start your first chat with MaaMitra.
+              </Text>
+            </View>
+          }
+          contentContainerStyle={{ paddingTop: 8, paddingBottom: insets.bottom + 24 }}
+        />
+      </View>
+    );
+  }
+
+  // ── Conversation view ────────────────────────────────────────────────
   return (
     <View style={styles.container}>
       {/* ── Dark Gradient Header ── */}
@@ -396,8 +492,16 @@ export default function ChatScreen() {
         <View style={styles.glowBottomLeft} pointerEvents="none" />
 
         <View style={styles.headerInner}>
-          {/* Left: Logo + info */}
+          {/* Left: Back arrow + Logo + info */}
           <View style={styles.headerLeft}>
+            <TouchableOpacity
+              onPress={() => setView('list')}
+              style={styles.gearBtn}
+              activeOpacity={0.7}
+              accessibilityLabel="Back to chats"
+            >
+              <Ionicons name="chevron-back" size={22} color={Colors.primary} />
+            </TouchableOpacity>
             <View style={styles.avatarWrap}>
               <View style={styles.logoCircle}>
                 <Image
@@ -482,11 +586,15 @@ export default function ChatScreen() {
               const prevMessage = index > 0 ? data[index - 1] : null;
               const isFirstInGroup =
                 !prevMessage || prevMessage.role !== item.role;
+              const displayMessage =
+                item.id === streamingId
+                  ? { ...item, content: streamingContent }
+                  : item;
               return (
                 <ChatBubble
-                  message={item}
+                  message={displayMessage}
                   isFirstInGroup={isFirstInGroup}
-                  onSave={item.role === 'assistant' && !item.saved ? handleSave : undefined}
+                  onSave={item.role === 'assistant' && !item.saved && item.id !== streamingId ? handleSave : undefined}
                 />
               );
             }}

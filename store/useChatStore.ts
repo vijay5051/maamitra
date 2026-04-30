@@ -82,6 +82,43 @@ function syncThreadToFirestore(thread: ChatThread): void {
   saveChatThread(uid, thread).catch(() => {});
 }
 
+/**
+ * Reveal the assistant response word-by-word into store.streamingContent.
+ * Resolves once the reveal is complete (or interrupted by a new message).
+ */
+function revealAnswerProgressively(
+  fullText: string,
+  messageId: string,
+  set: (partial: any) => void,
+  get: () => { streamingId: string | null },
+): Promise<void> {
+  return new Promise((resolve) => {
+    const chunks = fullText.split(/(\s+)/); // keep spaces as their own chunks
+    let i = 0;
+    let revealed = '';
+    const tick = () => {
+      // If a new message started streaming, abandon this animation but
+      // ensure the old one shows the full text as a snapshot.
+      if (get().streamingId !== messageId) {
+        resolve();
+        return;
+      }
+      if (i >= chunks.length) {
+        set({ streamingId: null, streamingContent: '' });
+        resolve();
+        return;
+      }
+      revealed += chunks[i];
+      i++;
+      set({ streamingContent: revealed });
+      // 30–55 ms per word feels like a relaxed, motherly pace — fast enough
+      // not to frustrate, slow enough to feel composed.
+      setTimeout(tick, 35);
+    };
+    tick();
+  });
+}
+
 // ─── Store ───────────────────────────────────────────────────────────────────
 
 interface ChatState {
@@ -91,6 +128,11 @@ interface ChatState {
 
   // UI / shared
   isTyping: boolean;
+  /** Id of the assistant message currently being revealed word-by-word. */
+  streamingId: string | null;
+  /** Progressive text shown for the streaming message. UI reads this when
+   *  message.id === streamingId, otherwise renders message.content. */
+  streamingContent: string;
   allergies: string[] | null;
   savedAnswers: SavedAnswer[];
 
@@ -134,6 +176,8 @@ export const useChatStore = create<ChatState>()(
       threads: [],
       activeThreadId: null,
       isTyping: false,
+      streamingId: null,
+      streamingContent: '',
       allergies: null,
       savedAnswers: [],
       voiceLanguage: 'en-IN',
@@ -266,7 +310,15 @@ export const useChatStore = create<ChatState>()(
                 : t
             ),
             isTyping: false,
+            streamingId: assistantMessage.id,
+            streamingContent: '',
           }));
+
+          // Reveal the response word-by-word so the user sees a typing
+          // animation instead of the whole answer slamming in at once.
+          // Pure-JS, no streaming protocol — the worker still returns the
+          // full text, we just animate the reveal here.
+          await revealAnswerProgressively(responseText, assistantMessage.id, set, get);
 
           // Sync the completed thread to Firestore (fire-and-forget)
           const updated = get().threads.find((t) => t.id === activeThreadId);
