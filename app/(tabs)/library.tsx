@@ -32,6 +32,7 @@ import { VACCINE_SCHEDULE } from '../../data/vaccines';
 import Card from '../../components/ui/Card';
 import TagPill from '../../components/ui/TagPill';
 import { TabIcon } from '../../components/ui/AppIcon';
+import { Illustration } from '../../components/ui/Illustration';
 import { Fonts } from '../../constants/theme';
 import { Colors } from '../../constants/theme';
 
@@ -1638,7 +1639,7 @@ export default function LibraryScreen() {
         >
           {savedAnswers.length === 0 ? (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyEmoji}>🔖</Text>
+              <Illustration name="emptyLibrary" style={styles.emptyIllus} contentFit="contain" />
               <Text style={styles.emptyTitle}>Nothing saved yet</Text>
               <Text style={styles.emptyText}>
                 Tap the{' '}
@@ -1907,8 +1908,9 @@ const styles = StyleSheet.create({
   },
   sortOptionText: { fontFamily: Fonts.sansRegular, fontSize: 14, color: '#9CA3AF' },
   sortOptionTextActive: { fontFamily: Fonts.sansBold, color: Colors.primary },
-  emptyState: { flex: 1, alignItems: 'center', paddingTop: 80, paddingHorizontal: 32 },
+  emptyState: { flex: 1, alignItems: 'center', paddingTop: 56, paddingHorizontal: 32 },
   emptyEmoji: { fontSize: 56, marginBottom: 16 },
+  emptyIllus: { width: 220, height: 180, marginBottom: 12 },
   emptyTitle: { fontFamily: Fonts.sansBold, fontSize: 18, color: '#1C1033', marginBottom: 8 },
   emptyText: { fontFamily: Fonts.sansRegular, fontSize: 14, color: '#9CA3AF', textAlign: 'center', lineHeight: 22 },
   emptyHighlight: { fontFamily: Fonts.sansBold, color: Colors.primary },

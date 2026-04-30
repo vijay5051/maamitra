@@ -14,17 +14,19 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import GradientButton from '../../components/ui/GradientButton';
+import { Illustration } from '../../components/ui/Illustration';
+import type { IllustrationName } from '../../lib/illustrations';
 import { Fonts, Colors } from '../../constants/theme';
 
 const LOGO = require('../../assets/logo.png');
 
-const FEATURES: { icon: keyof typeof Ionicons.glyphMap; title: string; text: string }[] = [
-  { icon: 'chatbubble-ellipses-outline', title: 'AI companion', text: 'Chat like texting a knowledgeable friend' },
-  { icon: 'flag-outline',                title: 'India-first',   text: 'India-specific foods, schemes & languages' },
-  { icon: 'sparkles-outline',            title: 'Remembers you', text: 'Every detail about you and your baby' },
-  { icon: 'shield-checkmark-outline',    title: 'Trusted info',  text: 'IAP and FOGSI aligned medical content' },
-  { icon: 'people-outline',              title: 'Multi-child',   text: 'Separate profile for each of your children' },
-  { icon: 'heart-circle-outline',        title: 'Community',     text: 'Connect with Indian parents going through it too' },
+const FEATURES: { icon: keyof typeof Ionicons.glyphMap; illustration: IllustrationName; title: string; text: string }[] = [
+  { icon: 'chatbubble-ellipses-outline', illustration: 'featureAi',        title: 'AI companion', text: 'Chat like texting a knowledgeable friend' },
+  { icon: 'flag-outline',                illustration: 'featureIndia',     title: 'India-first',   text: 'India-specific foods, schemes & languages' },
+  { icon: 'sparkles-outline',            illustration: 'featureGrowth',    title: 'Remembers you', text: 'Every detail about you and your baby' },
+  { icon: 'shield-checkmark-outline',    illustration: 'featurePrivate',   title: 'Trusted info',  text: 'IAP and FOGSI aligned medical content' },
+  { icon: 'people-outline',              illustration: 'featureLibrary',   title: 'Multi-child',   text: 'Separate profile for each of your children' },
+  { icon: 'heart-circle-outline',        illustration: 'featureCommunity', title: 'Community',     text: 'Connect with Indian parents going through it too' },
 ];
 
 const STEPS: { n: string; title: string; text: string }[] = [
@@ -60,6 +62,7 @@ export default function WelcomeScreen() {
       <View style={[styles.container, isWide && styles.containerWide]}>
 
         <View style={styles.hero}>
+          <Illustration name="onboardingWelcome" style={styles.heroIllus} contentFit="contain" />
           <Image source={LOGO} style={styles.logoImage} resizeMode="contain" />
           <Text style={styles.wordmark}>MaaMitra</Text>
           <Text style={[styles.tagline, isWide && styles.taglineWide]}>
@@ -95,9 +98,7 @@ export default function WelcomeScreen() {
         <View style={styles.featuresGrid}>
           {FEATURES.map((f, i) => (
             <View key={i} style={[styles.featureCard, isWide && styles.featureCardWide]}>
-              <View style={styles.iconBox}>
-                <Ionicons name={f.icon} size={18} color={Colors.primary} />
-              </View>
+              <Illustration name={f.illustration} style={styles.featureIllus} contentFit="contain" />
               <Text style={styles.featureTitle}>{f.title}</Text>
               <Text style={styles.featureText}>{f.text}</Text>
             </View>
@@ -192,6 +193,7 @@ function NativeWelcome({
       bounces
     >
         <View style={styles.hero}>
+          <Illustration name="onboardingWelcome" style={styles.heroIllus} contentFit="contain" />
           <Image source={LOGO} style={styles.logoImage} resizeMode="contain" />
           <Text style={styles.wordmark}>MaaMitra</Text>
           <Text style={nativeStyles.tagline}>
@@ -218,9 +220,7 @@ function NativeWelcome({
         <View style={styles.featuresGrid}>
           {FEATURES.map((f, i) => (
             <View key={i} style={styles.featureCard}>
-              <View style={styles.iconBox}>
-                <Ionicons name={f.icon} size={18} color={Colors.primary} />
-              </View>
+              <Illustration name={f.illustration} style={styles.featureIllus} contentFit="contain" />
               <Text style={styles.featureTitle}>{f.title}</Text>
               <Text style={styles.featureText}>{f.text}</Text>
             </View>
@@ -244,7 +244,9 @@ const styles = StyleSheet.create({
 
   hero: { alignItems: 'center', marginTop: 10, marginBottom: 24 },
   heroCta: { marginTop: 18, alignSelf: 'center' },
-  logoImage: { width: 72, height: 72, marginBottom: 8 },
+  heroIllus: { width: 220, height: 220, marginBottom: -8 },
+  logoImage: { width: 56, height: 56, marginBottom: 6 },
+  featureIllus: { width: 56, height: 56, marginBottom: 8, alignSelf: 'flex-start' },
   wordmark: {
     fontFamily: 'DMSans_700Bold', fontSize: 38, color: '#1C1033',
     letterSpacing: -0.6, marginBottom: 10,

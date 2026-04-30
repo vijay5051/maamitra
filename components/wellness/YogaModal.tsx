@@ -12,8 +12,25 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import GradientButton from '../ui/GradientButton';
+import { Illustration } from '../ui/Illustration';
+import type { IllustrationName } from '../../lib/illustrations';
 import { YogaSession, YogaPose } from '../../data/yogaSessions';
 import { Colors } from '../../constants/theme';
+
+// Pose name → brand illustration. Loose substring match; falls back to the
+// pose's authored emoji if no match.
+function poseToIllustration(name: string): IllustrationName | null {
+  const n = name.toLowerCase();
+  if (n.includes('cat') && n.includes('cow')) return 'yogaCatCow';
+  if (n.includes("child")) return 'yogaChildsPose';
+  if (n.includes('seated forward') || n.includes('seated fold')) return 'yogaSeatedForward';
+  if (n.includes('bridge')) return 'yogaBridge';
+  if (n.includes('pelvic tilt')) return 'yogaPelvicTilt';
+  if (n.includes('supine') && n.includes('twist')) return 'yogaSupineTwist';
+  if (n.includes('legs') && n.includes('wall')) return 'yogaLegsUpWall';
+  if (n.includes('savasana') || n.includes('corpse')) return 'yogaSavasana';
+  return null;
+}
 
 interface YogaModalProps {
   session: YogaSession | null;
@@ -209,9 +226,18 @@ export default function YogaModal({ session, visible, onClose }: YogaModalProps)
             contentContainerStyle={styles.poseScrollContent}
             showsVerticalScrollIndicator={false}
           >
-            {/* Pose header row: emoji + name */}
+            {/* Pose header — illustration if we have one for this pose,
+                otherwise fall back to the emoji it was authored with. */}
             <View style={styles.poseHeader}>
-              <Text style={styles.poseEmoji}>{currentPose?.emoji}</Text>
+              {currentPose && poseToIllustration(currentPose.name) ? (
+                <Illustration
+                  name={poseToIllustration(currentPose.name)!}
+                  style={styles.poseIllus}
+                  contentFit="contain"
+                />
+              ) : (
+                <Text style={styles.poseEmoji}>{currentPose?.emoji}</Text>
+              )}
               <Text style={styles.poseName}>{currentPose?.name}</Text>
             </View>
 
@@ -359,6 +385,7 @@ const styles = StyleSheet.create({
   poseEmoji: {
     fontSize: 40,
   },
+  poseIllus: { width: 56, height: 56 },
   poseName: {
     flex: 1,
     color: '#ffffff',

@@ -31,6 +31,7 @@ import QuickChips from '../../components/chat/QuickChips';
 import ChatHistorySheet from '../../components/chat/ChatHistorySheet';
 import TypingIndicator from '../../components/ui/TypingIndicator';
 import GradientAvatar from '../../components/ui/GradientAvatar';
+import { Illustration } from '../../components/ui/Illustration';
 import SettingsModal from '../../components/ui/SettingsModal';
 import { Fonts } from '../../constants/theme';
 import { Colors } from '../../constants/theme';
@@ -460,7 +461,7 @@ export default function ChatScreen() {
 
         {messages.length === 0 && !isTyping ? (
           <View style={styles.emptyState}>
-            <GradientAvatar emoji="🤱" size={64} style={styles.emptyAvatar} />
+            <Illustration name="chatMascot" style={styles.emptyMascot} contentFit="contain" />
             <Text style={styles.emptyGreet}>Namaste{motherName ? `, ${motherName.split(' ')[0]}` : ''}! 🙏</Text>
             <Text style={styles.emptyDesc}>I'm MaaMitra, your personal companion.{'\n'}Ask me anything about your pregnancy, baby, health, or wellbeing.</Text>
             <View style={styles.emptySeparator}>
@@ -653,8 +654,9 @@ const styles = StyleSheet.create({
   },
 
   // ── Empty state ──
-  emptyState: { flex: 1, paddingTop: 32, paddingBottom: 8 },
+  emptyState: { flex: 1, paddingTop: 24, paddingBottom: 8 },
   emptyAvatar: { alignSelf: 'center', marginBottom: 12 },
+  emptyMascot: { width: 160, height: 160, alignSelf: 'center', marginBottom: 8 },
   emptyGreet: { fontFamily: Fonts.sansBold, fontSize: 18, color: '#1C1033', textAlign: 'center', marginBottom: 6 },
   emptyDesc: { fontFamily: Fonts.sansRegular, fontSize: 13, color: '#9ca3af', textAlign: 'center', lineHeight: 20, paddingHorizontal: 32, marginBottom: 20 },
   emptySeparator: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 20, marginBottom: 16, gap: 10 },
