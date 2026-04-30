@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Fonts } from '../../constants/theme';
 import { Colors } from '../../constants/theme';
+import { mediumTap } from '../../lib/haptics';
 
 /**
  * Primary CTA button for the whole app. Previously rendered a saturated
@@ -46,6 +47,10 @@ export default function GradientButton({
   loading = false,
 }: GradientButtonProps) {
   const scale = useRef(new Animated.Value(1)).current;
+  const handlePress = () => {
+    mediumTap();
+    onPress();
+  };
 
   const handlePressIn = () => {
     Animated.spring(scale, {
@@ -70,7 +75,7 @@ export default function GradientButton({
   if (outline) {
     return (
       <TouchableWithoutFeedback
-        onPress={isDisabled ? undefined : onPress}
+        onPress={isDisabled ? undefined : handlePress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         disabled={isDisabled}
@@ -104,7 +109,7 @@ export default function GradientButton({
 
   return (
     <TouchableWithoutFeedback
-      onPress={isDisabled ? undefined : onPress}
+      onPress={isDisabled ? undefined : handlePress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       disabled={isDisabled}

@@ -13,6 +13,7 @@ import { Colors, Fonts, Gradients } from '../../constants/theme';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useProfileStore } from '../../store/useProfileStore';
 import { isAdminEmail } from '../../lib/admin';
+import { selectionTick } from '../../lib/haptics';
 
 const SPRING_CONFIG = { damping: 12, stiffness: 180 };
 
@@ -114,6 +115,7 @@ export default function TabLayout() {
   return (
     <Tabs
       initialRouteName="index"
+      screenListeners={{ tabPress: () => selectionTick() }}
       screenOptions={{
         headerShown: false,
         tabBarStyle: {

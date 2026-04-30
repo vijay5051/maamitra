@@ -36,6 +36,7 @@ import ContextualAskChip from '../../components/ui/ContextualAskChip';
 import { Illustration } from '../../components/ui/Illustration';
 import { Confetti } from '../../components/ui/Confetti';
 import type { IllustrationName } from '../../lib/illustrations';
+import { successBump } from '../../lib/haptics';
 import { Fonts } from '../../constants/theme';
 import { Colors } from '../../constants/theme';
 
@@ -1122,7 +1123,10 @@ export default function WellnessScreen() {
       const { moodHistory: latest } = useWellnessStore.getState();
       syncWellnessData(user.uid, latest, healthConditions);
     }
-    if (isFirstLogToday) setShowMoodConfetti(true);
+    if (isFirstLogToday) {
+      setShowMoodConfetti(true);
+      successBump();
+    }
   };
 
   // First filter by audience (role-adaptive), then by health conditions.
