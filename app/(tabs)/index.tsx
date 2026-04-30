@@ -56,6 +56,7 @@ import { submitMicroSurvey } from '../../services/feedback';
 import AnimatedPressable from '../../components/ui/AnimatedPressable';
 import AnimatedNumber from '../../components/ui/AnimatedNumber';
 import { Illustration } from '../../components/ui/Illustration';
+import { AppIcon } from '../../components/ui/AppIcon';
 import type { IllustrationName } from '../../lib/illustrations';
 import { affirmationForDate } from '../../data/affirmations';
 import { getTimeOfDay } from '../../lib/timeOfDay';
@@ -714,7 +715,7 @@ export default function HomeTab() {
             onPress={() => setNotifsOpen(true)}
             accessibilityLabel="Notifications"
           >
-            <Ionicons name="notifications-outline" size={22} color={Colors.textDark} />
+            <AppIcon name="nav.notifications" size={22} color={Colors.textDark} />
             {socialUnread > 0 && (
               <View style={styles.badge}>
                 <Text style={styles.badgeTxt}>{socialUnread > 9 ? '9+' : socialUnread}</Text>
@@ -727,7 +728,7 @@ export default function HomeTab() {
             onPress={() => setMessagesOpen(true)}
             accessibilityLabel="Messages"
           >
-            <Ionicons name="chatbubbles-outline" size={20} color={Colors.textDark} />
+            <AppIcon name="nav.messages" size={20} color={Colors.textDark} />
             {unreadDMs > 0 && (
               <View style={styles.badge}>
                 <Text style={styles.badgeTxt}>{unreadDMs > 9 ? '9+' : unreadDMs}</Text>
@@ -740,7 +741,7 @@ export default function HomeTab() {
             onPress={() => setSettingsView('main')}
             accessibilityLabel="Settings"
           >
-            <Ionicons name="settings-outline" size={22} color={Colors.textDark} />
+            <AppIcon name="nav.settings" size={22} color={Colors.textDark} />
           </TouchableOpacity>
         </View>
 
@@ -758,7 +759,7 @@ export default function HomeTab() {
         >
           <View style={styles.heroInner}>
             <View style={styles.heroIconGrad}>
-              <Ionicons name="sparkles" size={16} color="#ffffff" />
+              <AppIcon name="object.sparkles" size={16} color="#ffffff" />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.heroLabel}>Ask Maamitra</Text>
@@ -771,7 +772,7 @@ export default function HomeTab() {
               </Text>
             </View>
             <View style={styles.micBtn}>
-              <Ionicons name="mic" size={18} color={Colors.primary} />
+              <AppIcon name="object.mic" size={18} />
             </View>
           </View>
         </TouchableOpacity>
@@ -819,7 +820,7 @@ export default function HomeTab() {
                   <Text style={styles.todayHeroValue} numberOfLines={2}>{hero.value}</Text>
                   <Text style={styles.todayHeroSub} numberOfLines={1}>{hero.label}</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
+                <AppIcon name="nav.forward" size={20} />
               </AnimatedPressable>
             </Reanimated.View>
           );
@@ -949,7 +950,7 @@ export default function HomeTab() {
           >
             <View style={styles.commEmptyRow}>
               <View style={styles.commEmptyIcon}>
-                <Ionicons name="sparkles-outline" size={18} color={Colors.primary} />
+                <AppIcon name="object.sparkles-outline" size={18} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.commEmptyTitle}>Be the first to share</Text>
@@ -957,7 +958,7 @@ export default function HomeTab() {
                   Your post will reach 20 fellow parents in this beta 🌱
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+              <AppIcon name="nav.forward" size={18} />
             </View>
           </TouchableOpacity>
         )}
@@ -1009,12 +1010,11 @@ export default function HomeTab() {
                       {latestPost.text ?? ''}
                     </Text>
                     <View style={styles.commMeta}>
-                      <Ionicons name="heart-outline" size={14} color={Colors.textMuted} />
+                      <AppIcon name="object.heart" size={14} role="muted" />
                       <Text style={styles.commMetaTxt}>{reactionCount}</Text>
-                      <Ionicons
-                        name="chatbubble-outline"
+                      <AppIcon
+                        name="community.comment"
                         size={14}
-                        color={Colors.textMuted}
                         style={{ marginLeft: 12 }}
                       />
                       <Text style={styles.commMetaTxt}>
@@ -1158,7 +1158,7 @@ export default function HomeTab() {
                   }
                 >
                   <View style={styles.recReadIconBox}>
-                    <Ionicons name="book-outline" size={16} color={Colors.primary} />
+                    <AppIcon name="object.book" size={16} />
                   </View>
                   <Text style={styles.recReadTopic} numberOfLines={1}>
                     {(a.topic || 'Article').toUpperCase()}
@@ -1167,7 +1167,7 @@ export default function HomeTab() {
                     {a.title}
                   </Text>
                   <View style={styles.recReadFooter}>
-                    <Ionicons name="time-outline" size={12} color="#9ca3af" />
+                    <AppIcon name="object.clock" size={12} role="muted" />
                     <Text style={styles.recReadMeta}>{a.readTime || '5 min'}</Text>
                   </View>
                 </TouchableOpacity>
@@ -1284,7 +1284,7 @@ export default function HomeTab() {
                   activeOpacity={0.7}
                   accessibilityLabel="Edit profile"
                 >
-                  <Ionicons name="pencil-outline" size={16} color={Colors.primary} />
+                  <AppIcon name="object.pencil" size={16} />
                 </TouchableOpacity>
               </View>
               <View style={styles.sheetStatRow}>
@@ -1353,7 +1353,7 @@ export default function HomeTab() {
                         </Text>
                       </View>
                       {isActive ? (
-                        <Ionicons name="checkmark-circle" size={14} color="#ffffff" />
+                        <AppIcon name="status.success" size={14} color="#ffffff" />
                       ) : null}
                     </TouchableOpacity>
                   );
@@ -2194,7 +2194,7 @@ function ProfileRow({
         {sub && <Text style={styles.profileSub}>{sub}</Text>}
       </View>
       {!danger && (
-        <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+        <AppIcon name="nav.forward" size={18} />
       )}
     </TouchableOpacity>
   );
@@ -2309,7 +2309,7 @@ function FirstRunHero({
                   colors={Gradients.avatar}
                   style={styles.firstRunAiIcon}
                 >
-                  <Ionicons name="sparkles" size={12} color="#fff" />
+                  <AppIcon name="object.sparkles" size={12} color="#ffffff" />
                 </LinearGradient>
                 <Text style={styles.firstRunAiTxt}>
                   Around 6 months is the sweet spot. Watch for head control,
@@ -2332,7 +2332,7 @@ function FirstRunHero({
               style={styles.firstRunCtaInner}
             >
               <Text style={styles.firstRunCtaTxt}>Got it — let me try</Text>
-              <Ionicons name="arrow-forward" size={18} color="#fff" />
+              <AppIcon name="object.arrow-forward" size={18} color="#ffffff" />
             </LinearGradient>
           </TouchableOpacity>
 

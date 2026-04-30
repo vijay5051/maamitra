@@ -39,6 +39,7 @@ import FoodTrackerTab from '../../components/health/FoodTrackerTab';
 import GrowthTab, { RoutineTab } from '../../components/health/GrowthTab';
 import NuskheTab from '../../components/health/NuskheTab';
 import { Illustration } from '../../components/ui/Illustration';
+import { AppIcon } from '../../components/ui/AppIcon';
 import type { IllustrationName } from '../../lib/illustrations';
 import { Fonts, Gradients } from '../../constants/theme';
 import { Colors } from '../../constants/theme';
@@ -210,7 +211,7 @@ function SubTabHeader({
   return (
     <View style={headerStyles.wrapper}>
       <TouchableOpacity onPress={onBack} style={headerStyles.backBtn} activeOpacity={0.7}>
-        <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+        <AppIcon name="nav.back" size={18} color={Colors.primary} />
         <Text style={headerStyles.backText}>Health</Text>
       </TouchableOpacity>
       <View style={[headerStyles.iconChip, { backgroundColor: Colors.primaryAlpha08 }]}>
@@ -367,7 +368,7 @@ function VaccineAgeGroup({ group }: { group: VaccineGroup }) {
               { backgroundColor: dotColor, borderColor: dotColor },
             ]}
           >
-            {group.status === 'done' && <Ionicons name="checkmark" size={9} color="#fff" />}
+            {group.status === 'done' && <AppIcon name="status.check" size={9} color="#ffffff" />}
           </View>
         </View>
         <View style={{ flex: 1 }}>
@@ -379,8 +380,8 @@ function VaccineAgeGroup({ group }: { group: VaccineGroup }) {
             {group.doneCount}/{group.total}
           </Text>
         </View>
-        <Ionicons
-          name={expanded ? 'chevron-up' : 'chevron-down'}
+        <AppIcon
+          name={expanded ? 'action.collapse' : 'action.expand'}
           size={16}
           color={STONE}
           style={{ marginLeft: 6 }}
@@ -402,7 +403,7 @@ function VaccineSourceFooter({ schedule }: { schedule: VaccineScheduleType }) {
   const info = SCHEDULE_INFO[schedule];
   return (
     <View style={vStyles.source}>
-      <Ionicons name="document-text-outline" size={14} color={STONE} />
+      <AppIcon name="object.document" size={14} color={STONE} />
       <Text style={vStyles.sourceText}>
         Schedule based on{' '}
         <Text style={vStyles.sourceEmph}>{info.fullName}</Text> ·{' '}
@@ -438,7 +439,7 @@ function VaccinesSection({
   if (!activeKid) {
     return (
       <Card style={styles.noKidCard} shadow="sm">
-        <Ionicons name="heart-outline" size={40} color={Colors.primary} style={{ marginBottom: 12, opacity: 0.8 }} />
+        <AppIcon name="object.heart" size={40} color={Colors.primary} style={{ marginBottom: 12, opacity: 0.8 }} />
         <Text style={styles.noKidText}>
           Add your baby to see their personalised vaccine schedule.
         </Text>
@@ -452,7 +453,7 @@ function VaccinesSection({
             start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
             style={styles.noKidBtnGrad}
           >
-            <Ionicons name="add-circle-outline" size={16} color="#fff" />
+            <AppIcon name="action.add-circle" size={16} color="#ffffff" />
             <Text style={styles.noKidBtnText}>Add your baby</Text>
           </LinearGradient>
         </TouchableOpacity>
@@ -524,7 +525,7 @@ function VaccinesSection({
         style={vStyles.changeBtn}
         activeOpacity={0.7}
       >
-        <Ionicons name="swap-horizontal-outline" size={14} color={Colors.primary} />
+        <AppIcon name="action.swap" size={14} />
         <Text style={vStyles.changeBtnText}>Change schedule</Text>
       </TouchableOpacity>
 
@@ -536,7 +537,7 @@ function VaccinesSection({
       >
         <View style={vStyles.changeHeader}>
           <TouchableOpacity onPress={() => setChangeOpen(false)} style={{ padding: 6 }}>
-            <Ionicons name="close" size={22} color={Colors.textLight} />
+            <AppIcon name="nav.close" size={22} color={Colors.textLight} />
           </TouchableOpacity>
           <Text style={vStyles.changeHeaderTitle}>Change schedule</Text>
           <View style={{ width: 32 }} />
@@ -830,7 +831,7 @@ function SchemeCard({
       {/* Personalised callout — always visible if relevant */}
       {personalMsg && (
         <View style={scStyles.personalCallout}>
-          <Ionicons name="person-circle-outline" size={15} color={PLUM} />
+          <AppIcon name="object.user-circle" size={15} color={PLUM} />
           <Text style={scStyles.personalText}>{personalMsg}</Text>
         </View>
       )}
@@ -863,7 +864,7 @@ function SchemeCard({
 
           <View style={scStyles.detailBlock}>
             <View style={scStyles.detailLabelRow}>
-              <Ionicons name="checkmark-circle-outline" size={14} color="#16a34a" />
+              <AppIcon name="status.success-outline" size={14} color="#16a34a" />
               <Text style={scStyles.detailLabel}>Who can apply</Text>
             </View>
             <Text style={scStyles.detailText}>{scheme.eligibility}</Text>
@@ -871,7 +872,7 @@ function SchemeCard({
 
           <View style={scStyles.detailBlock}>
             <View style={scStyles.detailLabelRow}>
-              <Ionicons name="gift-outline" size={14} color={Colors.primary} />
+              <AppIcon name="object.gift" size={14} />
               <Text style={scStyles.detailLabel}>What you get</Text>
             </View>
             <Text style={scStyles.detailText}>{scheme.benefit}</Text>
@@ -879,7 +880,7 @@ function SchemeCard({
 
           <View style={scStyles.detailBlock}>
             <View style={scStyles.detailLabelRow}>
-              <Ionicons name="navigate-outline" size={14} color={PLUM} />
+              <AppIcon name="object.navigate" size={14} color={PLUM} />
               <Text style={scStyles.detailLabel}>How to apply</Text>
             </View>
             <Text style={scStyles.detailText}>{scheme.howToApply}</Text>
@@ -893,9 +894,9 @@ function SchemeCard({
         onPress={() => Linking.openURL(scheme.url)}
         activeOpacity={0.8}
       >
-        <Ionicons name="globe-outline" size={15} color={PLUM} />
+        <AppIcon name="object.globe" size={15} color={PLUM} />
         <Text style={scStyles.linkBtnText}>Know More & Apply</Text>
-        <Ionicons name="arrow-forward" size={13} color={PLUM} />
+        <AppIcon name="object.arrow-forward" size={13} color={PLUM} />
       </TouchableOpacity>
     </View>
   );
@@ -1233,7 +1234,7 @@ function HealthCheckItem({
             )}
           </View>
           <TouchableOpacity style={hStyles.undoBtn} onPress={onUndo} activeOpacity={0.7}>
-            <Ionicons name="refresh-outline" size={13} color="#9ca3af" />
+            <AppIcon name="action.refresh" size={13} />
             <Text style={hStyles.undoBtnText}>Undo</Text>
           </TouchableOpacity>
         </View>
@@ -1255,7 +1256,7 @@ function HealthCheckItem({
             end={{ x: 1, y: 0 }}
             style={hStyles.markBtnGrad}
           >
-            <Ionicons name="checkmark-circle-outline" size={15} color="#fff" />
+            <AppIcon name="status.success-outline" size={15} color="#ffffff" />
             <Text style={hStyles.markBtnText}>Mark as done today</Text>
           </LinearGradient>
         </TouchableOpacity>
