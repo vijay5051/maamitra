@@ -3,6 +3,9 @@
 
 export const illustrations = {
   homeHero: require('../assets/illustrations/home-hero.webp'),
+  homeHeroMorning: require('../assets/illustrations/home-hero-morning.webp'),
+  homeHeroAfternoon: require('../assets/illustrations/home-hero-afternoon.webp'),
+  homeHeroEvening: require('../assets/illustrations/home-hero-evening.webp'),
   chatMascot: require('../assets/illustrations/chat-mascot.webp'),
 
   // Mood faces (1=glowing, 2=calm, 3=neutral, 4=tired, 5=overwhelmed)

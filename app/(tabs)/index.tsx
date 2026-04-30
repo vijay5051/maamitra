@@ -58,6 +58,7 @@ import AnimatedNumber from '../../components/ui/AnimatedNumber';
 import { Illustration } from '../../components/ui/Illustration';
 import type { IllustrationName } from '../../lib/illustrations';
 import { affirmationForDate } from '../../data/affirmations';
+import { getTimeOfDay } from '../../lib/timeOfDay';
 
 // Quick-action card id → brand illustration. Cards without a mapping fall back
 // to the existing Lucide/Ionicons glyph. Keep this small — over-illustrated
@@ -187,6 +188,16 @@ export default function HomeTab() {
   // Daily affirmation — rotates once per local day via day-of-year index.
   // Stable for the entire session so it doesn't flicker on re-render.
   const affirmationToday = useMemo(() => affirmationForDate(), []);
+
+  // Time-of-day hero — picks one of three home-hero variants based on the
+  // local hour. Computed once at mount; stable for the session so a user
+  // who keeps the app open through dusk doesn't see the hero swap mid-use.
+  const heroName = useMemo<IllustrationName>(() => {
+    const tod = getTimeOfDay();
+    if (tod === 'morning') return 'homeHeroMorning';
+    if (tod === 'afternoon') return 'homeHeroAfternoon';
+    return 'homeHeroEvening';
+  }, []);
 
   // Latest real community post for the "From the community" card.
   // Falls back to null if no posts exist — the card is hidden in that case.
@@ -734,7 +745,7 @@ export default function HomeTab() {
         </View>
 
         <View style={styles.homeHeroWrap}>
-          <Illustration name="homeHero" style={styles.homeHeroImg} />
+          <Illustration name={heroName} style={styles.homeHeroImg} />
         </View>
 
         {/* HERO: Ask Maamitra AI bar — flat lilac card, brand-purple icon.
