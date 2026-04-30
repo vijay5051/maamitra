@@ -64,7 +64,13 @@ export type IconKey =
   | 'object.gift' | 'object.book' | 'object.chat' | 'object.sparkles' | 'object.sparkles-outline'
   | 'object.mic' | 'object.gender-boy' | 'object.gender-girl' | 'object.gender-other'
   | 'object.pencil' | 'object.heart' | 'object.heart-filled' | 'object.arrow-forward'
-  | 'object.document' | 'object.user-circle' | 'object.navigate' | 'object.globe';
+  | 'object.document' | 'object.user-circle' | 'object.navigate' | 'object.globe'
+  | 'object.idea' | 'object.image' | 'object.camera' | 'object.flag'
+  | 'object.send' | 'object.eye' | 'object.eye-off' | 'object.cube'
+  | 'object.warning-circle' | 'object.history' | 'object.create' | 'object.trash'
+  | 'object.bag' | 'object.cart' | 'object.star' | 'object.play'
+  | 'object.options' | 'object.funnel' | 'object.open-external'
+  | 'nav.close-circle' | 'nav.close-circle-outline' | 'nav.search-outline';
 
 interface IconEntry {
   glyph: keyof typeof Ionicons.glyphMap;
@@ -73,14 +79,17 @@ interface IconEntry {
 
 export const ICONS: Record<IconKey, IconEntry> = {
   // Navigation — chrome by default
-  'nav.back':           { glyph: 'chevron-back',              defaultRole: 'muted'   },
-  'nav.forward':        { glyph: 'chevron-forward',           defaultRole: 'muted'   },
-  'nav.close':          { glyph: 'close',                     defaultRole: 'muted'   },
-  'nav.menu':           { glyph: 'menu',                      defaultRole: 'muted'   },
-  'nav.search':         { glyph: 'search',                    defaultRole: 'muted'   },
-  'nav.settings':       { glyph: 'settings-outline',          defaultRole: 'muted'   },
-  'nav.notifications':  { glyph: 'notifications-outline',     defaultRole: 'muted'   },
-  'nav.messages':       { glyph: 'chatbubbles-outline',       defaultRole: 'muted'   },
+  'nav.back':                { glyph: 'chevron-back',              defaultRole: 'muted'   },
+  'nav.forward':             { glyph: 'chevron-forward',           defaultRole: 'muted'   },
+  'nav.close':               { glyph: 'close',                     defaultRole: 'muted'   },
+  'nav.close-circle':        { glyph: 'close-circle',              defaultRole: 'muted'   },
+  'nav.close-circle-outline':{ glyph: 'close-circle-outline',      defaultRole: 'muted'   },
+  'nav.menu':                { glyph: 'menu',                      defaultRole: 'muted'   },
+  'nav.search':              { glyph: 'search',                    defaultRole: 'muted'   },
+  'nav.search-outline':      { glyph: 'search-outline',            defaultRole: 'muted'   },
+  'nav.settings':            { glyph: 'settings-outline',          defaultRole: 'muted'   },
+  'nav.notifications':       { glyph: 'notifications-outline',     defaultRole: 'muted'   },
+  'nav.messages':            { glyph: 'chatbubbles-outline',       defaultRole: 'muted'   },
   // Actions — primary
   'action.add':         { glyph: 'add',                       defaultRole: 'action'  },
   'action.add-circle':  { glyph: 'add-circle-outline',        defaultRole: 'action'  },
@@ -153,4 +162,23 @@ export const ICONS: Record<IconKey, IconEntry> = {
   'object.user-circle':     { glyph: 'person-circle-outline',  defaultRole: 'muted'  },
   'object.navigate':        { glyph: 'navigate-outline',       defaultRole: 'muted'  },
   'object.globe':           { glyph: 'globe-outline',          defaultRole: 'muted'  },
+  'object.idea':            { glyph: 'bulb-outline',           defaultRole: 'action' },
+  'object.image':           { glyph: 'image-outline',          defaultRole: 'muted'  },
+  'object.camera':          { glyph: 'camera-outline',         defaultRole: 'action' },
+  'object.flag':            { glyph: 'flag-outline',           defaultRole: 'warning'},
+  'object.send':            { glyph: 'send',                   defaultRole: 'action' },
+  'object.eye':             { glyph: 'eye-outline',            defaultRole: 'muted'  },
+  'object.eye-off':         { glyph: 'eye-off-outline',        defaultRole: 'muted'  },
+  'object.cube':            { glyph: 'cube-outline',           defaultRole: 'action' },
+  'object.warning-circle':  { glyph: 'warning',                defaultRole: 'warning'},
+  'object.history':         { glyph: 'time-outline',           defaultRole: 'action' },
+  'object.create':          { glyph: 'create-outline',         defaultRole: 'action' },
+  'object.trash':           { glyph: 'trash-outline',          defaultRole: 'error'  },
+  'object.bag':             { glyph: 'bag-handle-outline',     defaultRole: 'action' },
+  'object.cart':            { glyph: 'cart-outline',           defaultRole: 'action' },
+  'object.star':            { glyph: 'star',                   defaultRole: 'warning'},
+  'object.play':            { glyph: 'play',                   defaultRole: 'action' },
+  'object.options':         { glyph: 'options-outline',        defaultRole: 'muted'  },
+  'object.funnel':          { glyph: 'funnel-outline',         defaultRole: 'muted'  },
+  'object.open-external':   { glyph: 'open-outline',           defaultRole: 'action' },
 };

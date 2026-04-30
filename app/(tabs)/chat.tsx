@@ -32,6 +32,7 @@ import ChatHistorySheet from '../../components/chat/ChatHistorySheet';
 import TypingIndicator from '../../components/ui/TypingIndicator';
 import GradientAvatar from '../../components/ui/GradientAvatar';
 import { Illustration } from '../../components/ui/Illustration';
+import { AppIcon } from '../../components/ui/AppIcon';
 import SettingsModal from '../../components/ui/SettingsModal';
 import { Fonts } from '../../constants/theme';
 import { Colors } from '../../constants/theme';
@@ -429,14 +430,14 @@ export default function ChatScreen() {
               style={styles.gearBtn}
               activeOpacity={0.7}
             >
-              <Ionicons name="time-outline" size={20} color={Colors.primary} />
+              <AppIcon name="object.history" size={20} />
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setSettingsVisible(true)}
               style={styles.gearBtn}
               activeOpacity={0.7}
             >
-              <Ionicons name="settings-outline" size={20} color={Colors.primary} />
+              <AppIcon name="nav.settings" size={20} color={Colors.primary} />
             </TouchableOpacity>
           </View>
         </View>
@@ -518,8 +519,8 @@ export default function ChatScreen() {
               onPress={() => setShowSuggestions((v) => !v)}
               activeOpacity={0.75}
             >
-              <Ionicons
-                name="bulb-outline"
+              <AppIcon
+                name="object.idea"
                 size={18}
                 color={showSuggestions ? Colors.primary : '#A78BCA'}
               />

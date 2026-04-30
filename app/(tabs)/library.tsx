@@ -31,7 +31,7 @@ import { MILESTONES } from '../../data/milestones';
 import { VACCINE_SCHEDULE } from '../../data/vaccines';
 import Card from '../../components/ui/Card';
 import TagPill from '../../components/ui/TagPill';
-import { TabIcon } from '../../components/ui/AppIcon';
+import { TabIcon, AppIcon } from '../../components/ui/AppIcon';
 import { Illustration } from '../../components/ui/Illustration';
 import { Fonts } from '../../constants/theme';
 import { Colors } from '../../constants/theme';
@@ -427,7 +427,7 @@ function ArticleCard({
               <Text style={articleStyles.tagBadgeText}>{article.tag}</Text>
             </View>
             <View style={articleStyles.readTimeBadge}>
-              <Ionicons name="time-outline" size={11} color="#374151" />
+              <AppIcon name="object.history" size={11} color="#374151" />
               <Text style={articleStyles.readTimeText}>{article.readTime}</Text>
             </View>
           </View>
@@ -443,7 +443,7 @@ function ArticleCard({
             </View>
             {/* Read time bottom-right */}
             <View style={articleStyles.readTimeBadge}>
-              <Ionicons name="time-outline" size={11} color="#374151" />
+              <AppIcon name="object.history" size={11} color="#374151" />
               <Text style={articleStyles.readTimeText}>{article.readTime}</Text>
             </View>
           </LinearGradient>
@@ -472,7 +472,7 @@ function ArticleCard({
             style={articleStyles.readBtn}
             activeOpacity={0.75}
           >
-            <Ionicons name={expanded ? 'chevron-up' : 'book-outline'} size={14} color={Colors.primary} />
+            <AppIcon name={expanded ? 'action.collapse' : 'object.book'} size={14} color={Colors.primary} />
             <Text style={articleStyles.readBtnText}>{expanded ? 'Show less' : 'Read inside'}</Text>
           </TouchableOpacity>
 
@@ -483,7 +483,7 @@ function ArticleCard({
               activeOpacity={0.75}
             >
               <Text style={articleStyles.openBtnText}>Open article</Text>
-              <Ionicons name="open-outline" size={13} color={Colors.primary} />
+              <AppIcon name="object.open-external" size={13} />
             </TouchableOpacity>
           )}
         </View>
@@ -653,7 +653,7 @@ function BookCover({ book }: { book: Book }) {
         </View>
       )}
       <View style={bookStyles.coverIconWrap}>
-        <Ionicons name="book-outline" size={32} color="#374151" />
+        <AppIcon name="object.book" size={32} color="#374151" />
       </View>
     </LinearGradient>
   );
@@ -670,7 +670,7 @@ function BookCard({ book, highlighted }: { book: Book; highlighted?: boolean }) 
     <View style={[bookStyles.card, highlighted && bookStyles.cardHighlighted]}>
       {highlighted && (
         <View style={bookStyles.forYouBadge}>
-          <Ionicons name="sparkles" size={11} color={Colors.primary} />
+          <AppIcon name="object.sparkles" size={11} />
           <Text style={bookStyles.forYouText}>Recommended for you</Text>
         </View>
       )}
@@ -717,7 +717,7 @@ function BookCard({ book, highlighted }: { book: Book; highlighted?: boolean }) 
             activeOpacity={0.8}
             onPress={() => Linking.openURL(book.sampleUrl!)}
           >
-            <Ionicons name="book-outline" size={13} color={Colors.primary} />
+            <AppIcon name="object.book" size={13} />
             <Text style={bookStyles.sampleBtnText}>Read sample</Text>
           </TouchableOpacity>
         )}
@@ -726,7 +726,7 @@ function BookCard({ book, highlighted }: { book: Book; highlighted?: boolean }) 
           activeOpacity={0.8}
           onPress={() => Linking.openURL(book.url)}
         >
-          <Ionicons name="cart-outline" size={13} color="#ffffff" />
+          <AppIcon name="object.cart" size={13} color="#ffffff" />
           <Text style={bookStyles.buyBtnText}>Buy on Amazon</Text>
         </TouchableOpacity>
       </View>
@@ -925,7 +925,7 @@ function ProductCard({ product }: { product: Product }) {
             onError={() => setImgError(true)}
           />
         ) : (
-          <Ionicons name="bag-handle-outline" size={32} color={Colors.primary} />
+          <AppIcon name="object.bag" size={32} />
         )}
       </View>
       {product.badge ? (
@@ -1409,7 +1409,7 @@ export default function LibraryScreen() {
               style={styles.adminBtn}
               activeOpacity={0.75}
             >
-              <Ionicons name="shield-checkmark-outline" size={20} color="rgba(255,255,255,0.7)" />
+              <AppIcon name="status.shield" size={20} color="rgba(255,255,255,0.7)" />
             </TouchableOpacity>
           )}
         </View>
@@ -1422,7 +1422,7 @@ export default function LibraryScreen() {
         <View style={styles.flex}>
           {/* Search bar */}
           <View style={styles.searchWrap}>
-            <Ionicons name="search" size={16} color="#9ca3af" style={styles.searchIcon} />
+            <AppIcon name="nav.search" size={16} style={styles.searchIcon} />
             <TextInput
               style={styles.searchInput}
               value={articleSearch}
@@ -1432,7 +1432,7 @@ export default function LibraryScreen() {
             />
             {articleSearch.length > 0 && (
               <TouchableOpacity onPress={() => setArticleSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Ionicons name="close-circle" size={16} color="#9ca3af" />
+                <AppIcon name="nav.close-circle" size={16} />
               </TouchableOpacity>
             )}
           </View>
@@ -1469,7 +1469,7 @@ export default function LibraryScreen() {
               end={{ x: 1, y: 0 }}
               style={styles.personalisationBanner}
             >
-              <Ionicons name="sparkles" size={16} color={Colors.primary} />
+              <AppIcon name="object.sparkles" size={16} />
               <Text style={styles.personalisationText}>
                 {activeKid && !activeKid.isExpecting
                   ? `Showing content for ${activeKid.name} · ${ageLabel}`
@@ -1512,7 +1512,7 @@ export default function LibraryScreen() {
         >
           {activeKid && (
             <View style={styles.bookSectionHeader}>
-              <Ionicons name="sparkles" size={13} color={Colors.primary} />
+              <AppIcon name="object.sparkles" size={13} />
               <Text style={styles.bookPersonalBadgeText}>
                 {activeKid.isExpecting ? 'Curated for your pregnancy' : `Curated for ${activeKid.name} · ${ageLabel}`}
               </Text>
@@ -1548,7 +1548,7 @@ export default function LibraryScreen() {
             ))}
             {/* Sort button */}
             <TouchableOpacity style={styles.sortBtn} onPress={() => setShowSortModal(true)} activeOpacity={0.75}>
-              <Ionicons name="funnel-outline" size={14} color={Colors.primary} />
+              <AppIcon name="object.funnel" size={14} color={Colors.primary} />
               <Text style={styles.sortBtnText}>{sortMode}</Text>
             </TouchableOpacity>
           </ScrollView>
@@ -1568,7 +1568,7 @@ export default function LibraryScreen() {
                   end={{ x: 1, y: 0 }}
                   style={styles.personalisationBanner}
                 >
-                  <Ionicons name="sparkles" size={16} color={Colors.primary} />
+                  <AppIcon name="object.sparkles" size={16} />
                   <Text style={styles.personalisationText}>
                     {activeKid.isExpecting
                       ? `${recommendedCount} picks for your pregnancy`
@@ -1621,7 +1621,7 @@ export default function LibraryScreen() {
                       {opt}
                     </Text>
                     {opt === sortMode && (
-                      <Ionicons name="checkmark" size={18} color={Colors.primary} />
+                      <AppIcon name="status.check" size={18} color={Colors.primary} />
                     )}
                   </TouchableOpacity>
                 ))}
@@ -1666,7 +1666,7 @@ export default function LibraryScreen() {
                         onPress={() => unsaveAnswer(answer.id)}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       >
-                        <Ionicons name="trash-outline" size={18} color="#9ca3af" />
+                        <AppIcon name="object.trash" size={18} role="muted" />
                       </TouchableOpacity>
                     </View>
                   </View>
