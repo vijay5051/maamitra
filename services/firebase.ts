@@ -50,6 +50,8 @@ import {
   updateDoc,
   serverTimestamp,
   Timestamp,
+  arrayUnion,
+  arrayRemove,
 } from 'firebase/firestore';
 import { getStorage, FirebaseStorage, ref as storageRef, listAll, deleteObject } from 'firebase/storage';
 
@@ -162,6 +164,42 @@ export async function saveUserProfile(uid: string, data: Record<string, any>): P
     await setDoc(doc(db, 'users', uid), { ...data, updatedAt: serverTimestamp() }, { merge: true });
   } catch (error) {
     console.error('saveUserProfile error:', error);
+  }
+}
+
+/**
+ * Save an FCM device token to the user's profile so the dispatcher Cloud
+ * Function can target this device. Mirrors the web push flow in
+ * services/push.ts but is safe to call from native (Android) too — same
+ * `users/{uid}.fcmTokens` array, same `pushEnabled: true` flag that
+ * sendPushToUidList reads.
+ */
+export async function registerFcmToken(uid: string, token: string): Promise<void> {
+  if (!db || !token) return;
+  await setDoc(
+    doc(db, 'users', uid),
+    {
+      fcmTokens: arrayUnion(token),
+      pushEnabled: true,
+      pushUpdatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
+}
+
+export async function unregisterFcmToken(uid: string, token: string): Promise<void> {
+  if (!db || !token) return;
+  try {
+    await setDoc(
+      doc(db, 'users', uid),
+      {
+        fcmTokens: arrayRemove(token),
+        pushUpdatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+  } catch (err) {
+    console.error('unregisterFcmToken error:', err);
   }
 }
 

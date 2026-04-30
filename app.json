@@ -31,7 +31,7 @@
         "backgroundColor": "#fdf6ff"
       },
       "package": "in.maamitra.app",
-      "versionCode": 14,
+      "versionCode": 15,
       "googleServicesFile": "./google-services.json",
       "softwareKeyboardLayoutMode": "resize",
       "permissions": [
@@ -91,7 +91,8 @@
             "com.google.android.googlequicksearchbox"
           ]
         }
-      ]
+      ],
+      "@react-native-firebase/messaging"
     ],
     "experiments": {
       "typedRoutes": true

@@ -1,4 +1,8 @@
 import 'react-native-reanimated';
+// Side-effect import: registers the FCM background message handler at
+// module-load time. Per RNFB docs this MUST run before the app mounts,
+// so it has to be imported here (the root) and not inside a useEffect.
+import { attachForegroundMessaging } from '../lib/setupNativeMessaging';
 import { useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import { Stack, usePathname } from 'expo-router';
@@ -60,6 +64,16 @@ export default function RootLayout() {
     fetchSettings();
     markInstalledIfNeeded();
   }, []);
+
+  // Wire native FCM token-refresh + foreground message listeners once
+  // the user is signed in. Idempotent and unsubscribes cleanly on
+  // sign-out so a stranger's device doesn't silently keep our token
+  // attached. Web is a no-op (services/push.ts owns that path).
+  useEffect(() => {
+    if (!user?.uid) return;
+    const detach = attachForegroundMessaging(user.uid);
+    return detach;
+  }, [user?.uid]);
 
   // Auto-prompt the tester survey once the user is signed in, the cooldown
   // rules in useFeedbackStore have cleared, and they're NOT in the middle of
