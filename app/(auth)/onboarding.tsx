@@ -176,6 +176,13 @@ export default function OnboardingScreen() {
     stage === 'pregnant'
       ? 'Pick the expected due date. You can update this later.'
       : "Pick your baby's date of birth.";
+  const showKidGender = stage === 'newborn';
+  const kidGenderOptions: Array<ChipOption<Gender>> = showKidGender
+    ? [
+        { value: 'boy', label: 'Boy', icon: 'male-outline' },
+        { value: 'girl', label: 'Girl', icon: 'female-outline' },
+      ]
+    : [];
 
   // ── Validation ──
   const validateStep = useCallback((s: number): boolean => {
@@ -186,7 +193,7 @@ export default function OnboardingScreen() {
     }
     if (s === 1) {
       if (!keyDate) e.keyDate = 'A date helps us personalise every tip to the right week.';
-      if (!kidGender) e.kidGender = 'Pick one (Surprise is fine if you want to wait).';
+      if (showKidGender && !kidGender) e.kidGender = 'Pick one so we can personalise the experience.';
     }
     if (s === 2) {
       if (!state) e.state = 'Which state do you live in?';
@@ -195,14 +202,14 @@ export default function OnboardingScreen() {
     }
     setErrors(e);
     return Object.keys(e).length === 0;
-  }, [name, stage, relation, keyDate, kidGender, state, diet, familyType]);
+  }, [name, stage, keyDate, kidGender, showKidGender, state, diet, familyType]);
 
   const canGoNext = useMemo(() => {
     if (step === 0) return !!(name.trim() && stage);
-    if (step === 1) return !!(keyDate && kidGender);
+    if (step === 1) return !!(keyDate && (!showKidGender || kidGender));
     if (step === 2) return !!(state && diet && familyType);
     return true;
-  }, [step, name, stage, relation, keyDate, kidGender, state, diet, familyType]);
+  }, [step, name, stage, keyDate, kidGender, showKidGender, state, diet, familyType]);
 
   const handleNext = () => {
     if (!validateStep(step)) return;
@@ -234,7 +241,7 @@ export default function OnboardingScreen() {
     if (!validateStep(0) || !validateStep(1) || !validateStep(2)) {
       // Jump to the first failing step
       if (!name.trim() || !stage) setStep(0);
-      else if (!keyDate || !kidGender) setStep(1);
+      else if (!keyDate || (showKidGender && !kidGender)) setStep(1);
       else setStep(2);
       return;
     }
@@ -265,7 +272,7 @@ export default function OnboardingScreen() {
         name: primaryName,
         dob: validKeyDate,
         stage: isPrimaryExpecting ? 'pregnant' : 'newborn',
-        gender: kidGender!,
+        gender: showKidGender ? kidGender! : 'surprise',
         isExpecting: isPrimaryExpecting,
       });
 
@@ -425,25 +432,23 @@ export default function OnboardingScreen() {
                 <InputError msg={errors.keyDate} />
               </View>
 
-              <View style={styles.field}>
-                <FieldLabel>Gender</FieldLabel>
-                <ChipGroup<Gender>
-                  options={[
-                    { value: 'boy', label: 'Boy', icon: 'male-outline' },
-                    { value: 'girl', label: 'Girl', icon: 'female-outline' },
-                    { value: 'surprise', label: 'Surprise', icon: 'help-circle-outline' },
-                  ]}
-                  value={kidGender}
-                  onChange={(v) => {
-                    setKidGender(v);
-                    if (errors.kidGender) setErrors((e) => ({ ...e, kidGender: '' }));
-                  }}
-                />
-                <Text style={styles.helpText}>
-                  Used only for pronouns and gender-specific health checks. Pick "Surprise" if you'd rather not share.
-                </Text>
-                <InputError msg={errors.kidGender} />
-              </View>
+              {showKidGender && (
+                <View style={styles.field}>
+                  <FieldLabel>Gender</FieldLabel>
+                  <ChipGroup<Gender>
+                    options={kidGenderOptions}
+                    value={kidGender}
+                    onChange={(v) => {
+                      setKidGender(v);
+                      if (errors.kidGender) setErrors((e) => ({ ...e, kidGender: '' }));
+                    }}
+                  />
+                  <Text style={styles.helpText}>
+                    Used only for pronouns and gender-specific health checks.
+                  </Text>
+                  <InputError msg={errors.kidGender} />
+                </View>
+              )}
             </View>
           )}
 
