@@ -1385,7 +1385,7 @@ export default function WellnessScreen() {
           onLayout={(e: any) => {
             moodSectionYRef.current = e?.nativeEvent?.layout?.y ?? 0;
           }}
-          style={{ ...styles.moodCard, backgroundColor: moodCardTint || '#ffffff', marginTop: 20 }}
+          style={{ ...styles.moodCard, backgroundColor: '#ffffff', marginTop: 20 }}
           shadow="md"
         >
           <Text style={styles.moodTitle}>{moodPromptCopy}</Text>
