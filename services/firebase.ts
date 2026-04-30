@@ -327,12 +327,28 @@ export interface LoadFullProfileResult {
   error?: unknown;
 }
 
+function inferOnboardingComplete(data: Record<string, any>): boolean {
+  if (data.onboardingComplete === true) return true;
+
+  // Older docs and a few interrupted migrations can have the real family
+  // profile written without the explicit boolean flag. Treat substantive
+  // saved profile data as "already onboarded" so returning users aren't
+  // forced back into onboarding on a cold web sign-in.
+  const hasMotherName = typeof data.motherName === 'string' && data.motherName.trim().length > 0;
+  const hasProfile = !!data.profile;
+  const hasKids = Array.isArray(data.kids) && data.kids.length > 0;
+  const hasRole = typeof data.parentGender === 'string' && data.parentGender.trim().length > 0;
+
+  return hasMotherName || hasProfile || hasKids || hasRole;
+}
+
 export async function loadFullProfileStrict(uid: string): Promise<LoadFullProfileResult> {
   if (!db) return { status: 'error', error: new Error('db not configured') };
   try {
     const snap = await getDoc(doc(db, 'users', uid));
     if (!snap.exists()) return { status: 'missing' };
     const d = snap.data();
+    const onboardingComplete = inferOnboardingComplete(d);
     return {
       status: 'ok',
       data: {
@@ -340,7 +356,7 @@ export async function loadFullProfileStrict(uid: string): Promise<LoadFullProfil
         profile: d.profile ?? null,
         kids: d.kids ?? [],
         completedVaccines: d.completedVaccines ?? {},
-        onboardingComplete: d.onboardingComplete === true,
+        onboardingComplete,
         parentGender: d.parentGender ?? '',
         bio: d.bio ?? '',
         expertise: d.expertise ?? [],
@@ -1315,7 +1331,7 @@ export async function getUsers(): Promise<AdminUser[]> {
         name: data.name ?? data.motherName ?? 'Unknown',
         email: data.email ?? '',
         createdAt: data.createdAt ?? '',
-        onboardingComplete: data.onboardingComplete ?? false,
+        onboardingComplete: inferOnboardingComplete(data),
         kidsCount: Array.isArray(data.kids) ? data.kids.length : 0,
         state: data.profile?.state ?? '',
         photoUrl: data.photoUrl ?? undefined,

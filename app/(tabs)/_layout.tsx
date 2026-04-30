@@ -103,19 +103,20 @@ function AskFab({ focused, onPress }: { focused: boolean; onPress?: () => void }
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const { isAuthenticated, isLoading, user } = useAuthStore();
-  const { onboardingComplete } = useProfileStore();
+  const onboardingComplete = useProfileStore((s) => s.onboardingComplete);
+  const profileHydrated = useProfileStore((s) => s._hasHydrated);
 
   // Auth/onboarding guards as <Redirect> rather than useEffect+router.replace.
   // Mount-time imperative navigation throws "Attempted to navigate before
   // mounting the Root Layout" because expo-router's nav context isn't yet
   // ready during a screen's first commit phase. <Redirect> waits for it.
-  if (!isLoading) {
+  if (!isLoading && profileHydrated) {
     if (!isAuthenticated) return <Redirect href="/(auth)/welcome" />;
     if (isAdminEmail(user?.email)) return <Redirect href="/admin" />;
     if (!onboardingComplete) return <Redirect href="/(auth)/onboarding" />;
   }
 
-  if (isLoading) {
+  if (isLoading || !profileHydrated) {
     return (
       <View style={{ flex: 1, backgroundColor: '#1C1033', alignItems: 'center', justifyContent: 'center' }}>
         <ActivityIndicator size="large" color={Colors.primary} />
