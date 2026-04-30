@@ -747,6 +747,12 @@ export default function HomeTab() {
 
         <View style={styles.homeHeroWrap}>
           <Illustration name={heroName} style={styles.homeHeroImg} />
+          <View style={styles.homeHeroQuoteOverlay} pointerEvents="none">
+            <Text style={styles.homeHeroQuoteMark}>“</Text>
+            <Text style={styles.homeHeroQuoteText} numberOfLines={4}>
+              {affirmationToday}
+            </Text>
+          </View>
         </View>
 
         {/* HERO: Ask Maamitra AI bar — flat lilac card, brand-purple icon.
@@ -776,14 +782,6 @@ export default function HomeTab() {
             </View>
           </View>
         </TouchableOpacity>
-
-        {/* ═══ DAILY AFFIRMATION ═══ A gentle Lora-italic line that rotates
-            once a day. Sits between the AI bar and the action grid so the
-            user gets a moment of warmth before scanning what's "due". */}
-        <View style={styles.affirmationCard}>
-          <Text style={styles.affirmationQuoteMark}>“</Text>
-          <Text style={styles.affirmationText}>{affirmationToday}</Text>
-        </View>
 
         {/* ═══ TODAY'S FOCUS ═══ The most-prioritized card from todayCards
             promoted to a hero treatment — personalised "Today for <kid>"
@@ -2411,31 +2409,26 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-
-  // Daily affirmation card — soft cream surface, Lora italic line, gentle
-  // brand-purple opening quote mark. Sits between the AI bar and the action
-  // grid; aim is "moment of warmth before triage", not another action prompt.
-  affirmationCard: {
-    marginHorizontal: Spacing.xl,
-    marginTop: Spacing.xl,
-    paddingVertical: Spacing.lg,
-    paddingHorizontal: Spacing.xl,
-    backgroundColor: Colors.creamWarm,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: Colors.borderSoft,
+  homeHeroQuoteOverlay: {
+    position: 'absolute',
+    left: 16,
+    top: 0,
+    bottom: 0,
+    width: '52%',
+    justifyContent: 'center',
+    paddingRight: 8,
   },
-  affirmationQuoteMark: {
+  homeHeroQuoteMark: {
     fontFamily: Fonts.serif,
     fontSize: 36,
     lineHeight: 28,
     color: Colors.lavenderMild,
-    marginBottom: 4,
+    marginBottom: 2,
   },
-  affirmationText: {
+  homeHeroQuoteText: {
     fontFamily: Fonts.serifMedium,
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 14,
+    lineHeight: 20,
     color: Colors.textDark,
     fontStyle: 'italic',
   },
