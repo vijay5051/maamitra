@@ -38,7 +38,7 @@ function poseToIllustration(name: string): IllustrationName | null {
   if (n.includes('rolling hug')) return 'yogaRollingHug';
   if (n.includes('4-7-8') || (n.includes('478') && n.includes('breath'))) return 'yogaBreathing478';
   if (n.includes('standing forward fold')) return 'yogaStandingForwardFold';
-  if (n.includes('wide-legged') || n.includes('wide legged') || n.includes('forward bend')) return 'yogaWideLeggedFold';
+  if (n.includes('wide-legged') || n.includes('wide legged')) return 'yogaWideLeggedFold';
   if (n.includes('seated meditation')) return 'yogaSeatedMeditation';
   if (n.includes('nidra')) return 'yogaNidra';
   if (n.includes('happy baby')) return 'yogaHappyBaby';
