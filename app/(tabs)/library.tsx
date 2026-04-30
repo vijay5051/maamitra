@@ -1151,9 +1151,9 @@ export default function LibraryScreen() {
   //                                            (implies tab=read)
   //   ?topic=Feeding                          — seed the articles topic filter
   const params = useLocalSearchParams<{ tab?: string; articleId?: string; topic?: string }>();
-  const featureFlags = useAppSettingsStore((s) => s.settings.featureFlags);
-  const showBooks = featureFlags.libraryBooks !== false;
-  const showProducts = featureFlags.libraryProducts !== false;
+  const featureFlags = useAppSettingsStore((s) => s.settings?.featureFlags);
+  const showBooks = featureFlags?.libraryBooks !== false;
+  const showProducts = featureFlags?.libraryProducts !== false;
   const isAllowedSubTab = (tab: string | undefined): tab is SubTab => {
     if (tab === 'read' || tab === 'saved' || tab === 'journey') return true;
     if (tab === 'books') return showBooks;
