@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -6,6 +6,7 @@ import {
   Platform,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -14,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useChatStore, type ChatThread } from '../../store/useChatStore';
 import { Fonts } from '../../constants/theme';
 import { Colors } from '../../constants/theme';
+import { confirmAction } from '../../lib/cross-platform-alerts';
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
@@ -60,40 +62,27 @@ export function ThreadRow({
   onRename: (newTitle: string) => void;
   onDelete: () => void;
 }) {
-  const confirmDelete = () => {
-    if (typeof window !== 'undefined') {
-      if (window.confirm(`Delete "${thread.title}"?\n\nThis removes all messages in this chat.`)) {
-        onDelete();
-      }
-    } else {
-      Alert.alert(
-        'Delete chat',
-        `Delete "${thread.title}"? This removes all messages in this chat.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Delete', style: 'destructive', onPress: onDelete },
-        ]
-      );
-    }
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [renameDraft, setRenameDraft] = useState(thread.title);
+
+  const confirmDelete = async () => {
+    const ok = await confirmAction(
+      'Delete chat',
+      `Delete "${thread.title}"? This removes all messages in this chat.`,
+      { confirmLabel: 'Delete', destructive: true },
+    );
+    if (ok) onDelete();
   };
 
   const promptRename = () => {
-    if (typeof window !== 'undefined') {
-      const next = window.prompt('Rename chat', thread.title);
-      if (next !== null && next.trim().length > 0) {
-        onRename(next.trim());
-      }
-    } else {
-      Alert.prompt?.(
-        'Rename chat',
-        'Enter a new title',
-        (next?: string) => {
-          if (next && next.trim().length > 0) onRename(next.trim());
-        },
-        'plain-text',
-        thread.title,
-      );
-    }
+    setRenameDraft(thread.title);
+    setRenameOpen(true);
+  };
+
+  const submitRename = () => {
+    const next = renameDraft.trim();
+    if (next.length > 0) onRename(next);
+    setRenameOpen(false);
   };
 
   return (
@@ -136,6 +125,36 @@ export function ThreadRow({
       >
         <Ionicons name="trash-outline" size={16} color="#d1d5db" />
       </TouchableOpacity>
+
+      <Modal
+        visible={renameOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setRenameOpen(false)}
+      >
+        <View style={styles.renameBackdrop}>
+          <View style={styles.renameCard}>
+            <Text style={styles.renameTitle}>Rename chat</Text>
+            <TextInput
+              value={renameDraft}
+              onChangeText={setRenameDraft}
+              style={styles.renameInput}
+              placeholder="Chat title"
+              placeholderTextColor="#9ca3af"
+              autoFocus
+              maxLength={60}
+            />
+            <View style={styles.renameActions}>
+              <TouchableOpacity onPress={() => setRenameOpen(false)} style={styles.renameBtn}>
+                <Text style={styles.renameBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={submitRename} style={[styles.renameBtn, styles.renameBtnPrimary]}>
+                <Text style={[styles.renameBtnText, { color: '#ffffff' }]}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </TouchableOpacity>
   );
 }
@@ -231,6 +250,36 @@ export default function ChatHistorySheet({ visible, onClose }: Props) {
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
+  renameBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 8, 30, 0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 18,
+  },
+  renameCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: '#ffffff',
+    borderRadius: 18,
+    padding: 16,
+    gap: 12,
+  },
+  renameTitle: { fontSize: 16, fontWeight: '700', color: '#1a1a2e' },
+  renameInput: {
+    backgroundColor: '#f9fafb',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: '#1a1a2e',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  renameActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
+  renameBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
+  renameBtnPrimary: { backgroundColor: Colors.primary },
+  renameBtnText: { fontSize: 14, fontWeight: '700', color: '#6b7280' },
   container: { flex: 1, backgroundColor: Colors.bgLight },
   header: {
     paddingTop: Platform.OS === 'ios' ? 16 : 24,

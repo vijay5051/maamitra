@@ -15,6 +15,7 @@ interface CardProps {
   shadow?: ShadowSize;
   pressable?: boolean;
   onPress?: () => void;
+  onLayout?: (event: any) => void;
   padding?: number;
 }
 
@@ -55,6 +56,7 @@ export default function Card({
   shadow,
   pressable = false,
   onPress,
+  onLayout,
   padding = 16,
 }: CardProps) {
   const cardStyle: ViewStyle[] = [
@@ -69,6 +71,7 @@ export default function Card({
       <TouchableOpacity
         onPress={onPress}
         activeOpacity={0.85}
+        onLayout={onLayout}
         style={cardStyle}
       >
         {children}
@@ -76,7 +79,7 @@ export default function Card({
     );
   }
 
-  return <View style={cardStyle}>{children}</View>;
+  return <View style={cardStyle} onLayout={onLayout}>{children}</View>;
 }
 
 const styles = StyleSheet.create({

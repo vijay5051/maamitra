@@ -367,7 +367,7 @@ export default function HomeTab() {
 
   const handleContinueChat = (threadId: string) => {
     switchThread(threadId);
-    router.push('/(tabs)/chat');
+    router.push({ pathname: '/(tabs)/chat', params: { threadId } });
   };
 
   // ─── Profile sheet swipe-down-to-dismiss ──────────────────────────────
@@ -758,30 +758,35 @@ export default function HomeTab() {
         {/* HERO: Ask Maamitra AI bar — flat lilac card, brand-purple icon.
             Previously a gradient-bordered card with a gradient icon tile;
             simplified to match the rest of the refreshed UI. */}
-        <TouchableOpacity
-          activeOpacity={0.85}
-          style={styles.heroWrap}
-          onPress={() => router.push('/(tabs)/chat')}
-        >
-          <View style={styles.heroInner}>
-            <View style={styles.heroIconGrad}>
-              <AppIcon name="object.sparkles" size={16} color="#ffffff" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.heroLabel}>Ask Maamitra</Text>
-              <Text style={styles.heroHint}>
-                {activeKid?.isExpecting
-                  ? '"What should I eat in trimester 2?"'
-                  : activeKid
-                  ? `"Is ${activeKid.name} ready for solids?"`
-                  : '"What should I ask first?"'}
-              </Text>
-            </View>
-            <View style={styles.micBtn}>
-              <AppIcon name="object.mic" size={18} />
-            </View>
-          </View>
-        </TouchableOpacity>
+        {(() => {
+          const heroPrompt = activeKid?.isExpecting
+            ? 'What should I eat in trimester 2?'
+            : activeKid
+            ? `Is ${activeKid.name} ready for solids?`
+            : 'What should I ask first?';
+          return (
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={styles.heroWrap}
+              onPress={() =>
+                router.push({ pathname: '/(tabs)/chat', params: { prefill: heroPrompt } })
+              }
+            >
+              <View style={styles.heroInner}>
+                <View style={styles.heroIconGrad}>
+                  <AppIcon name="object.sparkles" size={16} color="#ffffff" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.heroLabel}>Ask Maamitra</Text>
+                  <Text style={styles.heroHint}>{`"${heroPrompt}"`}</Text>
+                </View>
+                <View style={styles.micBtn}>
+                  <AppIcon name="object.mic" size={18} />
+                </View>
+              </View>
+            </TouchableOpacity>
+          );
+        })()}
 
         {/* ═══ TODAY'S FOCUS ═══ The most-prioritized card from todayCards
             promoted to a hero treatment — personalised "Today for <kid>"
@@ -1725,6 +1730,8 @@ function buildTodayCards({
     router.push({ pathname: '/(tabs)/health', params: { tab: 'foods' } });
   const goVaccines = () =>
     router.push({ pathname: '/(tabs)/health', params: { tab: 'vaccines' } });
+  const goWellnessMood = () =>
+    router.push({ pathname: '/(tabs)/wellness', params: { focus: 'mood' } });
 
   if (!todayMood) {
     cards.push({
@@ -1734,7 +1741,7 @@ function buildTodayCards({
       bg: '#F5F0FF',
       value: 'Log mood',
       label: 'Not logged yet',
-      onPress: goWellness,
+      onPress: goWellnessMood,
     });
   } else {
     const moodIllustrationByScore: Record<number, IllustrationName> = {
@@ -1752,7 +1759,7 @@ function buildTodayCards({
       illustration: moodIllustrationByScore[todayMood.score],
       value: todayMood.label,
       label: "Today's mood",
-      onPress: goWellness,
+      onPress: goWellnessMood,
     });
   }
 

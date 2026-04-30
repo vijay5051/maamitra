@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   Dimensions,
   Modal,
@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
@@ -621,6 +622,51 @@ const YOGA_CARD_GRADIENTS: [string, string][] = [
   ['#F59E0B', Colors.primary],
 ];
 
+function poseToYogaIllustration(name: string): IllustrationName | null {
+  const n = (name || '').toLowerCase();
+  if (n.includes('cat') && n.includes('cow')) return 'yogaCatCow';
+  if (n.includes('child')) return 'yogaChildsPose';
+  if (n.includes('butterfly')) return 'yogaButterfly';
+  if (n.includes('pelvic floor') && n.includes('breath')) return 'yogaPelvicFloorBreathing';
+  if (n.includes('heel slide')) return 'yogaHeelSlides';
+  if (n.includes('dead bug')) return 'yogaDeadBug';
+  if (n.includes('clamshell')) return 'yogaClamshell';
+  if (n.includes('seated twist') || (n.includes('gentle') && n.includes('twist'))) return 'yogaSeatedTwist';
+  if (n.includes('om') && n.includes('baby')) return 'yogaSeatedOmBaby';
+  if (n.includes('bicycle') && n.includes('baby')) return 'yogaBabyBicycle';
+  if ((n.includes('mama') || n.includes('bear')) && n.includes('plank')) return 'yogaMamaPlank';
+  if (n.includes('baby cobra')) return 'yogaBabyCobra';
+  if (n.includes('rolling hug')) return 'yogaRollingHug';
+  if (n.includes('4-7-8') || (n.includes('478') && n.includes('breath'))) return 'yogaBreathing478';
+  if (n.includes('standing forward fold')) return 'yogaStandingForwardFold';
+  if (n.includes('wide-legged') || n.includes('wide legged')) return 'yogaWideLeggedFold';
+  if (n.includes('seated meditation')) return 'yogaSeatedMeditation';
+  if (n.includes('nidra')) return 'yogaNidra';
+  if (n.includes('happy baby')) return 'yogaHappyBaby';
+  if (n.includes('downward dog')) return 'yogaDownwardDog';
+  if (n.includes('warrior ii') || n.includes('warrior 2')) return 'yogaWarrior2';
+  if (n.includes('eagle arms')) return 'yogaEagleArms';
+  if (n.includes('thread the needle')) return 'yogaThreadTheNeedle';
+  if (n.includes('seated forward') || n.includes('seated fold')) return 'yogaSeatedForward';
+  if (n.includes('bridge')) return 'yogaBridge';
+  if (n.includes('pelvic tilt')) return 'yogaPelvicTilt';
+  if (n.includes('pelvic')) return 'yogaPelvicTilt';
+  if (n.includes('supine') && n.includes('twist')) return 'yogaSupineTwist';
+  if (n.includes('legs') && n.includes('wall')) return 'yogaLegsUpWall';
+  if (n.includes('savasana') || n.includes('corpse')) return 'yogaSavasana';
+  return null;
+}
+
+function illustrationForYogaSession(session: YogaSession): IllustrationName {
+  for (const pose of session.poses) {
+    const match = poseToYogaIllustration(pose.name);
+    if (match) return match;
+  }
+  // Reasonable visual fallback when no specific pose matches yet — savasana
+  // reads as "calm yoga" and is the closest universal motif.
+  return 'yogaSavasana';
+}
+
 function YogaGallery({
   sessions,
   onPress,
@@ -639,7 +685,7 @@ function YogaGallery({
         {sessions.map((session, index) => {
           const isFirst = index === 0;
           const cardWidth = isFirst ? SCREEN_WIDTH - 32 : 220;
-          const gradient = YOGA_CARD_GRADIENTS[index % YOGA_CARD_GRADIENTS.length];
+          const illus = illustrationForYogaSession(session);
 
           return (
             <TouchableOpacity
@@ -652,17 +698,19 @@ function YogaGallery({
                 index < sessions.length - 1 && { marginRight: 12 },
               ]}
             >
-              <LinearGradient
-                colors={gradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={StyleSheet.absoluteFill}
+              <Illustration
+                name={illus}
+                style={yogaGalleryStyles.cardIllus}
+                contentFit="cover"
               />
+              {/* Soft scrim so the cream illustration tone reads against
+                  white text and pills, without visually muddying the
+                  pose drawing. */}
+              <View style={yogaGalleryStyles.cardScrim} pointerEvents="none" />
 
-              {/* Top pills row */}
               <View style={yogaGalleryStyles.pillsRow}>
                 <View style={yogaGalleryStyles.pill}>
-                  <AppIcon name="object.history" size={11} color="#374151" />
+                  <AppIcon name="object.history" size={11} color="#1C1033" />
                   <Text style={yogaGalleryStyles.pillText}>{session.duration} min</Text>
                 </View>
                 <View style={yogaGalleryStyles.pill}>
@@ -670,7 +718,6 @@ function YogaGallery({
                 </View>
               </View>
 
-              {/* Bottom row: name + play */}
               <View style={yogaGalleryStyles.bottomRow}>
                 <Text style={yogaGalleryStyles.sessionName} numberOfLines={2}>
                   {session.name}
@@ -684,7 +731,6 @@ function YogaGallery({
         })}
       </ScrollView>
 
-      {/* Right edge fade */}
       <View style={yogaGalleryStyles.rightFade} pointerEvents="none">
         <LinearGradient
           colors={['transparent', '#FAFAFB']}
@@ -707,11 +753,24 @@ const yogaGalleryStyles = StyleSheet.create({
     paddingBottom: 4,
   },
   card: {
-    height: 160,
+    height: 180,
     borderRadius: 20,
     overflow: 'hidden',
     padding: 16,
     justifyContent: 'space-between',
+    backgroundColor: '#FFFCF7',
+    borderWidth: 1,
+    borderColor: '#F0EDF5',
+  },
+  cardIllus: {
+    position: 'absolute',
+    inset: 0,
+    width: '100%',
+    height: '100%',
+  },
+  cardScrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255, 252, 247, 0.30)',
   },
   pillsRow: {
     flexDirection: 'row',
@@ -721,7 +780,7 @@ const yogaGalleryStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(255,255,255,0.85)',
     borderRadius: 20,
     paddingVertical: 4,
     paddingHorizontal: 10,
@@ -729,7 +788,7 @@ const yogaGalleryStyles = StyleSheet.create({
   pillText: {
     fontFamily: Fonts.sansMedium,
     fontSize: 11,
-    color: '#ffffff',
+    color: '#1C1033',
   },
   bottomRow: {
     flexDirection: 'row',
@@ -740,18 +799,22 @@ const yogaGalleryStyles = StyleSheet.create({
   sessionName: {
     fontFamily: Fonts.sansBold,
     fontSize: 16,
-    color: '#ffffff',
+    color: '#1C1033',
     flex: 1,
     lineHeight: 22,
+    textShadowColor: 'rgba(255, 252, 247, 0.85)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 6,
   },
   playBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.25)',
+    backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     paddingLeft: 2, // optical centering for play icon
+    boxShadow: '0px 4px 12px rgba(109, 26, 122, 0.28)',
   },
   rightFade: {
     position: 'absolute',
@@ -1092,6 +1155,10 @@ const dividerStyles = StyleSheet.create({
 
 export default function WellnessScreen() {
   const insets = useSafeAreaInsets();
+  const { focus } = useLocalSearchParams<{ focus?: string }>();
+  const scrollRef = useRef<any>(null);
+  const moodSectionYRef = useRef<number>(0);
+  const consumedFocusRef = useRef<string>('');
   const {
     logMood,
     healthConditions,
@@ -1099,6 +1166,27 @@ export default function WellnessScreen() {
   } = useWellnessStore();
   const profile = useProfileStore((s) => s.profile);
   const { user } = useAuthStore();
+
+  // Deep-link target: scroll the screen to the requested section once the
+  // section's onLayout has fired. Re-attempts every 80 ms for ~600 ms in
+  // case content above (hero illustration, condition banner) finishes
+  // measuring after the param arrives.
+  useEffect(() => {
+    if (typeof focus !== 'string' || !focus) return;
+    if (consumedFocusRef.current === focus) return;
+    let attempts = 0;
+    const tryScroll = () => {
+      attempts++;
+      const y = focus === 'mood' ? moodSectionYRef.current : 0;
+      if (y > 0 || attempts > 8) {
+        scrollRef.current?.scrollTo?.({ y: Math.max(0, y - 12), animated: true });
+        consumedFocusRef.current = focus;
+        return;
+      }
+      setTimeout(tryScroll, 80);
+    };
+    setTimeout(tryScroll, 80);
+  }, [focus]);
 
   // Subscribe to moodHistory so we re-compute today's mood on rehydrate.
   // Zustand persist is async; useState-with-init would freeze the value to
@@ -1179,11 +1267,60 @@ export default function WellnessScreen() {
     }
     return 'Postpartum care & recovery';
   }, [parentGenderForAudience, profile?.stage]);
-  const filteredSessions = healthConditions !== null
+  const conditionFiltered = healthConditions !== null
     ? audienceFiltered.filter(
         (s) => !s.contraindications.some((c) => healthConditions.includes(c))
       )
     : audienceFiltered;
+
+  // Time-of-day priority. The first card in the gallery becomes the
+  // hero; we don't want a "Morning Stretch" reading 11 PM. Score each
+  // session by how well its name fits the current part of day; stable
+  // sort so the rest of the original order is preserved.
+  const filteredSessions = useMemo(() => {
+    const hour = new Date().getHours();
+    const isMorning = hour >= 5 && hour < 12;
+    const isAfternoon = hour >= 12 && hour < 17;
+    const isEvening = hour >= 17 && hour < 21;
+    const isNight = hour >= 21 || hour < 5;
+
+    function score(name: string): number {
+      const n = name.toLowerCase();
+      if (isNight) {
+        if (n.includes('sleep')) return 100;
+        if (n.includes('stress') || n.includes('calm') || n.includes('reset') || n.includes('tired')) return 90;
+        if (n.includes('morning')) return 0;
+        return 50;
+      }
+      if (isMorning) {
+        if (n.includes('morning')) return 100;
+        if (n.includes('postpartum') || n.includes('core')) return 85;
+        if (n.includes('strength') || n.includes('dad')) return 80;
+        if (n.includes('sleep')) return 0;
+        return 60;
+      }
+      if (isAfternoon) {
+        if (n.includes('postpartum') || n.includes('strength') || n.includes('baby') || n.includes('bonding')) return 90;
+        if (n.includes('reset') || n.includes('tired')) return 80;
+        if (n.includes('morning')) return 30;
+        if (n.includes('sleep')) return 10;
+        return 60;
+      }
+      if (isEvening) {
+        if (n.includes('stress') || n.includes('calm')) return 95;
+        if (n.includes('reset') || n.includes('tired')) return 90;
+        if (n.includes('sleep')) return 80;
+        if (n.includes('morning')) return 10;
+        return 55;
+      }
+      return 50;
+    }
+
+    return [...conditionFiltered]
+      .map((s, i) => ({ s, i, score: score(s.name) }))
+      .sort((a, b) => (b.score - a.score) || (a.i - b.i))
+      .map((x) => x.s);
+  }, [conditionFiltered]);
 
   const moodCardTint = selectedMoodScore ? MOOD_TINTS[selectedMoodScore] : 'transparent';
 
@@ -1203,6 +1340,7 @@ export default function WellnessScreen() {
       </LinearGradient>
 
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}
         showsVerticalScrollIndicator={false}
       >
@@ -1248,6 +1386,9 @@ export default function WellnessScreen() {
 
         {/* Mood check-in */}
         <Card
+          onLayout={(e: any) => {
+            moodSectionYRef.current = e?.nativeEvent?.layout?.y ?? 0;
+          }}
           style={{ ...styles.moodCard, backgroundColor: moodCardTint || '#ffffff', marginTop: 20 }}
           shadow="md"
         >

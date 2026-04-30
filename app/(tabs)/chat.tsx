@@ -209,7 +209,8 @@ export default function ChatScreen() {
   // Prefill arrives when the user tapped a contextual "Ask Maamitra" chip on
   // another tab. We just stage it in the input; we don't auto-send so the user
   // stays in control.
-  const { prefill } = useLocalSearchParams<{ prefill?: string }>();
+  const { prefill, threadId: routeThreadId } = useLocalSearchParams<{ prefill?: string; threadId?: string }>();
+  const consumedRouteRef = useRef<string>('');
   const {
     isTyping,
     allergies,
@@ -253,14 +254,30 @@ export default function ChatScreen() {
 
   const flatListRef = useRef<FlatList>(null);
 
-  // If the user opened the chat tab via a deep link with a `prefill` param
-  // (a contextual "Ask Maamitra" chip from another tab), drop them straight
-  // into the conversation view rather than the threads list.
+  // Deep-link entry handling. Two params drive this:
+  //   prefill   → user tapped a "Ask Maamitra: <example>" CTA somewhere.
+  //               We start a NEW thread so their question doesn't dump
+  //               into an unrelated old conversation, then jump to the
+  //               conversation view with the prompt staged in the input.
+  //   threadId  → user tapped a "Continue chat" card. Switch to that
+  //               thread and jump straight into the conversation view.
+  // A ref guards against re-firing on every prop change of the same params.
   useEffect(() => {
+    const key = `${typeof prefill === 'string' ? prefill : ''}|${typeof routeThreadId === 'string' ? routeThreadId : ''}`;
+    if (!key.replace('|', '')) return;
+    if (consumedRouteRef.current === key) return;
+    consumedRouteRef.current = key;
+
     if (typeof prefill === 'string' && prefill.length > 0) {
+      const trimmed = prefill.trim().replace(/\s+/g, ' ');
+      const title = trimmed.length > 40 ? trimmed.slice(0, 40) + '…' : trimmed;
+      createThread(title || 'New chat');
+      setView('conversation');
+    } else if (typeof routeThreadId === 'string' && routeThreadId.length > 0) {
+      switchThread(routeThreadId);
       setView('conversation');
     }
-  }, [prefill]);
+  }, [prefill, routeThreadId, createThread, switchThread]);
 
   const handleNewChat = useCallback(() => {
     createThread('New chat');
@@ -520,22 +537,15 @@ export default function ChatScreen() {
             </View>
           </View>
 
-          {/* Right: Kid pill + history + settings */}
+          {/* Right: Kid pill + settings (history is the back arrow now) */}
           <View style={styles.headerRight}>
             {activeKid ? (
               <View style={styles.kidPill}>
-                <Text style={styles.kidPillText}>
+                <Text style={styles.kidPillText} numberOfLines={1} ellipsizeMode="tail">
                   {activeKid.name}{activeKid.ageInMonths !== undefined ? ` · ${ageLabel}` : ''}
                 </Text>
               </View>
             ) : null}
-            <TouchableOpacity
-              onPress={() => setShowHistory(true)}
-              style={styles.gearBtn}
-              activeOpacity={0.7}
-            >
-              <AppIcon name="object.history" size={20} />
-            </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setSettingsVisible(true)}
               style={styles.gearBtn}
@@ -680,8 +690,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 0 },
 
   avatarWrap: { position: 'relative' },
   logoCircle: {
@@ -706,7 +716,7 @@ const styles = StyleSheet.create({
     borderWidth: 2, borderColor: '#ffffff',
   },
 
-  headerInfo: {},
+  headerInfo: { flex: 1, minWidth: 0 },
   headerNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   headerName: {
     fontFamily: Fonts.serif,
@@ -725,9 +735,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F0FF',
     borderRadius: 20,
     paddingVertical: 5,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     borderWidth: 1,
     borderColor: '#E5DAF5',
+    maxWidth: 130,
   },
   kidPillText: {
     fontFamily: Fonts.sansSemiBold,
