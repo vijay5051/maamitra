@@ -1,39 +1,69 @@
-import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, View } from 'react-native';
+import React, { useEffect } from 'react';
+import { StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
+
 import { Colors } from '../../constants/theme';
 
-const DOT_SIZE = 8;
-const DELAYS = [0, 150, 300];
-const DURATION = 500;
+// Three soft brand-purple hearts that pulse in sequence while the AI is
+// generating a reply. Replaces the older grey-dots bounce — warmer feel,
+// runs on the UI thread (Reanimated), and naturally stops when the parent
+// unmounts this component as soon as the response begins streaming.
 
-function Dot({ delay }: { delay: number }) {
-  const translateY = useRef(new Animated.Value(0)).current;
+const HEART_COUNT = 3;
+const STEP_MS = 220;          // delay between each heart's pulse onset
+const PULSE_UP_MS = 380;
+const PULSE_DOWN_MS = 380;
+
+const AnimatedIcon = Animated.createAnimatedComponent(Ionicons);
+
+function Heart({ delay }: { delay: number }) {
+  const scale = useSharedValue(0.7);
+  const opacity = useSharedValue(0.45);
 
   useEffect(() => {
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.delay(delay),
-        Animated.timing(translateY, {
-          toValue: -6,
-          duration: DURATION,
-          useNativeDriver: true,
-        }),
-        Animated.timing(translateY, {
-          toValue: 0,
-          duration: DURATION,
-          useNativeDriver: true,
-        }),
-        Animated.delay(DELAYS[DELAYS.length - 1] - delay),
-      ])
+    const easing = Easing.inOut(Easing.quad);
+    scale.value = withDelay(
+      delay,
+      withRepeat(
+        withSequence(
+          withTiming(1.0, { duration: PULSE_UP_MS, easing }),
+          withTiming(0.7, { duration: PULSE_DOWN_MS, easing }),
+        ),
+        -1,
+        false,
+      ),
     );
-    animation.start();
-    return () => animation.stop();
-  }, [delay, translateY]);
+    opacity.value = withDelay(
+      delay,
+      withRepeat(
+        withSequence(
+          withTiming(1.0, { duration: PULSE_UP_MS, easing }),
+          withTiming(0.45, { duration: PULSE_DOWN_MS, easing }),
+        ),
+        -1,
+        false,
+      ),
+    );
+  }, [delay, scale, opacity]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+    opacity: opacity.value,
+  }));
 
   return (
-    <Animated.View
-      style={[styles.dot, { transform: [{ translateY }] }]}
-    />
+    <Animated.View style={animatedStyle}>
+      <AnimatedIcon name="heart" size={14} color={Colors.primary} />
+    </Animated.View>
   );
 }
 
@@ -41,8 +71,8 @@ export default function TypingIndicator() {
   return (
     <View style={styles.wrapper}>
       <View style={styles.bubble}>
-        {DELAYS.map((delay, i) => (
-          <Dot key={i} delay={delay} />
+        {Array.from({ length: HEART_COUNT }).map((_, i) => (
+          <Heart key={i} delay={i * STEP_MS} />
         ))}
       </View>
     </View>
@@ -58,26 +88,16 @@ const styles = StyleSheet.create({
   bubble: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.cardBg,
     borderRadius: 4,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    borderBottomRightRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 2,
-    gap: 4,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    borderBottomRightRadius: 18,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: Colors.borderSoft,
     boxShadow: '0px 2px 6px rgba(28, 16, 51, 0.048)',
-  },
-  dot: {
-    width: DOT_SIZE,
-    height: DOT_SIZE,
-    borderRadius: DOT_SIZE / 2,
-    backgroundColor: '#9ca3af',
-    marginHorizontal: 2,
   },
 });

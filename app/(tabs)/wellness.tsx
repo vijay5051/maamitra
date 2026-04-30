@@ -34,6 +34,7 @@ import { filterByAudience, parentGenderToAudience } from '../../data/audience';
 import YogaModalComponent from '../../components/wellness/YogaModal';
 import ContextualAskChip from '../../components/ui/ContextualAskChip';
 import { Illustration } from '../../components/ui/Illustration';
+import { Confetti } from '../../components/ui/Confetti';
 import type { IllustrationName } from '../../lib/illustrations';
 import { Fonts } from '../../constants/theme';
 import { Colors } from '../../constants/theme';
@@ -1109,15 +1110,19 @@ export default function WellnessScreen() {
   const [showCondModal, setShowCondModal] = useState(false);
   const [selectedYogaSession, setSelectedYogaSession] = useState<YogaSession | null>(null);
   const [showYogaModal, setShowYogaModal] = useState(false);
+  const [showMoodConfetti, setShowMoodConfetti] = useState(false);
 
   const handleMoodSelect = (score: 1 | 2 | 3 | 4 | 5) => {
+    // Only celebrate the *first* mood log of the day — repeated taps shouldn't
+    // re-fire confetti (would feel spammy if a user is just adjusting). The
+    // selector below stays null until logMood completes its first write.
+    const isFirstLogToday = selectedMoodScore == null;
     logMood(score);
-    // selectedMoodScore and moodResponse update automatically via the
-    // moodHistory selector above — no local state to keep in sync.
     if (user?.uid) {
       const { moodHistory: latest } = useWellnessStore.getState();
       syncWellnessData(user.uid, latest, healthConditions);
     }
+    if (isFirstLogToday) setShowMoodConfetti(true);
   };
 
   // First filter by audience (role-adaptive), then by health conditions.
@@ -1286,6 +1291,8 @@ export default function WellnessScreen() {
         visible={showYogaModal}
         onClose={() => setShowYogaModal(false)}
       />
+
+      <Confetti show={showMoodConfetti} onDone={() => setShowMoodConfetti(false)} />
     </View>
   );
 }
