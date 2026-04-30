@@ -57,6 +57,7 @@ import AnimatedPressable from '../../components/ui/AnimatedPressable';
 import AnimatedNumber from '../../components/ui/AnimatedNumber';
 import { Illustration } from '../../components/ui/Illustration';
 import type { IllustrationName } from '../../lib/illustrations';
+import { getTimeOfDay } from '../../lib/timeOfDay';
 
 // Quick-action card id → brand illustration. Cards without a mapping fall back
 // to the existing Lucide/Ionicons glyph. Keep this small — over-illustrated
@@ -98,6 +99,12 @@ const FIRST_RUN_KEY = 'maamitra-home-first-run-v1';
 export default function HomeTab() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const heroName = useMemo<IllustrationName>(() => {
+    const tod = getTimeOfDay();
+    if (tod === 'morning') return 'homeHeroMorning';
+    if (tod === 'afternoon') return 'homeHeroAfternoon';
+    return 'homeHeroEvening';
+  }, []);
   // Avatar tap opens a quick-access profile hub with shortcuts to
   // Edit Profile, Library, Health records, Notifications, Privacy,
   // Help & Support. Distinct from the header's gear icon which opens
@@ -729,7 +736,7 @@ export default function HomeTab() {
         </View>
 
         <View style={styles.homeHeroWrap}>
-          <Illustration name="homeHero" style={styles.homeHeroImg} />
+          <Illustration name={heroName} style={styles.homeHeroImg} />
         </View>
 
         {/* HERO: Ask Maamitra AI bar — flat lilac card, brand-purple icon.
