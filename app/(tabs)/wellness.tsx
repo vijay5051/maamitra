@@ -683,8 +683,7 @@ function YogaGallery({
         contentContainerStyle={yogaGalleryStyles.scrollContent}
       >
         {sessions.map((session, index) => {
-          const isFirst = index === 0;
-          const cardWidth = isFirst ? SCREEN_WIDTH - 32 : 220;
+          const cardWidth = 220;
           const illus = illustrationForYogaSession(session);
 
           return (
@@ -753,24 +752,21 @@ const yogaGalleryStyles = StyleSheet.create({
     paddingBottom: 4,
   },
   card: {
-    height: 180,
+    height: 240,
     borderRadius: 20,
     overflow: 'hidden',
-    padding: 16,
     justifyContent: 'space-between',
     backgroundColor: '#FFFCF7',
     borderWidth: 1,
     borderColor: '#F0EDF5',
+    padding: 14,
   },
   cardIllus: {
-    position: 'absolute',
-    inset: 0,
-    width: '100%',
-    height: '100%',
+    ...StyleSheet.absoluteFillObject,
   },
   cardScrim: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255, 252, 247, 0.30)',
+    backgroundColor: 'rgba(28, 16, 51, 0.0)',
   },
   pillsRow: {
     flexDirection: 'row',

@@ -177,6 +177,34 @@ function NotificationsPanel({ uid }: { uid?: string }) {
 
   useEffect(() => {
     let cancelled = false;
+    if (Platform.OS !== 'web') {
+      // Native: probe RNFB messaging() for current authorization state.
+      // checkPushSupportDetailed is web-only and would return
+      // 'platform-native' (which we treat as supported here).
+      setSupport({ ok: true } as any);
+      (async () => {
+        try {
+          const messagingModule = await import('@react-native-firebase/messaging');
+          const messaging = messagingModule.default;
+          const { AuthorizationStatus } = messagingModule;
+          const status = await messaging().hasPermission();
+          if (cancelled) return;
+          if (status === AuthorizationStatus.AUTHORIZED || status === AuthorizationStatus.PROVISIONAL) {
+            setPermission('granted');
+            setToken('native');
+          } else if (status === AuthorizationStatus.DENIED) {
+            setPermission('denied');
+          } else {
+            setPermission('default');
+          }
+        } catch {
+          if (!cancelled) setPermission('default');
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }
     checkPushSupportDetailed().then((s) => {
       if (cancelled) return;
       setSupport(s);
@@ -226,6 +254,36 @@ function NotificationsPanel({ uid }: { uid?: string }) {
 
   const handleToggle = async () => {
     if (!uid) return;
+
+    // Native (Android/iOS): use the FCM-backed permission flow. The
+    // checkPushSupport helper returns 'platform-native' for native builds
+    // because that helper is web-only — we do not want to surface that
+    // as an error to the user.
+    if (Platform.OS !== 'web') {
+      setBusy(true);
+      try {
+        const { requestNotificationPermission } = await import('../../lib/requestNotificationPermission');
+        const result = await requestNotificationPermission(uid);
+        if (result.status === 'granted') {
+          setPermission('granted');
+          setToken('native'); // sentinel — we know a token was registered
+        } else if (result.status === 'denied') {
+          setPermission('denied');
+          Alert.alert(
+            'Notifications turned off',
+            'You declined the system prompt. To enable, open the device settings → Apps → MaaMitra → Notifications.',
+          );
+        } else if (result.status === 'unsupported') {
+          Alert.alert('Not supported', 'This device does not support push notifications.');
+        } else if (result.status === 'error') {
+          Alert.alert('Could not enable push', 'Please try again in a moment.');
+        }
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
+
     if (!support) return;
     if (!support.ok) {
       Alert.alert(

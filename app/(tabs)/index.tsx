@@ -795,9 +795,15 @@ export default function HomeTab() {
             stay in the grid below. */}
         {todayCards.length > 0 && (() => {
           const hero = todayCards[0];
-          const heroLabel = activeKid?.name && activeKid.name !== 'Little one'
-            ? `Today for ${activeKid.name}`
-            : 'Today';
+          // Mood card is the mother's, not the kid's — when it lands in
+          // the hero slot, swap the heading to read for her instead of
+          // the kid.
+          const isMoodHero = hero.id === 'mood';
+          const heroLabel = isMoodHero
+            ? hero.label
+            : activeKid?.name && activeKid.name !== 'Little one'
+              ? `Today for ${activeKid.name}`
+              : 'Today';
           return (
             <Reanimated.View
               entering={FadeInDown.duration(360).springify().damping(15)}
@@ -1734,13 +1740,17 @@ function buildTodayCards({
     router.push({ pathname: '/(tabs)/wellness', params: { focus: 'mood' } });
 
   if (!todayMood) {
+    // Soft nudge — calling out a small mother-care ritual rather than
+    // "Not logged yet". The hero label override below uses card.label
+    // when this card lands in the top slot, so this string also reads
+    // as a hero heading.
     cards.push({
       id: 'mood',
       icon: 'happy-outline',
       tint: Colors.primary,
       bg: '#F5F0FF',
-      value: 'Log mood',
-      label: 'Not logged yet',
+      value: 'Take a moment',
+      label: 'Your mood today',
       onPress: goWellnessMood,
     });
   } else {
@@ -1758,7 +1768,7 @@ function buildTodayCards({
       bg: '#F5F0FF',
       illustration: moodIllustrationByScore[todayMood.score],
       value: todayMood.label,
-      label: "Today's mood",
+      label: 'Your mood today',
       onPress: goWellnessMood,
     });
   }

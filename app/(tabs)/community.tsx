@@ -4,7 +4,9 @@ import {
   Alert,
   FlatList,
   Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -13,6 +15,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -216,32 +219,66 @@ function NewPostModal({
   const [cropLoading, setCropLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
-  const handlePickImage = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.onchange = async (e: any) => {
-      const file = e.target?.files?.[0];
-      if (file) {
-        // Revoke previous blob URL to prevent memory leak
-        if (rawImageUri && rawImageUri.startsWith('blob:')) {
-          URL.revokeObjectURL(rawImageUri);
+  const handlePickImage = async () => {
+    if (Platform.OS === 'web') {
+      // Web path: hidden <input type="file"> + canvas-based crop.
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.onchange = async (e: any) => {
+        const file = e.target?.files?.[0];
+        if (file) {
+          if (rawImageUri && rawImageUri.startsWith('blob:')) {
+            URL.revokeObjectURL(rawImageUri);
+          }
+          const uri = URL.createObjectURL(file);
+          setRawImageUri(uri);
+          setCropRatio('Original');
+          const result = await cropImageToRatio(uri, null);
+          setImageUri(result.uri);
+          setImageAspectRatio(result.aspectRatio);
         }
-        const uri = URL.createObjectURL(file);
-        setRawImageUri(uri);
-        setCropRatio('Original');
-        // Measure original aspect ratio
-        const result = await cropImageToRatio(uri, null);
-        setImageUri(result.uri);
-        setImageAspectRatio(result.aspectRatio);
+      };
+      input.click();
+      return;
+    }
+
+    // Native path: expo-image-picker. The web canvas crop helper isn't
+    // available here, so we just use the original aspect from the asset.
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('Permission needed', 'Please allow photo access to attach an image.');
+        return;
       }
-    };
-    input.click();
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.85,
+        allowsEditing: false,
+        base64: false,
+      });
+      if (result.canceled || !result.assets?.length) return;
+      const asset = result.assets[0];
+      const ratio = asset.width && asset.height ? asset.width / asset.height : 4 / 3;
+      setRawImageUri(asset.uri);
+      setImageUri(asset.uri);
+      setCropRatio('Original');
+      setImageAspectRatio(ratio);
+    } catch (err) {
+      console.error('pick image failed:', err);
+      Alert.alert('Could not use that photo', 'Please try a different image.');
+    }
   };
 
   const handleSetCropRatio = async (ratio: CropRatio) => {
     if (!rawImageUri || cropLoading) return;
     setCropRatio(ratio);
+    if (Platform.OS !== 'web') {
+      // Canvas-based cropper is web-only — on native we keep the
+      // original aspect ratio. (Could swap in expo-image-manipulator
+      // later if cropping becomes important on phones.)
+      return;
+    }
     setCropLoading(true);
     const result = await cropImageToRatio(rawImageUri, RATIO_VALUES[ratio]);
     setImageUri(result.uri);
@@ -292,7 +329,11 @@ function NewPostModal({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={newPostStyles.overlay}>
+      <KeyboardAvoidingView
+        style={newPostStyles.overlay}
+        behavior="padding"
+        keyboardVerticalOffset={0}
+      >
         <View style={newPostStyles.sheet}>
           <View style={newPostStyles.header}>
             <Text style={newPostStyles.title}>New Post ✍️</Text>
@@ -300,6 +341,11 @@ function NewPostModal({
               <AppIcon name="nav.close-circle-outline" size={26} />
             </TouchableOpacity>
           </View>
+          <ScrollView
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 12 }}
+          >
 
           <Text style={newPostStyles.label}>Topic</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
@@ -395,8 +441,9 @@ function NewPostModal({
               <Text style={newPostStyles.postBtnText}>{isUploading ? 'Uploading…' : 'Post to Community'}</Text>
             </LinearGradient>
           </TouchableOpacity>
+          </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
