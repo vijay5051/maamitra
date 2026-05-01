@@ -93,6 +93,12 @@ export default function SetupScreen() {
       ]);
       // Local flag flips ONLY after Firestore confirms.
       useProfileStore.getState().setOnboardingComplete(true);
+      useProfileStore.getState().rememberKnownProfile(authUser.uid, {
+        onboardingComplete: true,
+        motherName: st.motherName,
+        phone: st.phone,
+        phoneVerified: !!st.phoneVerified,
+      });
       setPhase('success');
       // Brief success moment, then transition to the reminders opt-in.
       // Phone OTP is no longer a hard gate — users can add and verify

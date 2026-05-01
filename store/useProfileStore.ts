@@ -89,6 +89,13 @@ export interface CompletedVaccine {
   doneDate?: string; // ISO date string when marked done
 }
 
+export interface KnownProfileSnapshot {
+  onboardingComplete: boolean;
+  motherName?: string;
+  phone?: string;
+  phoneVerified?: boolean;
+}
+
 interface ProfileState {
   motherName: string;
   profile: Profile | null;
@@ -124,6 +131,14 @@ interface ProfileState {
    */
   cachedProfileUid: string | null;
   setCachedProfileUid: (uid: string | null) => void;
+  /**
+   * Tiny cross-session safety cache keyed by uid. Used only as a fallback
+   * when Safari/private browsing loses auth persistence or the first
+   * Firestore read flakes after sign-in. This prevents an existing user
+   * from being downgraded into onboarding.
+   */
+  knownProfilesByUid: Record<string, KnownProfileSnapshot>;
+  rememberKnownProfile: (uid: string, snapshot: KnownProfileSnapshot) => void;
 
   /**
    * True once zustand-persist has finished reading from AsyncStorage.
@@ -186,6 +201,17 @@ export const useProfileStore = create<ProfileState>()(
 
       cachedProfileUid: null,
       setCachedProfileUid: (uid: string | null) => set({ cachedProfileUid: uid }),
+      knownProfilesByUid: {},
+      rememberKnownProfile: (uid: string, snapshot: KnownProfileSnapshot) =>
+        set((state) => ({
+          knownProfilesByUid: {
+            ...state.knownProfilesByUid,
+            [uid]: {
+              ...(state.knownProfilesByUid[uid] ?? {}),
+              ...snapshot,
+            },
+          },
+        })),
 
       _hasHydrated: false,
 
@@ -317,6 +343,8 @@ export const useProfileStore = create<ProfileState>()(
           phone: '',
           phoneVerified: false,
           cachedProfileUid: null,
+          // Deliberately preserve knownProfilesByUid across sign-outs and
+          // Safari refreshes. It's a fallback map, not live session state.
         }),
 
       setPhotoUrl: (url) => set({ photoUrl: url }),

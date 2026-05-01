@@ -54,6 +54,7 @@ async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
   // returning-user fallback and routes already-onboarded users back into
   // the onboarding flow.
   try { await awaitProfileHydration(); } catch {}
+  const knownSnapshot = useProfileStore.getState().knownProfilesByUid[uid];
   try {
     // Retry the Firestore fetch on transient errors (incognito Safari is the
     // main culprit — IndexedDB / cookie partitioning delays auth-token
@@ -85,6 +86,20 @@ async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
         return useProfileStore.getState().onboardingComplete;
       }
 
+      // Durable returning-user fallback: if this browser has EVER
+      // successfully hydrated this uid before, trust that snapshot over a
+      // transient Safari / App Check / Firestore wobble. Restore the
+      // minimum fields needed to avoid bouncing an old user into
+      // onboarding or phone setup.
+      if (knownSnapshot?.onboardingComplete) {
+        useProfileStore.getState().setCachedProfileUid(uid);
+        useProfileStore.getState().setOnboardingComplete(true);
+        if (knownSnapshot.motherName) useProfileStore.getState().setMotherName(knownSnapshot.motherName);
+        if (knownSnapshot.phone) useProfileStore.getState().setPhone(knownSnapshot.phone);
+        useProfileStore.getState().setPhoneVerified(!!knownSnapshot.phoneVerified);
+        return true;
+      }
+
       // New-tab existing-user safety net: if Firestore says 'error' AND we
       // have no cache match BUT Firebase auth says this account was created
       // more than 2 minutes ago, this is NOT a new user — it's an existing
@@ -111,7 +126,7 @@ async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
       return false;
     }
     useProfileStore.getState().resetProfile();
-    const { setMotherName, setProfile, addKid, setOnboardingComplete, markVaccineDone, setCachedProfileUid } = useProfileStore.getState();
+    const { setMotherName, setProfile, addKid, setOnboardingComplete, markVaccineDone, setCachedProfileUid, rememberKnownProfile } = useProfileStore.getState();
     // Remember this uid so we can trust the persisted cache next time
     // the same user signs in with a flaky network.
     setCachedProfileUid(uid);
@@ -148,6 +163,12 @@ async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
     setHasDismissedFeatureGuide(!!(fullProfile as any).hasDismissedFeatureGuide);
     if (fullProfile.phone) setPhone(fullProfile.phone);
     setPhoneVerified(!!fullProfile.phoneVerified);
+    rememberKnownProfile(uid, {
+      onboardingComplete: fullProfile.onboardingComplete,
+      motherName: fullProfile.motherName,
+      phone: fullProfile.phone,
+      phoneVerified: !!fullProfile.phoneVerified,
+    });
 
     // Restore My Health checklist into AsyncStorage so health.tsx picks it up on mount
     if (fullProfile.healthTracking && Object.keys(fullProfile.healthTracking).length > 0) {
