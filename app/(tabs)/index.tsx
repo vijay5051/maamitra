@@ -717,6 +717,20 @@ export default function HomeTab() {
     } catch {}
   };
 
+  // "Got it — let me try" CTA on the first-run hero now drops the user
+  // straight into a new chat with the demo question staged in the input,
+  // instead of just dismissing the modal back to home. Same persistence
+  // path as dismissFirstRun so the popup never re-appears.
+  const tryFirstRunInChat = async () => {
+    const prefill = activeKid?.isExpecting
+      ? 'What should I eat in trimester 2?'
+      : activeKid
+        ? `Is ${activeKid.name} ready for solids?`
+        : 'Hi MaaMitra, is my baby ready for solids?';
+    await dismissFirstRun();
+    router.push({ pathname: '/(tabs)/chat', params: { prefill } });
+  };
+
   const skipFeatureGuideForNow = () => {
     setFeatureGuideOpen(false);
     setFeatureGuideSkippedThisSession(true);
@@ -1599,6 +1613,7 @@ export default function HomeTab() {
       <FirstRunHero
         visible={firstRunOpen}
         onDone={dismissFirstRun}
+        onTryNow={tryFirstRunInChat}
         parentSalutation={parentSalutation}
         firstName={firstName === 'there' ? '' : firstName}
       />
@@ -2366,11 +2381,13 @@ function JumpTile({
 function FirstRunHero({
   visible,
   onDone,
+  onTryNow,
   parentSalutation,
   firstName,
 }: {
   visible: boolean;
   onDone: () => void;
+  onTryNow: () => void;
   parentSalutation: string;
   firstName: string;
 }) {
@@ -2458,7 +2475,7 @@ function FirstRunHero({
 
           <TouchableOpacity
             style={styles.firstRunCta}
-            onPress={onDone}
+            onPress={onTryNow}
             activeOpacity={0.85}
           >
             <LinearGradient
@@ -2467,7 +2484,7 @@ function FirstRunHero({
               end={{ x: 1, y: 0 }}
               style={styles.firstRunCtaInner}
             >
-              <Text style={styles.firstRunCtaTxt}>Got it — let me try</Text>
+              <Text style={styles.firstRunCtaTxt}>Try now in chat</Text>
               <AppIcon name="object.arrow-forward" size={18} color="#ffffff" />
             </LinearGradient>
           </TouchableOpacity>
