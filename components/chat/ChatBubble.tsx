@@ -13,12 +13,8 @@ import GradientAvatar from '../ui/GradientAvatar';
 import TagPill from '../ui/TagPill';
 import { ChatMessage, useChatStore } from '../../store/useChatStore';
 import { Fonts } from '../../constants/theme';
-import {
-  detectLanguage,
-  isSpeechSynthesisSupported,
-  speak,
-  type TTSHandle,
-} from '../../services/voice';
+import { detectLanguage } from '../../services/voice';
+import { synthesizeSpeech, synthesisToDataUrl } from '../../services/cloudTts';
 import { Colors } from '../../constants/theme';
 
 interface ChatBubbleProps {
@@ -36,38 +32,63 @@ export default function ChatBubble({ message, onSave, isFirstInGroup = true }: C
   const isAssistant = message.role === 'assistant';
   const voiceLanguage = useChatStore((s) => s.voiceLanguage);
   const [speaking, setSpeaking] = useState(false);
-  const ttsRef = useRef<TTSHandle | null>(null);
+  const [loadingAudio, setLoadingAudio] = useState(false);
+  // Player ref kept loose-typed because expo-audio has slightly different
+  // shapes on web vs native; we only ever call .pause() / .release().
+  const playerRef = useRef<any>(null);
 
   useEffect(() => {
     return () => {
-      ttsRef.current?.stop();
+      try { playerRef.current?.pause?.(); } catch {}
+      try { playerRef.current?.release?.(); } catch {}
+      playerRef.current = null;
     };
   }, []);
 
-  const handleSpeak = () => {
+  const handleSpeak = async () => {
     if (speaking) {
-      ttsRef.current?.stop();
-      ttsRef.current = null;
+      try { playerRef.current?.pause?.(); } catch {}
+      try { playerRef.current?.release?.(); } catch {}
+      playerRef.current = null;
       setSpeaking(false);
       return;
     }
-    // Prefer the language the message was actually written in (so Hindi
-    // replies play in Hindi even when the user's preferred voice lang is
-    // English). Fall back to the user preference.
-    const detected = detectLanguage(message.content);
-    const lang = detected ?? voiceLanguage;
-    ttsRef.current = speak(message.content, lang) ?? null;
-    if (ttsRef.current) {
+    if (loadingAudio) return;
+    setLoadingAudio(true);
+    try {
+      // Prefer the language the message was actually written in (so Hindi
+      // replies play in Hindi even when the user's preferred voice lang
+      // is English). Fall back to the user preference, then en-IN.
+      const detected = detectLanguage(message.content);
+      const lang = detected ?? voiceLanguage ?? 'en-IN';
+      const audio = await synthesizeSpeech(message.content, lang);
+      const uri = synthesisToDataUrl(audio);
+      const expoAudio = await import('expo-audio');
+      const player = expoAudio.createAudioPlayer({ uri });
+      playerRef.current = player;
+      // Listen for playback finish so we flip the icon back to "Listen".
+      try {
+        player.addListener?.('playbackStatusUpdate', (status: any) => {
+          if (status?.didJustFinish || status?.isLoaded === false) {
+            setSpeaking(false);
+            try { player.release?.(); } catch {}
+            playerRef.current = null;
+          }
+        });
+      } catch {}
       setSpeaking(true);
-      // SpeechSynthesis doesn't always fire events reliably — clear the
-      // speaking state on a reasonable timer. 14 chars/second is a fair
-      // upper bound.
-      const estMs = Math.min(60000, Math.max(3000, (message.content.length / 14) * 1000));
-      setTimeout(() => setSpeaking(false), estMs + 500);
+      player.play();
+    } catch (err: any) {
+      console.warn('cloud tts failed:', err);
+      setSpeaking(false);
+    } finally {
+      setLoadingAudio(false);
     }
   };
 
-  const ttsSupported = isAssistant && isSpeechSynthesisSupported();
+  // Cloud TTS works on every platform we ship (web, iOS, Android) — no
+  // device support gating like the old expo-speech path needed.
+  const ttsSupported = isAssistant;
 
   if (!isAssistant) {
     const hasImage = !!message.imageDataUrl;
@@ -136,14 +157,21 @@ export default function ChatBubble({ message, onSave, isFirstInGroup = true }: C
                 hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
                 style={styles.iconAction}
                 accessibilityLabel={speaking ? 'Stop reading' : 'Read aloud'}
+                disabled={loadingAudio}
               >
                 <Ionicons
-                  name={speaking ? 'stop-circle' : 'volume-medium-outline'}
+                  name={
+                    loadingAudio
+                      ? 'hourglass-outline'
+                      : speaking
+                        ? 'stop-circle'
+                        : 'volume-medium-outline'
+                  }
                   size={16}
-                  color={speaking ? Colors.primary : Colors.primary}
+                  color={Colors.primary}
                 />
                 <Text style={[styles.iconActionText, speaking && { color: Colors.primary }]}>
-                  {speaking ? 'Stop' : 'Listen'}
+                  {loadingAudio ? 'Loading…' : speaking ? 'Stop' : 'Listen'}
                 </Text>
               </TouchableOpacity>
             ) : null}

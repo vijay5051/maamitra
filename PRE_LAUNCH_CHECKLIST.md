@@ -2,13 +2,14 @@
 
 Pending changes that need a fresh **EAS production AAB build + Play
 Console upload** before they reach Android users. Each item below is
-already on `main` (web is live with these fixes); they're waiting for
-the next AAB to ship.
+already on `main` (web is live with these fixes); they're waiting
+for the next AAB.
 
-> **Why a list and not just rolling AABs:** OTA delivery is currently
-> blocked at the EAS server (`sdkVersion … is not supported`). Until
-> Expo support unblocks our account, native code reaches users only
-> via fresh AABs. Batching reduces Play review cycles.
+> **What needs an AAB vs what doesn't:** anything that touches a
+> native module or `app.json` plugins (e.g. adding `expo-audio`,
+> `expo-image-picker`, manifest perms, or the AD_ID plugin) needs a
+> fresh AAB. Pure JS / styling changes ship via `npm run update`
+> (OTA) and reach phones in seconds.
 >
 > **How this file is used:** every time a change lands that requires
 > an AAB to reach Android, append it here with the commit hash + a
@@ -21,5 +22,4 @@ the next AAB to ship.
 
 | # | Commit | What changes for the user |
 |---|---|---|
-| 1 | `42cc988` | **Chat image upload works on Android** — tap the photo button to attach an image from the gallery to a chat message. Used to show "Image upload is available on the web app" and do nothing. |
-| 2 | `22b844f` | **Date picker now reaches next year** — expecting parents can pick a 2027 due date on the kid date field. Default year list was capped at the current year (2026), making future due dates impossible. Now allows today's year + 1 unless the caller explicitly clamps with `maxDate`. |
+| 1 | _next_ | **Voice playback in chat (Google Cloud TTS Neural2)** — every MaaMitra reply gets a Listen button that speaks the answer in the user's preferred Indian language. Hindi + Indian English use Neural2 (most natural female voices); Bengali, Tamil, Telugu, Marathi, Malayalam, Kannada, Gujarati, Punjabi, Urdu use Standard voices. Web works as soon as it deploys; Android needs this AAB because we added `expo-audio` for MP3 playback (native module). |
