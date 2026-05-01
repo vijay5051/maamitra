@@ -124,6 +124,16 @@ if (isFirebaseConfigured()) {
       console.warn('initializeAuth(native) skipped, using getAuth():', err);
       auth = getAuth(app);
     }
+    // Belt-and-braces: explicitly re-lock RN AsyncStorage persistence
+    // after init. The SDK 54 → SDK 55 upgrade silently dropped users
+    // back to the welcome screen on first launch of the new AAB —
+    // suspected initializeAuth(persistence) not actually wiring up. A
+    // second setPersistence call removes that single point of failure.
+    try {
+      void setPersistence(auth, getReactNativePersistence(AsyncStorage));
+    } catch (err) {
+      console.warn('setPersistence(native) failed:', err);
+    }
   }
   db = getFirestore(app);
   storage = getStorage(app);
