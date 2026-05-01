@@ -21,6 +21,18 @@ service firebase.storage {
         && request.resource.contentType.matches('image/.*');
     }
 
+    // Child profile photos — kid-avatars/{uid}/{kidId}.<ext>
+    // Same model as posts: only the parent uploads + reads under their own
+    // uid path. Any signed-in user can read so we can render avatars in
+    // shared contexts (community, DMs) without per-file ACLs.
+    match /kid-avatars/{uid}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
     // DM image attachments — path is dm-images/{convId}/{uid}_{timestamp}.jpg
     // Any signed-in user can read (conversation participants need access on
     // both sides; we gate who can see the conversation itself via Firestore).
