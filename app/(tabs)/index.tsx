@@ -1422,174 +1422,180 @@ export default function HomeTab() {
               </View>
             </View>
 
-            {/* Your family — quick child switcher + manage. Moved out of the
-                bottom tab bar so the primary slots belong to the most-used
-                surfaces (Home, Health, Ask, Community, Wellness). Picking a
-                child here drives which baby's data the rest of the app
-                personalises against (vaccines, teeth, foods, growth, etc.). */}
             <Text style={styles.sheetSectionLabel}>Your family</Text>
-            {kids.length > 0 ? (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.kidChipRow}
-              >
-                {kids.map((k) => {
-                  const isActive = k.id === activeKidId;
-                  const initial = (k.name || '?').charAt(0).toUpperCase();
-                  return (
-                    <TouchableOpacity
-                      key={k.id}
-                      onPress={() => setActiveKidId(k.id)}
-                      activeOpacity={0.8}
-                      style={[styles.kidChip, isActive && styles.kidChipActive]}
-                    >
-                      {k.photoUrl ? (
-                        <Image
-                          source={{ uri: k.photoUrl }}
-                          style={[styles.kidChipAvatarPhoto, isActive && styles.kidChipAvatarPhotoActive]}
-                        />
-                      ) : (
-                        <View style={[styles.kidChipAvatar, isActive && styles.kidChipAvatarActive]}>
-                          <Text style={[styles.kidChipInitial, isActive && styles.kidChipInitialActive]}>
-                            {initial}
+            <View style={styles.profileGroup}>
+              {kids.length > 0 ? (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.kidChipRow}
+                >
+                  {kids.map((k) => {
+                    const isActive = k.id === activeKidId;
+                    const initial = (k.name || '?').charAt(0).toUpperCase();
+                    return (
+                      <TouchableOpacity
+                        key={k.id}
+                        onPress={() => setActiveKidId(k.id)}
+                        activeOpacity={0.8}
+                        style={[styles.kidChip, isActive && styles.kidChipActive]}
+                      >
+                        {k.photoUrl ? (
+                          <Image
+                            source={{ uri: k.photoUrl }}
+                            style={[styles.kidChipAvatarPhoto, isActive && styles.kidChipAvatarPhotoActive]}
+                          />
+                        ) : (
+                          <View style={[styles.kidChipAvatar, isActive && styles.kidChipAvatarActive]}>
+                            <Text style={[styles.kidChipInitial, isActive && styles.kidChipInitialActive]}>
+                              {initial}
+                            </Text>
+                          </View>
+                        )}
+                        <View>
+                          <Text style={[styles.kidChipName, isActive && styles.kidChipNameActive]} numberOfLines={1}>
+                            {k.name}
+                          </Text>
+                          <Text style={[styles.kidChipMeta, isActive && styles.kidChipMetaActive]} numberOfLines={1}>
+                            {k.isExpecting
+                              ? 'Expecting'
+                              : k.dob
+                              ? (() => {
+                                  const m = Math.max(
+                                    0,
+                                    Math.floor((Date.now() - new Date(k.dob).getTime()) / (1000 * 60 * 60 * 24 * 30.44)),
+                                  );
+                                  return m < 24 ? `${m}mo` : `${Math.floor(m / 12)}y`;
+                                })()
+                              : ''}
                           </Text>
                         </View>
-                      )}
-                      <View>
-                        <Text style={[styles.kidChipName, isActive && styles.kidChipNameActive]} numberOfLines={1}>
-                          {k.name}
-                        </Text>
-                        <Text style={[styles.kidChipMeta, isActive && styles.kidChipMetaActive]} numberOfLines={1}>
-                          {k.isExpecting
-                            ? 'Expecting'
-                            : k.dob
-                            ? (() => {
-                                const m = Math.max(
-                                  0,
-                                  Math.floor((Date.now() - new Date(k.dob).getTime()) / (1000 * 60 * 60 * 24 * 30.44)),
-                                );
-                                return m < 24 ? `${m}mo` : `${Math.floor(m / 12)}y`;
-                              })()
-                            : ''}
-                        </Text>
-                      </View>
-                      {isActive ? (
-                        <AppIcon name="status.success" size={14} color="#ffffff" />
-                      ) : null}
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            ) : (
-              <Text style={styles.kidEmptyLine}>No children added yet.</Text>
-            )}
-            <ProfileRow
-              icon="people-outline"
-              label={kids.length > 0 ? 'Manage family' : 'Add your first child'}
-              sub={kids.length > 0 ? `${kids.length} ${kids.length === 1 ? 'child' : 'children'} · add, edit, remove` : 'Set up your family profile'}
-              onPress={() => {
-                setProfileOpen(false);
-                router.push('/(tabs)/family');
-              }}
-            />
+                        {isActive ? (
+                          <AppIcon name="status.success" size={14} color="#ffffff" />
+                        ) : null}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              ) : (
+                <Text style={styles.kidEmptyLine}>No children added yet.</Text>
+              )}
+              <ProfileRow
+                icon="people-outline"
+                label={kids.length > 0 ? 'Manage family' : 'Add your first child'}
+                sub={kids.length > 0 ? `${kids.length} ${kids.length === 1 ? 'child' : 'children'} · add, edit, remove` : 'Set up your family profile'}
+                onPress={() => {
+                  setProfileOpen(false);
+                  router.push('/(tabs)/family');
+                }}
+              />
+            </View>
 
-            {/* You */}
             <Text style={styles.sheetSectionLabel}>You</Text>
-            <ProfileRow
-              icon="person-outline"
-              label="Edit profile"
-              sub="Name, photo, bio"
-              onPress={() => {
-                setProfileOpen(false);
-                setTimeout(() => setSettingsView('edit-profile'), 120);
-              }}
-            />
-            <ProfileRow
-              icon="lock-closed-outline"
-              label="Privacy"
-              sub="Control what others can see"
-              onPress={() => {
-                setProfileOpen(false);
-                setTimeout(() => setSettingsView('privacy'), 120);
-              }}
-            />
+            <View style={styles.profileGroup}>
+              <ProfileRow
+                icon="person-outline"
+                label="Edit profile"
+                sub="Name, photo, bio"
+                onPress={() => {
+                  setProfileOpen(false);
+                  setTimeout(() => setSettingsView('edit-profile'), 120);
+                }}
+              />
+              <View style={styles.profileDivider} />
+              <ProfileRow
+                icon="lock-closed-outline"
+                label="Privacy"
+                sub="Control what others can see"
+                onPress={() => {
+                  setProfileOpen(false);
+                  setTimeout(() => setSettingsView('privacy'), 120);
+                }}
+              />
+            </View>
 
-            {/* Content */}
             <Text style={styles.sheetSectionLabel}>Content</Text>
-            <ProfileRow
-              icon="book-outline"
-              label="Library"
-              sub="Articles & guides"
-              onPress={() => {
-                setProfileOpen(false);
-                router.push('/(tabs)/library');
-              }}
-            />
-            <ProfileRow
-              icon="medical-outline"
-              label="Health records"
-              sub="Reports, prescriptions"
-              onPress={() => {
-                setProfileOpen(false);
-                router.push('/(tabs)/health');
-              }}
-            />
+            <View style={styles.profileGroup}>
+              <ProfileRow
+                icon="book-outline"
+                label="Library"
+                sub="Articles & guides"
+                onPress={() => {
+                  setProfileOpen(false);
+                  router.push('/(tabs)/library');
+                }}
+              />
+              <View style={styles.profileDivider} />
+              <ProfileRow
+                icon="medical-outline"
+                label="Health records"
+                sub="Reports, prescriptions"
+                onPress={() => {
+                  setProfileOpen(false);
+                  router.push('/(tabs)/health');
+                }}
+              />
+            </View>
 
-            {/* Activity */}
             <Text style={styles.sheetSectionLabel}>Activity</Text>
-            <ProfileRow
-              icon="notifications-outline"
-              label="Notifications"
-              sub={
-                socialUnread > 0
-                  ? `${socialUnread} new notification${socialUnread === 1 ? '' : 's'}`
-                  : 'Reactions, comments, follows'
-              }
-              onPress={() => {
-                setProfileOpen(false);
-                setTimeout(() => setNotifsOpen(true), 120);
-              }}
-            />
-            <ProfileRow
-              icon="chatbubbles-outline"
-              label="Messages"
-              sub={unreadDMs > 0 ? `${unreadDMs} unread` : 'Direct messages'}
-              onPress={() => {
-                setProfileOpen(false);
-                setTimeout(() => setMessagesOpen(true), 120);
-              }}
-            />
+            <View style={styles.profileGroup}>
+              <ProfileRow
+                icon="notifications-outline"
+                label="Notifications"
+                sub={
+                  socialUnread > 0
+                    ? `${socialUnread} new notification${socialUnread === 1 ? '' : 's'}`
+                    : 'Reactions, comments, follows'
+                }
+                onPress={() => {
+                  setProfileOpen(false);
+                  setTimeout(() => setNotifsOpen(true), 120);
+                }}
+              />
+              <View style={styles.profileDivider} />
+              <ProfileRow
+                icon="chatbubbles-outline"
+                label="Messages"
+                sub={unreadDMs > 0 ? `${unreadDMs} unread` : 'Direct messages'}
+                onPress={() => {
+                  setProfileOpen(false);
+                  setTimeout(() => setMessagesOpen(true), 120);
+                }}
+              />
+            </View>
 
-            {/* Support */}
             <Text style={styles.sheetSectionLabel}>Support</Text>
-            <ProfileRow
-              icon="chatbubble-ellipses-outline"
-              label="Share feedback"
-              sub="Tell us what you love and what to fix"
-              onPress={() => {
-                setProfileOpen(false);
-                setTimeout(() => useFeedbackStore.getState().openSurvey(), 120);
-              }}
-            />
-            <ProfileRow
-              icon="help-circle-outline"
-              label="Help & support"
-              sub="FAQ, email us, send a message"
-              onPress={() => {
-                setProfileOpen(false);
-                setTimeout(() => setHelpOpen(true), 120);
-              }}
-            />
-            <ProfileRow
-              icon="settings-outline"
-              label="All settings"
-              sub="Full settings, sign out, delete account"
-              onPress={() => {
-                setProfileOpen(false);
-                setTimeout(() => setSettingsView('main'), 120);
-              }}
-            />
+            <View style={styles.profileGroup}>
+              <ProfileRow
+                icon="chatbubble-ellipses-outline"
+                label="Share feedback"
+                sub="Tell us what you love and what to fix"
+                onPress={() => {
+                  setProfileOpen(false);
+                  setTimeout(() => useFeedbackStore.getState().openSurvey(), 120);
+                }}
+              />
+              <View style={styles.profileDivider} />
+              <ProfileRow
+                icon="help-circle-outline"
+                label="Help & support"
+                sub="FAQ, email us, send a message"
+                onPress={() => {
+                  setProfileOpen(false);
+                  setTimeout(() => setHelpOpen(true), 120);
+                }}
+              />
+              <View style={styles.profileDivider} />
+              <ProfileRow
+                icon="settings-outline"
+                label="All settings"
+                sub="Full settings, sign out, delete account"
+                onPress={() => {
+                  setProfileOpen(false);
+                  setTimeout(() => setSettingsView('main'), 120);
+                }}
+              />
+            </View>
             </ScrollView>
             </Reanimated.View>
           </GestureDetector>
@@ -3501,7 +3507,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: Colors.textMuted,
     paddingHorizontal: Spacing.md,
-    paddingVertical: 6,
+    paddingTop: Spacing.sm,
+    paddingBottom: 2,
     fontStyle: 'italic',
   },
   sheetName: {
@@ -3521,6 +3528,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.md,
     paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+  },
+  profileGroup: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#F0EDF5',
+    borderRadius: 14,
+    marginBottom: Spacing.sm,
+    overflow: 'hidden',
+  },
+  profileDivider: {
+    height: 1,
+    backgroundColor: '#F0EDF5',
+    marginLeft: 64,
   },
   profileIconWrap: {
     width: 36,

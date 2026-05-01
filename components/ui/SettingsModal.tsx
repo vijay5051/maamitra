@@ -116,6 +116,28 @@ function SettingsRow({
   );
 }
 
+function QuickSettingsTile({
+  icon,
+  label,
+  sub,
+  onPress,
+}: {
+  icon: string;
+  label: string;
+  sub: string;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity style={s.quickTile} onPress={onPress} activeOpacity={0.78}>
+      <View style={s.quickTileIcon}>
+        <Ionicons name={icon as any} size={18} color={Colors.primary} />
+      </View>
+      <Text style={s.quickTileLabel} numberOfLines={1}>{label}</Text>
+      <Text style={s.quickTileSub} numberOfLines={2}>{sub}</Text>
+    </TouchableOpacity>
+  );
+}
+
 function ChipSelect({
   options,
   selected,
@@ -1505,6 +1527,15 @@ export default function SettingsModal({
   // Refs for scrolling the main view to the Privacy section on demand.
   const mainScrollRef = useRef<ScrollView>(null);
   const privacyAnchorY = useRef(0);
+  const notificationsAnchorY = useRef(0);
+  const accountAnchorY = useRef(0);
+
+  const scrollToAnchor = (anchor: React.MutableRefObject<number>) => {
+    mainScrollRef.current?.scrollTo({
+      y: Math.max(0, anchor.current - 18),
+      animated: true,
+    });
+  };
 
   // When parent opens the modal and requests a specific sub-view or a scroll
   // target, honor that each time `visible` flips to true.
@@ -1683,15 +1714,6 @@ export default function SettingsModal({
           <View style={s.closeBtn} />
         </View>
 
-        {/* Main settings view — reorganised into four logical sections:
-              1. Identity   — who you are + quick edit
-              2. Account    — email, mobile, change flows
-              3. About you  — state, diet, family, children
-              4. Profile visibility  — two grouped card blocks
-              5. Sign out + Delete account at the bottom (irreversible zone)
-            Duplicate "Sign Out" that used to sit both in the identity
-            card AND in an Account section is collapsed to one clean
-            action pair at the bottom. */}
         {viewMode === 'main' && (
           <ScrollView
             ref={mainScrollRef}
@@ -1722,25 +1744,37 @@ export default function SettingsModal({
               </TouchableOpacity>
             </View>
 
-            {/* ─── 2. Account ─── */}
-            <SectionHeader title="Account" subtitle="Login details" />
-            <View style={s.card}>
-              <SettingsRow
-                icon="mail-outline"
-                label="Email"
-                value={user?.email || '—'}
+            <View style={s.quickGrid}>
+              <QuickSettingsTile
+                icon="shield-checkmark-outline"
+                label="Account"
+                sub="Email, mobile"
+                onPress={() => scrollToAnchor(accountAnchorY)}
               />
-              <View style={s.divider} />
-              <SettingsRow
-                icon="call-outline"
-                label={phoneVerified ? 'Mobile (verified)' : 'Mobile'}
-                value={phone || 'Not added'}
-                onPress={() => setViewMode('change-phone')}
+              <QuickSettingsTile
+                icon="people-outline"
+                label="Family"
+                sub={kids.length > 0 ? `${kids.length} ${kids.length === 1 ? 'child' : 'children'}` : 'Add child'}
+                onPress={() => {
+                  handleClose();
+                  router.push('/(tabs)/family');
+                }}
+              />
+              <QuickSettingsTile
+                icon="notifications-outline"
+                label="Alerts"
+                sub="Push topics"
+                onPress={() => scrollToAnchor(notificationsAnchorY)}
+              />
+              <QuickSettingsTile
+                icon="lock-closed-outline"
+                label="Privacy"
+                sub="Profile & posts"
+                onPress={() => scrollToAnchor(privacyAnchorY)}
               />
             </View>
 
-            {/* ─── 3. About you ─── */}
-            <SectionHeader title="About you" subtitle="Used to tailor your content" />
+            <SectionHeader title="Personal details" subtitle="Used to tailor MaaMitra to your family" />
             <View style={s.card}>
               <SettingsRow
                 icon="person-outline"
@@ -1796,21 +1830,47 @@ export default function SettingsModal({
               />
             </View>
 
-            {/* ─── 5. Notifications ─── */}
-            <SectionHeader
-              title="Notifications"
-              subtitle="Push alerts on reactions, comments, messages, and announcements"
-            />
+            <View
+              onLayout={(e) => {
+                accountAnchorY.current = e.nativeEvent.layout.y;
+              }}
+            >
+              <SectionHeader title="Account" subtitle="Login details and verified contact" />
+            </View>
+            <View style={s.card}>
+              <SettingsRow
+                icon="mail-outline"
+                label="Email"
+                value={user?.email || '—'}
+              />
+              <View style={s.divider} />
+              <SettingsRow
+                icon="call-outline"
+                label={phoneVerified ? 'Mobile (verified)' : 'Mobile'}
+                value={phone || 'Not added'}
+                onPress={() => setViewMode('change-phone')}
+              />
+            </View>
+
+            <View
+              onLayout={(e) => {
+                notificationsAnchorY.current = e.nativeEvent.layout.y;
+              }}
+            >
+              <SectionHeader
+                title="Notifications"
+                subtitle="Choose what deserves a push alert"
+              />
+            </View>
             <NotificationsPanel uid={user?.uid} />
 
-            {/* ─── 6. Profile visibility ─── */}
             <View
               onLayout={(e) => {
                 privacyAnchorY.current = e.nativeEvent.layout.y;
               }}
             >
               <SectionHeader
-                title="Profile visibility"
+                title="Privacy"
                 subtitle="Control what other parents can see"
               />
             </View>
@@ -1846,30 +1906,36 @@ export default function SettingsModal({
               />
             </View>
 
-            <SectionHeader
-              title="Post visibility"
-              subtitle="Controls who can see every new post"
-            />
-            <View style={s.card}>
-              <ToggleRow
-                label="Only followers see my posts"
-                value={visibilitySettings.postsFollowersOnly}
-                onToggle={() => handlePrivacyToggle('postsFollowersOnly')}
-              />
-            </View>
+            <TouchableOpacity
+              style={s.privacyNoteCard}
+              onPress={() => handlePrivacyToggle('postsFollowersOnly')}
+              activeOpacity={0.75}
+            >
+              <View style={s.privacyNoteIcon}>
+                <Ionicons name="people-outline" size={18} color={Colors.primary} />
+              </View>
+              <View style={s.privacyNoteContent}>
+                <Text style={s.privacyNoteTitle}>Post visibility</Text>
+                <Text style={s.privacyNoteText}>Limit every new post to followers only.</Text>
+              </View>
+              <View style={[s.toggleTrack, visibilitySettings.postsFollowersOnly && s.toggleTrackOn]}>
+                <View style={[s.toggleThumb, visibilitySettings.postsFollowersOnly && s.toggleThumbOn]} />
+              </View>
+            </TouchableOpacity>
 
-            {/* ─── 6. Sign out + Delete account (irreversible zone) ─── */}
-            <SectionHeader title="Danger zone" />
-            <View style={s.card}>
+            <SectionHeader title="Account safety" subtitle="Sign out or permanently remove your data" />
+            <View style={[s.card, s.safetyCard]}>
               <SettingsRow
                 icon="log-out-outline"
-                label={loading ? 'Signing out…' : 'Sign out'}
+                label={loading ? 'Signing out...' : 'Sign out'}
+                value="Leave this device"
                 onPress={loading ? undefined : () => setShowSignOutConfirm(true)}
               />
               <View style={s.divider} />
               <SettingsRow
                 icon="trash-outline"
                 label="Delete account"
+                value="Permanent and cannot be undone"
                 onPress={loading ? undefined : handleDeleteAccount}
                 danger
               />
@@ -2056,6 +2122,43 @@ const s = StyleSheet.create({
     color: Colors.primary,
   },
 
+  quickGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 18,
+  },
+  quickTile: {
+    width: '48.5%',
+    minHeight: 104,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#F0EDF5',
+    padding: 12,
+  },
+  quickTileIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: '#F5F0FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  quickTileLabel: {
+    fontSize: 14,
+    fontFamily: Fonts.sansBold,
+    color: '#1C1033',
+  },
+  quickTileSub: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontFamily: Fonts.sansRegular,
+    color: '#6b7280',
+    marginTop: 3,
+  },
+
   // Section header wrapper — title + optional helper subtitle under it.
   sectionHeaderWrap: {
     marginTop: 8,
@@ -2087,6 +2190,10 @@ const s = StyleSheet.create({
   },
   dangerCard: {
     borderColor: 'rgba(239,68,68,0.15)',
+  },
+  safetyCard: {
+    borderColor: 'rgba(239,68,68,0.16)',
+    marginBottom: 10,
   },
 
   row: {
@@ -2166,6 +2273,39 @@ const s = StyleSheet.create({
   legalDot: {
     fontSize: 12,
     color: '#9ca3af',
+  },
+
+  privacyNoteCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#F0EDF5',
+    padding: 14,
+    marginBottom: 18,
+  },
+  privacyNoteIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: '#F5F0FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  privacyNoteContent: { flex: 1 },
+  privacyNoteTitle: {
+    fontSize: 15,
+    fontFamily: Fonts.sansSemiBold,
+    color: '#1C1033',
+  },
+  privacyNoteText: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontFamily: Fonts.sansRegular,
+    color: '#6b7280',
+    marginTop: 2,
   },
 
   // Accent picker — 5-up grid of swatches.
