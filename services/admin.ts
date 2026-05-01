@@ -636,9 +636,24 @@ export async function listPushDeliveryReport(jobId: string): Promise<PushDeliver
       rank[a.status] - rank[b.status] ||
       (a.name || a.email || a.uid).localeCompare(b.name || b.email || b.uid),
     );
-  } catch (err) {
+  } catch (err: any) {
     console.warn('listPushDeliveryReport failed:', err);
-    return [];
+    // Surface the failure as a single synthetic row so the admin UI can
+    // tell us *why* the read failed (Firestore rule denial vs network
+    // vs anything else) instead of silently rendering "no rows".
+    return [{
+      uid: '__error__',
+      email: undefined,
+      name: `Could not load report: ${err?.code || ''} ${err?.message || String(err)}`.trim(),
+      status: 'failed',
+      tokenCount: 0,
+      successCount: 0,
+      failureCount: 0,
+      deadTokens: 0,
+      skippedReason: undefined,
+      errorCodes: {},
+      updatedAt: undefined,
+    }];
   }
 }
 
