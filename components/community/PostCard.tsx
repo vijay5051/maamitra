@@ -190,8 +190,13 @@ export default function PostCard({
   const displayedComments = blockedUids.length > 0
     ? rawComments?.filter((c: any) => !blockedUids.includes(c.authorUid))
     : rawComments;
-  const commentCount = Math.max(0, post.commentCount ?? displayedComments?.length ?? 0);
   const lastComment = post.lastComment;
+  const commentCount = Math.max(
+    0,
+    post.commentCount ?? 0,
+    displayedComments?.length ?? 0,
+    lastComment?.text ? 1 : 0,
+  );
 
   const isOwnPost = post.authorUid === currentUserUid;
   const followStatus = useSocialStore((s) => s.followStatusCache[post.authorUid ?? ''] ?? 'none');

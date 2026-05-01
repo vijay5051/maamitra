@@ -10,20 +10,22 @@
 ---
 
 ## Active task
-Fix admin audit action type mismatch that kept `npx tsc --noEmit` failing.
+Fix Community comment count showing `0` while a comment is visible.
 
 ## Status
-In progress by Codex. Root cause: `services/admin.ts` logs the destructive
-factory reset with action code `factory.reset`, but `services/audit.ts`
-did not include that literal in the `AdminAction` union. Added the missing
-audit action and a matching tint in `app/admin/audit.tsx`.
+In progress by Codex. Root cause: post cards trusted the denormalized
+`post.commentCount` first. If the parent community post document had stale
+`commentCount: 0` while the comments subcollection or `lastComment` had a
+real comment, the UI still rendered `0`.
 
 ## Last action
-`npx tsc --noEmit` now passes.
+Patched `components/community/PostCard.tsx` to reconcile the displayed count
+from parent count, loaded comments, and latest-comment preview. Patched
+`store/useCommunityStore.ts` so loaded comments also repair stale local
+`commentCount`. `npx tsc --noEmit` passes.
 
 ## Next step
-Commit/push the admin audit type fix to `main`, then run the normal
-user-facing deploy flow.
+Commit/push the comment count fix to `main`, then run OTA and web deploy.
 
 ## In-flight side processes (don't accidentally restart these)
 - **EAS Android build:** `90c536ef-e74c-4b1a-b245-e1f14bf22d0b` —

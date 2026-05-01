@@ -59,6 +59,19 @@ export interface Post {
   showComments: boolean;
 }
 
+function reconcileCommentCount(
+  commentCount: number | undefined,
+  comments?: Array<{ text?: string }>,
+  lastComment?: { text?: string },
+): number {
+  return Math.max(
+    0,
+    commentCount ?? 0,
+    comments?.length ?? 0,
+    lastComment?.text ? 1 : 0,
+  );
+}
+
 // No SEED_POSTS — the production app must never render fake authors
 // ("Priya S." / "Ananya K." / etc.). The community feed starts empty and is
 // populated exclusively by loadPostsFromFirestore. Reacting to seed posts
@@ -213,31 +226,34 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
         return;
       }
 
-      const mappedPosts: Post[] = fsPosts.map((fsPost) => ({
-        id: fsPost.id,
-        authorName: fsPost.authorName ?? '',
-        authorInitial: (fsPost.authorName ?? '?').charAt(0).toUpperCase(),
-        authorUid: fsPost.authorUid ?? '',
-        authorPhotoUrl: (fsPost as any).authorPhotoUrl ?? undefined,
-        badge: fsPost.badge ?? 'Community Member',
-        topic: fsPost.topic ?? 'General',
-        text: fsPost.text ?? '',
-        imageUri: fsPost.imageUri,
-        imageAspectRatio: fsPost.imageAspectRatio,
-        imageEmoji: (fsPost as any).imageEmoji,
-        imageCaption: (fsPost as any).imageCaption,
-        reactions: fsPost.reactions ?? {},
-        userReactions: [],
-        reactionsByUser: fsPost.reactionsByUser ?? {},
-        comments: [],
-        commentList: [],
-        commentCount: fsPost.commentCount ?? 0,
-        lastComment: fsPost.lastComment,
-        lastCommentAt: fsPost.lastCommentAt,
-        authorFollowersOnly: (fsPost as any).authorFollowersOnly ?? false,
-        createdAt: fsPost.createdAt instanceof Date ? fsPost.createdAt : new Date(fsPost.createdAt),
-        showComments: false,
-      }));
+      const mappedPosts: Post[] = fsPosts.map((fsPost) => {
+        const lastComment = fsPost.lastComment;
+        return {
+          id: fsPost.id,
+          authorName: fsPost.authorName ?? '',
+          authorInitial: (fsPost.authorName ?? '?').charAt(0).toUpperCase(),
+          authorUid: fsPost.authorUid ?? '',
+          authorPhotoUrl: (fsPost as any).authorPhotoUrl ?? undefined,
+          badge: fsPost.badge ?? 'Community Member',
+          topic: fsPost.topic ?? 'General',
+          text: fsPost.text ?? '',
+          imageUri: fsPost.imageUri,
+          imageAspectRatio: fsPost.imageAspectRatio,
+          imageEmoji: (fsPost as any).imageEmoji,
+          imageCaption: (fsPost as any).imageCaption,
+          reactions: fsPost.reactions ?? {},
+          userReactions: [],
+          reactionsByUser: fsPost.reactionsByUser ?? {},
+          comments: [],
+          commentList: [],
+          commentCount: reconcileCommentCount(fsPost.commentCount, undefined, lastComment),
+          lastComment,
+          lastCommentAt: fsPost.lastCommentAt,
+          authorFollowersOnly: (fsPost as any).authorFollowersOnly ?? false,
+          createdAt: fsPost.createdAt instanceof Date ? fsPost.createdAt : new Date(fsPost.createdAt),
+          showComments: false,
+        };
+      });
 
       mappedPosts.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
@@ -266,31 +282,34 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
         return;
       }
 
-      const newPosts: Post[] = fsPosts.map((fsPost) => ({
-        id: fsPost.id,
-        authorName: fsPost.authorName ?? '',
-        authorInitial: (fsPost.authorName ?? '?').charAt(0).toUpperCase(),
-        authorUid: fsPost.authorUid ?? '',
-        authorPhotoUrl: (fsPost as any).authorPhotoUrl ?? undefined,
-        badge: fsPost.badge ?? 'Community Member',
-        topic: fsPost.topic ?? 'General',
-        text: fsPost.text ?? '',
-        imageUri: fsPost.imageUri,
-        imageAspectRatio: fsPost.imageAspectRatio,
-        imageEmoji: (fsPost as any).imageEmoji,
-        imageCaption: (fsPost as any).imageCaption,
-        reactions: fsPost.reactions ?? {},
-        userReactions: [],
-        reactionsByUser: fsPost.reactionsByUser ?? {},
-        comments: [],
-        commentList: [],
-        commentCount: fsPost.commentCount ?? 0,
-        lastComment: fsPost.lastComment,
-        lastCommentAt: fsPost.lastCommentAt,
-        authorFollowersOnly: (fsPost as any).authorFollowersOnly ?? false,
-        createdAt: fsPost.createdAt instanceof Date ? fsPost.createdAt : new Date(fsPost.createdAt),
-        showComments: false,
-      }));
+      const newPosts: Post[] = fsPosts.map((fsPost) => {
+        const lastComment = fsPost.lastComment;
+        return {
+          id: fsPost.id,
+          authorName: fsPost.authorName ?? '',
+          authorInitial: (fsPost.authorName ?? '?').charAt(0).toUpperCase(),
+          authorUid: fsPost.authorUid ?? '',
+          authorPhotoUrl: (fsPost as any).authorPhotoUrl ?? undefined,
+          badge: fsPost.badge ?? 'Community Member',
+          topic: fsPost.topic ?? 'General',
+          text: fsPost.text ?? '',
+          imageUri: fsPost.imageUri,
+          imageAspectRatio: fsPost.imageAspectRatio,
+          imageEmoji: (fsPost as any).imageEmoji,
+          imageCaption: (fsPost as any).imageCaption,
+          reactions: fsPost.reactions ?? {},
+          userReactions: [],
+          reactionsByUser: fsPost.reactionsByUser ?? {},
+          comments: [],
+          commentList: [],
+          commentCount: reconcileCommentCount(fsPost.commentCount, undefined, lastComment),
+          lastComment,
+          lastCommentAt: fsPost.lastCommentAt,
+          authorFollowersOnly: (fsPost as any).authorFollowersOnly ?? false,
+          createdAt: fsPost.createdAt instanceof Date ? fsPost.createdAt : new Date(fsPost.createdAt),
+          showComments: false,
+        };
+      });
 
       set((state) => ({
         posts: [...state.posts, ...newPosts],
@@ -522,7 +541,15 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
 
       set((state) => ({
         posts: state.posts.map((p) =>
-          p.id === postId ? { ...p, commentList: comments } : p
+          p.id === postId
+            ? {
+                ...p,
+                commentList: comments,
+                commentCount: reconcileCommentCount(p.commentCount, comments, p.lastComment),
+                lastComment: p.lastComment ?? comments[comments.length - 1],
+                lastCommentAt: p.lastCommentAt ?? comments[comments.length - 1]?.createdAt,
+              }
+            : p
         ),
       }));
     } catch (error) {
