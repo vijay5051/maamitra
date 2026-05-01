@@ -17,6 +17,7 @@
 
 import * as functions from 'firebase-functions/v1';
 import * as admin from 'firebase-admin';
+import textToSpeech from '@google-cloud/text-to-speech';
 
 admin.initializeApp();
 
@@ -957,3 +958,87 @@ async function pruneDeadTokens(
     await batch.commit();
   }
 }
+
+// ─── synthesizeSpeech ─────────────────────────────────────────────────────────
+// Reads any chat reply aloud in the user's preferred Indian language.
+// Brain stays Claude — this only converts Claude's *text* output into MP3.
+//
+// Voice mapping picks a warm female Neural2 voice per locale where one
+// exists, falling back to Standard for languages Google hasn't shipped
+// Neural2 for yet. Adjust LANG_VOICE if you want a male voice or a
+// different Neural2 letter (-A through -F).
+//
+// Output is base64 MP3, returned via the callable response so we don't
+// have to manage cleanup of any storage objects.
+
+const LANG_VOICE: Record<string, { languageCode: string; name: string }> = {
+  // Indian English — warm, slightly slower than US English voices.
+  'en-IN':  { languageCode: 'en-IN', name: 'en-IN-Neural2-A' },
+  'hi-IN':  { languageCode: 'hi-IN', name: 'hi-IN-Neural2-A' },
+  'bn-IN':  { languageCode: 'bn-IN', name: 'bn-IN-Standard-A' },
+  'ta-IN':  { languageCode: 'ta-IN', name: 'ta-IN-Standard-C' },
+  'te-IN':  { languageCode: 'te-IN', name: 'te-IN-Standard-A' },
+  'mr-IN':  { languageCode: 'mr-IN', name: 'mr-IN-Standard-A' },
+  'ml-IN':  { languageCode: 'ml-IN', name: 'ml-IN-Standard-A' },
+  'kn-IN':  { languageCode: 'kn-IN', name: 'kn-IN-Standard-A' },
+  'gu-IN':  { languageCode: 'gu-IN', name: 'gu-IN-Standard-A' },
+  'pa-IN':  { languageCode: 'pa-IN', name: 'pa-IN-Standard-A' },
+  'ur-IN':  { languageCode: 'ur-IN', name: 'ur-IN-Standard-A' },
+  // Fallbacks for plain BCP-47 short codes the client may send.
+  'en':     { languageCode: 'en-IN', name: 'en-IN-Neural2-A' },
+  'hi':     { languageCode: 'hi-IN', name: 'hi-IN-Neural2-A' },
+};
+
+const TTS_MAX_CHARS = 1200;
+
+export const synthesizeSpeech = functions
+  .runWith({ memory: '256MB', timeoutSeconds: 30 })
+  .https.onCall(async (data: { text?: string; lang?: string }, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        'unauthenticated',
+        'Sign in to use voice playback.',
+      );
+    }
+    const text = String(data?.text ?? '').trim();
+    const lang = String(data?.lang ?? 'en-IN').trim();
+    if (!text) {
+      throw new functions.https.HttpsError('invalid-argument', 'No text to speak.');
+    }
+    if (text.length > TTS_MAX_CHARS) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        `Text exceeds the ${TTS_MAX_CHARS}-char limit; trim before sending.`,
+      );
+    }
+    const voice = LANG_VOICE[lang] ?? LANG_VOICE['en-IN'];
+
+    const client = new textToSpeech.TextToSpeechClient();
+    const [response] = await client.synthesizeSpeech({
+      input: { text },
+      voice: { languageCode: voice.languageCode, name: voice.name },
+      audioConfig: {
+        audioEncoding: 'MP3',
+        // Slight rate slowdown — motherly tone, not news anchor.
+        speakingRate: 0.96,
+        pitch: 0,
+        sampleRateHertz: 24000,
+      },
+    });
+
+    const audioContent = response.audioContent;
+    if (!audioContent) {
+      throw new functions.https.HttpsError('internal', 'TTS returned empty audio.');
+    }
+    const base64 = Buffer.isBuffer(audioContent)
+      ? audioContent.toString('base64')
+      : Buffer.from(audioContent).toString('base64');
+
+    return {
+      ok: true,
+      mimeType: 'audio/mpeg',
+      base64,
+      voice: voice.name,
+      bytes: base64.length,
+    };
+  });
