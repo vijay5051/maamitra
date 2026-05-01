@@ -31,7 +31,7 @@
         "backgroundColor": "#fdf6ff"
       },
       "package": "in.maamitra.app",
-      "versionCode": 24,
+      "versionCode": 25,
       "googleServicesFile": "./google-services.json",
       "softwareKeyboardLayoutMode": "resize",
       "permissions": [
