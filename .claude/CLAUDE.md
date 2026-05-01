@@ -67,14 +67,19 @@ Sessions die unpredictably (rate limits, network, tab close). To survive
 that, keep `HANDOFF.md` at the repo root constantly up to date — never
 "on demand". The other agent reads it on session start and picks up.
 
-**Resume protocol — first thing in every new session, before answering
-anything:**
+**Resume protocol — only on a FRESH session with no prior conversation
+context, OR when the user explicitly says "resume" / "resume from handoff":**
 1. `git pull --rebase`
 2. Read `HANDOFF.md`
 3. Skim `git log --oneline -10` and `git status`
 4. If a task is active there, summarize it back to the user in one or two
    sentences ("Picking up: X. Last action: Y. Next: Z. OK to continue?")
    before doing anything else.
+
+**Important — do NOT trigger this on the word "continue".** Within an
+active conversation, "continue" means "keep going on what we were doing
+*in this thread*", not "pick up another agent's work". Only re-read
+`HANDOFF.md` mid-session if the user says "resume" or asks explicitly.
 
 **While working — keep `HANDOFF.md` current:**
 - At the start of any non-trivial task: write the goal, the plan, and
