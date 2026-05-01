@@ -14,20 +14,22 @@ Fix intermittent Community tab crash that showed the root retry screen
 when opening Community on mobile/web.
 
 ## Status
-In progress by Codex. Root cause found in `components/community/PostCard.tsx`:
+✅ Done by Codex. Root cause found in `components/community/PostCard.tsx`:
 the component referenced `Fonts` in styles without importing it, so loading
 the Community bundle could throw at module evaluation. Also hardened the
 latest-comment preview model so malformed/missing comment data cannot crash
 the card.
 
 ## Last action
-Patched `components/community/PostCard.tsx` and `store/useCommunityStore.ts`.
-`npx tsc --noEmit` now only fails on unrelated pre-existing
+Committed and pushed `f97047e Fix community crash on open` to `main`.
+Published Android/iOS OTA update group
+`2772745a-b67f-4d90-b7e4-2a9d6cb6818e` and deployed Firebase Hosting.
+`npx tsc --noEmit` still only fails on unrelated pre-existing
 `services/admin.ts(132)` (`"factory.reset"` not assignable to `AdminAction`).
 
 ## Next step
-Commit and push the Community crash fix to `main`, then run `npm run update`
-and deploy web hosting so Android/iOS OTA and web users receive it.
+None for this crash. If it recurs, inspect production console/error logs for
+a new stack trace; the known `PostCard` module crash is fixed and deployed.
 
 ## In-flight side processes (don't accidentally restart these)
 - **EAS Android build:** `90c536ef-e74c-4b1a-b245-e1f14bf22d0b` —
