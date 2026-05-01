@@ -950,6 +950,7 @@ export default function CommunityScreen() {
     loadCommentsForPost,
     deletePostFirestore,
     updatePostFirestore,
+    updateCommentFirestore,
     deleteCommentFirestore,
   } = useCommunityStore();
   const { motherName, photoUrl: myPhotoUrl } = useProfileStore();
@@ -1331,11 +1332,12 @@ export default function CommunityScreen() {
               const p = posts.find((x) => x.id === postId);
               if (p) setEditingPost(p);
             } : undefined}
-            onDeleteComment={myUid ? (postId, commentId) => {
-              deleteCommentFirestore(postId, commentId).catch(() => {
-                Alert.alert('Error', 'Could not delete the comment. Please try again.');
-              });
-            } : undefined}
+            onDeleteComment={myUid ? (postId, commentId) =>
+              deleteCommentFirestore(postId, commentId)
+            : undefined}
+            onEditComment={myUid ? (postId, commentId, text) =>
+              updateCommentFirestore(postId, commentId, myUid, text)
+            : undefined}
             onShowReactors={(postId, emoji) => {
               // CommunityPost type (from services/social) matches the shape
               // we need for fetchPostReactors — cast is safe here.

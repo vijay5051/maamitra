@@ -10,24 +10,21 @@
 ---
 
 ## Active task
-Fix Community comment count showing `0` while a comment is visible.
+Fix Community comment owner actions: users could not edit/delete their own comments.
 
 ## Status
-✅ Done by Codex. Root cause: post cards trusted the denormalized
-`post.commentCount` first. If the parent community post document had stale
-`commentCount: 0` while the comments subcollection or `lastComment` had a
-real comment, the UI still rendered `0`.
+In progress by Codex. Root causes: comment editing was not implemented,
+delete was exposed only as a tiny icon, and delete confirmation used
+`Alert.alert`, which is unreliable on web/Safari in this repo. Added inline
+Edit/Save/Cancel/Delete actions for the comment owner and cross-platform
+delete confirmation.
 
 ## Last action
-Committed and pushed `7c4d400 Fix community comment count drift` to `main`.
-Published Android/iOS OTA update group
-`50a90598-3625-401f-bf0c-16e80b26595a` and deployed Firebase Hosting.
-`npx tsc --noEmit` passes.
+Patched `PostCard`, community store, social service, main Community screen,
+UserPostsSheet, and UserProfileModal. `npx tsc --noEmit` passes.
 
 ## Next step
-None for this count drift. If an old post still shows a mismatch after a
-fresh reload, inspect the parent `communityPosts/{postId}.commentCount`
-versus its comments subcollection; the UI now reconciles loaded data.
+Commit/push to `main`, then run OTA and web deploy.
 
 ## In-flight side processes (don't accidentally restart these)
 - **EAS Android build:** `90c536ef-e74c-4b1a-b245-e1f14bf22d0b` —

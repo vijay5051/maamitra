@@ -23,6 +23,7 @@ import { Post } from '../../store/useCommunityStore';
 import { useSocialStore } from '../../store/useSocialStore';
 import { Colors, Fonts } from '../../constants/theme';
 import { sharePost } from '../../lib/share';
+import { confirmAction, infoAlert } from '../../lib/cross-platform-alerts';
 
 interface PostCardProps {
   post: Post;                                             // Post from useCommunityStore — now has authorUid field
@@ -37,6 +38,7 @@ interface PostCardProps {
   onDeletePost?: (postId: string) => void;               // only provided for own posts
   onEditPost?: (postId: string) => void;                 // only provided for own posts
   onDeleteComment?: (postId: string, commentId: string) => void; // own comment or own post's comment
+  onEditComment?: (postId: string, commentId: string, text: string) => Promise<void> | void;
   /** Tap on a reaction pill (long-press / secondary) → show who reacted.
       If omitted, the reaction pill is just a tap-to-toggle. */
   onShowReactors?: (postId: string, emoji?: string) => void;
@@ -115,10 +117,14 @@ export default function PostCard({
   onDeletePost,
   onEditPost,
   onDeleteComment,
+  onEditComment,
   onShowReactors,
 }: PostCardProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [commentText, setCommentText] = useState('');
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingCommentText, setEditingCommentText] = useState('');
+  const [commentActionBusy, setCommentActionBusy] = useState<string | null>(null);
   const [showReactionPicker, setShowReactionPicker] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -137,19 +143,53 @@ export default function PostCard({
     );
   };
 
-  const confirmDeleteComment = (commentId: string) => {
-    Alert.alert(
+  const confirmDeleteComment = async (commentId: string) => {
+    const ok = await confirmAction(
       'Delete comment',
       'Remove this comment permanently?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => onDeleteComment?.(post.id, commentId),
-        },
-      ],
+      { confirmLabel: 'Delete', destructive: true },
     );
+    if (!ok) return;
+    try {
+      setCommentActionBusy(commentId);
+      await onDeleteComment?.(post.id, commentId);
+      if (editingCommentId === commentId) {
+        setEditingCommentId(null);
+        setEditingCommentText('');
+      }
+    } catch {
+      infoAlert('Could not delete comment', 'Please try again.');
+    } finally {
+      setCommentActionBusy(null);
+    }
+  };
+
+  const startEditComment = (commentId: string, text: string) => {
+    setEditingCommentId(commentId);
+    setEditingCommentText(text);
+  };
+
+  const cancelEditComment = () => {
+    setEditingCommentId(null);
+    setEditingCommentText('');
+  };
+
+  const saveEditComment = async (commentId: string) => {
+    const trimmed = editingCommentText.trim();
+    if (!trimmed) {
+      infoAlert('Comment is empty', 'Write something before saving.');
+      return;
+    }
+    try {
+      setCommentActionBusy(commentId);
+      await onEditComment?.(post.id, commentId, trimmed);
+      setEditingCommentId(null);
+      setEditingCommentText('');
+    } catch {
+      infoAlert('Could not edit comment', 'Please try again.');
+    } finally {
+      setCommentActionBusy(null);
+    }
   };
 
   const handleSendComment = () => {
@@ -417,10 +457,14 @@ export default function PostCard({
       {post.showComments && (
         <View style={styles.commentsSection}>
           {displayedComments?.map((comment) => {
+            const isOwnComment = (comment as any).authorUid === currentUserUid;
             const canDeleteComment = onDeleteComment && comment.id && (
-              (comment as any).authorUid === currentUserUid || // own comment
+              isOwnComment ||                                  // own comment
               isOwnPost                                         // post owner can remove any comment
             );
+            const canEditComment = !!onEditComment && !!comment.id && isOwnComment;
+            const isEditing = editingCommentId === comment.id;
+            const isBusy = commentActionBusy === comment.id;
             return (
               <View key={comment.id} style={styles.commentRow}>
                 <TouchableOpacity
@@ -449,18 +493,71 @@ export default function PostCard({
                   >
                     <Text style={styles.commentAuthor}>{comment.authorName}</Text>
                   </TouchableOpacity>
-                  <Text style={styles.commentText}>{comment.text}</Text>
-                  <Text style={styles.commentTime}>{timeAgo(comment.createdAt)}</Text>
+                  {isEditing ? (
+                    <>
+                      <TextInput
+                        style={styles.commentEditInput}
+                        value={editingCommentText}
+                        onChangeText={setEditingCommentText}
+                        multiline
+                        autoFocus
+                        placeholder="Edit your comment"
+                        placeholderTextColor="#9ca3af"
+                      />
+                      <View style={styles.commentActionRow}>
+                        <TouchableOpacity
+                          onPress={cancelEditComment}
+                          style={styles.commentActionBtn}
+                          disabled={isBusy}
+                          activeOpacity={0.75}
+                        >
+                          <Text style={styles.commentActionText}>Cancel</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => saveEditComment(comment.id)}
+                          style={[styles.commentActionBtn, styles.commentActionPrimary]}
+                          disabled={isBusy}
+                          activeOpacity={0.75}
+                        >
+                          <Text style={[styles.commentActionText, styles.commentActionPrimaryText]}>
+                            {isBusy ? 'Saving...' : 'Save'}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={styles.commentText}>{comment.text}</Text>
+                      <Text style={styles.commentTime}>{timeAgo(comment.createdAt)}</Text>
+                    </>
+                  )}
                 </View>
-                {canDeleteComment && (
-                  <TouchableOpacity
-                    onPress={() => confirmDeleteComment(comment.id)}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    style={styles.commentDeleteBtn}
-                  >
-                    <Ionicons name="trash-outline" size={14} color="#d1d5db" />
-                  </TouchableOpacity>
-                )}
+                {(canEditComment || canDeleteComment) && !isEditing ? (
+                  <View style={styles.commentOwnerActions}>
+                    {canEditComment ? (
+                      <TouchableOpacity
+                        onPress={() => startEditComment(comment.id, comment.text)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        style={styles.commentIconBtn}
+                        disabled={isBusy}
+                        accessibilityLabel="Edit comment"
+                      >
+                        <Ionicons name="pencil-outline" size={15} color={Colors.primary} />
+                      </TouchableOpacity>
+                    ) : null}
+                    {canDeleteComment ? (
+                      <TouchableOpacity
+                        onPress={() => confirmDeleteComment(comment.id)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        style={styles.commentIconBtn}
+                        disabled={isBusy}
+                        accessibilityLabel="Delete comment"
+                      >
+                        <Ionicons name="trash-outline" size={15} color="#ef4444" />
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                ) : null}
               </View>
             );
           })}
@@ -600,10 +697,18 @@ const styles = StyleSheet.create({
     color: '#1a1a2e',
     fontWeight: '500',
   },
-  commentDeleteBtn: {
-    padding: 4,
-    marginLeft: 4,
+  commentOwnerActions: {
+    flexDirection: 'row',
     alignSelf: 'center',
+    gap: 2,
+  },
+  commentIconBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F5F0FF',
   },
   postText: {
     fontSize: 15,
@@ -812,6 +917,42 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#1a1a2e',
     lineHeight: 18,
+  },
+  commentEditInput: {
+    minHeight: 58,
+    borderWidth: 1,
+    borderColor: '#EDE9F6',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    color: '#1a1a2e',
+    backgroundColor: '#ffffff',
+    fontSize: 13,
+    lineHeight: 18,
+    textAlignVertical: 'top',
+  },
+  commentActionRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+    marginTop: 8,
+  },
+  commentActionBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 9,
+    backgroundColor: '#F0EDF5',
+  },
+  commentActionPrimary: {
+    backgroundColor: Colors.primary,
+  },
+  commentActionText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6b7280',
+  },
+  commentActionPrimaryText: {
+    color: '#ffffff',
   },
   commentTime: {
     fontSize: 11,

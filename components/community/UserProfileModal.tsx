@@ -217,6 +217,7 @@ export default function UserProfileModal({ uid, visible, onClose, onEditProfile 
     loadCommentsForPost,
     deletePostFirestore,
     deleteCommentFirestore,
+    updateCommentFirestore,
     updatePostFirestore,
   } = useCommunityStore();
   const storePosts = useCommunityStore((s) => s.posts);
@@ -609,16 +610,37 @@ export default function UserProfileModal({ uid, visible, onClose, onEditProfile 
                   const target = posts.find((x) => x.id === postId);
                   if (target) setEditingPost(target);
                 } : undefined}
-                onDeleteComment={myUid ? (postId, commentId) => {
-                  deleteCommentFirestore(postId, commentId)
-                    .then(() => {
-                      setPosts((prev) => prev.map((x) => {
-                        if (x.id !== postId) return x;
-                        const newList = (x.commentList ?? []).filter((c) => c.id !== commentId);
-                        return { ...x, commentList: newList, commentCount: Math.max(0, (x.commentCount ?? 1) - 1) };
-                      }));
-                    })
-                    .catch(() => Alert.alert('Error', 'Could not delete the comment.'));
+                onDeleteComment={myUid ? async (postId, commentId) => {
+                  await deleteCommentFirestore(postId, commentId);
+                  setPosts((prev) => prev.map((x) => {
+                    if (x.id !== postId) return x;
+                    const fresh = useCommunityStore.getState().posts.find((p) => p.id === postId);
+                    if (fresh) {
+                      return {
+                        ...x,
+                        comments: fresh.comments,
+                        commentList: fresh.commentList,
+                        commentCount: fresh.commentCount,
+                        lastComment: fresh.lastComment,
+                      };
+                    }
+                    const newList = (x.commentList ?? []).filter((c) => c.id !== commentId);
+                    return { ...x, commentList: newList, commentCount: Math.max(0, (x.commentCount ?? 1) - 1) };
+                  }));
+                } : undefined}
+                onEditComment={myUid ? async (postId, commentId, text) => {
+                  await updateCommentFirestore(postId, commentId, myUid, text);
+                  const fresh = useCommunityStore.getState().posts.find((x) => x.id === postId);
+                  if (fresh) {
+                    setPosts((prev) => prev.map((x) => x.id === postId
+                      ? {
+                          ...x,
+                          comments: fresh.comments,
+                          commentList: fresh.commentList,
+                          lastComment: fresh.lastComment,
+                        }
+                      : x));
+                  }
                 } : undefined}
               />
             ))}

@@ -21,6 +21,7 @@ import {
   setDoc,
   updateDoc,
   deleteDoc,
+  deleteField,
   query,
   where,
   orderBy,
@@ -82,6 +83,7 @@ export interface PostComment {
   authorPhotoUrl?: string;                    // profile photo at comment-creation time
   text: string;
   createdAt: Date;
+  editedAt?: Date;
 }
 
 export interface FollowEntry {
@@ -312,10 +314,76 @@ export async function deleteComment(postId: string, commentId: string): Promise<
   if (!db) return;
   try {
     await deleteDoc(doc(db, 'communityPosts', postId, 'comments', commentId));
-    // Atomic decrement — no read needed
-    await updateDoc(doc(db, 'communityPosts', postId), { commentCount: increment(-1) });
+    const postRef = doc(db, 'communityPosts', postId);
+    const postSnap = await getDoc(postRef);
+    const postData = postSnap.exists() ? postSnap.data() : null;
+    const updates: Record<string, any> = { commentCount: increment(-1) };
+
+    if (postData?.lastComment?.id === commentId) {
+      const latestSnap = await getDocs(query(
+        collection(db, 'communityPosts', postId, 'comments'),
+        orderBy('createdAt', 'desc'),
+        limit(1),
+      ));
+      const latest = latestSnap.docs[0];
+      if (latest) {
+        const data = latest.data();
+        updates.lastComment = {
+          id: latest.id,
+          authorUid: data.authorUid ?? '',
+          authorName: data.authorName ?? '',
+          authorInitial: data.authorInitial ?? '',
+          authorPhotoUrl: data.authorPhotoUrl ?? '',
+          text: data.text ?? '',
+        };
+        updates.lastCommentAt = data.createdAt ?? serverTimestamp();
+      } else {
+        updates.lastComment = deleteField();
+        updates.lastCommentAt = deleteField();
+      }
+    }
+
+    await updateDoc(postRef, updates);
   } catch (error) {
     console.error('deleteComment error:', error);
+    throw error;
+  }
+}
+
+export async function updateComment(
+  postId: string,
+  commentId: string,
+  authorUid: string,
+  text: string,
+): Promise<void> {
+  if (!db) return;
+  const trimmed = text.trim();
+  if (!trimmed) throw new Error('empty_comment');
+  try {
+    const commentRef = doc(db, 'communityPosts', postId, 'comments', commentId);
+    const commentSnap = await getDoc(commentRef);
+    if (!commentSnap.exists()) throw new Error('comment_not_found');
+    const commentData = commentSnap.data();
+    if (commentData.authorUid !== authorUid) throw new Error('not_comment_author');
+
+    await updateDoc(commentRef, {
+      text: trimmed,
+      editedAt: serverTimestamp(),
+    });
+
+    const postRef = doc(db, 'communityPosts', postId);
+    const postSnap = await getDoc(postRef);
+    const postData = postSnap.exists() ? postSnap.data() : null;
+    if (postData?.lastComment?.id === commentId) {
+      await updateDoc(postRef, {
+        lastComment: {
+          ...postData.lastComment,
+          text: trimmed,
+        },
+      });
+    }
+  } catch (error) {
+    console.error('updateComment error:', error);
     throw error;
   }
 }
@@ -680,6 +748,7 @@ export async function fetchPostComments(postId: string): Promise<PostComment[]> 
         authorPhotoUrl: data.authorPhotoUrl ?? undefined,
         text: data.text ?? '',
         createdAt: firestoreDate(data.createdAt),
+        editedAt: data.editedAt ? firestoreDate(data.editedAt) : undefined,
       } as PostComment;
     });
   } catch (error) {

@@ -74,6 +74,7 @@ export default function UserPostsSheet({ uid, name, visible, onClose, onEditPost
     addCommentFirestore,
     loadCommentsForPost,
     deletePostFirestore,
+    updateCommentFirestore,
     deleteCommentFirestore,
     toggleComments,
   } = useCommunityStore();
@@ -214,18 +215,39 @@ export default function UserPostsSheet({ uid, name, visible, onClose, onEditPost
       });
   };
 
-  const handleDeleteComment = (postId: string, commentId: string) => {
-    deleteCommentFirestore(postId, commentId)
-      .then(() => {
-        setPosts((prev) => prev.map((p) => {
-          if (p.id !== postId) return p;
-          const newList = (p.commentList ?? []).filter((c) => c.id !== commentId);
-          return { ...p, commentList: newList, commentCount: Math.max(0, (p.commentCount ?? 1) - 1) };
-        }));
-      })
-      .catch(() => {
-        Alert.alert('Error', 'Could not delete the comment.');
-      });
+  const handleDeleteComment = async (postId: string, commentId: string) => {
+    await deleteCommentFirestore(postId, commentId);
+    setPosts((prev) => prev.map((p) => {
+      if (p.id !== postId) return p;
+      const fresh = useCommunityStore.getState().posts.find((x) => x.id === postId);
+      if (fresh) {
+        return {
+          ...p,
+          comments: fresh.comments,
+          commentList: fresh.commentList,
+          commentCount: fresh.commentCount,
+          lastComment: fresh.lastComment,
+        };
+      }
+      const newList = (p.commentList ?? []).filter((c) => c.id !== commentId);
+      return { ...p, commentList: newList, commentCount: Math.max(0, (p.commentCount ?? 1) - 1) };
+    }));
+  };
+
+  const handleEditComment = async (postId: string, commentId: string, text: string) => {
+    if (!myUid) return;
+    await updateCommentFirestore(postId, commentId, myUid, text);
+    const fresh = useCommunityStore.getState().posts.find((p) => p.id === postId);
+    if (fresh) {
+      setPosts((prev) => prev.map((p) => p.id === postId
+        ? {
+            ...p,
+            comments: fresh.comments,
+            commentList: fresh.commentList,
+            lastComment: fresh.lastComment,
+          }
+        : p));
+    }
   };
 
   const title = name ? `${name}'s posts` : 'Posts';
@@ -273,6 +295,7 @@ export default function UserPostsSheet({ uid, name, visible, onClose, onEditPost
                   if (p) onEditPost(p);
                 } : undefined}
                 onDeleteComment={myUid ? handleDeleteComment : undefined}
+                onEditComment={myUid ? handleEditComment : undefined}
               />
             )}
             ListEmptyComponent={

@@ -5,6 +5,7 @@ import {
   POSTS_PAGE_SIZE,
   createPost,
   updatePost,
+  updateComment,
   deletePost,
   deleteComment,
   togglePostReaction,
@@ -22,6 +23,7 @@ export interface Comment {
   authorPhotoUrl?: string;
   text: string;
   createdAt: Date;
+  editedAt?: Date;
 }
 
 export interface LastCommentPreview {
@@ -31,6 +33,7 @@ export interface LastCommentPreview {
   authorUid: string;
   authorPhotoUrl?: string;
   text: string;
+  createdAt?: Date;
 }
 
 export interface Post {
@@ -106,6 +109,7 @@ interface CommunityState {
   addCommentFirestore: (postId: string, authorUid: string, authorName: string, text: string, authorPhotoUrl?: string) => Promise<void>;
   loadCommentsForPost: (postId: string) => Promise<void>;
   updatePostFirestore: (postId: string, authorUid: string, updates: { text?: string; topic?: string }) => Promise<void>;
+  updateCommentFirestore: (postId: string, commentId: string, authorUid: string, text: string) => Promise<void>;
   deletePostFirestore: (postId: string, authorUid: string) => Promise<void>;
   deleteCommentFirestore: (postId: string, commentId: string) => Promise<void>;
   resetCommunity: () => void;
@@ -574,6 +578,37 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
     }
   },
 
+  updateCommentFirestore: async (postId: string, commentId: string, authorUid: string, text: string) => {
+    const trimmed = text.trim();
+    if (!commentId || !trimmed) return;
+    try {
+      await updateComment(postId, commentId, authorUid, trimmed);
+      set((state) => ({
+        posts: state.posts.map((p) => {
+          if (p.id !== postId) return p;
+          const updateOne = <T extends { id: string; text: string }>(comment: T): T =>
+            comment.id === commentId
+              ? { ...comment, text: trimmed, editedAt: new Date() } as T
+              : comment;
+          const nextCommentList = (p.commentList ?? []).map(updateOne);
+          const nextComments = p.comments.map(updateOne);
+          const nextLastComment = p.lastComment?.id === commentId
+            ? { ...p.lastComment, text: trimmed }
+            : p.lastComment;
+          return {
+            ...p,
+            commentList: nextCommentList,
+            comments: nextComments,
+            lastComment: nextLastComment,
+          };
+        }),
+      }));
+    } catch (error) {
+      console.error('updateCommentFirestore error:', error);
+      throw error;
+    }
+  },
+
   deletePostFirestore: async (postId: string, authorUid: string) => {
     // Guard: only allow if the post belongs to this user
     const post = get().posts.find((p) => p.id === postId);
@@ -599,11 +634,20 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
           if (p.id !== postId) return p;
           const newCommentList = (p.commentList ?? []).filter((c) => c.id !== commentId);
           const newComments = p.comments.filter((c) => c.id !== commentId);
+          const nextLast = p.lastComment?.id === commentId
+            ? (newCommentList[newCommentList.length - 1] ?? newComments[newComments.length - 1])
+            : p.lastComment;
           return {
             ...p,
             commentList: newCommentList,
             comments: newComments,
-            commentCount: Math.max(0, (p.commentCount ?? p.comments.length) - 1),
+            commentCount: reconcileCommentCount(
+              Math.max(0, (p.commentCount ?? p.comments.length) - 1),
+              newCommentList.length > 0 ? newCommentList : newComments,
+              nextLast,
+            ),
+            lastComment: nextLast,
+            lastCommentAt: nextLast?.createdAt,
           };
         }),
       }));
