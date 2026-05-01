@@ -22,4 +22,4 @@ for the next AAB.
 
 | # | Commit | What changes for the user |
 |---|---|---|
-| 1 | _next_ | **Voice playback in chat (Google Cloud TTS Neural2)** — every MaaMitra reply gets a Listen button that speaks the answer in the user's preferred Indian language. Hindi + Indian English use Neural2 (most natural female voices); Bengali, Tamil, Telugu, Marathi, Malayalam, Kannada, Gujarati, Punjabi, Urdu use Standard voices. Web works as soon as it deploys; Android needs this AAB because we added `expo-audio` for MP3 playback (native module). |
+| 1 | `6a10cbb` | **Voice playback in chat (Google Cloud TTS Neural2)** — every MaaMitra reply gets a Listen button that speaks the answer in the user's preferred Indian language. Hindi + Indian English use Neural2 (most natural female voices); Bengali, Tamil, Telugu, Marathi, Malayalam, Kannada, Gujarati, Punjabi, Urdu use Standard voices. Web works as soon as it deploys; Android needs this AAB because we added `expo-audio` for MP3 playback (native module). |
