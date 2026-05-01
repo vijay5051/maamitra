@@ -41,6 +41,7 @@ const ACTION_TINT: Record<string, string> = {
   'push.cancel': '#6B7280',
   'banner.publish': '#EC4899',
   'banner.clear': '#6B7280',
+  'factory.reset': '#B91C1C',
   'content.create': '#06B6D4',
   'content.update': '#06B6D4',
   'content.delete': '#EF4444',

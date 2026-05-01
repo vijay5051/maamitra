@@ -32,6 +32,7 @@ export type AdminAction =
   | 'push.cancel'
   | 'banner.publish'
   | 'banner.clear'
+  | 'factory.reset'
   | 'content.create'
   | 'content.update'
   | 'content.delete'

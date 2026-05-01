@@ -10,26 +10,20 @@
 ---
 
 ## Active task
-Fix intermittent Community tab crash that showed the root retry screen
-when opening Community on mobile/web.
+Fix admin audit action type mismatch that kept `npx tsc --noEmit` failing.
 
 ## Status
-✅ Done by Codex. Root cause found in `components/community/PostCard.tsx`:
-the component referenced `Fonts` in styles without importing it, so loading
-the Community bundle could throw at module evaluation. Also hardened the
-latest-comment preview model so malformed/missing comment data cannot crash
-the card.
+In progress by Codex. Root cause: `services/admin.ts` logs the destructive
+factory reset with action code `factory.reset`, but `services/audit.ts`
+did not include that literal in the `AdminAction` union. Added the missing
+audit action and a matching tint in `app/admin/audit.tsx`.
 
 ## Last action
-Committed and pushed `f97047e Fix community crash on open` to `main`.
-Published Android/iOS OTA update group
-`2772745a-b67f-4d90-b7e4-2a9d6cb6818e` and deployed Firebase Hosting.
-`npx tsc --noEmit` still only fails on unrelated pre-existing
-`services/admin.ts(132)` (`"factory.reset"` not assignable to `AdminAction`).
+`npx tsc --noEmit` now passes.
 
 ## Next step
-None for this crash. If it recurs, inspect production console/error logs for
-a new stack trace; the known `PostCard` module crash is fixed and deployed.
+Commit/push the admin audit type fix to `main`, then run the normal
+user-facing deploy flow.
 
 ## In-flight side processes (don't accidentally restart these)
 - **EAS Android build:** `90c536ef-e74c-4b1a-b245-e1f14bf22d0b` —
