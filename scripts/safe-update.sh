@@ -51,4 +51,30 @@ else
 fi
 
 echo "✔ Working tree clean and in sync with origin. Publishing OTA…"
-exec npx eas-cli update --branch production "$@"
+
+# Default --message + --environment so `npm run update` works without
+# needing the caller to thread flags through. EAS requires both for a
+# non-interactive publish on the current CLI; they're easy to omit by
+# accident, and a missing flag fails AFTER the bundle has uploaded —
+# wasting an upload cycle. Pre-fill them, and let any explicit flag in
+# "$@" override.
+extra_args=()
+case " $* " in
+  *" --message "*|*" -m "*) ;;
+  *)
+    commit_subject="$(git log -1 --format='%s' 2>/dev/null || echo 'OTA update')"
+    extra_args+=("--message" "$commit_subject")
+    ;;
+esac
+case " $* " in
+  *" --environment "*|*" -e "*) ;;
+  *)
+    extra_args+=("--environment" "production")
+    ;;
+esac
+case " $* " in
+  *" --non-interactive "*) ;;
+  *) extra_args+=("--non-interactive") ;;
+esac
+
+exec npx eas-cli update --branch production "${extra_args[@]}" "$@"
