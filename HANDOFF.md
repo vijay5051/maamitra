@@ -10,23 +10,24 @@
 ---
 
 ## Active task
-Set up a continuous handoff system so Claude ↔ Codex can take over
-each other's mid-flight work when one runs out of credits.
+Fix intermittent Community tab crash that showed the root retry screen
+when opening Community on mobile/web.
 
 ## Status
-✅ Done. This file + the CLAUDE.md "Continuous handoff" rule are the
-mechanism. No other open work in this session.
+In progress by Codex. Root cause found in `components/community/PostCard.tsx`:
+the component referenced `Fonts` in styles without importing it, so loading
+the Community bundle could throw at module evaluation. Also hardened the
+latest-comment preview model so malformed/missing comment data cannot crash
+the card.
 
 ## Last action
-Created `HANDOFF.md` and added the resume protocol to CLAUDE.md.
+Patched `components/community/PostCard.tsx` and `store/useCommunityStore.ts`.
+`npx tsc --noEmit` now only fails on unrelated pre-existing
+`services/admin.ts(132)` (`"factory.reset"` not assignable to `AdminAction`).
 
 ## Next step
-None — ready for the next user request. Whoever picks this up next
-should:
-1. `git pull --rebase`
-2. Read this file (already done if you're seeing it)
-3. Read `git log --oneline -10` and `git status`
-4. Ask the user what they want to do next.
+Commit and push the Community crash fix to `main`, then run `npm run update`
+and deploy web hosting so Android/iOS OTA and web users receive it.
 
 ## In-flight side processes (don't accidentally restart these)
 - **EAS Android build:** `90c536ef-e74c-4b1a-b245-e1f14bf22d0b` —
@@ -36,16 +37,15 @@ should:
   When finished, the user uploads the AAB manually to Play Console.
 
 ## Known constraints / gotchas
-- **OTA is currently broken** — EAS rejects SDK 54 (`sdkVersion 54.0.0
-  is not supported`). `npm run update` will fail until Expo SDK is
-  upgraded. Web deploys + new AAB builds still work fine. The user
-  has been told.
-- **Two worktrees on `main`** — `/Users/vijay/Documents/Claude/Projects/App/Maamitra`
-  (the canonical one Codex uses) and `.claude/worktrees/brave-lamport-4cec1d`
-  is on a Claude session branch (`claude-session-recovery`) that's
-  fast-forwarded to `main`. Both pull from the same `origin/main`.
+- **Shared branch is `main` only.** Do not create `codex/*` or `feat/*`
+  branches. Pull/rebase before work, before every commit, and push
+  immediately after every commit.
+- **"Push" means user-facing deploy.** After pushing JS-only changes to
+  `main`, run `npm run update` for Android/iOS OTA and deploy web hosting.
 - **`scripts/safe-update.sh`** guards `npm run update` against publishing
-  from a dirty / out-of-sync tree. Bypass only via `SAFE_UPDATE_BYPASS=1`.
+  from a dirty / out-of-sync tree. It now auto-supplies the latest commit
+  subject as `--message`, `--environment production`, and `--non-interactive`.
+  Bypass only via `SAFE_UPDATE_BYPASS=1`.
 
 ## Recent commits to be aware of
 Run `git log --oneline -10` for the latest. As of writing:

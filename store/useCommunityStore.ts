@@ -24,6 +24,15 @@ export interface Comment {
   createdAt: Date;
 }
 
+export interface LastCommentPreview {
+  id: string;
+  authorName: string;
+  authorInitial: string;
+  authorUid: string;
+  authorPhotoUrl?: string;
+  text: string;
+}
+
 export interface Post {
   id: string;
   authorName: string;
@@ -43,6 +52,8 @@ export interface Post {
   comments: Comment[];
   commentList?: PostComment[]; // Loaded comments from Firestore subcollection
   commentCount?: number;
+  lastComment?: LastCommentPreview;
+  lastCommentAt?: Date;
   authorFollowersOnly?: boolean;
   createdAt: Date;
   showComments: boolean;
@@ -157,7 +168,14 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
     set((state) => ({
       posts: state.posts.map((post) =>
         post.id === postId
-          ? { ...post, comments: [...post.comments, comment], showComments: true }
+          ? {
+              ...post,
+              comments: [...post.comments, comment],
+              commentCount: (post.commentCount ?? post.comments.length) + 1,
+              lastComment: comment,
+              lastCommentAt: comment.createdAt,
+              showComments: true,
+            }
           : post
       ),
     }));
@@ -214,6 +232,8 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
         comments: [],
         commentList: [],
         commentCount: fsPost.commentCount ?? 0,
+        lastComment: fsPost.lastComment,
+        lastCommentAt: fsPost.lastCommentAt,
         authorFollowersOnly: (fsPost as any).authorFollowersOnly ?? false,
         createdAt: fsPost.createdAt instanceof Date ? fsPost.createdAt : new Date(fsPost.createdAt),
         showComments: false,
@@ -265,6 +285,8 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
         comments: [],
         commentList: [],
         commentCount: fsPost.commentCount ?? 0,
+        lastComment: fsPost.lastComment,
+        lastCommentAt: fsPost.lastCommentAt,
         authorFollowersOnly: (fsPost as any).authorFollowersOnly ?? false,
         createdAt: fsPost.createdAt instanceof Date ? fsPost.createdAt : new Date(fsPost.createdAt),
         showComments: false,

@@ -21,7 +21,7 @@ import GradientAvatar from '../ui/GradientAvatar';
 import TagPill from '../ui/TagPill';
 import { Post } from '../../store/useCommunityStore';
 import { useSocialStore } from '../../store/useSocialStore';
-import { Colors } from '../../constants/theme';
+import { Colors, Fonts } from '../../constants/theme';
 import { sharePost } from '../../lib/share';
 
 interface PostCardProps {
@@ -47,6 +47,7 @@ const REACTION_OPTIONS = ['❤️', '🤱', '😊', '💪', '🙏', '💜'];
 function timeAgo(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date;
   const diffMs = Date.now() - d.getTime();
+  if (!Number.isFinite(diffMs)) return 'recently';
   const mins = Math.floor(diffMs / 60000);
   if (mins < 1) return 'just now';
   if (mins < 60) return `${mins}m ago`;
@@ -189,6 +190,8 @@ export default function PostCard({
   const displayedComments = blockedUids.length > 0
     ? rawComments?.filter((c: any) => !blockedUids.includes(c.authorUid))
     : rawComments;
+  const commentCount = Math.max(0, post.commentCount ?? displayedComments?.length ?? 0);
+  const lastComment = post.lastComment;
 
   const isOwnPost = post.authorUid === currentUserUid;
   const followStatus = useSocialStore((s) => s.followStatusCache[post.authorUid ?? ''] ?? 'none');
@@ -333,7 +336,7 @@ export default function PostCard({
         </TouchableOpacity>
         <TouchableOpacity onPress={() => onToggleComments(post.id)} style={styles.commentCountRow}>
           <Ionicons name="chatbubble-outline" size={16} color="#9ca3af" />
-          <Text style={styles.commentCount}>{post.commentCount ?? displayedComments?.length ?? 0}</Text>
+          <Text style={styles.commentCount}>{commentCount}</Text>
         </TouchableOpacity>
       </View>
 
@@ -341,35 +344,35 @@ export default function PostCard({
           Lets the feed feel alive: every post with at least one comment
           shows the latest author + text on the card. Tapping the row
           opens the full comments list. */}
-      {!post.showComments && post.lastComment && (
+      {!post.showComments && lastComment?.text ? (
         <TouchableOpacity
           onPress={() => onToggleComments(post.id)}
           activeOpacity={0.75}
           style={styles.lastCommentRow}
         >
-          {post.lastComment.authorPhotoUrl ? (
+          {lastComment.authorPhotoUrl ? (
             <Image
-              source={{ uri: post.lastComment.authorPhotoUrl }}
+              source={{ uri: lastComment.authorPhotoUrl }}
               style={styles.lastCommentPhoto}
             />
           ) : (
-            <GradientAvatar name={post.lastComment.authorName} size={24} />
+            <GradientAvatar name={lastComment.authorName || 'Parent'} size={24} />
           )}
           <View style={styles.lastCommentBody}>
             <Text style={styles.lastCommentAuthor} numberOfLines={1}>
-              {post.lastComment.authorName}
+              {lastComment.authorName || 'Parent'}
             </Text>
             <Text style={styles.lastCommentText} numberOfLines={2}>
-              {post.lastComment.text}
+              {lastComment.text}
             </Text>
           </View>
-          {post.commentCount > 1 ? (
+          {commentCount > 1 ? (
             <Text style={styles.lastCommentMore}>
-              +{post.commentCount - 1} more
+              +{commentCount - 1} more
             </Text>
           ) : null}
         </TouchableOpacity>
-      )}
+      ) : null}
 
       {/* "Who reacted" chip — shown when there's at least one reaction and
           the parent provided a handler. Explicit affordance for users who
