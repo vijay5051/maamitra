@@ -768,6 +768,30 @@ async function deleteDocPathRecursive(
   await docRef.delete().catch(() => {});
 }
 
+async function performFactoryReset(): Promise<Record<string, any>> {
+  const db = admin.firestore();
+  const auth = admin.auth();
+  const summary: Record<string, any> = {
+    keptEmails: [...KEEP_EMAILS],
+    deletedUsers: 0,
+    deletedAuthRecords: 0,
+    perCollectionDeleted: {} as Record<string, number>,
+  };
+  return await runFactoryResetCore(db, auth, summary);
+}
+
+async function runFactoryResetCore(
+  db: admin.firestore.Firestore,
+  auth: admin.auth.Auth,
+  summary: Record<string, any>,
+): Promise<Record<string, any>> {
+  // Phase moved into shared helper so the HTTPS-token endpoint and the
+  // admin-callable endpoint exercise identical logic.
+  await runFactoryResetInner(db, auth, summary);
+  summary.ok = true;
+  return summary;
+}
+
 export const factoryReset = functions
   .runWith({ memory: '512MB', timeoutSeconds: 540, secrets: ['FACTORY_RESET_TOKEN'] })
   .https.onRequest(async (req, res) => {
@@ -781,17 +805,58 @@ export const factoryReset = functions
       res.status(405).json({ ok: false, error: 'method-not-allowed' });
       return;
     }
-
-    const db = admin.firestore();
-    const auth = admin.auth();
-    const summary: Record<string, any> = {
-      keptEmails: [...KEEP_EMAILS],
-      deletedUsers: 0,
-      deletedAuthRecords: 0,
-      perCollectionDeleted: {} as Record<string, number>,
-    };
-
     try {
+      const summary = await performFactoryReset();
+      res.json(summary);
+    } catch (err: any) {
+      console.error('factoryReset failed:', err);
+      res.status(500).json({ ok: false, error: err?.message || String(err) });
+    }
+  });
+
+// Admin-callable variant: same destructive operation but auth is the
+// caller's super-admin token instead of a static secret. Wired to the
+// /admin "Factory reset" button. Requires an explicit confirm string in
+// the payload so accidental clicks can't trigger it from a console.
+export const adminFactoryReset = functions
+  .runWith({ memory: '512MB', timeoutSeconds: 540 })
+  .https.onCall(async (data: { confirm?: string }, context) => {
+    const ok = await isAdminTokenAsync(context.auth?.token);
+    if (!ok) {
+      throw new functions.https.HttpsError(
+        'permission-denied',
+        'Only admins can run factory reset.',
+      );
+    }
+    if (data?.confirm !== 'WIPE-ALL-USERS') {
+      throw new functions.https.HttpsError(
+        'failed-precondition',
+        'Confirm string mismatch — payload must be { confirm: "WIPE-ALL-USERS" }.',
+      );
+    }
+    return await performFactoryReset();
+  });
+
+// Inner cleanup body — kept as a separate function so both endpoints
+// share the same sequence (auth wipe → orphan firestore wipe → shared
+// scratch collections → storage).
+async function runFactoryResetInner(
+  db: admin.firestore.Firestore,
+  auth: admin.auth.Auth,
+  summary: Record<string, any>,
+): Promise<void> {
+    {
+      // Resolve admin UIDs up front — storage paths key by uid, not email.
+      const keepUids = new Set<string>();
+      for (const email of KEEP_EMAILS) {
+        try {
+          const u = await auth.getUserByEmail(email);
+          keepUids.add(u.uid);
+        } catch (err) {
+          console.warn(`factoryReset: keep email ${email} not found in Auth`, err);
+        }
+      }
+
       // 1. Walk all auth users; delete the ones not in the keep list.
       let nextPageToken: string | undefined;
       do {
@@ -834,13 +899,43 @@ export const factoryReset = functions
         if (n > 0) summary.perCollectionDeleted[col] = n;
       }
 
-      summary.ok = true;
-      res.json(summary);
-    } catch (err: any) {
-      console.error('factoryReset failed:', err);
-      res.status(500).json({ ok: false, error: err?.message || String(err), summary });
+      // 4. Storage cleanup — remove orphaned avatars, kid avatars, post
+      //    images, and DM attachments owned by deleted users. Path
+      //    schemes:
+      //      avatars/{uid}.<ext>
+      //      kid-avatars/{uid}/{kidId}.<ext>
+      //      posts/{uid}/{ts}.<ext>
+      //      dm-images/{convId}/{uid}_{ts}.<ext>
+      const bucket = admin.storage().bucket();
+      let storageDeleted = 0;
+      const wipePrefix = async (
+        prefix: string,
+        uidExtractor: (name: string) => string,
+      ) => {
+        const [files] = await bucket.getFiles({ prefix });
+        for (const file of files) {
+          const uid = uidExtractor(file.name);
+          if (!uid || keepUids.has(uid)) continue;
+          await file.delete().catch((err) => {
+            console.warn(`factoryReset: failed to delete ${file.name}`, err);
+          });
+          storageDeleted++;
+        }
+      };
+      await wipePrefix('avatars/', (name) =>
+        name.replace(/^avatars\//, '').split('.')[0],
+      );
+      await wipePrefix('kid-avatars/', (name) =>
+        name.split('/')[1] || '',
+      );
+      await wipePrefix('posts/', (name) => name.split('/')[1] || '');
+      await wipePrefix('dm-images/', (name) => {
+        const last = name.split('/').pop() || '';
+        return last.split('_')[0] || '';
+      });
+      summary.storageDeleted = storageDeleted;
     }
-  });
+}
 
 async function pruneDeadTokens(
   db: admin.firestore.Firestore,
