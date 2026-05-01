@@ -146,6 +146,10 @@ async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
         gender: kid.gender,
         photoUrl: kid.photoUrl || '',
         milestoneStates: kid.milestoneStates || {},
+        // Carry vaccineSchedule through hydration so the IAP / NIS-UIP
+        // picker doesn't re-prompt every cold start. The Firestore doc
+        // already stores this on each kid; we just had to forward it.
+        vaccineSchedule: kid.vaccineSchedule ?? null,
         isExpecting: kid.isExpecting,
         relation: kid.relation || '',
       })
