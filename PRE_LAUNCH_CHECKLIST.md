@@ -22,4 +22,4 @@ the next AAB to ship.
 | # | Commit | What changes for the user |
 |---|---|---|
 | 1 | `42cc988` | **Chat image upload works on Android** — tap the photo button to attach an image from the gallery to a chat message. Used to show "Image upload is available on the web app" and do nothing. |
-| 2 | _next_ | **Date picker now reaches next year** — expecting parents can pick a 2027 due date on the kid date field. Default year list was capped at the current year (2026), making future due dates impossible. Now allows today's year + 1 unless the caller explicitly clamps with `maxDate`. |
+| 2 | `22b844f` | **Date picker now reaches next year** — expecting parents can pick a 2027 due date on the kid date field. Default year list was capped at the current year (2026), making future due dates impossible. Now allows today's year + 1 unless the caller explicitly clamps with `maxDate`. |
