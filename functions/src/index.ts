@@ -20,6 +20,13 @@ import * as admin from 'firebase-admin';
 
 admin.initializeApp();
 
+// Allow undefined fields in setDoc/update payloads to be silently dropped
+// rather than throwing "Cannot use 'undefined' as a Firestore value".
+// Without this, dispatchPush failed every time a recipient's
+// skippedReason was undefined (the common "successfully sent" case),
+// so admin notifications never recorded a delivery report.
+admin.firestore().settings({ ignoreUndefinedProperties: true });
+
 interface PushJob {
   kind: 'personal' | 'broadcast';
   toUid?: string;
