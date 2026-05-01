@@ -343,6 +343,15 @@ service cloud.firestore {
             request.resource.data.notifType in
               ['reaction', 'comment', 'follow_request', 'follow_accepted', 'message']));
       allow update, delete: if isAdmin();
+
+      // Per-recipient delivery rows written by the dispatcher Cloud
+      // Function. Admin-only read so the Outbox UI can render "who
+      // got it / who failed". Writes happen via the admin SDK and
+      // bypass these rules entirely.
+      match /delivery_report/{rowId} {
+        allow read: if isAdmin();
+        allow write: if false;
+      }
     }
 
     // ── Push notifications log (admin-authored broadcasts, legacy) ──────────
