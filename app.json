@@ -31,7 +31,7 @@
         "backgroundColor": "#fdf6ff"
       },
       "package": "in.maamitra.app",
-      "versionCode": 19,
+      "versionCode": 20,
       "googleServicesFile": "./google-services.json",
       "softwareKeyboardLayoutMode": "resize",
       "permissions": [
@@ -51,6 +51,7 @@
       "orientation": "portrait"
     },
     "plugins": [
+      "./plugins/withRemoveAdId.js",
       "expo-router",
       "expo-font",
       [
