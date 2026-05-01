@@ -253,15 +253,24 @@ export default function YogaModal({ session, visible, onClose }: YogaModalProps)
             showsVerticalScrollIndicator={false}
           >
             <View style={styles.poseHeader}>
-              {currentPose && poseToIllustration(currentPose.name) ? (
-                <Illustration
-                  name={poseToIllustration(currentPose.name)!}
-                  style={styles.poseIllus}
-                  contentFit="contain"
-                />
-              ) : (
-                <Text style={styles.poseEmoji}>{currentPose?.emoji}</Text>
-              )}
+              {(() => {
+                const illusName = currentPose ? poseToIllustration(currentPose.name) : null;
+                if (illusName) {
+                  // Key by pose index so expo-image fully unmounts +
+                  // remounts when we advance — older builds were sticking
+                  // on the first pose's illustration even though the
+                  // name prop updated.
+                  return (
+                    <Illustration
+                      key={`pose-illus-${poseIndex}`}
+                      name={illusName}
+                      style={styles.poseIllus}
+                      contentFit="contain"
+                    />
+                  );
+                }
+                return <Text style={styles.poseEmoji}>{currentPose?.emoji}</Text>;
+              })()}
               <Text style={styles.poseName}>{currentPose?.name}</Text>
             </View>
 
