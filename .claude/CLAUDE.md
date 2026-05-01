@@ -40,12 +40,28 @@ Correct patterns:
 - Seed data may ONLY exist for local dev/testing and must never render in
   prod builds.
 
-## 3. Always sync everything
-After any change, the delivery chain is:
-  local → TypeScript clean → git commit → git push → expo export → firebase deploy
+## 3. Shared `main` — do not work in silos
+Multiple agents (Claude + Codex) work on this repo simultaneously. To stop
+their work overwriting each other:
+
+1. **Always pull first.** Before editing anything:
+   `git fetch origin && git pull --rebase origin main`
+   Branch must be `main` (or rebased onto it).
+2. **Never publish from a dirty / unpushed tree.** OTA bundles ship from
+   the working tree and overwrite the channel — uncommitted code goes to
+   users but lives nowhere in git, and the next push wipes it. Use
+   `npm run update` (which calls `scripts/safe-update.sh`) — it refuses
+   to publish if the tree is dirty or out of sync with origin.
+3. **One branch.** No long-lived feature branches. Land on `main` in
+   small commits + push frequently.
+
+## 4. Always sync everything
+After any change, the full delivery chain is, in order:
+  pull --rebase → TypeScript clean → git commit → git push → expo export →
+  firebase deploy → npm run update (OTA)
 Do not stop partway. If Firestore/Storage rules changed, deploy those too.
 Tell the user each link in the chain is done.
 
-## 4. Live demo URL
+## 5. Live demo URL
 Production: https://maamitra.co.in (fallback: https://maa-mitra-7kird8.web.app)
 Test in that URL after every deploy when possible.
