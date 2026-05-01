@@ -555,23 +555,92 @@ export async function sendMessage(
   }
 }
 
+/**
+ * Word-boundary keyword scorer. Each topic has a list of keywords;
+ * each match in user-message + bot-response contributes to a score.
+ * Highest scoring topic wins, ties go to whichever appears first in
+ * the list. If every topic scores 0 → 💬 General.
+ *
+ * The user message gets x2 weight (it's the question intent) and the
+ * bot response x1 (corroboration). This prevents a one-off mention of
+ * "eat" or "feed" in a development answer ("when can I expect them to
+ * eat solids and walk?") from pulling the tag into Nutrition.
+ */
+const TAG_RULES: Array<{
+  tag: string;
+  color: string;
+  // Keywords are matched with word boundaries — "feed" no longer
+  // catches "feedback", "develop" no longer catches "developer".
+  keywords: string[];
+}> = [
+  {
+    tag: '💉 Vaccines', color: '#3b82f6',
+    keywords: ['vaccine', 'vaccination', 'vaccinate', 'immuni[sz]ation', 'shot', 'jab', 'iap', 'mmr', 'bcg', 'opv', 'dtp', 'dtap', 'hepatitis', 'rotavirus'],
+  },
+  {
+    tag: '🥗 Nutrition', color: '#22c55e',
+    keywords: ['nutrition', 'nutrient', 'meal', 'meals', 'diet', 'breastfeed', 'breastfeeding', 'breast milk', 'formula', 'weaning', 'solids', 'rice', 'dal', 'khichdi', 'porridge', 'fruit', 'fruits', 'vegetable', 'vegetables', 'snack', 'snacks', 'recipe', 'recipes', 'food allergy', 'food'],
+  },
+  {
+    tag: '😴 Sleep', color: '#8b5cf6',
+    keywords: ['sleep', 'sleeping', 'nap', 'napping', 'bedtime', 'wake', 'night feeding', 'night waking', 'lullaby', 'cosleep', 'co-sleep'],
+  },
+  {
+    tag: '🧘 Wellness', color: '#f59e0b',
+    keywords: ['yoga', 'exercise', 'workout', 'meditation', 'breathing', 'pranayama', 'asana', 'stretch', 'fitness', 'kegels'],
+  },
+  {
+    tag: '🏥 Health', color: '#ef4444',
+    keywords: ['fever', 'cough', 'cold', 'flu', 'sick', 'illness', 'doctor', 'paediatrician', 'pediatrician', 'rash', 'allergy', 'allergic', 'infection', 'antibiotic', 'medicine', 'medication', 'symptom', 'temperature', 'vomit', 'diarrhea', 'diarrhoea', 'teeth', 'teething', 'colic', 'eczema', 'reflux'],
+  },
+  {
+    tag: '🌱 Development', color: '#10b981',
+    keywords: ['milestone', 'milestones', 'development', 'developmental', 'developing', 'growth chart', 'crawl', 'crawling', 'walk', 'walking', 'talk', 'talking', 'speech', 'speak', 'speaking', 'sit up', 'rolling over', 'cognitive', 'motor skill', 'motor skills', 'fine motor', 'gross motor', 'language', 'babble', 'babbling', 'first word', 'first words', 'play', 'playing', 'tummy time', 'social', 'emotional development'],
+  },
+  {
+    tag: '💙 Mental Health', color: '#6366f1',
+    keywords: ['anxious', 'anxiety', 'depressed', 'depression', 'postpartum', 'baby blues', 'overwhelm', 'overwhelmed', 'lonely', 'loneliness', 'crying', 'mood', 'stress', 'stressed', 'burnout', 'mental health', 'self-care', 'therapy', 'counsel', 'counselling'],
+  },
+];
+
+function buildKeywordRegex(keywords: string[]): RegExp {
+  // Word-bounded match. \b doesn't fire on hyphens, so "co-sleep" needs
+  // an explicit alternative — handled by listing both "cosleep" and
+  // "co-sleep" rather than complicating the regex. Multi-word phrases
+  // like "first words" use \s+ between tokens so any whitespace works.
+  const escaped = keywords.map((k) =>
+    k
+      .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      .replace(/\s+/g, '\\s+'),
+  );
+  return new RegExp(`\\b(?:${escaped.join('|')})\\b`, 'gi');
+}
+
+const TAG_REGEX_CACHE: RegExp[] = TAG_RULES.map((r) => buildKeywordRegex(r.keywords));
+
+function scoreTextAgainstRules(text: string): number[] {
+  return TAG_REGEX_CACHE.map((re) => {
+    re.lastIndex = 0;
+    const matches = text.match(re);
+    return matches ? matches.length : 0;
+  });
+}
+
 export function getTopicTag(
   userMessage: string,
   botResponse: string
 ): { tag: string; color: string } {
-  const text = (userMessage + ' ' + botResponse).toLowerCase();
-  if (text.includes('vaccine') || text.includes('vaccination'))
-    return { tag: '💉 Vaccines', color: '#3b82f6' };
-  if (text.includes('food') || text.includes('eat') || text.includes('feed'))
-    return { tag: '🥗 Nutrition', color: '#22c55e' };
-  if (text.includes('sleep')) return { tag: '😴 Sleep', color: '#8b5cf6' };
-  if (text.includes('yoga') || text.includes('exercise'))
-    return { tag: '🧘 Wellness', color: '#f59e0b' };
-  if (text.includes('fever') || text.includes('sick') || text.includes('doctor'))
-    return { tag: '🏥 Health', color: '#ef4444' };
-  if (text.includes('milestone') || text.includes('develop'))
-    return { tag: '🌱 Development', color: '#10b981' };
-  if (text.includes('anxiet') || text.includes('depress') || text.includes('overwhelm'))
-    return { tag: '💙 Mental Health', color: '#6366f1' };
-  return { tag: '💬 General', color: '#9ca3af' };
+  const userHits = scoreTextAgainstRules((userMessage || '').toLowerCase());
+  const botHits = scoreTextAgainstRules((botResponse || '').toLowerCase());
+  const scores = TAG_RULES.map((_, i) => userHits[i] * 2 + botHits[i]);
+  let bestIdx = -1;
+  let bestScore = 0;
+  for (let i = 0; i < scores.length; i++) {
+    if (scores[i] > bestScore) {
+      bestScore = scores[i];
+      bestIdx = i;
+    }
+  }
+  if (bestIdx < 0) return { tag: '💬 General', color: '#9ca3af' };
+  return { tag: TAG_RULES[bestIdx].tag, color: TAG_RULES[bestIdx].color };
 }
