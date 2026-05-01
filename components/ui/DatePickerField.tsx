@@ -100,7 +100,12 @@ function NativeDatePickerField({
   const maxDt = useMemo(() => parseIso(maxDate), [maxDate]);
 
   const yearRange = useMemo(() => {
-    const maxYear = maxDt ? maxDt.getFullYear() : today.getFullYear();
+    // When no explicit maxDate is set, allow today's year + 1 so
+    // expecting parents can pick a due date in the next calendar year
+    // (pregnancy can span ~9 months into the future). Callers that
+    // need to clamp to today (e.g. DOB-only fields) still pass
+    // maxDate and override this default.
+    const maxYear = maxDt ? maxDt.getFullYear() : today.getFullYear() + 1;
     const minYear = minDt ? minDt.getFullYear() : maxYear - 100;
     const arr: number[] = [];
     for (let y = maxYear; y >= minYear; y--) arr.push(y);
