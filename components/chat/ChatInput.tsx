@@ -145,13 +145,48 @@ export default function ChatInput({ onSend, disabled = false, prefill }: ChatInp
     setTimeout(() => { isSendingRef.current = false; }, 300);
   };
 
-  const handleAttachPress = () => {
-    if (Platform.OS !== 'web') {
-      setVoiceError('Image upload is available on the web app — native support coming soon.');
-      setTimeout(() => setVoiceError(null), 4000);
+  const handleAttachPress = async () => {
+    if (Platform.OS === 'web') {
+      fileInputRef.current?.click();
       return;
     }
-    fileInputRef.current?.click();
+    // Native (Android / iOS): use expo-image-picker. Returns a base64
+    // data URL we can drop straight into the attachment slot —
+    // services/claude.ts already knows how to forward that to the
+    // multimodal worker.
+    setAttaching(true);
+    try {
+      const ImagePicker = await import('expo-image-picker');
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        setVoiceError('Please allow photo access to attach an image.');
+        setTimeout(() => setVoiceError(null), 4000);
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.82,
+        base64: true,
+        allowsEditing: false,
+      });
+      if (result.canceled || !result.assets?.length) return;
+      const asset = result.assets[0];
+      if (!asset.base64) {
+        setVoiceError('Could not read that image. Try a different one.');
+        setTimeout(() => setVoiceError(null), 4000);
+        return;
+      }
+      const mimeType = asset.mimeType ?? 'image/jpeg';
+      setAttachment({
+        dataUrl: `data:${mimeType};base64,${asset.base64}`,
+        mimeType,
+      });
+    } catch (err: any) {
+      setVoiceError(err?.message ?? 'Could not pick that image.');
+      setTimeout(() => setVoiceError(null), 4000);
+    } finally {
+      setAttaching(false);
+    }
   };
 
   const handleFileChange = async (e: any) => {
