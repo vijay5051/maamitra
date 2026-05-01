@@ -4,6 +4,7 @@ import { useState } from 'react';
 import {
   Alert,
   Linking,
+  Modal,
   ScrollView,
   StyleSheet,
   Switch,
@@ -16,7 +17,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useAppSettingsStore } from '../../store/useAppSettingsStore';
 import { useEffect } from 'react';
 import { updateAppSettings, getAppSettings } from '../../services/firebase';
-import { listAdminMembers, setUserAdminRole, AdminMember } from '../../services/admin';
+import { listAdminMembers, setUserAdminRole, runAdminFactoryReset, AdminMember } from '../../services/admin';
 import { ADMIN_ROLE_LABELS, AdminRole, ADMIN_ROLES } from '../../lib/admin';
 import { useAdminRole } from '../../lib/useAdminRole';
 import { logAdminAction } from '../../services/audit';
@@ -370,6 +371,30 @@ export default function AdminSettings() {
     ]);
   }
 
+  const [factoryResetting, setFactoryResetting] = useState(false);
+  const [factoryResetConfirm, setFactoryResetConfirm] = useState('');
+  const [factoryResetModalOpen, setFactoryResetModalOpen] = useState(false);
+
+  async function performFactoryReset() {
+    if (!user) return;
+    setFactoryResetting(true);
+    try {
+      const result = await runAdminFactoryReset({ uid: user.uid, email: user.email });
+      setFactoryResetModalOpen(false);
+      setFactoryResetConfirm('');
+      infoAlert(
+        'Reset complete',
+        `Deleted ${result.deletedUsers} user${result.deletedUsers === 1 ? '' : 's'}, ` +
+        `${result.storageDeleted} storage file${result.storageDeleted === 1 ? '' : 's'}. ` +
+        `Kept: ${result.keptEmails.join(', ')}.`,
+      );
+    } catch (err: any) {
+      infoAlert('Reset failed', `${err?.code || ''} ${err?.message || String(err)}`.trim());
+    } finally {
+      setFactoryResetting(false);
+    }
+  }
+
   const featureRows: { key: string; label: string; icon: string }[] = [
     { key: 'community', label: 'Community Tab', icon: 'people-outline' },
     { key: 'library', label: 'Library Tab', icon: 'book-outline' },
@@ -479,6 +504,85 @@ export default function AdminSettings() {
           <Text style={styles.signOutRowText}>Sign out of admin</Text>
         </TouchableOpacity>
       </Section>
+
+      {/* Section 7: Danger zone — irreversible operations.
+          Only the founder allow-list emails can actually trigger this
+          (Cloud Function gate); we still gate the UI to super admins
+          to keep accidental clicks down. */}
+      <Section title="Danger zone">
+        <View style={styles.dangerWarnBox}>
+          <Ionicons name="warning-outline" size={16} color="#b91c1c" />
+          <Text style={styles.dangerWarnText}>
+            Factory reset PERMANENTLY deletes every user account, every
+            kid record, every chat thread, every community post, every
+            push history entry, and every uploaded photo — except the
+            two founder admin accounts. There is no undo. Use only
+            before opening the app to real users.
+          </Text>
+        </View>
+        <TouchableOpacity
+          style={styles.dangerBtn}
+          onPress={() => {
+            setFactoryResetConfirm('');
+            setFactoryResetModalOpen(true);
+          }}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="trash-outline" size={16} color="#ffffff" />
+          <Text style={styles.dangerBtnText}>Factory reset all users</Text>
+        </TouchableOpacity>
+      </Section>
+
+      {/* Confirm modal — typing the exact phrase guards against accidental clicks */}
+      <Modal
+        visible={factoryResetModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !factoryResetting && setFactoryResetModalOpen(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Confirm factory reset</Text>
+            <Text style={styles.modalBody}>
+              This will delete <Text style={{ fontWeight: '700' }}>every user</Text> except
+              the founder accounts, plus all their data and uploaded photos.
+              {'\n\n'}
+              Type <Text style={{ fontWeight: '700' }}>WIPE</Text> below to enable the button.
+            </Text>
+            <TextInput
+              value={factoryResetConfirm}
+              onChangeText={setFactoryResetConfirm}
+              autoCapitalize="characters"
+              placeholder="Type WIPE"
+              placeholderTextColor="#9ca3af"
+              style={styles.modalInput}
+              editable={!factoryResetting}
+            />
+            <View style={styles.modalRow}>
+              <TouchableOpacity
+                onPress={() => setFactoryResetModalOpen(false)}
+                style={styles.modalBtn}
+                disabled={factoryResetting}
+              >
+                <Text style={styles.modalBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={performFactoryReset}
+                disabled={factoryResetConfirm !== 'WIPE' || factoryResetting}
+                style={[
+                  styles.modalBtn,
+                  styles.modalBtnDanger,
+                  (factoryResetConfirm !== 'WIPE' || factoryResetting) && { opacity: 0.4 },
+                ]}
+              >
+                <Text style={[styles.modalBtnText, { color: '#ffffff' }]}>
+                  {factoryResetting ? 'Wiping…' : 'Wipe everything'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Save All Button */}
       <TouchableOpacity
@@ -736,6 +840,59 @@ const styles = StyleSheet.create({
   adminEmail: { fontSize: 14, color: '#1a1a2e', fontWeight: '500' },
   signOutRowBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 14 },
   signOutRowText: { fontSize: 14, color: '#ef4444', fontWeight: '600' },
+  dangerWarnBox: {
+    flexDirection: 'row',
+    gap: 10,
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FCA5A5',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    margin: 12,
+  },
+  dangerWarnText: { flex: 1, fontSize: 12, lineHeight: 18, color: '#7F1D1D' },
+  dangerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#dc2626',
+    margin: 12,
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+  dangerBtnText: { color: '#ffffff', fontWeight: '700', fontSize: 14 },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 8, 30, 0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 18,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 380,
+    backgroundColor: '#ffffff',
+    borderRadius: 18,
+    padding: 16,
+    gap: 12,
+  },
+  modalTitle: { fontSize: 17, fontWeight: '700', color: '#1a1a2e' },
+  modalBody: { fontSize: 13, lineHeight: 19, color: '#3F3553' },
+  modalInput: {
+    backgroundColor: '#f9fafb',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    color: '#1a1a2e',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  modalRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
+  modalBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8 },
+  modalBtnDanger: { backgroundColor: '#dc2626' },
+  modalBtnText: { fontSize: 14, fontWeight: '700', color: '#6b7280' },
 
   saveAllBtn: {
     backgroundColor: Colors.primary,

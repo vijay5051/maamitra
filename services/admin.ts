@@ -92,6 +92,50 @@ export async function createAdminManagedUser(
   };
 }
 
+/**
+ * Wipes every non-admin user (Firestore docs + per-user subcollections +
+ * Firebase Auth records + Storage avatars) and clears admin scratch
+ * collections (push history, audit, follows, etc.). Preserves the
+ * built-in founder allow-list emails (rocking.vsr@gmail.com,
+ * divyashekhawat44@yahoo.in).
+ *
+ * **DESTRUCTIVE — there is no undo.** Use only before opening real
+ * testing / production traffic. Requires the literal string
+ * "WIPE-ALL-USERS" as the confirm payload, which the admin UI prompts
+ * the operator to type.
+ */
+export async function runAdminFactoryReset(
+  actor: Actor,
+): Promise<{
+  ok: boolean;
+  deletedUsers: number;
+  deletedAuthRecords: number;
+  storageDeleted: number;
+  perCollectionDeleted: Record<string, number>;
+  keptEmails: string[];
+}> {
+  if (!app) throw new Error('Firebase app not configured');
+  const { getFunctions, httpsCallable } = await import('firebase/functions');
+  const functions = getFunctions(app);
+  const call = httpsCallable<
+    { confirm: string },
+    {
+      ok: boolean;
+      deletedUsers: number;
+      deletedAuthRecords: number;
+      storageDeleted: number;
+      perCollectionDeleted: Record<string, number>;
+      keptEmails: string[];
+    }
+  >(functions, 'adminFactoryReset');
+  const result = await call({ confirm: 'WIPE-ALL-USERS' });
+  await logAdminAction(actor, 'factory.reset', { uid: 'all' }, {
+    deletedUsers: result.data.deletedUsers,
+    storageDeleted: result.data.storageDeleted,
+  });
+  return result.data;
+}
+
 // ─── Per-user 360 ────────────────────────────────────────────────────────────
 
 export interface UserSnapshot {
