@@ -10,6 +10,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -98,6 +99,43 @@ import { useFeedbackStore } from '../../store/useFeedbackStore';
 
 const FIRST_RUN_KEY = 'maamitra-home-first-run-v1';
 
+const FEATURE_GUIDE_CARDS: Array<{
+  illustration: IllustrationName;
+  title: string;
+  text: string;
+}> = [
+  {
+    illustration: 'featureAi',
+    title: 'AI companion',
+    text: 'Chat like texting a knowledgeable friend',
+  },
+  {
+    illustration: 'featureIndia',
+    title: 'India-first',
+    text: 'India-specific foods, schemes & languages',
+  },
+  {
+    illustration: 'featureGrowth',
+    title: 'Remembers you',
+    text: 'Every detail about you and your baby',
+  },
+  {
+    illustration: 'featurePrivate',
+    title: 'Trusted info',
+    text: 'IAP and FOGSI aligned medical content',
+  },
+  {
+    illustration: 'featureLibrary',
+    title: 'Multi-child',
+    text: 'Separate profile for each of your children',
+  },
+  {
+    illustration: 'featureCommunity',
+    title: 'Community',
+    text: 'Connect with Indian parents going through it too',
+  },
+];
+
 export default function HomeTab() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -107,6 +145,8 @@ export default function HomeTab() {
   // the full Settings modal.
   const [profileOpen, setProfileOpen] = useState(false);
   const [firstRunOpen, setFirstRunOpen] = useState(false);
+  const [featureGuideOpen, setFeatureGuideOpen] = useState(false);
+  const [featureGuideSkippedThisSession, setFeatureGuideSkippedThisSession] = useState(false);
   // Quick Actions cap at 6 by default — collapses long card lists so the
   // home screen doesn't get pushed too far down. "Show all" reveals the
   // rest. Resets when the underlying card list shrinks back to ≤6.
@@ -567,10 +607,19 @@ export default function HomeTab() {
   // once per launch, only after FirstRunHero is done, and never repeats
   // a survey once submitted or dismissed.
   const [activeSurvey, setActiveSurvey] = useState<MicroSurvey | null>(null);
+  const hasDismissedFeatureGuide = useProfileStore((s) => s.hasDismissedFeatureGuide);
+  const setHasDismissedFeatureGuide = useProfileStore((s) => s.setHasDismissedFeatureGuide);
+  const isFeatureGuidePending =
+    !!user?.uid && !hasDismissedFeatureGuide && !featureGuideSkippedThisSession;
+
+  useEffect(() => {
+    setFeatureGuideOpen(false);
+    setFeatureGuideSkippedThisSession(false);
+  }, [user?.uid]);
 
   useEffect(() => {
     if (!user?.uid) return;
-    if (firstRunOpen) return; // don't stack on top of the intro
+    if (firstRunOpen || featureGuideOpen || isFeatureGuidePending) return; // don't stack on top of the intro
     let cancelled = false;
     const ANCHOR_KEY = `maamitra-first-home-at-${user.uid}`;
     const SEEN_PREFIX = `maamitra-survey-done-${user.uid}-`;
@@ -597,7 +646,7 @@ export default function HomeTab() {
       } catch {}
     })();
     return () => { cancelled = true; };
-  }, [user?.uid, firstRunOpen]);
+  }, [user?.uid, firstRunOpen, featureGuideOpen, isFeatureGuidePending]);
 
   const handleSurveySubmit = async (answer: string, freeText: string) => {
     const survey = activeSurvey;
@@ -638,8 +687,14 @@ export default function HomeTab() {
   const hasSeenIntro = useProfileStore((s) => s.hasSeenIntro);
 
   useEffect(() => {
+    if (!isFeatureGuidePending) return;
+    setFeatureGuideOpen(true);
+  }, [isFeatureGuidePending]);
+
+  useEffect(() => {
     let cancelled = false;
     if (!user?.uid) return;
+    if (isFeatureGuidePending) return;
     if (hasSeenIntro) return;
     (async () => {
       try {
@@ -650,7 +705,7 @@ export default function HomeTab() {
       }
     })();
     return () => { cancelled = true; };
-  }, [user?.uid, hasSeenIntro]);
+  }, [user?.uid, hasSeenIntro, isFeatureGuidePending]);
 
   const dismissFirstRun = async () => {
     setFirstRunOpen(false);
@@ -660,6 +715,23 @@ export default function HomeTab() {
       await AsyncStorage.setItem(`${FIRST_RUN_KEY}-${user.uid}`, '1');
       await saveUserProfile(user.uid, { hasSeenIntro: true });
     } catch {}
+  };
+
+  const skipFeatureGuideForNow = () => {
+    setFeatureGuideOpen(false);
+    setFeatureGuideSkippedThisSession(true);
+  };
+
+  const dismissFeatureGuidePermanently = async () => {
+    setFeatureGuideOpen(false);
+    setFeatureGuideSkippedThisSession(true);
+    setHasDismissedFeatureGuide(true);
+    if (!user?.uid) return;
+    try {
+      await saveUserProfile(user.uid, { hasDismissedFeatureGuide: true });
+    } catch (error) {
+      console.warn('[feature-guide] persist failed', error);
+    }
   };
 
   return (
@@ -675,10 +747,9 @@ export default function HomeTab() {
         {/* Admin-published banner — only renders if app_settings/config.banner is set. */}
         <AppBannerStrip />
 
-        {/* Header row. Tapping the avatar takes you to Edit Profile
-            (fast path for "change my name/photo"). The right cluster is
-            the same triplet used on every tab with a header:
-            🔔 Notifications · 💬 Messages · ⚙️ Settings. */}
+        {/* Header row. Tapping the avatar opens the profile hub, which now
+            owns the Settings entry as well. The right cluster keeps only
+            notifications and messages on Home. */}
         <View style={styles.headerRow}>
           <Reanimated.View style={[avatarPulseStyle]}>
             <TouchableOpacity
@@ -736,13 +807,6 @@ export default function HomeTab() {
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.iconBtn, { marginLeft: 8 }]}
-            onPress={() => setSettingsView('main')}
-            accessibilityLabel="Settings"
-          >
-            <AppIcon name="nav.settings" size={22} color={Colors.textDark} />
-          </TouchableOpacity>
         </View>
 
         <View style={styles.homeHeroWrap}>
@@ -804,6 +868,7 @@ export default function HomeTab() {
             : activeKid?.name && activeKid.name !== 'Little one'
               ? `Today for ${activeKid.name}`
               : 'Today';
+          const heroSub = isMoodHero ? '' : hero.label;
           return (
             <Reanimated.View
               entering={FadeInDown.duration(360).springify().damping(15)}
@@ -837,7 +902,9 @@ export default function HomeTab() {
                 <View style={styles.todayHeroContent}>
                   <Text style={styles.todayHeroLabel} numberOfLines={1}>{heroLabel}</Text>
                   <Text style={styles.todayHeroValue} numberOfLines={2}>{hero.value}</Text>
-                  <Text style={styles.todayHeroSub} numberOfLines={1}>{hero.label}</Text>
+                  {heroSub ? (
+                    <Text style={styles.todayHeroSub} numberOfLines={1}>{heroSub}</Text>
+                  ) : null}
                 </View>
                 <AppIcon name="nav.forward" size={20} />
               </AnimatedPressable>
@@ -902,6 +969,20 @@ export default function HomeTab() {
             </Text>
           </TouchableOpacity>
         )}
+        <TouchableOpacity
+          activeOpacity={0.92}
+          onPress={() =>
+            router.push({ pathname: '/(tabs)/health', params: { tab: 'nuskhe' } })
+          }
+          style={styles.dadiHeroWrap}
+        >
+          <Illustration name="dadiKeNuskheHero" style={styles.dadiHeroImg} />
+          <View style={styles.dadiHeroOverlay} pointerEvents="none">
+            <Text style={styles.dadiHeroTitle} numberOfLines={3}>
+              Dadi Maa Ke Nuskhe
+            </Text>
+          </View>
+        </TouchableOpacity>
 
         {/* ═══ YOUR BABY ═══ Family snapshot + health-at-a-glance strip.
             Grouped under one label so it's the single place on Home where
@@ -1109,7 +1190,7 @@ export default function HomeTab() {
             >
               <AnimatedPressable
                 style={styles.weekTile}
-                onPress={() => router.push('/(tabs)/wellness')}
+                onPress={() => router.push({ pathname: '/(tabs)/wellness', params: { focus: 'mood' } })}
               >
                 <AnimatedNumber
                   value={weeklyDigest.moodLoggedDays}
@@ -1125,7 +1206,7 @@ export default function HomeTab() {
               </AnimatedPressable>
               <AnimatedPressable
                 style={styles.weekTile}
-                onPress={() => router.push('/(tabs)/health')}
+                onPress={() => router.push({ pathname: '/(tabs)/health', params: { tab: 'vaccines' } })}
               >
                 <AnimatedNumber
                   value={weeklyDigest.vaccinesDone}
@@ -1226,13 +1307,6 @@ export default function HomeTab() {
             label="Yoga"
             onPress={() =>
               router.push({ pathname: '/(tabs)/wellness', params: { section: 'yoga' } })
-            }
-          />
-          <JumpTile
-            icon="flower-outline"
-            label="Dadi's Nuskhe"
-            onPress={() =>
-              router.push({ pathname: '/(tabs)/health', params: { tab: 'nuskhe' } })
             }
           />
           <JumpTile
@@ -1356,11 +1430,18 @@ export default function HomeTab() {
                       activeOpacity={0.8}
                       style={[styles.kidChip, isActive && styles.kidChipActive]}
                     >
-                      <View style={[styles.kidChipAvatar, isActive && styles.kidChipAvatarActive]}>
-                        <Text style={[styles.kidChipInitial, isActive && styles.kidChipInitialActive]}>
-                          {initial}
-                        </Text>
-                      </View>
+                      {k.photoUrl ? (
+                        <Image
+                          source={{ uri: k.photoUrl }}
+                          style={[styles.kidChipAvatarPhoto, isActive && styles.kidChipAvatarPhotoActive]}
+                        />
+                      ) : (
+                        <View style={[styles.kidChipAvatar, isActive && styles.kidChipAvatarActive]}>
+                          <Text style={[styles.kidChipInitial, isActive && styles.kidChipInitialActive]}>
+                            {initial}
+                          </Text>
+                        </View>
+                      )}
                       <View>
                         <Text style={[styles.kidChipName, isActive && styles.kidChipNameActive]} numberOfLines={1}>
                           {k.name}
@@ -1404,7 +1485,7 @@ export default function HomeTab() {
             <ProfileRow
               icon="person-outline"
               label="Edit profile"
-              sub="Name, photo, bio, children"
+              sub="Name, photo, bio"
               onPress={() => {
                 setProfileOpen(false);
                 setTimeout(() => setSettingsView('edit-profile'), 120);
@@ -1506,6 +1587,12 @@ export default function HomeTab() {
       <ConversationsSheet
         visible={messagesOpen}
         onClose={() => setMessagesOpen(false)}
+      />
+
+      <FeatureGuideCarousel
+        visible={featureGuideOpen}
+        onSkip={skipFeatureGuideForNow}
+        onDontShowAgain={dismissFeatureGuidePermanently}
       />
 
       {/* First-run hero animation */}
@@ -2167,7 +2254,7 @@ function buildTodayCards({
   if (recent.length >= 2) {
     const avg = recent.reduce((s: number, m: any) => s + m.score, 0) / recent.length;
     if (avg <= 2.5) {
-      cards.unshift({
+      const gentleCard: TodayCard = {
         id: 'gentle',
         icon: 'heart-circle-outline',
         tint: Colors.primary,
@@ -2175,7 +2262,13 @@ function buildTodayCards({
         value: 'Take a breath',
         label: 'A gentle check-in',
         onPress: goWellness,
-      });
+      };
+
+      if (cards[0]?.id === 'mood') {
+        cards.splice(1, 0, gentleCard);
+      } else {
+        cards.unshift(gentleCard);
+      }
     }
   }
 
@@ -2388,6 +2481,208 @@ function FirstRunHero({
   );
 }
 
+function FeatureGuideSlide({
+  item,
+  active,
+  cardSize,
+  pageWidth,
+}: {
+  item: (typeof FEATURE_GUIDE_CARDS)[number];
+  active: boolean;
+  cardSize: number;
+  pageWidth: number;
+}) {
+  const emphasis = useSharedValue(active ? 1 : 0);
+  const illustrationLift = useSharedValue(0);
+
+  useEffect(() => {
+    emphasis.value = withTiming(active ? 1 : 0, {
+      duration: active ? 320 : 220,
+      easing: REasing.out(REasing.cubic),
+    });
+
+    if (active) {
+      illustrationLift.value = 0;
+      illustrationLift.value = withDelay(
+        120,
+        withSequence(
+          withTiming(-8, { duration: 260, easing: REasing.out(REasing.cubic) }),
+          withTiming(0, { duration: 420, easing: REasing.inOut(REasing.quad) }),
+          withTiming(-4, { duration: 360, easing: REasing.inOut(REasing.quad) }),
+          withTiming(0, { duration: 420, easing: REasing.inOut(REasing.quad) })
+        )
+      );
+    } else {
+      illustrationLift.value = withTiming(0, { duration: 180 });
+    }
+  }, [active, emphasis, illustrationLift]);
+
+  const cardAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: 0.7 + emphasis.value * 0.3,
+    transform: [
+      { scale: 0.95 + emphasis.value * 0.05 },
+      { translateY: (1 - emphasis.value) * 12 },
+    ],
+  }));
+
+  const illustrationAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: illustrationLift.value },
+      { scale: 0.98 + emphasis.value * 0.04 },
+    ],
+  }));
+
+  return (
+    <View style={[styles.featureGuidePage, { width: pageWidth }]}>
+      <Reanimated.View
+        entering={FadeInUp.springify().damping(15).stiffness(160)}
+        style={[
+          styles.featureGuideSquare,
+          active && styles.featureGuideSquareActive,
+          { width: cardSize, height: cardSize },
+          cardAnimatedStyle,
+        ]}
+      >
+        <Reanimated.View style={[styles.featureGuideIllusWrap, illustrationAnimatedStyle]}>
+          <Illustration
+            name={item.illustration}
+            style={styles.featureGuideIllus}
+            contentFit="contain"
+          />
+        </Reanimated.View>
+        <Reanimated.Text
+          entering={FadeInDown.delay(50).duration(260)}
+          style={styles.featureGuideTitle}
+        >
+          {item.title}
+        </Reanimated.Text>
+        <Reanimated.Text
+          entering={FadeInDown.delay(110).duration(280)}
+          style={styles.featureGuideText}
+        >
+          {item.text}
+        </Reanimated.Text>
+      </Reanimated.View>
+    </View>
+  );
+}
+
+function FeatureGuideDot({ active }: { active: boolean }) {
+  const progress = useSharedValue(active ? 1 : 0);
+
+  useEffect(() => {
+    progress.value = withTiming(active ? 1 : 0, {
+      duration: 220,
+      easing: REasing.out(REasing.cubic),
+    });
+  }, [active, progress]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    width: 8 + progress.value * 12,
+    opacity: 0.72 + progress.value * 0.28,
+  }));
+
+  return (
+    <Reanimated.View
+      style={[
+        styles.featureGuideDot,
+        active ? styles.featureGuideDotActive : null,
+        animatedStyle,
+      ]}
+    />
+  );
+}
+
+function FeatureGuideCarousel({
+  visible,
+  onSkip,
+  onDontShowAgain,
+}: {
+  visible: boolean;
+  onSkip: () => void;
+  onDontShowAgain: () => void;
+}) {
+  const { width } = useWindowDimensions();
+  const scrollRef = useRef<ScrollView | null>(null);
+  const [page, setPage] = useState(0);
+  const pageWidth = Math.max(width - 48, 280);
+  const cardSize = Math.min(pageWidth - 40, 320);
+
+  useEffect(() => {
+    if (!visible) {
+      setPage(0);
+      scrollRef.current?.scrollTo({ x: 0, animated: false });
+    }
+  }, [visible]);
+
+  return (
+    <Modal visible={visible} transparent animationType="fade">
+      <View style={styles.firstRunBackdrop}>
+        <View style={styles.featureGuideCard}>
+          <Text style={styles.featureGuideKicker}>GET TO KNOW MAAMITRA</Text>
+          <Text style={styles.featureGuideHeadline}>
+            A quick look at the tools waiting for you.
+          </Text>
+
+          <ScrollView
+            ref={scrollRef}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            decelerationRate="fast"
+            snapToInterval={pageWidth}
+            onMomentumScrollEnd={(event) => {
+              const next = Math.round(event.nativeEvent.contentOffset.x / pageWidth);
+              setPage(Math.max(0, Math.min(FEATURE_GUIDE_CARDS.length - 1, next)));
+            }}
+            contentContainerStyle={styles.featureGuideTrack}
+          >
+            {FEATURE_GUIDE_CARDS.map((item, index) => (
+              <FeatureGuideSlide
+                key={item.title}
+                item={item}
+                active={index === page}
+                cardSize={cardSize}
+                pageWidth={pageWidth}
+              />
+            ))}
+          </ScrollView>
+
+          <View style={styles.featureGuideDots}>
+            {FEATURE_GUIDE_CARDS.map((item, index) => (
+              <FeatureGuideDot key={item.title} active={index === page} />
+            ))}
+          </View>
+
+          <View style={styles.featureGuideActions}>
+            <TouchableOpacity
+              style={styles.featureGuideGhostBtn}
+              onPress={onSkip}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.featureGuideGhostText}>Skip for now</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.featureGuideSolidBtn}
+              onPress={onDontShowAgain}
+              activeOpacity={0.85}
+            >
+              <LinearGradient
+                colors={Gradients.primary}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.featureGuideSolidInner}
+              >
+                <Text style={styles.featureGuideSolidText}>Don’t show again</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.bgLight },
 
@@ -2467,6 +2762,34 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   homeHeroQuoteText: {
+    fontFamily: Fonts.serifMedium,
+    fontSize: 14,
+    lineHeight: 20,
+    color: Colors.textDark,
+    fontStyle: 'italic',
+  },
+  dadiHeroWrap: {
+    marginHorizontal: Spacing.xl,
+    marginTop: Spacing.md,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#FFFCF7',
+    aspectRatio: 2,
+  },
+  dadiHeroImg: {
+    width: '100%',
+    height: '100%',
+  },
+  dadiHeroOverlay: {
+    position: 'absolute',
+    left: 16,
+    top: 0,
+    bottom: 0,
+    width: '34%',
+    justifyContent: 'center',
+    paddingRight: 8,
+  },
+  dadiHeroTitle: {
     fontFamily: Fonts.serifMedium,
     fontSize: 14,
     lineHeight: 20,
@@ -3123,6 +3446,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: Colors.primarySoft,
   },
+  kidChipAvatarPhoto: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#F3F4F6',
+  },
+  kidChipAvatarPhotoActive: {
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.9)',
+  },
   kidChipAvatarActive: {
     backgroundColor: 'rgba(255,255,255,0.22)',
   },
@@ -3395,5 +3728,133 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sansMedium,
     fontSize: FontSize.sm,
     color: Colors.textMuted,
+  },
+  featureGuideCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#fff',
+    borderRadius: Radius.xxl,
+    paddingTop: Spacing.xl,
+    paddingBottom: Spacing.xl,
+    ...Shadow.card,
+  },
+  featureGuideKicker: {
+    textAlign: 'center',
+    fontFamily: Fonts.sansBold,
+    fontSize: 11,
+    letterSpacing: 1.4,
+    color: Colors.primary,
+    marginBottom: Spacing.sm,
+  },
+  featureGuideHeadline: {
+    textAlign: 'center',
+    fontFamily: Fonts.serif,
+    fontSize: FontSize.xxl,
+    color: Colors.textDark,
+    lineHeight: 32,
+    paddingHorizontal: Spacing.xl,
+  },
+  featureGuideTrack: {
+    paddingTop: Spacing.xl,
+  },
+  featureGuidePage: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  featureGuideSquare: {
+    borderRadius: Radius.xxl,
+    backgroundColor: '#FFF8F1',
+    borderWidth: 1,
+    borderColor: '#F0E7FB',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.lg,
+  },
+  featureGuideSquareActive: {
+    borderColor: '#DDCEF8',
+    shadowColor: '#7C3AED',
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: 0.18,
+    shadowRadius: 24,
+    elevation: 8,
+  },
+  featureGuideIllusWrap: {
+    width: '62%',
+    height: '46%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.md,
+  },
+  featureGuideIllus: {
+    width: '100%',
+    height: '100%',
+  },
+  featureGuideTitle: {
+    textAlign: 'center',
+    fontFamily: Fonts.sansBold,
+    fontSize: 20,
+    color: Colors.textDark,
+    marginBottom: Spacing.xs,
+  },
+  featureGuideText: {
+    textAlign: 'center',
+    fontFamily: Fonts.sansRegular,
+    fontSize: FontSize.sm,
+    lineHeight: 20,
+    color: Colors.textMuted,
+    maxWidth: 230,
+  },
+  featureGuideDots: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    marginTop: Spacing.lg,
+  },
+  featureGuideDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#DCCFF0',
+  },
+  featureGuideDotActive: {
+    backgroundColor: Colors.primary,
+  },
+  featureGuideActions: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.xl,
+    marginTop: Spacing.xl,
+  },
+  featureGuideGhostBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E7DCF7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ffffff',
+  },
+  featureGuideGhostText: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: FontSize.sm,
+    color: Colors.textDark,
+  },
+  featureGuideSolidBtn: {
+    flex: 1,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  featureGuideSolidInner: {
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  featureGuideSolidText: {
+    color: '#fff',
+    fontFamily: Fonts.sansBold,
+    fontSize: FontSize.sm,
   },
 });

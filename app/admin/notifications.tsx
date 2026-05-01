@@ -32,9 +32,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/theme';
 import { enqueueBroadcastPush, getUsers, AdminUser } from '../../services/firebase';
 import {
+  listPushDeliveryReport,
   cancelScheduledPush,
   listPushOutbox,
   listScheduledPushes,
+  PushDeliveryEntry,
   PushQueueEntry,
   ScheduledPushEntry,
   scheduleBroadcastPush,
@@ -80,6 +82,11 @@ const STATUS_COLOR: Record<PushQueueEntry['status'], string> = {
   failed: '#EF4444',
   skipped: '#6B7280',
 };
+
+function deliveryTint(status: PushDeliveryEntry['status']): string {
+  if (status === 'partial') return '#F59E0B';
+  return STATUS_COLOR[status];
+}
 
 // Validate ISO-ish "YYYY-MM-DD HH:MM" or "YYYY-MM-DDTHH:MM" — return Date or null.
 function parseScheduleInput(s: string): Date | null {
@@ -637,34 +644,136 @@ function OutboxList({
   onRefresh: () => Promise<void>;
 }) {
   const insets = useSafeAreaInsets();
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportRows, setReportRows] = useState<PushDeliveryEntry[]>([]);
+  const [activeEntry, setActiveEntry] = useState<PushQueueEntry | null>(null);
+
+  async function openReport(entry: PushQueueEntry) {
+    setActiveEntry(entry);
+    setReportOpen(true);
+    setReportLoading(true);
+    try {
+      const rows = await listPushDeliveryReport(entry.id);
+      setReportRows(rows);
+    } finally {
+      setReportLoading(false);
+    }
+  }
+
   return (
-    <ScrollView
-      style={{ flex: 1 }}
-      contentContainerStyle={[styles.composeContent, { paddingBottom: insets.bottom + 40 }]}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
-    >
-      {outbox.length === 0 ? (
-        <View style={styles.empty}>
-          <Ionicons name="paper-plane-outline" size={40} color="#D1D5DB" />
-          <Text style={styles.emptyText}>No pushes have been sent yet.</Text>
-        </View>
-      ) : outbox.map((e) => (
-        <View key={e.id} style={styles.outboxCard}>
-          <View style={styles.outboxHead}>
-            <View style={[styles.statusDot, { backgroundColor: STATUS_COLOR[e.status] }]} />
-            <Text style={styles.outboxTitle} numberOfLines={1}>{e.title || '(no title)'}</Text>
-            <Text style={styles.outboxTime}>{e.sentAt ? new Date(e.sentAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : new Date(e.createdAt || Date.now()).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</Text>
+    <>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={[styles.composeContent, { paddingBottom: insets.bottom + 40 }]}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.primary} />}
+      >
+        {outbox.length === 0 ? (
+          <View style={styles.empty}>
+            <Ionicons name="paper-plane-outline" size={40} color="#D1D5DB" />
+            <Text style={styles.emptyText}>No pushes have been sent yet.</Text>
           </View>
-          <Text style={styles.outboxBody} numberOfLines={2}>{e.body}</Text>
-          <View style={styles.outboxFoot}>
-            <Chip label={e.kind === 'broadcast' ? `audience: ${e.audience ?? 'all'}` : 'personal'} />
-            <Chip label={`status: ${e.status}`} tint={STATUS_COLOR[e.status]} />
-            {typeof e.successCount === 'number' ? <Chip label={`✓ ${e.successCount}`} tint="#10B981" /> : null}
-            {typeof e.failureCount === 'number' && e.failureCount > 0 ? <Chip label={`✗ ${e.failureCount}`} tint="#EF4444" /> : null}
+        ) : outbox.map((e) => (
+          <TouchableOpacity
+            key={e.id}
+            style={styles.outboxCard}
+            activeOpacity={0.82}
+            onPress={() => openReport(e)}
+          >
+            <View style={styles.outboxHead}>
+              <View style={[styles.statusDot, { backgroundColor: STATUS_COLOR[e.status] }]} />
+              <Text style={styles.outboxTitle} numberOfLines={1}>{e.title || '(no title)'}</Text>
+              <Text style={styles.outboxTime}>{e.sentAt ? new Date(e.sentAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : new Date(e.createdAt || Date.now()).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</Text>
+            </View>
+            <Text style={styles.outboxBody} numberOfLines={2}>{e.body}</Text>
+            <View style={styles.outboxFoot}>
+              <Chip label={e.kind === 'broadcast' ? `audience: ${e.audience ?? 'all'}` : 'personal'} />
+              <Chip label={`status: ${e.status}`} tint={STATUS_COLOR[e.status]} />
+              {typeof e.successCount === 'number' ? <Chip label={`✓ ${e.successCount}`} tint="#10B981" /> : null}
+              {typeof e.failureCount === 'number' && e.failureCount > 0 ? <Chip label={`✗ ${e.failureCount}`} tint="#EF4444" /> : null}
+              {typeof e.skippedRecipientCount === 'number' && e.skippedRecipientCount > 0 ? <Chip label={`skip ${e.skippedRecipientCount}`} tint="#6B7280" /> : null}
+            </View>
+            <Text style={styles.outboxHint}>Tap to view recipient report</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
+      <Modal
+        visible={reportOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setReportOpen(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setReportOpen(false)} />
+          <View style={styles.reportSheet}>
+            <View style={styles.reportHandle} />
+            <View style={styles.reportHead}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.reportTitle} numberOfLines={2}>
+                  {activeEntry?.title || 'Delivery report'}
+                </Text>
+                <Text style={styles.reportSub}>
+                  {activeEntry?.recipientCount ?? reportRows.length} recipient{(activeEntry?.recipientCount ?? reportRows.length) === 1 ? '' : 's'}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setReportOpen(false)} style={styles.reportCloseBtn}>
+                <Ionicons name="close" size={18} color="#6B7280" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.reportSummaryRow}>
+              <Chip label={`Delivered ${activeEntry?.deliveredRecipientCount ?? reportRows.filter((r) => r.status === 'sent' || r.status === 'partial').length}`} tint="#10B981" />
+              <Chip label={`Failed ${activeEntry?.failedRecipientCount ?? reportRows.filter((r) => r.status === 'failed').length}`} tint="#EF4444" />
+              <Chip label={`Skipped ${activeEntry?.skippedRecipientCount ?? reportRows.filter((r) => r.status === 'skipped').length}`} tint="#6B7280" />
+            </View>
+
+            <ScrollView style={{ maxHeight: 460 }} contentContainerStyle={{ paddingBottom: 16 }}>
+              {reportLoading ? (
+                <View style={styles.empty}>
+                  <ActivityIndicator color={Colors.primary} />
+                  <Text style={styles.emptyText}>Loading recipient report…</Text>
+                </View>
+              ) : reportRows.length === 0 ? (
+                <View style={styles.empty}>
+                  <Ionicons name="document-text-outline" size={32} color="#D1D5DB" />
+                  <Text style={styles.emptyText}>No recipient-level report recorded for this push.</Text>
+                </View>
+              ) : reportRows.map((row) => {
+                const errorLabel = Object.entries(row.errorCodes || {})
+                  .map(([code, count]) => `${code.replace('messaging/', '')} (${count})`)
+                  .join(', ');
+                return (
+                  <View key={row.uid} style={styles.reportRow}>
+                    <View style={styles.reportRowTop}>
+                      <View style={[styles.statusDot, { backgroundColor: deliveryTint(row.status) }]} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.reportRowName} numberOfLines={1}>
+                          {row.name || row.email || row.uid}
+                        </Text>
+                        <Text style={styles.reportRowMeta} numberOfLines={1}>
+                          {row.email || row.uid}
+                        </Text>
+                      </View>
+                      <Chip label={row.status} tint={deliveryTint(row.status)} />
+                    </View>
+                    <Text style={styles.reportRowDetail}>
+                      tokens {row.tokenCount} · delivered {row.successCount} · failed {row.failureCount}{row.deadTokens ? ` · dead ${row.deadTokens}` : ''}
+                    </Text>
+                    {row.skippedReason ? (
+                      <Text style={styles.reportRowReason}>Skipped: {row.skippedReason}</Text>
+                    ) : null}
+                    {errorLabel ? (
+                      <Text style={styles.reportRowReason}>Errors: {errorLabel}</Text>
+                    ) : null}
+                  </View>
+                );
+              })}
+            </ScrollView>
           </View>
         </View>
-      ))}
-    </ScrollView>
+      </Modal>
+    </>
   );
 }
 
@@ -834,6 +943,7 @@ const styles = StyleSheet.create({
   outboxTime: { fontSize: 10, color: '#9CA3AF' },
   outboxBody: { fontSize: 12, color: '#4B5563', lineHeight: 17 },
   outboxFoot: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4, alignItems: 'center' },
+  outboxHint: { fontSize: 11, color: '#8B5CF6', fontWeight: '700', marginTop: 2 },
   outboxChip: {
     flexDirection: 'row', gap: 4, alignItems: 'center',
     paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8,
@@ -871,7 +981,52 @@ const styles = StyleSheet.create({
   },
   recipientChipText: { fontSize: 11, fontWeight: '600', color: '#1a1a2e' },
 
+  reportSheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 16,
+    maxHeight: '88%',
+  },
+  reportHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#E5E7EB',
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
+  reportHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 10 },
+  reportTitle: { fontSize: 16, fontWeight: '800', color: '#1a1a2e' },
+  reportSub: { fontSize: 12, color: '#6B7280', marginTop: 2 },
+  reportCloseBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F3F4F6',
+  },
+  reportSummaryRow: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: 10 },
+  reportRow: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#F0EDF5',
+    padding: 12,
+    gap: 6,
+    marginBottom: 8,
+  },
+  reportRowTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  reportRowName: { fontSize: 13, fontWeight: '800', color: '#1a1a2e' },
+  reportRowMeta: { fontSize: 11, color: '#6B7280', marginTop: 1 },
+  reportRowDetail: { fontSize: 12, color: '#4B5563' },
+  reportRowReason: { fontSize: 11, color: '#9CA3AF', lineHeight: 16 },
+
   // Picker modal
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalCard: {
     backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20,

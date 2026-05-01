@@ -571,14 +571,18 @@ export default function ChatScreen() {
 
         {messages.length === 0 && !isTyping ? (
           <View style={styles.emptyState}>
-            <Illustration name="chatMascot" style={styles.emptyMascot} contentFit="contain" />
-            <Text style={styles.emptyGreet}>Namaste{motherName ? `, ${motherName.split(' ')[0]}` : ''}! 🙏</Text>
-            <View style={styles.emptySeparator}>
-              <View style={styles.separatorLine} />
-              <Text style={styles.separatorText}>TODAY</Text>
-              <View style={styles.separatorLine} />
+            <View style={styles.emptyIntro}>
+              <Illustration name="chatMascot" style={styles.emptyMascot} contentFit="contain" />
+              <Text style={styles.emptyGreet}>Namaste{motherName ? `, ${motherName.split(' ')[0]}` : ''}! 🙏</Text>
+              <View style={styles.emptySeparator}>
+                <View style={styles.separatorLine} />
+                <Text style={styles.separatorText}>TODAY</Text>
+                <View style={styles.separatorLine} />
+              </View>
             </View>
-            <QuickChips onSelect={handleSend} />
+            <View style={styles.emptyQuickChips}>
+              <QuickChips onSelect={handleSend} showHeader={false} />
+            </View>
           </View>
         ) : (
           <FlatList
@@ -617,33 +621,35 @@ export default function ChatScreen() {
 
         {/* Suggestions chips above input when conversation is active */}
         {messages.length > 0 && showSuggestions && (
-          <QuickChips onSelect={handleSend} />
+          <QuickChips onSelect={handleSend} showHeader={false} />
         )}
 
-        <Text style={styles.medDisclaimer}>
-          MaaMitra shares information, not medical advice. For urgent concerns, please consult a doctor.
-        </Text>
+        <View style={styles.footerStack}>
+          <Text style={styles.medDisclaimer}>
+            MaaMitra shares information, not medical advice. For urgent concerns, please consult a doctor.
+          </Text>
 
-        <View style={styles.inputRow}>
-          {messages.length > 0 && (
-            <TouchableOpacity
-              style={styles.suggestBtn}
-              onPress={() => setShowSuggestions((v) => !v)}
-              activeOpacity={0.75}
-            >
-              <AppIcon
-                name="object.idea"
-                size={18}
-                color={showSuggestions ? Colors.primary : '#A78BCA'}
+          <View style={styles.inputRow}>
+            {messages.length > 0 && (
+              <TouchableOpacity
+                style={styles.suggestBtn}
+                onPress={() => setShowSuggestions((v) => !v)}
+                activeOpacity={0.75}
+              >
+                <AppIcon
+                  name="object.idea"
+                  size={18}
+                  color={showSuggestions ? Colors.primary : '#A78BCA'}
+                />
+              </TouchableOpacity>
+            )}
+            <View style={styles.inputFlex}>
+              <ChatInput
+                onSend={handleSend}
+                disabled={isTyping}
+                prefill={typeof prefill === 'string' ? prefill : undefined}
               />
-            </TouchableOpacity>
-          )}
-          <View style={styles.inputFlex}>
-            <ChatInput
-              onSend={handleSend}
-              disabled={isTyping}
-              prefill={typeof prefill === 'string' ? prefill : undefined}
-            />
+            </View>
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -768,7 +774,9 @@ const styles = StyleSheet.create({
   },
 
   // ── Empty state ──
-  emptyState: { flex: 1, paddingTop: 24, paddingBottom: 8 },
+  emptyState: { flex: 1, paddingTop: 24, paddingBottom: 12, minHeight: 0 },
+  emptyIntro: { alignItems: 'center' },
+  emptyQuickChips: { marginTop: 'auto', paddingTop: 16 },
   emptyAvatar: { alignSelf: 'center', marginBottom: 12 },
   emptyMascot: { width: 160, height: 160, alignSelf: 'center', marginBottom: 8 },
   emptyGreet: { fontFamily: Fonts.sansBold, fontSize: 18, color: '#1C1033', textAlign: 'center', marginBottom: 6 },
@@ -788,11 +796,17 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
     textAlign: 'center',
     paddingHorizontal: 20,
-    paddingTop: 2,
-    paddingBottom: 4,
+    paddingTop: 6,
+    paddingBottom: 6,
   },
 
   // ── Input row with suggestions toggle ──
+  footerStack: {
+    backgroundColor: 'rgba(255,248,252,0.98)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(28, 16, 51, 0.04)',
+    paddingBottom: Platform.OS === 'web' ? 4 : 0,
+  },
   inputRow: { flexDirection: 'row', alignItems: 'flex-end' },
   inputFlex: { flex: 1 },
   suggestBtn: {

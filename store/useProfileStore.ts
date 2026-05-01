@@ -15,6 +15,12 @@ export interface Kid {
   stage: Stage;
   gender: 'boy' | 'girl' | 'surprise';
   photoUrl?: string;
+  /**
+   * Parent-managed milestone overrides. If absent, milestone progress falls
+   * back to the age-based default. This lets a parent uncheck a milestone
+   * that would otherwise auto-mark as reached.
+   */
+  milestoneStates?: Record<string, { reached: boolean; updatedAt?: string }>;
   ageInMonths: number;
   ageInWeeks: number;
   isExpecting: boolean;
@@ -106,6 +112,8 @@ interface ProfileState {
   // UX flags (synced to Firestore users/{uid}.hasSeenIntro)
   hasSeenIntro: boolean;
   setHasSeenIntro: (v: boolean) => void;
+  hasDismissedFeatureGuide: boolean;
+  setHasDismissedFeatureGuide: (v: boolean) => void;
 
   /**
    * UID of the last user whose profile was hydrated into this store.
@@ -138,6 +146,7 @@ interface ProfileState {
   markVaccineDone: (vaccineId: string, kidId: string, doneDate?: string) => void;
   unmarkVaccineDone: (vaccineId: string, kidId: string) => void;
   setKidVaccineSchedule: (kidId: string, schedule: VaccineScheduleType) => void;
+  setKidMilestoneState: (kidId: string, milestoneId: string, reached: boolean) => void;
   /** Wipes ALL profile data — call on sign-out so no data leaks to the next user */
   resetProfile: () => void;
 
@@ -172,6 +181,8 @@ export const useProfileStore = create<ProfileState>()(
 
       hasSeenIntro: false,
       setHasSeenIntro: (v: boolean) => set({ hasSeenIntro: v }),
+      hasDismissedFeatureGuide: false,
+      setHasDismissedFeatureGuide: (v: boolean) => set({ hasDismissedFeatureGuide: v }),
 
       cachedProfileUid: null,
       setCachedProfileUid: (uid: string | null) => set({ cachedProfileUid: uid }),
@@ -259,6 +270,22 @@ export const useProfileStore = create<ProfileState>()(
         }));
       },
 
+      setKidMilestoneState: (kidId, milestoneId, reached) => {
+        set((state) => ({
+          kids: state.kids.map((k) =>
+            k.id === kidId
+              ? {
+                  ...k,
+                  milestoneStates: {
+                    ...(k.milestoneStates ?? {}),
+                    [milestoneId]: { reached, updatedAt: new Date().toISOString() },
+                  },
+                }
+              : k
+          ),
+        }));
+      },
+
       unmarkVaccineDone: (vaccineId, kidId) => {
         set((state) => {
           const kidVaccines = { ...(state.completedVaccines[kidId] ?? {}) };
@@ -286,6 +313,7 @@ export const useProfileStore = create<ProfileState>()(
           expertise: [],
           visibilitySettings: DEFAULT_VISIBILITY,
           hasSeenIntro: false,
+          hasDismissedFeatureGuide: false,
           phone: '',
           phoneVerified: false,
           cachedProfileUid: null,

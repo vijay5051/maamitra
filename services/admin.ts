@@ -541,9 +541,27 @@ export interface PushQueueEntry {
   status: 'pending' | 'sent' | 'failed' | 'skipped' | 'scheduled';
   successCount?: number;
   failureCount?: number;
+  recipientCount?: number;
+  deliveredRecipientCount?: number;
+  failedRecipientCount?: number;
+  skippedRecipientCount?: number;
   scheduledFor?: string;
   createdAt: string;
   sentAt?: string;
+}
+
+export interface PushDeliveryEntry {
+  uid: string;
+  email?: string;
+  name?: string;
+  status: 'sent' | 'failed' | 'partial' | 'skipped';
+  tokenCount: number;
+  successCount: number;
+  failureCount: number;
+  deadTokens: number;
+  skippedReason?: string;
+  errorCodes: Record<string, number>;
+  updatedAt?: string;
 }
 
 export async function listPushOutbox(limitN = 50): Promise<PushQueueEntry[]> {
@@ -569,6 +587,10 @@ export async function listPushOutbox(limitN = 50): Promise<PushQueueEntry[]> {
         status: data.status ?? 'pending',
         successCount: data.successCount,
         failureCount: data.failureCount,
+        recipientCount: data.recipientCount,
+        deliveredRecipientCount: data.deliveredRecipientCount,
+        failedRecipientCount: data.failedRecipientCount,
+        skippedRecipientCount: data.skippedRecipientCount,
         scheduledFor: schedIso,
         createdAt: iso,
         sentAt: sentIso,
@@ -576,6 +598,46 @@ export async function listPushOutbox(limitN = 50): Promise<PushQueueEntry[]> {
     });
   } catch (err) {
     console.warn('listPushOutbox failed:', err);
+    return [];
+  }
+}
+
+export async function listPushDeliveryReport(jobId: string): Promise<PushDeliveryEntry[]> {
+  if (!db || !jobId) return [];
+  try {
+    const snap = await getDocs(collection(db, 'push_queue', jobId, 'delivery_report'));
+    const rows: PushDeliveryEntry[] = snap.docs
+      .map((d) => {
+        const data = d.data() as any;
+        const updatedAt = data.updatedAt?.toDate
+          ? data.updatedAt.toDate().toISOString()
+          : undefined;
+        return {
+          uid: d.id,
+          email: data.email,
+          name: data.name,
+          status: data.status ?? 'failed',
+          tokenCount: typeof data.tokenCount === 'number' ? data.tokenCount : 0,
+          successCount: typeof data.successCount === 'number' ? data.successCount : 0,
+          failureCount: typeof data.failureCount === 'number' ? data.failureCount : 0,
+          deadTokens: typeof data.deadTokens === 'number' ? data.deadTokens : 0,
+          skippedReason: data.skippedReason,
+          errorCodes: data.errorCodes && typeof data.errorCodes === 'object' ? data.errorCodes : {},
+          updatedAt,
+        } satisfies PushDeliveryEntry;
+      });
+    const rank: Record<PushDeliveryEntry['status'], number> = {
+      failed: 0,
+      partial: 1,
+      skipped: 2,
+      sent: 3,
+    };
+    return rows.sort((a, b) =>
+      rank[a.status] - rank[b.status] ||
+      (a.name || a.email || a.uid).localeCompare(b.name || b.email || b.uid),
+    );
+  } catch (err) {
+    console.warn('listPushDeliveryReport failed:', err);
     return [];
   }
 }

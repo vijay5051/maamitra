@@ -281,6 +281,7 @@ export interface FullProfileData {
   foodTracking?: Record<string, Record<string, any>>;  // Per-kid 3-day-rule food log: { kidId: { foodId: FoodEntry } }
   growthTracking?: Record<string, Record<string, any>>;// Per-kid growth + routine: weight/height/head/diaper/sleep entries
   hasSeenIntro?: boolean;                   // Home first-run popup dismissed once
+  hasDismissedFeatureGuide?: boolean;       // Home feature-guide carousel permanently hidden
   phone?: string;                           // E.164-ish mobile number, e.g. "+919876543210"
   phoneVerified?: boolean;                  // True if the number was OTP-verified
 }
@@ -356,6 +357,9 @@ export async function saveFullProfile(uid: string, data: FullProfileData): Promi
     visibilitySettings: data.visibilitySettings ?? null,
     audienceBuckets,
     updatedAt: serverTimestamp(),
+    ...(data.hasDismissedFeatureGuide === undefined
+      ? {}
+      : { hasDismissedFeatureGuide: data.hasDismissedFeatureGuide }),
   }, { merge: true });
 }
 
@@ -422,6 +426,7 @@ export async function loadFullProfileStrict(uid: string): Promise<LoadFullProfil
         foodTracking: d.foodTracking ?? {},
         growthTracking: d.growthTracking ?? {},
         hasSeenIntro: d.hasSeenIntro === true,
+        hasDismissedFeatureGuide: d.hasDismissedFeatureGuide === true,
         phone: d.phone ?? '',
         phoneVerified: d.phoneVerified === true,
       },

@@ -13,6 +13,7 @@ import { Colors } from '../../constants/theme';
 
 interface QuickChipsProps {
   onSelect: (text: string) => void;
+  showHeader?: boolean;
 }
 
 // ─── Chip bank keyed by life-stage ───────────────────────────────────────────
@@ -135,7 +136,7 @@ function getChips(
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function QuickChips({ onSelect }: QuickChipsProps) {
+export default function QuickChips({ onSelect, showHeader = true }: QuickChipsProps) {
   const { activeKid, ageLabel } = useActiveKid();
   const motherName = useProfileStore((s) => s.motherName);
 
@@ -156,7 +157,9 @@ export default function QuickChips({ onSelect }: QuickChipsProps) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>{greeting}</Text>
+      {showHeader ? (
+        <Text style={styles.header}>{greeting}</Text>
+      ) : null}
       <ScrollView
         horizontal={false}
         showsVerticalScrollIndicator={false}

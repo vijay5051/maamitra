@@ -25,6 +25,7 @@ import Animated, {
 import Svg, { Circle } from 'react-native-svg';
 import { useVaccineSchedule, useKidVaccineSchedulePreference } from '../../hooks/useVaccineSchedule';
 import { GOVERNMENT_SCHEMES } from '../../data/schemes';
+import { MILESTONES } from '../../data/milestones';
 import { filterByAudience, parentGenderToAudience } from '../../data/audience';
 import { SCHEDULE_INFO, VaccineScheduleType } from '../../data/vaccines';
 import { useActiveKid } from '../../hooks/useActiveKid';
@@ -53,7 +54,7 @@ const MIST   = '#EDE9F6';
 const INK    = '#1C1033';
 const STONE  = '#6B7280';
 
-type SubTab = 'vaccines' | 'teeth' | 'foods' | 'growth' | 'routine' | 'schemes' | 'myhealth' | 'nuskhe';
+type SubTab = 'vaccines' | 'teeth' | 'foods' | 'growth' | 'milestones' | 'routine' | 'schemes' | 'myhealth' | 'nuskhe';
 
 // ─── Landing-grid categories ──────────────────────────────────────────────────
 // Seven trackers is too many for a horizontal pill bar. Group them by who the
@@ -79,6 +80,7 @@ interface SubTabMeta {
 const SUB_TABS: SubTabMeta[] = [
   { key: 'vaccines', label: 'Vaccines',   icon: 'shield-checkmark-outline', description: 'IAP 2023 schedule · due & upcoming', category: 'baby'     },
   { key: 'growth',   label: 'Growth',     icon: 'trending-up-outline',      description: 'Weight, height & head circumference', category: 'baby'     },
+  { key: 'milestones', label: 'Milestones', icon: 'star-outline',           description: 'Track what your child is doing now',    category: 'baby'     },
   { key: 'teeth',    label: 'Teeth',      icon: 'happy-outline',            description: 'Eruption & shedding tracker',         category: 'baby'     },
   { key: 'foods',    label: 'Foods',      icon: 'restaurant-outline',       description: '3-day rule for new foods',             category: 'baby'     },
   { key: 'routine',  label: 'Routine',    icon: 'time-outline',             description: 'Diaper & sleep log',                   category: 'baby'     },
@@ -396,6 +398,134 @@ function VaccineAgeGroup({ group }: { group: VaccineGroup }) {
         </View>
       )}
     </View>
+  );
+}
+
+function isMilestoneReachedForKid(
+  kid: ReturnType<typeof useActiveKid>['activeKid'],
+  milestone: (typeof MILESTONES)[number]
+): boolean {
+  if (!kid || kid.isExpecting) return false;
+  const override = kid.milestoneStates?.[milestone.id];
+  if (typeof override?.reached === 'boolean') return override.reached;
+  return kid.ageInMonths >= milestone.ageMonths;
+}
+
+function buildMilestoneFollowupPrompt(
+  kid: NonNullable<ReturnType<typeof useActiveKid>['activeKid']>,
+  milestone: (typeof MILESTONES)[number]
+): string {
+  const ageLabel = kid.isExpecting
+    ? 'currently expecting'
+    : kid.ageInMonths < 24
+    ? `${kid.ageInMonths} months old`
+    : `${Math.floor(kid.ageInMonths / 12)} years old`;
+  return `My child ${kid.name} is ${ageLabel} and is not yet showing the milestone "${milestone.title}", which is usually seen around ${milestone.ageLabel}. Please help me understand what this could mean, what signs I should watch for, how I can support this skill at home, and when I should speak to a pediatrician.`;
+}
+
+function MilestonesSection({
+  activeKid,
+  onToggle,
+  onAskAboutMilestone,
+}: {
+  activeKid: ReturnType<typeof useActiveKid>['activeKid'];
+  onToggle: (milestoneId: string, reached: boolean, milestone: (typeof MILESTONES)[number]) => void;
+  onAskAboutMilestone: (milestone: (typeof MILESTONES)[number]) => void;
+}) {
+  if (!activeKid) {
+    return (
+      <Card style={styles.milestoneEmptyCard} shadow="sm">
+        <Text style={styles.milestoneEmptyTitle}>Add a child to track milestones</Text>
+        <Text style={styles.milestoneEmptyText}>
+          MaaMitra will personalise this checklist based on the child currently selected in your family.
+        </Text>
+      </Card>
+    );
+  }
+
+  if (activeKid.isExpecting) {
+    return (
+      <Card style={styles.milestoneEmptyCard} shadow="sm">
+        <Text style={styles.milestoneEmptyTitle}>Milestones start after birth</Text>
+        <Text style={styles.milestoneEmptyText}>
+          Once your baby arrives, this section will turn into a month-by-month milestone tracker for the selected child.
+        </Text>
+      </Card>
+    );
+  }
+
+  const visibleMilestones = filterByAudience(
+    MILESTONES,
+    parentGenderToAudience(useProfileStore.getState().parentGender),
+  )
+    .filter((m) => m.ageMonths >= activeKid.ageInMonths - 3 && m.ageMonths <= activeKid.ageInMonths + 12)
+    .slice(0, 8);
+
+  const milestones = visibleMilestones.length > 0
+    ? visibleMilestones
+    : filterByAudience(MILESTONES, parentGenderToAudience(useProfileStore.getState().parentGender))
+        .filter((m) => m.ageMonths <= activeKid.ageInMonths)
+        .slice(-6);
+
+  const doneCount = milestones.filter((m) => isMilestoneReachedForKid(activeKid, m)).length;
+
+  return (
+    <>
+      <Card style={styles.milestoneSummaryCard} shadow="sm">
+        <View style={styles.milestoneSummaryTop}>
+          <View>
+            <Text style={styles.milestoneSummaryTitle}>Milestones for {activeKid.name}</Text>
+            <Text style={styles.milestoneSummaryText}>
+              Mark what your child is already doing. You can always ask MaaMitra about anything that feels delayed.
+            </Text>
+          </View>
+          <View style={styles.milestoneSummaryBadge}>
+            <Text style={styles.milestoneSummaryBadgeText}>
+              {doneCount}/{milestones.length}
+            </Text>
+          </View>
+        </View>
+      </Card>
+
+      {milestones.map((milestone) => {
+        const reached = isMilestoneReachedForKid(activeKid, milestone);
+        return (
+          <Card key={milestone.id} style={styles.milestoneCard} shadow="sm">
+            <View style={styles.milestoneCardTop}>
+              <View style={styles.milestoneEmojiWrap}>
+                <Text style={styles.milestoneEmoji}>{milestone.emoji}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.milestoneCardTitle}>{milestone.title}</Text>
+                <Text style={styles.milestoneCardAge}>{milestone.ageLabel}</Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.milestoneToggle, reached && styles.milestoneToggleOn]}
+                activeOpacity={0.82}
+                onPress={() => onToggle(milestone.id, !reached, milestone)}
+              >
+                {reached ? (
+                  <AppIcon name="status.success" size={16} color="#ffffff" />
+                ) : (
+                  <Ionicons name="add" size={16} color={Colors.primary} />
+                )}
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.milestoneCardDesc}>{milestone.description}</Text>
+            <View style={styles.milestoneCardFooter}>
+              <Text style={styles.milestoneCardFooterText}>
+                {reached ? 'Marked as reached' : 'Not reached yet'}
+              </Text>
+              {!reached ? (
+                <TouchableOpacity activeOpacity={0.75} onPress={() => onAskAboutMilestone(milestone)}>
+                  <Text style={styles.milestoneAskLink}>Ask MaaMitra</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          </Card>
+        );
+      })}
+    </>
   );
 }
 
@@ -1378,7 +1508,7 @@ export default function HealthScreen() {
   // `?tab=teeth` (or schemes/myhealth/vaccines) opens the screen on that
   // sub-tab — used by the home Quick Actions deep-link.
   const params     = useLocalSearchParams<{ tab?: string }>();
-  const validTabs: SubTab[] = ['vaccines', 'teeth', 'foods', 'growth', 'routine', 'schemes', 'myhealth', 'nuskhe'];
+  const validTabs: SubTab[] = ['vaccines', 'teeth', 'foods', 'growth', 'milestones', 'routine', 'schemes', 'myhealth', 'nuskhe'];
   // Null => show the category landing grid. A valid ?tab=… deep-links directly
   // into a sub-screen (used by home Quick Actions) and bypasses the grid.
   const initialTab: SubTab | null =
@@ -1401,7 +1531,9 @@ export default function HealthScreen() {
   const motherName = useProfileStore((s) => s.motherName);
   const profile    = useProfileStore((s) => s.profile);
   const setKidVaccineSchedule = useProfileStore((s) => s.setKidVaccineSchedule);
+  const setKidMilestoneState = useProfileStore((s) => s.setKidMilestoneState);
   const { user }   = useAuthStore();
+  const [milestonePrompt, setMilestonePrompt] = useState<(typeof MILESTONES)[number] | null>(null);
 
   // Persist the parent's schedule pick locally + to Firestore. Lighter than
   // a full saveFullProfile but uses the same shape so the kids array stays
@@ -1478,6 +1610,43 @@ export default function HealthScreen() {
       : `${activeKid.name} · ${ageLabel}`
     : 'Personalised for your family';
 
+  const persistProfileSnapshot = () => {
+    if (!user?.uid) return;
+    const s = useProfileStore.getState();
+    saveFullProfile(user.uid, {
+      motherName: s.motherName,
+      profile: s.profile,
+      kids: s.kids,
+      completedVaccines: s.completedVaccines,
+      onboardingComplete: s.onboardingComplete,
+      photoUrl: s.photoUrl || '',
+      parentGender: s.parentGender || '',
+      bio: s.bio || '',
+      expertise: s.expertise || [],
+      visibilitySettings: s.visibilitySettings,
+    }).catch(console.error);
+  };
+
+  const handleToggleMilestone = (
+    milestoneId: string,
+    reached: boolean,
+    milestone: (typeof MILESTONES)[number],
+  ) => {
+    if (!activeKid) return;
+    setKidMilestoneState(activeKid.id, milestoneId, reached);
+    persistProfileSnapshot();
+    if (!reached) {
+      setMilestonePrompt(milestone);
+    }
+  };
+
+  const handleAskMilestone = (milestone: (typeof MILESTONES)[number]) => {
+    if (!activeKid) return;
+    const prefill = buildMilestoneFollowupPrompt(activeKid, milestone);
+    setMilestonePrompt(null);
+    router.push({ pathname: '/(tabs)/chat', params: { prefill } });
+  };
+
   return (
     <View style={styles.container}>
       {/* ── Dark Gradient Header ── */}
@@ -1501,6 +1670,12 @@ export default function HealthScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}
         showsVerticalScrollIndicator={false}
       >
+        {subTab === null && (
+          <View style={styles.healthHeroWrap}>
+            <Illustration name="healthHero" style={styles.healthHeroImg} contentFit="cover" />
+          </View>
+        )}
+
         {/* ── LANDING CATEGORY GRID ── */}
         {subTab === null && <CategoryGrid onPick={setSubTab} />}
 
@@ -1523,6 +1698,15 @@ export default function HealthScreen() {
 
         {/* ── GROWTH (weight / height / head) ── */}
         {subTab === 'growth' && <GrowthTab />}
+
+        {/* ── MILESTONES ── */}
+        {subTab === 'milestones' && (
+          <MilestonesSection
+            activeKid={activeKid}
+            onToggle={handleToggleMilestone}
+            onAskAboutMilestone={handleAskMilestone}
+          />
+        )}
 
         {/* ── ROUTINE (diaper / sleep) ── */}
         {subTab === 'routine' && <RoutineTab />}
@@ -1598,6 +1782,33 @@ export default function HealthScreen() {
           </>
         )}
       </ScrollView>
+
+      <Modal visible={!!milestonePrompt} transparent animationType="fade" onRequestClose={() => setMilestonePrompt(null)}>
+        <View style={styles.milestonePromptOverlay}>
+          <View style={styles.milestonePromptSheet}>
+            <Text style={styles.milestonePromptTitle}>Uh oh, let’s understand this better</Text>
+            <Text style={styles.milestonePromptText}>
+              {milestonePrompt
+                ? `${milestonePrompt.title} was marked as not reached yet. MaaMitra can help you understand what it may mean, what to watch for, and when to check with a doctor.`
+                : ''}
+            </Text>
+            <TouchableOpacity
+              style={styles.milestonePromptPrimary}
+              activeOpacity={0.84}
+              onPress={() => milestonePrompt && handleAskMilestone(milestonePrompt)}
+            >
+              <Text style={styles.milestonePromptPrimaryText}>Ask MaaMitra about this</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.milestonePromptSecondary}
+              activeOpacity={0.74}
+              onPress={() => setMilestonePrompt(null)}
+            >
+              <Text style={styles.milestonePromptSecondaryText}>Not now</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1641,6 +1852,182 @@ const styles = StyleSheet.create({
     color: '#6b7280',
   },
   content: { paddingHorizontal: 16, paddingTop: 16 },
+  healthHeroWrap: {
+    marginBottom: 14,
+    borderRadius: 18,
+    overflow: 'hidden',
+    backgroundColor: '#FFF8F1',
+    aspectRatio: 12 / 5,
+  },
+  milestoneSummaryCard: {
+    marginBottom: 12,
+  },
+  milestoneSummaryTop: {
+    flexDirection: 'row',
+    gap: 14,
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  milestoneSummaryTitle: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 16,
+    color: INK,
+    marginBottom: 4,
+  },
+  milestoneSummaryText: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: 13,
+    color: STONE,
+    lineHeight: 19,
+    maxWidth: 250,
+  },
+  milestoneSummaryBadge: {
+    minWidth: 54,
+    borderRadius: 999,
+    backgroundColor: Colors.primaryAlpha08,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  milestoneSummaryBadgeText: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 13,
+    color: Colors.primary,
+  },
+  milestoneCard: {
+    marginBottom: 12,
+  },
+  milestoneCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 8,
+  },
+  milestoneEmojiWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    backgroundColor: '#FFF5E9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  milestoneEmoji: {
+    fontSize: 18,
+  },
+  milestoneCardTitle: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 15,
+    color: INK,
+  },
+  milestoneCardAge: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 11,
+    color: Colors.primary,
+    marginTop: 2,
+  },
+  milestoneCardDesc: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: 13,
+    color: STONE,
+    lineHeight: 20,
+  },
+  milestoneCardFooter: {
+    marginTop: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  milestoneCardFooterText: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 12,
+    color: '#7C6A91',
+  },
+  milestoneAskLink: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 12,
+    color: Colors.primary,
+  },
+  milestoneToggle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1.5,
+    borderColor: '#E5D8F8',
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  milestoneToggleOn: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  milestoneEmptyCard: {
+    alignItems: 'center',
+    paddingVertical: 28,
+  },
+  milestoneEmptyTitle: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 16,
+    color: INK,
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  milestoneEmptyText: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: 13,
+    color: STONE,
+    lineHeight: 20,
+    textAlign: 'center',
+    maxWidth: 280,
+  },
+  milestonePromptOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(28,16,51,0.34)',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  milestonePromptSheet: {
+    backgroundColor: '#FFFDFC',
+    borderRadius: 24,
+    padding: 22,
+    borderWidth: 1,
+    borderColor: '#F0E7FB',
+  },
+  milestonePromptTitle: {
+    fontFamily: Fonts.serif,
+    fontSize: 24,
+    color: INK,
+    marginBottom: 10,
+  },
+  milestonePromptText: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: 14,
+    color: STONE,
+    lineHeight: 22,
+  },
+  milestonePromptPrimary: {
+    marginTop: 18,
+    backgroundColor: Colors.primary,
+    borderRadius: 16,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  milestonePromptPrimaryText: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 14,
+    color: '#ffffff',
+  },
+  milestonePromptSecondary: {
+    marginTop: 10,
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  milestonePromptSecondaryText: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 13,
+    color: '#7C6A91',
+  },
+  healthHeroImg: { width: '100%', height: '100%' },
   infoBanner: {
     flexDirection: 'row',
     alignItems: 'center',

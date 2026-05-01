@@ -21,6 +21,7 @@ export const illustrations = {
   healthCatBenefits: require('../assets/illustrations/health-cat-benefits.webp'),
 
   // Hero & welcome
+  healthHero: require('../assets/illustrations/health-hero.webp'),
   wellnessHero: require('../assets/illustrations/wellness-hero.webp'),
   familyEmpty: require('../assets/illustrations/family-empty.webp'),
   onboardingWelcome: require('../assets/illustrations/onboarding-welcome.webp'),
@@ -33,6 +34,8 @@ export const illustrations = {
   featureIndia: require('../assets/illustrations/feature-india.webp'),
   featurePrivate: require('../assets/illustrations/feature-private.webp'),
   featureFree: require('../assets/illustrations/feature-free.webp'),
+  communityHero: require('../assets/illustrations/community-hero.webp'),
+  dadiKeNuskheHero: require('../assets/illustrations/dadi-ke-nuskhe-hero.png'),
 
   // Community topic banners
   topicNewborn: require('../assets/illustrations/topic-newborn.webp'),

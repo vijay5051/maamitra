@@ -35,6 +35,14 @@ interface PushJob {
   notifType?: 'reaction' | 'comment' | 'follow_request' | 'follow_accepted' | 'message';
 }
 
+interface ResolvedRecipient {
+  uid: string;
+  email?: string;
+  name?: string;
+  tokens: string[];
+  skippedReason?: string;
+}
+
 interface NotifPrefs {
   reactions: boolean;
   comments: boolean;
@@ -60,24 +68,78 @@ export const dispatchPush = functions.firestore
     const jobId = context.params.jobId as string;
     const db = admin.firestore();
     const msg = admin.messaging();
+    const reportRef = snap.ref.collection('delivery_report');
 
     try {
-      const tokens = await resolveTokens(db, job);
-      if (tokens.length === 0) {
+      const recipients = await resolveRecipients(db, job);
+      const activeRecipients = recipients.filter((r) => r.tokens.length > 0);
+      const skippedRecipients = recipients.filter((r) => r.tokens.length === 0);
+      const tokenOwners = activeRecipients.flatMap((r) =>
+        r.tokens.map((token) => ({
+          token,
+          uid: r.uid,
+          email: r.email,
+          name: r.name,
+        })),
+      );
+
+      if (tokenOwners.length === 0) {
+        if (skippedRecipients.length > 0) {
+          await writeDeliveryReport(reportRef, skippedRecipients.map((r) => ({
+            uid: r.uid,
+            email: r.email,
+            name: r.name,
+            status: 'skipped',
+            tokenCount: 0,
+            successCount: 0,
+            failureCount: 0,
+            deadTokens: 0,
+            skippedReason: r.skippedReason ?? 'no-tokens-or-prefs-off',
+            errorCodes: {},
+          })));
+        }
         await snap.ref.update({
           status: 'skipped',
           reason: 'no-tokens-or-prefs-off',
+          recipientCount: recipients.length,
+          skippedCount: skippedRecipients.length,
           sentAt: admin.firestore.FieldValue.serverTimestamp(),
         });
         return;
       }
 
-      const deadTokens: string[] = [];
+      const deadTokens = new Set<string>();
       let successCount = 0;
       let failureCount = 0;
+      const perRecipient = new Map<string, {
+        uid: string;
+        email?: string;
+        name?: string;
+        tokenCount: number;
+        successCount: number;
+        failureCount: number;
+        deadTokens: number;
+        skippedReason?: string;
+        errorCodes: Record<string, number>;
+      }>();
 
-      for (let i = 0; i < tokens.length; i += MAX_BATCH) {
-        const batch = tokens.slice(i, i + MAX_BATCH);
+      for (const recipient of recipients) {
+        perRecipient.set(recipient.uid, {
+          uid: recipient.uid,
+          email: recipient.email,
+          name: recipient.name,
+          tokenCount: recipient.tokens.length,
+          successCount: 0,
+          failureCount: 0,
+          deadTokens: 0,
+          skippedReason: recipient.tokens.length === 0 ? (recipient.skippedReason ?? 'no-tokens') : undefined,
+          errorCodes: {},
+        });
+      }
+
+      for (let i = 0; i < tokenOwners.length; i += MAX_BATCH) {
+        const batchOwners = tokenOwners.slice(i, i + MAX_BATCH);
+        const batch = batchOwners.map((b) => b.token);
         const response = await msg.sendEachForMulticast({
           tokens: batch,
           notification: {
@@ -96,26 +158,70 @@ export const dispatchPush = functions.firestore
         successCount += response.successCount;
         failureCount += response.failureCount;
         response.responses.forEach((r, idx) => {
-          if (r.success) return;
+          const owner = batchOwners[idx];
+          const rec = perRecipient.get(owner.uid);
+          if (!rec) return;
+          if (r.success) {
+            rec.successCount += 1;
+            return;
+          }
+          rec.failureCount += 1;
           const code = r.error?.code ?? '';
+          if (code) rec.errorCodes[code] = (rec.errorCodes[code] ?? 0) + 1;
           if (
             code === 'messaging/registration-token-not-registered' ||
             code === 'messaging/invalid-registration-token'
           ) {
-            deadTokens.push(batch[idx]);
+            deadTokens.add(batch[idx]);
+            rec.deadTokens += 1;
           }
         });
       }
 
-      if (deadTokens.length > 0) {
-        await pruneDeadTokens(db, deadTokens);
+      if (deadTokens.size > 0) {
+        await pruneDeadTokens(db, [...deadTokens]);
       }
+
+      const deliveryRows: Array<{
+        uid: string;
+        email?: string;
+        name?: string;
+        status: 'sent' | 'failed' | 'partial' | 'skipped';
+        tokenCount: number;
+        successCount: number;
+        failureCount: number;
+        deadTokens: number;
+        skippedReason?: string;
+        errorCodes: Record<string, number>;
+      }> = [...perRecipient.values()].map((rec) => ({
+        uid: rec.uid,
+        email: rec.email,
+        name: rec.name,
+        status: rec.skippedReason
+          ? 'skipped'
+          : rec.failureCount > 0 && rec.successCount === 0
+            ? 'failed'
+            : rec.failureCount > 0
+              ? 'partial'
+              : 'sent',
+        tokenCount: rec.tokenCount,
+        successCount: rec.successCount,
+        failureCount: rec.failureCount,
+        deadTokens: rec.deadTokens,
+        skippedReason: rec.skippedReason,
+        errorCodes: rec.errorCodes,
+      }));
+      await writeDeliveryReport(reportRef, deliveryRows);
 
       await snap.ref.update({
         status: failureCount > 0 && successCount === 0 ? 'failed' : 'sent',
         successCount,
         failureCount,
-        deadTokens: deadTokens.length,
+        deadTokens: deadTokens.size,
+        recipientCount: recipients.length,
+        deliveredRecipientCount: deliveryRows.filter((r) => r.status === 'sent' || r.status === 'partial').length,
+        failedRecipientCount: deliveryRows.filter((r) => r.status === 'failed').length,
+        skippedRecipientCount: deliveryRows.filter((r) => r.status === 'skipped').length,
         sentAt: admin.firestore.FieldValue.serverTimestamp(),
       });
     } catch (err: any) {
@@ -138,20 +244,40 @@ async function resolveTokens(
   db: admin.firestore.Firestore,
   job: PushJob,
 ): Promise<string[]> {
+  const recipients = await resolveRecipients(db, job);
+  return recipients.flatMap((r) => r.tokens);
+}
+
+async function resolveRecipients(
+  db: admin.firestore.Firestore,
+  job: PushJob,
+): Promise<ResolvedRecipient[]> {
   if (job.kind === 'personal') {
     if (!job.toUid) return [];
     const doc = await db.doc(`users/${job.toUid}`).get();
     const data = doc.data();
-    if (!data || data.pushEnabled === false) return [];
+    if (!data) return [];
+    const email = typeof data.email === 'string' ? data.email : undefined;
+    const name = typeof data.name === 'string'
+      ? data.name
+      : typeof data.motherName === 'string'
+        ? data.motherName
+        : undefined;
+    if (data.pushEnabled === false) {
+      return [{ uid: job.toUid, email, name, tokens: [], skippedReason: 'push-disabled' }];
+    }
 
     // Per-topic gate. Map the in-app notification type to a pref key;
     // if the pref is false we return no tokens → silent skip.
     const prefs: NotifPrefs = { ...DEFAULT_PREFS, ...(data.notifPrefs || {}) };
     const prefKey = personalPrefKey(job.notifType);
-    if (prefKey && !prefs[prefKey]) return [];
+    if (prefKey && !prefs[prefKey]) {
+      return [{ uid: job.toUid, email, name, tokens: [], skippedReason: `pref-off:${prefKey}` }];
+    }
 
     const tokens = data.fcmTokens;
-    return Array.isArray(tokens) ? tokens.filter((t: any) => typeof t === 'string' && t.length > 0) : [];
+    const cleaned = Array.isArray(tokens) ? tokens.filter((t: any) => typeof t === 'string' && t.length > 0) : [];
+    return [{ uid: job.toUid, email, name, tokens: cleaned, skippedReason: cleaned.length === 0 ? 'no-tokens' : undefined }];
   }
 
   // ── broadcast ──────────────────────────────────────────────────
@@ -167,20 +293,67 @@ async function resolveTokens(
       : db.collection('users').where('pushEnabled', '==', true);
 
   const snap = await q.get();
-  const out: string[] = [];
+  const out: ResolvedRecipient[] = [];
   snap.forEach((doc) => {
     const d = doc.data();
+    const email = typeof d.email === 'string' ? d.email : undefined;
+    const name = typeof d.name === 'string'
+      ? d.name
+      : typeof d.motherName === 'string'
+        ? d.motherName
+        : undefined;
     // Respect announcements opt-out. Missing prefs default to true.
     const wantsAnnouncements = d.notifPrefs?.announcements !== false;
-    if (!wantsAnnouncements) return;
-    const arr = d.fcmTokens;
-    if (Array.isArray(arr)) {
-      for (const t of arr) {
-        if (typeof t === 'string' && t.length > 0) out.push(t);
-      }
+    if (!wantsAnnouncements) {
+      out.push({
+        uid: doc.id,
+        email,
+        name,
+        tokens: [],
+        skippedReason: 'pref-off:announcements',
+      });
+      return;
     }
+    const arr = d.fcmTokens;
+    const cleaned = Array.isArray(arr)
+      ? arr.filter((t: any) => typeof t === 'string' && t.length > 0)
+      : [];
+    out.push({
+      uid: doc.id,
+      email,
+      name,
+      tokens: cleaned,
+      skippedReason: cleaned.length === 0 ? 'no-tokens' : undefined,
+    });
   });
   return out;
+}
+
+async function writeDeliveryReport(
+  reportRef: admin.firestore.CollectionReference,
+  rows: Array<{
+    uid: string;
+    email?: string;
+    name?: string;
+    status: 'sent' | 'failed' | 'partial' | 'skipped';
+    tokenCount: number;
+    successCount: number;
+    failureCount: number;
+    deadTokens: number;
+    skippedReason?: string;
+    errorCodes: Record<string, number>;
+  }>,
+): Promise<void> {
+  if (rows.length === 0) return;
+  const batch = admin.firestore().batch();
+  for (const row of rows) {
+    const ref = reportRef.doc(row.uid);
+    batch.set(ref, {
+      ...row,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+  }
+  await batch.commit();
 }
 
 /** Map a personal-push in-app type to its matching pref key. */

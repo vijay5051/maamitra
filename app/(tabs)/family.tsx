@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
+  Image,
   Modal,
   ScrollView,
   StyleSheet,
@@ -71,21 +72,25 @@ function ChildCard({
       style={[childCardStyles.card, isActive && childCardStyles.cardActive]}
     >
       <View style={[childCardStyles.inner, isActive && childCardStyles.innerActive]}>
-        <View style={[childCardStyles.iconBox, isActive && { backgroundColor: '#F5F0FF' }]}>
-          <AppIcon
-            name={
-              isActuallyExpecting
-                ? 'object.heart'
-                : kid.gender === 'boy'
-                ? 'object.gender-boy'
-                : kid.gender === 'girl'
-                ? 'object.gender-girl'
-                : 'object.gender-other'
-            }
-            size={20}
-            color={isActive ? accent : '#6b7280'}
-          />
-        </View>
+        {kid.photoUrl ? (
+          <Image source={{ uri: kid.photoUrl }} style={childCardStyles.photoAvatar} />
+        ) : (
+          <View style={[childCardStyles.iconBox, isActive && { backgroundColor: '#F5F0FF' }]}>
+            <AppIcon
+              name={
+                isActuallyExpecting
+                  ? 'object.heart'
+                  : kid.gender === 'boy'
+                  ? 'object.gender-boy'
+                  : kid.gender === 'girl'
+                  ? 'object.gender-girl'
+                  : 'object.gender-other'
+              }
+              size={20}
+              color={isActive ? accent : '#6b7280'}
+            />
+          </View>
+        )}
         <Text style={[childCardStyles.name, isActive && childCardStyles.nameActive]}>
           {kid.name}
         </Text>
@@ -129,6 +134,13 @@ const childCardStyles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 8,
     backgroundColor: '#F5F0FF',
+  },
+  photoAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginBottom: 8,
+    backgroundColor: '#F3F4F6',
   },
   name: { fontFamily: Fonts.sansSemiBold, fontSize: 13, color: '#1C1033', textAlign: 'center' },
   nameActive: { fontFamily: Fonts.sansBold, color: '#1C1033' },
@@ -381,13 +393,14 @@ const addChildStyles = StyleSheet.create({
 export default function FamilyScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { kids, activeKidId, setActiveKidId, addKid, motherName, profile, completedVaccines } = useProfileStore();
+  const { kids, activeKidId, setActiveKidId, addKid, motherName } = useProfileStore();
   const { activeKid } = useActiveKid();
   const { user } = useAuthStore();
   const [showAddModal, setShowAddModal] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showMessages, setShowMessages] = useState(false);
+  const [settingsView, setSettingsView] = useState<null | 'edit-profile' | 'edit-kid'>(null);
+  const [editingKidId, setEditingKidId] = useState<string | null>(null);
 
   // Badges for the new global header icons (same store as Home & Community).
   const socialUnread = useSocialStore((s) => s.unreadCount);
@@ -400,35 +413,6 @@ export default function FamilyScreen() {
       loadDMUnreadCount();
     }
   }, [user?.uid]);
-
-  const currentAgeMonths = activeKid && activeKid.dob && !activeKid.isExpecting
-    ? Math.max(0, Math.floor((Date.now() - new Date(activeKid.dob).getTime()) / (1000 * 60 * 60 * 24 * 30.44)))
-    : 0;
-
-  const nearestMilestones = (() => {
-    if (!activeKid || activeKid.isExpecting) return [];
-    // Audience-filter first (no-op while feature flag is off).
-    const audienceOk = filterByAudience(
-      MILESTONES,
-      parentGenderToAudience(useProfileStore.getState().parentGender),
-    );
-    // Show milestones near current age (window: -3m to +12m)
-    const inWindow = audienceOk.filter(
-      (m) => m.ageMonths >= currentAgeMonths - 3 && m.ageMonths <= currentAgeMonths + 12
-    ).slice(0, 6);
-    // Fallback: if no milestones in window (e.g. older child beyond data range),
-    // show the 3 most recent milestones from the dataset
-    if (inWindow.length === 0) {
-      return [...audienceOk]
-        .filter((m) => m.ageMonths <= currentAgeMonths)
-        .sort((a, b) => b.ageMonths - a.ageMonths)
-        .slice(0, 3);
-    }
-    return inWindow;
-  })();
-
-  const milestonesReached = nearestMilestones.filter(m => activeKid && currentAgeMonths >= m.ageMonths).length;
-  const milestoneProgress = nearestMilestones.length > 0 ? milestonesReached / nearestMilestones.length : 0;
 
   const handleAddKid = ({
     name,
@@ -497,7 +481,8 @@ export default function FamilyScreen() {
               <AppIcon name="action.add" size={20} color="#ffffff" />
             </TouchableOpacity>
 
-            {/* Global: notifications → messages → settings, same order as Home & Community */}
+            {/* Global: notifications → messages. Family owns child
+                management; profile/privacy stay under Settings from the menu. */}
             <TouchableOpacity
               style={styles.headerBtn}
               onPress={() => setShowNotifications(true)}
@@ -524,19 +509,19 @@ export default function FamilyScreen() {
                 </View>
               )}
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.headerBtn}
-              onPress={() => setShowSettings(true)}
-              activeOpacity={0.7}
-              accessibilityLabel="Settings"
-            >
-              <AppIcon name="nav.settings" size={18} color="#6b7280" />
-            </TouchableOpacity>
           </View>
         </View>
       </LinearGradient>
 
-      <SettingsModal visible={showSettings} onClose={() => setShowSettings(false)} />
+      <SettingsModal
+        visible={settingsView !== null}
+        onClose={() => {
+          setSettingsView(null);
+          setEditingKidId(null);
+        }}
+        initialView={settingsView === 'edit-kid' ? 'edit-kid' : settingsView === 'edit-profile' ? 'edit-profile' : 'main'}
+        initialKidId={editingKidId}
+      />
       <NotificationsSheet
         visible={showNotifications}
         onClose={() => setShowNotifications(false)}
@@ -556,26 +541,16 @@ export default function FamilyScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Contextual AI — lets the user ask about the active child directly
-            without leaving the screen. Prefill mirrors what they're looking at. */}
-        <ContextualAskChip
-          prompt={
-            activeKid
-              ? activeKid.isExpecting
-                ? `Ask about my pregnancy — what should I do this week?`
-                : `Ask about ${activeKid.name} — what milestones are next?`
-              : `Ask Maamitra anything about your family`
-          }
-        />
-
-        {/* ── Children Section ── */}
         <Text style={styles.sectionTitle}>Children</Text>
+        <Text style={styles.sectionSub}>
+          Add, switch, and update each child here. Milestones and routines now live inside Health.
+        </Text>
 
         {kids.length === 0 ? (
           <Card style={styles.emptyCard} shadow="sm">
             <Illustration name="emptyFamily" style={styles.emptyIllus} contentFit="contain" />
             <Text style={styles.emptyText}>
-              Add your child to get personalised milestones, vaccine schedules, and more!
+              Add your child here to personalise Health, vaccines, milestones, and chat guidance.
             </Text>
             <GradientButton
               title="Add First Child"
@@ -584,177 +559,112 @@ export default function FamilyScreen() {
             />
           </Card>
         ) : (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.kidsRow}
-          >
-            {kids.map((kid, index) => (
-              <ChildCard
-                key={kid.id}
-                kid={kid}
-                isActive={kid.id === activeKidId}
-                onPress={() => setActiveKidId(kid.id)}
-                index={index}
-              />
-            ))}
-            {/* Dashed add button */}
-            <TouchableOpacity
-              style={styles.addKidBtn}
-              onPress={() => setShowAddModal(true)}
-              activeOpacity={0.75}
-            >
-              <View style={styles.addKidInner}>
-                <AppIcon name="action.add" size={26} />
-                <Text style={styles.addKidText}>Add</Text>
-              </View>
-            </TouchableOpacity>
-          </ScrollView>
-        )}
-
-        {/* ── Milestones ── */}
-        {activeKid && !activeKid.isExpecting && nearestMilestones.length > 0 && (
           <>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Milestones · {activeKid.name}</Text>
-              <View style={styles.progressBadge}>
-                <Text style={styles.progressBadgeText}>
-                  {milestonesReached}/{nearestMilestones.length}
-                </Text>
-              </View>
-            </View>
-            {/* Progress bar */}
-            <View style={styles.milestoneProgressBg}>
-              <LinearGradient
-                colors={[Colors.primary, Colors.primary]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={[styles.milestoneProgressFill, { width: `${milestoneProgress * 100}%` }]}
-              />
-            </View>
-            <Card style={styles.milestonesCard} shadow="sm">
-              {nearestMilestones.map((m) => (
-                <MilestoneRow
-                  key={m.id}
-                  milestone={m}
-                  reached={currentAgeMonths >= m.ageMonths}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.kidsRow}
+            >
+              {kids.map((kid, index) => (
+                <ChildCard
+                  key={kid.id}
+                  kid={kid}
+                  isActive={kid.id === activeKidId}
+                  onPress={() => setActiveKidId(kid.id)}
+                  index={index}
                 />
               ))}
-            </Card>
+              <TouchableOpacity
+                style={styles.addKidBtn}
+                onPress={() => setShowAddModal(true)}
+                activeOpacity={0.75}
+              >
+                <View style={styles.addKidInner}>
+                  <AppIcon name="action.add" size={26} />
+                  <Text style={styles.addKidText}>Add</Text>
+                </View>
+              </TouchableOpacity>
+            </ScrollView>
+
+            {activeKid ? (
+              <Card style={styles.manageCard} shadow="sm">
+                <View style={styles.manageHeader}>
+                  <View style={styles.manageIdentity}>
+                    {activeKid.photoUrl ? (
+                      <Image source={{ uri: activeKid.photoUrl }} style={styles.managePhoto} />
+                    ) : (
+                      <View style={styles.managePhotoFallback}>
+                        <Text style={styles.managePhotoFallbackText}>
+                          {(activeKid.name || 'B').charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.manageTitle}>{activeKid.name || 'Your child'}</Text>
+                      <Text style={styles.manageMeta}>
+                        {activeKid.isExpecting
+                          ? 'Expecting'
+                          : activeKid.dob
+                          ? (() => {
+                              const months = Math.max(
+                                0,
+                                Math.floor((Date.now() - new Date(activeKid.dob).getTime()) / (1000 * 60 * 60 * 24 * 30.44)),
+                              );
+                              return months < 24 ? `${months} months old` : `${Math.floor(months / 12)} years old`;
+                            })()
+                          : 'Child profile'}
+                        {' · '}
+                        {activeKid.gender === 'surprise'
+                          ? 'Surprise'
+                          : activeKid.gender.charAt(0).toUpperCase() + activeKid.gender.slice(1)}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.activeBadge}>
+                    <Text style={styles.activeBadgeText}>Active</Text>
+                  </View>
+                </View>
+                <Text style={styles.manageHint}>
+                  Update photo, name, date of birth, gender, or remove this child from MaaMitra.
+                </Text>
+                <View style={styles.manageActions}>
+                  <TouchableOpacity
+                    style={styles.managePrimaryBtn}
+                    activeOpacity={0.82}
+                    onPress={() => {
+                      setEditingKidId(activeKid.id);
+                      setSettingsView('edit-kid');
+                    }}
+                  >
+                    <Text style={styles.managePrimaryBtnText}>Edit child details</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.manageSecondaryBtn}
+                    activeOpacity={0.82}
+                    onPress={() => setShowAddModal(true)}
+                  >
+                    <Text style={styles.manageSecondaryBtnText}>Add another child</Text>
+                  </TouchableOpacity>
+                </View>
+              </Card>
+            ) : null}
           </>
         )}
 
-        {activeKid?.isExpecting && (() => {
-          const edd = activeKid.dob ? new Date(activeKid.dob) : null;
-          const today = new Date();
-          const msUntilEDD = edd ? edd.getTime() - today.getTime() : 0;
-          const weeksLeft = edd ? Math.max(0, Math.ceil(msUntilEDD / (7 * 24 * 3600 * 1000))) : 0;
-          const currentWeek = Math.min(40, Math.max(1, 40 - weeksLeft));
-          const trimester = currentWeek <= 12 ? 1 : currentWeek <= 26 ? 2 : 3;
-
-          const PREGNANCY_MILESTONES = [
-            { week: 4,  emoji: '🌱', title: 'Tiny Seed',         desc: 'Baby is the size of a poppy seed. Heart cells are already dividing.' },
-            { week: 8,  emoji: '🫀', title: 'Heartbeat!',        desc: 'Baby\'s heart is beating and all major organs are forming.' },
-            { week: 12, emoji: '👶', title: 'End of 1st Trimester', desc: 'Miscarriage risk drops significantly. Baby can open and close fists.' },
-            { week: 16, emoji: '👂', title: 'Can Hear You',      desc: 'Baby starts hearing sounds. Talk and sing — they\'re listening!' },
-            { week: 20, emoji: '🏃', title: 'First Kicks',       desc: 'You may start feeling movements — flutters become kicks soon.' },
-            { week: 24, emoji: '👁️', title: 'Eyes Open',         desc: 'Baby opens their eyes for the first time and responds to light.' },
-            { week: 28, emoji: '🧠', title: '3rd Trimester',     desc: 'Brain develops rapidly. Baby now has sleep and wake cycles.' },
-            { week: 32, emoji: '🫁', title: 'Lungs Maturing',    desc: 'Baby practices breathing. Survival outside the womb is very high now.' },
-            { week: 36, emoji: '🏠', title: 'Moving Down',       desc: 'Baby settles into position for birth. Full-term is just weeks away.' },
-            { week: 40, emoji: '🎉', title: 'Due Date!',          desc: 'Your little one is ready to meet you. Every day is a gift now.' },
-          ];
-
-          const dueDateStr = edd
-            ? edd.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
-            : 'Due soon';
-
-          return (
-            <Card style={styles.expectingCard} shadow="sm">
-              {/* Header */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(28, 16, 51, 0.06)', alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={{ fontSize: 20 }}>🤰</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontFamily: Fonts.sansBold, fontSize: 15, color: '#1C1033' }}>
-                    {activeKid.name}'s Pregnancy Journey
-                  </Text>
-                  <Text style={{ fontFamily: Fonts.sansRegular, fontSize: 12, color: '#9CA3AF', marginTop: 2 }}>
-                    Week {currentWeek} · Trimester {trimester} · Due {dueDateStr}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Current week highlight */}
-              <View style={{ backgroundColor: 'rgba(28, 16, 51, 0.048)', borderRadius: 12, padding: 12, marginBottom: 16, borderWidth: 1, borderColor: 'rgba(28, 16, 51, 0.09)' }}>
-                <Text style={{ fontFamily: Fonts.sansBold, fontSize: 13, color: Colors.primary, marginBottom: 2 }}>
-                  📍 You are at Week {currentWeek}
-                </Text>
-                <Text style={{ fontFamily: Fonts.sansRegular, fontSize: 12, color: '#6B7280' }}>
-                  {weeksLeft > 0 ? `${weeksLeft} week${weeksLeft === 1 ? '' : 's'} until your due date` : 'Your due date has arrived — congratulations! 🎊'}
-                </Text>
-              </View>
-
-              {/* Milestone timeline */}
-              {PREGNANCY_MILESTONES.map((m, idx) => {
-                const isPast    = m.week < currentWeek;
-                const isCurrent = m.week === PREGNANCY_MILESTONES.find(x => x.week >= currentWeek)?.week;
-                const isFuture  = !isPast && !isCurrent;
-                return (
-                  <View key={m.week} style={{ flexDirection: 'row', gap: 10, marginBottom: 12 }}>
-                    {/* Timeline dot + line */}
-                    <View style={{ alignItems: 'center', width: 28 }}>
-                      <View style={{
-                        width: isCurrent ? 28 : 20,
-                        height: isCurrent ? 28 : 20,
-                        borderRadius: 14,
-                        backgroundColor: isPast ? '#34D399' : isCurrent ? Colors.primary : '#EDE9F6',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        borderWidth: isCurrent ? 2 : 0,
-                        borderColor: isCurrent ? '#fff' : 'transparent',
-                        shadowColor: isCurrent ? Colors.primary : 'transparent',
-                        shadowOpacity: 0.4,
-                        shadowRadius: 6,
-                        shadowOffset: { width: 0, height: 2 },
-                        elevation: isCurrent ? 3 : 0,
-                      }}>
-                        {isPast
-                          ? <AppIcon name="status.check" size={11} color="#ffffff" />
-                          : <Text style={{ fontSize: isCurrent ? 14 : 10 }}>{m.emoji}</Text>}
-                      </View>
-                      {idx < PREGNANCY_MILESTONES.length - 1 && (
-                        <View style={{ width: 2, flex: 1, minHeight: 8, backgroundColor: isPast ? '#34D39966' : '#EDE9F6', marginTop: 2 }} />
-                      )}
-                    </View>
-                    {/* Content */}
-                    <View style={{ flex: 1, paddingBottom: 4 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Text style={{ fontFamily: isCurrent ? Fonts.sansBold : Fonts.sansMedium, fontSize: isCurrent ? 14 : 13, color: isCurrent ? '#1C1033' : isFuture ? '#9CA3AF' : '#374151' }}>
-                          {m.title}
-                        </Text>
-                        <Text style={{ fontFamily: Fonts.sansRegular, fontSize: 11, color: '#9CA3AF' }}>
-                          Wk {m.week}
-                        </Text>
-                        {isCurrent && (
-                          <View style={{ backgroundColor: Colors.primary, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
-                            <Text style={{ fontFamily: Fonts.sansBold, fontSize: 9, color: '#fff' }}>NOW</Text>
-                          </View>
-                        )}
-                      </View>
-                      {(!isFuture || isCurrent) && (
-                        <Text style={{ fontFamily: Fonts.sansRegular, fontSize: 12, color: '#6B7280', marginTop: 2, lineHeight: 17 }}>
-                          {m.desc}
-                        </Text>
-                      )}
-                    </View>
-                  </View>
-                );
-              })}
-            </Card>
-          );
-        })()}
+        <Text style={styles.sectionTitle}>You</Text>
+        <Card style={styles.profileManageCard} shadow="sm">
+          <Text style={styles.profileManageTitle}>Your profile and privacy</Text>
+          <Text style={styles.profileManageText}>
+            Update your name, photo, state, bio, and privacy controls from one place.
+          </Text>
+          <TouchableOpacity
+            style={styles.profileManageBtn}
+            activeOpacity={0.82}
+            onPress={() => setSettingsView('edit-profile')}
+          >
+            <Text style={styles.profileManageBtnText}>Edit your profile</Text>
+          </TouchableOpacity>
+        </Card>
 
       </ScrollView>
 
@@ -835,13 +745,32 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 16, paddingTop: 20 },
 
   // ── Section ──
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, gap: 12 },
+  milestoneHeaderMain: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 },
+  milestoneKidPhoto: { width: 34, height: 34, borderRadius: 17, backgroundColor: '#F3F4F6' },
+  milestoneKidFallback: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(28, 16, 51, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  milestoneKidFallbackText: { fontFamily: Fonts.sansBold, fontSize: 14, color: Colors.primary },
   sectionTitle: {
     fontFamily: Fonts.sansBold,
     fontSize: 17,
     color: '#1C1033',
     marginBottom: 12,
     marginTop: 4,
+  },
+  sectionSub: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: 13,
+    color: '#6B7280',
+    lineHeight: 20,
+    marginTop: -6,
+    marginBottom: 14,
   },
   progressBadge: {
     backgroundColor: 'rgba(28, 16, 51, 0.06)',
@@ -874,6 +803,67 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   addKidText: { fontFamily: Fonts.sansSemiBold, color: Colors.primary, fontSize: 12 },
+  manageCard: { marginBottom: 22 },
+  manageHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  manageIdentity: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 },
+  managePhoto: { width: 52, height: 52, borderRadius: 26, backgroundColor: '#F3F4F6' },
+  managePhotoFallback: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(28, 16, 51, 0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  managePhotoFallbackText: { fontFamily: Fonts.sansBold, fontSize: 18, color: Colors.primary },
+  manageTitle: { fontFamily: Fonts.sansBold, fontSize: 16, color: '#1C1033' },
+  manageMeta: { fontFamily: Fonts.sansRegular, fontSize: 12, color: '#8B93A6', marginTop: 3 },
+  activeBadge: {
+    borderRadius: 999,
+    backgroundColor: Colors.primaryAlpha08,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  activeBadgeText: { fontFamily: Fonts.sansBold, fontSize: 11, color: Colors.primary },
+  manageHint: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: 13,
+    color: '#6B7280',
+    lineHeight: 20,
+    marginTop: 14,
+  },
+  manageActions: { flexDirection: 'row', gap: 10, marginTop: 16 },
+  managePrimaryBtn: {
+    flex: 1,
+    backgroundColor: Colors.primary,
+    borderRadius: 14,
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  managePrimaryBtnText: { fontFamily: Fonts.sansBold, fontSize: 13, color: '#ffffff' },
+  manageSecondaryBtn: {
+    flex: 1,
+    borderRadius: 14,
+    paddingVertical: 13,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E5DDF1',
+    backgroundColor: '#ffffff',
+  },
+  manageSecondaryBtnText: { fontFamily: Fonts.sansSemiBold, fontSize: 13, color: '#1C1033' },
+  profileManageCard: { marginBottom: 12 },
+  profileManageTitle: { fontFamily: Fonts.sansBold, fontSize: 15, color: '#1C1033', marginBottom: 6 },
+  profileManageText: { fontFamily: Fonts.sansRegular, fontSize: 13, color: '#6B7280', lineHeight: 20 },
+  profileManageBtn: {
+    marginTop: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E5DDF1',
+    backgroundColor: '#ffffff',
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  profileManageBtnText: { fontFamily: Fonts.sansBold, fontSize: 13, color: Colors.primary },
 
   // ── Empty / expecting ──
   emptyCard: { alignItems: 'center', paddingVertical: 24, marginBottom: 20 },

@@ -118,7 +118,17 @@ async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
     setMotherName(fullProfile.motherName);
     if (fullProfile.profile) setProfile(fullProfile.profile as any);
     fullProfile.kids.forEach((kid: any) =>
-      addKid({ id: kid.id, name: kid.name, dob: kid.dob, stage: kid.stage, gender: kid.gender, isExpecting: kid.isExpecting, relation: kid.relation || '' })
+      addKid({
+        id: kid.id,
+        name: kid.name,
+        dob: kid.dob,
+        stage: kid.stage,
+        gender: kid.gender,
+        photoUrl: kid.photoUrl || '',
+        milestoneStates: kid.milestoneStates || {},
+        isExpecting: kid.isExpecting,
+        relation: kid.relation || '',
+      })
     );
     Object.entries(fullProfile.completedVaccines).forEach(([kidId, vaccines]: [string, any]) => {
       if (typeof vaccines === 'object' && vaccines !== null && !('done' in vaccines)) {
@@ -128,13 +138,14 @@ async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
       }
     });
     setOnboardingComplete(fullProfile.onboardingComplete);
-    const { setParentGender, setBio, setExpertise, setPhotoUrl, setVisibilitySettings, setHasSeenIntro, setPhone, setPhoneVerified } = useProfileStore.getState();
+    const { setParentGender, setBio, setExpertise, setPhotoUrl, setVisibilitySettings, setHasSeenIntro, setHasDismissedFeatureGuide, setPhone, setPhoneVerified } = useProfileStore.getState();
     if (fullProfile.parentGender) setParentGender(fullProfile.parentGender as any);
     if (fullProfile.bio) setBio(fullProfile.bio);
     if (fullProfile.expertise?.length) setExpertise(fullProfile.expertise);
     if (fullProfile.photoUrl) setPhotoUrl(fullProfile.photoUrl);
     if (fullProfile.visibilitySettings) setVisibilitySettings(fullProfile.visibilitySettings);
     setHasSeenIntro(!!fullProfile.hasSeenIntro);
+    setHasDismissedFeatureGuide(!!(fullProfile as any).hasDismissedFeatureGuide);
     if (fullProfile.phone) setPhone(fullProfile.phone);
     setPhoneVerified(!!fullProfile.phoneVerified);
 

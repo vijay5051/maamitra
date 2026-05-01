@@ -59,6 +59,8 @@ interface SettingsModalProps {
   onClose: () => void;
   /** Pre-select a sub-view when the modal opens. */
   initialView?: ViewMode;
+  /** When opening directly into the child editor, select this child first. */
+  initialKidId?: string | null;
   /** When true, auto-scroll the main view to the Privacy section on open. */
   scrollToPrivacy?: boolean;
 }
@@ -192,7 +194,21 @@ function NotificationsPanel({ uid }: { uid?: string }) {
           if (cancelled) return;
           if (status === AuthorizationStatus.AUTHORIZED || status === AuthorizationStatus.PROVISIONAL) {
             setPermission('granted');
-            setToken('native');
+            try {
+              const nativeToken = await messaging().getToken();
+              if (cancelled) return;
+              if (nativeToken) {
+                const { registerFcmToken } = await import('../../services/firebase');
+                if (uid) {
+                  await registerFcmToken(uid, nativeToken);
+                }
+                if (!cancelled) setToken(nativeToken);
+              } else if (!cancelled) {
+                setToken(null);
+              }
+            } catch {
+              if (!cancelled) setToken(null);
+            }
           } else if (status === AuthorizationStatus.DENIED) {
             setPermission('denied');
           } else {
@@ -214,7 +230,7 @@ function NotificationsPanel({ uid }: { uid?: string }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [uid]);
 
   // Load the user's saved prefs once we have a uid.
   useEffect(() => {
@@ -249,6 +265,7 @@ function NotificationsPanel({ uid }: { uid?: string }) {
       return 'Not supported on this device';
     }
     if (blocked) return 'Blocked in browser settings';
+    if (permission === 'granted' && !token) return 'Permission granted, still registering this device';
     if (enabled) return 'Enabled on this device';
     return 'Off — tap to enable';
   })();
@@ -722,42 +739,52 @@ function EditProfileView({ onBack }: { onBack: () => void }) {
   const toggleExpertise = (tag: string) =>
     setExpertiseTags((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setSaving(true);
-    if (name.trim()) setMotherName(name.trim());
-    if (profile) setProfile({ ...profile, state: state.trim() || profile.state, diet: diet as any, familyType: familyType as any });
-    setPhotoUrl(photo.trim());
-    // parentGender is NOT written here — it's locked at signup. Writing it
-    // back would let UI state drift overwrite the locked value if anything
-    // ever sets `gender` to something different.
-    setBio(bioText.trim());
-    setExpertise(expertiseTags);
-    // Persist ALL profile fields to Firestore so nothing is lost on next login.
-    // IMPORTANT: st is read AFTER all setters above so it already has the new values.
-    if (user?.uid) {
-      const st = useProfileStore.getState();
-      saveFullProfile(user.uid, {
-        motherName: name.trim() || st.motherName,
-        profile: st.profile
-          ? { ...st.profile, state: state.trim() || st.profile.state, diet: diet as any, familyType: familyType as any }
-          : st.profile,
-        kids: st.kids,
-        completedVaccines: st.completedVaccines,
-        onboardingComplete: st.onboardingComplete,
-        visibilitySettings: st.visibilitySettings,
-        // These were previously omitted — Firestore was overwriting them with ''
-        photoUrl: photo.trim(),
-        // parentGender preserved from the already-hydrated store — this
-        // screen never changes it, but saveFullProfile expects a value so
-        // we read it from the live state (which was set at signup and
-        // hasn't been touched since).
-        parentGender: st.parentGender,
-        bio: bioText.trim(),
-        expertise: expertiseTags,
-      }).catch(console.error);
+    try {
+      if (name.trim()) setMotherName(name.trim());
+      if (profile) setProfile({ ...profile, state: state.trim() || profile.state, diet: diet as any, familyType: familyType as any });
+      setPhotoUrl(photo.trim());
+      // parentGender is NOT written here — it's locked at signup. Writing it
+      // back would let UI state drift overwrite the locked value if anything
+      // ever sets `gender` to something different.
+      setBio(bioText.trim());
+      setExpertise(expertiseTags);
+
+      // Persist ALL profile fields to Firestore so nothing is lost on next
+      // login. We explicitly merge `photoUrl` onto users/{uid} as well so
+      // the avatar survives cold starts even if a broader profile write is
+      // delayed or partially rejected.
+      if (user?.uid) {
+        const st = useProfileStore.getState();
+        await saveFullProfile(user.uid, {
+          motherName: name.trim() || st.motherName,
+          profile: st.profile
+            ? { ...st.profile, state: state.trim() || st.profile.state, diet: diet as any, familyType: familyType as any }
+            : st.profile,
+          kids: st.kids,
+          completedVaccines: st.completedVaccines,
+          onboardingComplete: st.onboardingComplete,
+          visibilitySettings: st.visibilitySettings,
+          photoUrl: photo.trim(),
+          // parentGender preserved from the already-hydrated store — this
+          // screen never changes it, but saveFullProfile expects a value so
+          // we read it from the live state (which was set at signup and
+          // hasn't been touched since).
+          parentGender: st.parentGender,
+          bio: bioText.trim(),
+          expertise: expertiseTags,
+        });
+        await saveUserProfile(user.uid, { photoUrl: photo.trim() });
+      }
+
+      onBack();
+    } catch (error) {
+      console.error('save profile failed:', error);
+      Alert.alert('Could not save changes', 'Please try again once more.');
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
-    onBack();
   };
 
   return (
@@ -913,39 +940,49 @@ function EditKidView({ kid, onBack, onRemove }: { kid: Kid; onBack: () => void; 
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setSaving(true);
-    const updates: Partial<Omit<Kid, 'id'>> = {};
-    if (name.trim()) updates.name = name.trim();
-    if (dob) {
-      const parsed = new Date(dob + 'T00:00:00');
-      if (!isNaN(parsed.getTime())) {
-        updates.dob = parsed.toISOString();
-        updates.ageInMonths = calculateAgeInMonths(parsed.toISOString());
-        updates.ageInWeeks = calculateAgeInWeeks(parsed.toISOString());
+    try {
+      const updates: Partial<Omit<Kid, 'id'>> = {};
+      if (name.trim()) updates.name = name.trim();
+      if (dob) {
+        const parsed = new Date(dob + 'T00:00:00');
+        if (!isNaN(parsed.getTime())) {
+          updates.dob = parsed.toISOString();
+          updates.ageInMonths = calculateAgeInMonths(parsed.toISOString());
+          updates.ageInWeeks = calculateAgeInWeeks(parsed.toISOString());
+        }
       }
+      updates.gender = gender;
+      updates.photoUrl = photo.trim();
+      updateKid(kid.id, updates);
+
+      // Persist to Firestore before closing so a cold app restart can't
+      // rehydrate an older remote kids[] payload and wipe the new photo.
+      if (user?.uid) {
+        const st = useProfileStore.getState();
+        await saveFullProfile(user.uid, {
+          motherName: st.motherName,
+          profile: st.profile,
+          kids: st.kids,
+          completedVaccines: st.completedVaccines,
+          onboardingComplete: st.onboardingComplete,
+          photoUrl: st.photoUrl || '',
+          parentGender: st.parentGender || '',
+          bio: st.bio || '',
+          expertise: st.expertise || [],
+          visibilitySettings: st.visibilitySettings,
+        });
+        await saveUserProfile(user.uid, { kids: st.kids });
+      }
+
+      onBack();
+    } catch (error) {
+      console.error('save kid profile failed:', error);
+      Alert.alert('Could not save changes', 'Please try again once more.');
+    } finally {
+      setSaving(false);
     }
-    updates.gender = gender;
-    updates.photoUrl = photo.trim();
-    updateKid(kid.id, updates);
-    // Persist to Firestore immediately — get the post-update state
-    if (user?.uid) {
-      const st = useProfileStore.getState();
-      saveFullProfile(user.uid, {
-        motherName: st.motherName,
-        profile: st.profile,
-        kids: st.kids,
-        completedVaccines: st.completedVaccines,
-        onboardingComplete: st.onboardingComplete,
-        photoUrl: st.photoUrl || '',
-        parentGender: st.parentGender || '',
-        bio: st.bio || '',
-        expertise: st.expertise || [],
-        visibilitySettings: st.visibilitySettings,
-      }).catch(console.error);
-    }
-    setSaving(false);
-    onBack();
   };
 
   return (
@@ -1444,6 +1481,7 @@ export default function SettingsModal({
   visible,
   onClose,
   initialView,
+  initialKidId,
   scrollToPrivacy,
 }: SettingsModalProps) {
   const insets = useSafeAreaInsets();
@@ -1465,6 +1503,7 @@ export default function SettingsModal({
   useEffect(() => {
     if (!visible) return;
     setViewMode(initialView ?? 'main');
+    setEditingKidId(initialView === 'edit-kid' ? (initialKidId ?? null) : null);
     if (scrollToPrivacy && (initialView === undefined || initialView === 'main')) {
       // Give the ScrollView a moment to lay out before scrolling.
       const t = setTimeout(() => {
@@ -1475,7 +1514,7 @@ export default function SettingsModal({
       }, 250);
       return () => clearTimeout(t);
     }
-  }, [visible, initialView, scrollToPrivacy]);
+  }, [visible, initialView, initialKidId, scrollToPrivacy]);
 
   const editingKid = editingKidId ? kids.find((k) => k.id === editingKidId) ?? null : null;
 
@@ -1736,42 +1775,18 @@ export default function SettingsModal({
               ) : null}
             </View>
 
-            {/* ─── 4. Children ─── */}
-            {kids.length > 0 && (
-              <>
-                <SectionHeader
-                  title="Children"
-                  subtitle={kids.length === 1 ? '1 child' : `${kids.length} children`}
-                />
-                <View style={s.card}>
-                  {kids.map((kid, i) => {
-                    const _diffMs = kid.dob ? Date.now() - new Date(kid.dob).getTime() : 0;
-                    const _months = Math.max(0, Math.floor(_diffMs / (1000 * 60 * 60 * 24 * 30.44)));
-                    const ageStr = kid.isExpecting ? 'Expecting' : `${_months}m old`;
-                    const kidIcon: 'male-outline' | 'female-outline' | 'heart-outline' | 'happy-outline' =
-                      kid.isExpecting
-                        ? 'heart-outline'
-                        : kid.gender === 'boy'
-                        ? 'male-outline'
-                        : kid.gender === 'girl'
-                        ? 'female-outline'
-                        : 'happy-outline';
-                    return (
-                      <React.Fragment key={kid.id}>
-                        {i > 0 && <View style={s.divider} />}
-                        <SettingsRow
-                          icon={kidIcon}
-                          label={kid.name || 'Baby'}
-                          value={ageStr}
-                          avatarUri={kid.photoUrl}
-                          onPress={() => { setEditingKidId(kid.id); setViewMode('edit-kid'); }}
-                        />
-                      </React.Fragment>
-                    );
-                  })}
-                </View>
-              </>
-            )}
+            <SectionHeader title="Family" subtitle="Children are managed in one dedicated place" />
+            <View style={s.card}>
+              <SettingsRow
+                icon="people-outline"
+                label={kids.length > 0 ? 'Manage family' : 'Add your first child'}
+                value={kids.length > 0 ? `${kids.length} ${kids.length === 1 ? 'child' : 'children'}` : 'Open family setup'}
+                onPress={() => {
+                  handleClose();
+                  router.push('/(tabs)/family');
+                }}
+              />
+            </View>
 
             {/* ─── 5. Notifications ─── */}
             <SectionHeader

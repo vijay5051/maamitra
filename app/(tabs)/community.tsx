@@ -681,11 +681,9 @@ function MyProfileCard({
         {/* Gold-ringed avatar */}
         <View style={heroStyles.avatarRing}>
           {hasPhoto ? (
-            // @ts-ignore
-            <img
-              src={photoUrl}
-              alt="avatar"
-              style={{ width: 66, height: 66, borderRadius: 33, objectFit: 'cover' }}
+            <Image
+              source={{ uri: photoUrl }}
+              style={heroStyles.avatarImage}
               onError={() => setImgErr(true)}
             />
           ) : (
@@ -830,6 +828,11 @@ const heroStyles = StyleSheet.create({
     borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  avatarImage: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
   },
   avatarInitial: {
     fontFamily: Fonts.sansBold,
@@ -1192,6 +1195,14 @@ export default function CommunityScreen() {
         ListHeaderComponent={
           <>
             <EmailVerifyBanner />
+            <View style={styles.communityHeroWrap}>
+              <Illustration
+                name="communityHero"
+                style={styles.communityHeroImg}
+                contentFit="cover"
+                accessibilityLabel="Community hero"
+              />
+            </View>
             <ContextualAskChip prompt="Ask Maamitra about what other moms are discussing" />
             <MyProfileCard
               onEdit={() => setShowSettings(true)}
@@ -1529,6 +1540,18 @@ const styles = StyleSheet.create({
     aspectRatio: 5 / 2,
   },
   topicBannerImg: {
+    width: '100%',
+    height: '100%',
+  },
+  communityHeroWrap: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 18,
+    overflow: 'hidden',
+    backgroundColor: '#FFF8F1',
+    aspectRatio: 12 / 5,
+  },
+  communityHeroImg: {
     width: '100%',
     height: '100%',
   },
