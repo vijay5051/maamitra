@@ -23,6 +23,10 @@ import {
 } from '../services/firebase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useProfileStore, awaitProfileHydration } from './useProfileStore';
+import {
+  canTrustKnownProfileSnapshot,
+  shouldAssumeExistingAccountFromAuth,
+} from '../lib/returningUserAuthGuard';
 import { useWellnessStore } from './useWellnessStore';
 import { useThemeStore } from './useThemeStore';
 import { useChatStore } from './useChatStore';
@@ -91,7 +95,7 @@ async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
       // transient Safari / App Check / Firestore wobble. Restore the
       // minimum fields needed to avoid bouncing an old user into
       // onboarding or phone setup.
-      if (knownSnapshot?.onboardingComplete) {
+      if (canTrustKnownProfileSnapshot(knownSnapshot)) {
         useProfileStore.getState().setCachedProfileUid(uid);
         useProfileStore.getState().setOnboardingComplete(true);
         if (knownSnapshot.motherName) useProfileStore.getState().setMotherName(knownSnapshot.motherName);
@@ -109,15 +113,16 @@ async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
       // hydrate in the background and fill in the rest of the profile.
       // Without this, a returning user signing in on a fresh browser hits
       // the 4-step onboarding form again — exactly the bug Vijay reported.
-      if (res.status === 'error' && auth?.currentUser?.uid === uid) {
-        const creationTime = auth.currentUser.metadata.creationTime;
-        const ageMs = creationTime ? Date.now() - new Date(creationTime).getTime() : 0;
-        if (ageMs > 2 * 60 * 1000) {
-          // Existing account → assume onboarded.
-          useProfileStore.getState().setOnboardingComplete(true);
-          useProfileStore.getState().setCachedProfileUid(uid);
-          return true;
-        }
+      if (shouldAssumeExistingAccountFromAuth({
+        status: res.status,
+        currentAuthUid: auth?.currentUser?.uid,
+        targetUid: uid,
+        creationTime: auth?.currentUser?.metadata.creationTime,
+      })) {
+        // Existing account → assume onboarded.
+        useProfileStore.getState().setOnboardingComplete(true);
+        useProfileStore.getState().setCachedProfileUid(uid);
+        return true;
       }
 
       // Truly new (status='missing') OR fresh account (created <2min ago)
