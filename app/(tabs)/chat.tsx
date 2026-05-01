@@ -423,9 +423,16 @@ export default function ChatScreen() {
     [pendingMessage, sendMessage, buildContext, setAllergies, user]
   );
 
+  const [savedToastVisible, setSavedToastVisible] = useState(false);
   const handleSave = useCallback(
-    (messageId: string) => saveAnswer(messageId),
-    [saveAnswer]
+    (messageId: string) => {
+      saveAnswer(messageId);
+      // Quick affordance so the user knows the bookmark stuck — was
+      // missing, leaving the save action feeling unresponsive.
+      setSavedToastVisible(true);
+      setTimeout(() => setSavedToastVisible(false), 1800);
+    },
+    [saveAnswer],
   );
 
   const data = [...messages];
@@ -551,6 +558,18 @@ export default function ChatScreen() {
           </View>
         </View>
       </LinearGradient>
+
+      {/* Save confirmation toast — fades in/out after tapping the
+          bookmark on a Maamitra reply. Sits above the chat list so it's
+          visible regardless of which message was saved. */}
+      {savedToastVisible && (
+        <View pointerEvents="none" style={styles.savedToastWrap}>
+          <View style={styles.savedToast}>
+            <Ionicons name="bookmark" size={14} color="#ffffff" />
+            <Text style={styles.savedToastText}>Saved to Library</Text>
+          </View>
+        </View>
+      )}
 
       {/* ── Chat Body ── */}
       <KeyboardAvoidingView
@@ -766,6 +785,29 @@ const styles = StyleSheet.create({
   },
 
   // ── Chat content ──
+  savedToastWrap: {
+    position: 'absolute',
+    top: 110,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 100,
+  },
+  savedToast: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(28, 16, 51, 0.92)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    boxShadow: '0px 4px 12px rgba(28, 16, 51, 0.3)',
+  },
+  savedToastText: {
+    color: '#ffffff',
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 13,
+  },
   chatContent: {
     paddingHorizontal: 4,
     paddingTop: 16,
