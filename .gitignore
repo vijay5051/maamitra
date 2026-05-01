@@ -1,6 +1,7 @@
 node_modules/
 .expo/
 .firebase/
+.claude/worktrees/
 dist/
 .env
 *.jks
