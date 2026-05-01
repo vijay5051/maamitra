@@ -521,6 +521,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             set({ user: authUser, isAuthenticated: true, isLoading: false });
             try { getSocialStore().getState().subscribeAll(firebaseUser.uid); } catch {}
             try { useDMStore.getState().subscribeConversations(firebaseUser.uid); } catch {}
+            // Make sure the user is searchable in /community right after
+            // sign-in. Previously syncPublicProfile only ran when the
+            // user opened the Community tab, so anyone who never visited
+            // it had no publicProfiles doc and was invisible in user
+            // search. Calling it here is fire-and-forget and idempotent.
+            try { getSocialStore().getState().syncPublicProfile?.(); } catch {}
           } catch {
             await hydrateProfileFromFirestore(firebaseUser.uid);
             set({
