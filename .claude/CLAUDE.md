@@ -62,6 +62,33 @@ After any change, the full delivery chain is, in order:
 Do not stop partway. If Firestore/Storage rules changed, deploy those too.
 Tell the user each link in the chain is done.
 
-## 5. Live demo URL
+## 5. Continuous handoff (Claude ↔ Codex)
+Sessions die unpredictably (rate limits, network, tab close). To survive
+that, keep `HANDOFF.md` at the repo root constantly up to date — never
+"on demand". The other agent reads it on session start and picks up.
+
+**Resume protocol — first thing in every new session, before answering
+anything:**
+1. `git pull --rebase`
+2. Read `HANDOFF.md`
+3. Skim `git log --oneline -10` and `git status`
+4. If a task is active there, summarize it back to the user in one or two
+   sentences ("Picking up: X. Last action: Y. Next: Z. OK to continue?")
+   before doing anything else.
+
+**While working — keep `HANDOFF.md` current:**
+- At the start of any non-trivial task: write the goal, the plan, and
+  what "done" looks like into the "Active task" / "Next step" sections.
+- After every commit: update "Last action" + "Next step".
+- After every deploy / OTA / build: note it under "In-flight side
+  processes" so the next agent doesn't accidentally re-trigger it.
+- When the task is fully done: clear `HANDOFF.md` back to "no active
+  task" — don't leave stale notes.
+
+Commit `HANDOFF.md` updates with the same commit as the related code
+change when possible, so a single push captures both. Push frequently
+(after every commit) so the file is always live on `origin/main`.
+
+## 6. Live demo URL
 Production: https://maamitra.co.in (fallback: https://maa-mitra-7kird8.web.app)
 Test in that URL after every deploy when possible.
