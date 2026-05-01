@@ -692,6 +692,156 @@ export const processScheduledPushes = functions.pubsub
     return null;
   });
 
+// ─── factoryReset (one-shot) ──────────────────────────────────────────────────
+// Wipes every user account + per-user data + admin scratch collections,
+// preserving only the founder admin emails. Designed to be called ONCE
+// before opening closed testing to real users so Vijay sees a clean
+// /admin overview.
+//
+// Auth model: HTTPS endpoint guarded by an X-Reset-Token header that
+// must match the FACTORY_RESET_TOKEN env var. Set the env via:
+//   firebase functions:config:set factoryreset.token="<random>"
+//   firebase deploy --only functions:factoryReset
+// Then call:
+//   curl -X POST -H "X-Reset-Token: <random>" \
+//        https://us-central1-maa-mitra-7kird8.cloudfunctions.net/factoryReset
+//
+// SAFE TO LEAVE DEPLOYED — without the secret the endpoint refuses every
+// request. Remove from index.ts after the cleanup if you prefer.
+const KEEP_EMAILS = new Set([
+  'rocking.vsr@gmail.com',
+  'divyashekhawat44@yahoo.in',
+]);
+
+const SHARED_COLLECTIONS_TO_WIPE = [
+  'push_queue',
+  'admin_audit',
+  'scheduled_pushes',
+  'testerFeedback',
+  'feedback',
+  'supportTickets',
+  'follows',
+  'followRequests',
+  'blocks',
+  'communityPosts',
+  'community_posts',
+  'community',
+  'conversations',
+  'push_notifications',
+];
+
+const PER_USER_SUBTREES = ['moods', 'saved_answers', 'chats', 'notifications'];
+
+async function deleteCollectionRecursive(
+  db: admin.firestore.Firestore,
+  collectionPath: string,
+  batchSize = 200,
+): Promise<number> {
+  let total = 0;
+  while (true) {
+    const snap = await db.collection(collectionPath).limit(batchSize).get();
+    if (snap.empty) break;
+    const batch = db.batch();
+    snap.docs.forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+    total += snap.size;
+    if (snap.size < batchSize) break;
+  }
+  return total;
+}
+
+async function deleteDocPathRecursive(
+  db: admin.firestore.Firestore,
+  docPath: string,
+): Promise<void> {
+  const docRef = db.doc(docPath);
+  const subs = await docRef.listCollections();
+  for (const sub of subs) {
+    let snap = await sub.limit(200).get();
+    while (!snap.empty) {
+      const batch = db.batch();
+      snap.docs.forEach((d) => batch.delete(d.ref));
+      await batch.commit();
+      snap = await sub.limit(200).get();
+    }
+  }
+  await docRef.delete().catch(() => {});
+}
+
+export const factoryReset = functions
+  .runWith({ memory: '512MB', timeoutSeconds: 540, secrets: ['FACTORY_RESET_TOKEN'] })
+  .https.onRequest(async (req, res) => {
+    const token = req.get('x-reset-token');
+    const expected = process.env.FACTORY_RESET_TOKEN;
+    if (!expected || token !== expected) {
+      res.status(403).json({ ok: false, error: 'forbidden' });
+      return;
+    }
+    if (req.method !== 'POST') {
+      res.status(405).json({ ok: false, error: 'method-not-allowed' });
+      return;
+    }
+
+    const db = admin.firestore();
+    const auth = admin.auth();
+    const summary: Record<string, any> = {
+      keptEmails: [...KEEP_EMAILS],
+      deletedUsers: 0,
+      deletedAuthRecords: 0,
+      perCollectionDeleted: {} as Record<string, number>,
+    };
+
+    try {
+      // 1. Walk all auth users; delete the ones not in the keep list.
+      let nextPageToken: string | undefined;
+      do {
+        const page = await auth.listUsers(1000, nextPageToken);
+        for (const u of page.users) {
+          const email = (u.email || '').toLowerCase();
+          if (KEEP_EMAILS.has(email)) continue;
+          await deleteDocPathRecursive(db, `users/${u.uid}`);
+          await deleteDocPathRecursive(db, `publicProfiles/${u.uid}`);
+          for (const sub of PER_USER_SUBTREES) {
+            await deleteDocPathRecursive(db, `${sub}/${u.uid}`);
+          }
+          try {
+            await auth.deleteUser(u.uid);
+            summary.deletedAuthRecords++;
+          } catch (err) {
+            console.warn(`factoryReset auth delete failed for ${u.uid}:`, err);
+          }
+          summary.deletedUsers++;
+        }
+        nextPageToken = page.pageToken;
+      } while (nextPageToken);
+
+      // 2. Walk Firestore users collection too — covers orphaned Firestore
+      //    docs whose Auth records are already gone.
+      const orphanSnap = await db.collection('users').get();
+      for (const doc of orphanSnap.docs) {
+        const email = (doc.data()?.email || '').toLowerCase();
+        if (KEEP_EMAILS.has(email)) continue;
+        await deleteDocPathRecursive(db, `users/${doc.id}`);
+        await deleteDocPathRecursive(db, `publicProfiles/${doc.id}`);
+        for (const sub of PER_USER_SUBTREES) {
+          await deleteDocPathRecursive(db, `${sub}/${doc.id}`);
+        }
+      }
+
+      // 3. Wipe shared "scratch" collections so admin counters reset to zero.
+      for (const col of SHARED_COLLECTIONS_TO_WIPE) {
+        const n = await deleteCollectionRecursive(db, col);
+        if (n > 0) summary.perCollectionDeleted[col] = n;
+      }
+
+      summary.ok = true;
+      res.json(summary);
+    } catch (err: any) {
+      console.error('factoryReset failed:', err);
+      res.status(500).json({ ok: false, error: err?.message || String(err), summary });
+    }
+  });
+
 async function pruneDeadTokens(
   db: admin.firestore.Firestore,
   deadTokens: string[],
