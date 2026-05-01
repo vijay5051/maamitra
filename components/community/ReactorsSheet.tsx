@@ -10,7 +10,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import GradientAvatar from '../ui/GradientAvatar';
 import { Fonts } from '../../constants/theme';
@@ -104,14 +103,16 @@ export default function ReactorsSheet({ visible, post, emojiFilter, onClose, onS
       onRequestClose={onClose}
     >
       <View style={styles.container}>
-        <LinearGradient colors={['#1C1033', '#3b1060', '#6d1a7a']} style={styles.header}>
+        {/* Light header to match the rest of the app — was a hard
+            dark indigo-purple gradient that looked completely off-theme. */}
+        <View style={styles.header}>
           <View style={styles.headerRow}>
             <Text style={styles.headerTitle}>{title}</Text>
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-              <Ionicons name="close" size={22} color="rgba(255,255,255,0.9)" />
+              <Ionicons name="close" size={22} color={Colors.textDark} />
             </TouchableOpacity>
           </View>
-        </LinearGradient>
+        </View>
 
         {loading ? (
           <View style={styles.centered}>
@@ -150,8 +151,11 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bgLight },
   header: {
     paddingTop: Platform.OS === 'ios' ? 16 : 24,
-    paddingBottom: 20,
+    paddingBottom: 16,
     paddingHorizontal: 20,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0EDF5',
   },
   headerRow: {
     flexDirection: 'row',
@@ -161,13 +165,13 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: Fonts.serif,
     fontSize: 22,
-    color: '#ffffff',
+    color: Colors.textDark,
   },
   closeButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(28, 16, 51, 0.06)',
     alignItems: 'center',
     justifyContent: 'center',
   },
