@@ -979,9 +979,15 @@ function EditKidView({ kid, onBack, onRemove }: { kid: Kid; onBack: () => void; 
       }
 
       onBack();
-    } catch (error) {
+    } catch (error: any) {
       console.error('save kid profile failed:', error);
-      Alert.alert('Could not save changes', 'Please try again once more.');
+      // Surface the actual underlying error so we can debug. Most common
+      // causes: Firestore rule denial, undefined field in setDoc, doc-size
+      // overrun (>1 MB), or App Check rejection.
+      const reason =
+        (error?.code ? `[${error.code}] ` : '') +
+        (error?.message || 'Unknown error');
+      Alert.alert('Could not save changes', reason);
     } finally {
       setSaving(false);
     }
