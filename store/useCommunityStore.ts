@@ -472,6 +472,18 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
             commentCount: commentsAlreadyHas || listAlreadyHas
               ? (p.commentCount ?? p.comments.length)
               : (p.commentCount ?? p.comments.length) + 1,
+            // Mirror what the dispatcher writes onto the parent post so
+            // PostCard's "latest comment" preview reflects the new
+            // comment immediately, before the next Firestore re-fetch.
+            lastComment: {
+              id: comment.id,
+              authorUid,
+              authorName: comment.authorName ?? authorName,
+              authorInitial: (comment.authorName ?? authorName).charAt(0).toUpperCase(),
+              authorPhotoUrl: comment.authorPhotoUrl,
+              text,
+            },
+            lastCommentAt: comment.createdAt instanceof Date ? comment.createdAt : new Date(),
             showComments: true,
           };
         }),

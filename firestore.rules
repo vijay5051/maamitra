@@ -131,7 +131,7 @@ service cloud.firestore {
       allow update: if (isAdmin() && onlyFields(['approved', 'hidden', 'hiddenAt', 'hiddenReason', 'hiddenBy'])) ||
         (isSignedIn() && resource.data.authorUid == request.auth.uid &&
           shortText(request.resource.data.text, 5000)) ||
-        (isSignedIn() && onlyFields(['reactions', 'reactionsByUser', 'commentsCount', 'lastCommentAt']));
+        (isSignedIn() && onlyFields(['reactions', 'reactionsByUser', 'commentCount', 'lastComment', 'lastCommentAt']));
       allow delete: if isAdmin() ||
         (isSignedIn() && resource.data.authorUid == request.auth.uid);
 
@@ -159,7 +159,7 @@ service cloud.firestore {
       allow update: if isAdmin() ||
         (isSignedIn() && resource.data.authorUid == request.auth.uid &&
           shortText(request.resource.data.text, 5000)) ||
-        (isSignedIn() && onlyFields(['reactions', 'reactionsByUser', 'comments', 'commentsCount']));
+        (isSignedIn() && onlyFields(['reactions', 'reactionsByUser', 'comments', 'commentCount', 'lastComment', 'lastCommentAt']));
       allow delete: if isAdmin() ||
         (isSignedIn() && resource.data.authorUid == request.auth.uid);
     }

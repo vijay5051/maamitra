@@ -55,6 +55,17 @@ export interface CommunityPost {
   reactions: Record<string, number>;          // { '❤️': 5 }
   reactionsByUser: Record<string, string[]>;  // { uid: ['❤️'] }
   commentCount: number;
+  /** Most-recent comment, denormalised onto the post so the feed can
+   *  show a one-line preview without a per-post subcollection read. */
+  lastComment?: {
+    id: string;
+    authorUid: string;
+    authorName: string;
+    authorInitial: string;
+    authorPhotoUrl?: string;
+    text: string;
+  };
+  lastCommentAt?: Date;
   /** Snapshot: was author's "followers-only" setting on at post time? */
   authorFollowersOnly?: boolean;
   /** Set by an admin via hidePost(). Hidden posts are skipped in the feed. */
@@ -388,6 +399,8 @@ export async function fetchRecentPosts(
           reactions: data.reactions ?? {},
           reactionsByUser: data.reactionsByUser ?? {},
           commentCount: data.commentCount ?? 0,
+          lastComment: data.lastComment ?? undefined,
+          lastCommentAt: data.lastCommentAt ? firestoreDate(data.lastCommentAt) : undefined,
           authorFollowersOnly: data.authorFollowersOnly ?? false,
           hidden: data.hidden === true,
           hiddenReason: data.hiddenReason ?? '',
@@ -436,6 +449,8 @@ export async function fetchPostById(postId: string): Promise<CommunityPost | nul
       reactions: data.reactions ?? {},
       reactionsByUser: data.reactionsByUser ?? {},
       commentCount: data.commentCount ?? 0,
+          lastComment: data.lastComment ?? undefined,
+          lastCommentAt: data.lastCommentAt ? firestoreDate(data.lastCommentAt) : undefined,
       authorFollowersOnly: !!data.authorFollowersOnly,
       createdAt,
     } as CommunityPost;
@@ -481,6 +496,8 @@ export async function fetchUserPosts(uid: string): Promise<CommunityPost[]> {
         reactions: data.reactions ?? {},
         reactionsByUser: data.reactionsByUser ?? {},
         commentCount: data.commentCount ?? 0,
+          lastComment: data.lastComment ?? undefined,
+          lastCommentAt: data.lastCommentAt ? firestoreDate(data.lastCommentAt) : undefined,
         authorFollowersOnly: data.authorFollowersOnly ?? false,
         createdAt: firestoreDate(data.createdAt),
       } as CommunityPost;
@@ -592,8 +609,21 @@ export async function addPostComment(
       createdAt: serverTimestamp(),
     });
 
-    // increment commentCount on parent post
-    await updateDoc(doc(db, 'communityPosts', postId), { commentCount: increment(1) });
+    // Bump commentCount + denormalise the latest comment onto the parent
+    // post so PostCard can show a "latest comment" preview without a
+    // per-post subcollection read on every feed render.
+    await updateDoc(doc(db, 'communityPosts', postId), {
+      commentCount: increment(1),
+      lastComment: {
+        id: ref.id,
+        authorUid: data.authorUid,
+        authorName: data.authorName,
+        authorInitial: data.authorInitial,
+        authorPhotoUrl: data.authorPhotoUrl ?? '',
+        text: data.text,
+      },
+      lastCommentAt: serverTimestamp(),
+    });
 
     // notify post author
     if (data.authorUid !== postAuthorUid) {

@@ -337,6 +337,40 @@ export default function PostCard({
         </TouchableOpacity>
       </View>
 
+      {/* Most-recent comment preview — visible without tapping "Comments".
+          Lets the feed feel alive: every post with at least one comment
+          shows the latest author + text on the card. Tapping the row
+          opens the full comments list. */}
+      {!post.showComments && post.lastComment && (
+        <TouchableOpacity
+          onPress={() => onToggleComments(post.id)}
+          activeOpacity={0.75}
+          style={styles.lastCommentRow}
+        >
+          {post.lastComment.authorPhotoUrl ? (
+            <Image
+              source={{ uri: post.lastComment.authorPhotoUrl }}
+              style={styles.lastCommentPhoto}
+            />
+          ) : (
+            <GradientAvatar name={post.lastComment.authorName} size={24} />
+          )}
+          <View style={styles.lastCommentBody}>
+            <Text style={styles.lastCommentAuthor} numberOfLines={1}>
+              {post.lastComment.authorName}
+            </Text>
+            <Text style={styles.lastCommentText} numberOfLines={2}>
+              {post.lastComment.text}
+            </Text>
+          </View>
+          {post.commentCount > 1 ? (
+            <Text style={styles.lastCommentMore}>
+              +{post.commentCount - 1} more
+            </Text>
+          ) : null}
+        </TouchableOpacity>
+      )}
+
       {/* "Who reacted" chip — shown when there's at least one reaction and
           the parent provided a handler. Explicit affordance for users who
           don't discover long-press on mobile. */}
@@ -682,6 +716,39 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     paddingHorizontal: 6,
     borderRadius: 8,
+  },
+  lastCommentRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  lastCommentPhoto: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#EDE9F6',
+  },
+  lastCommentBody: { flex: 1, minWidth: 0 },
+  lastCommentAuthor: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 12,
+    color: '#1C1033',
+  },
+  lastCommentText: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: 13,
+    color: '#3F3553',
+    lineHeight: 18,
+    marginTop: 1,
+  },
+  lastCommentMore: {
+    fontFamily: Fonts.sansMedium,
+    fontSize: 11,
+    color: Colors.primary,
+    marginTop: 4,
   },
   reactorsLinkText: {
     fontSize: 12,
