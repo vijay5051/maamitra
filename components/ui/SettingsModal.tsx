@@ -710,21 +710,22 @@ function EditProfileView({ onBack }: { onBack: () => void }) {
       const dataUrl = await pickSquareImage();
       if (!dataUrl) return;
       const uid = user?.uid;
-      if (uid) {
-        try {
-          const downloadUrl = await uploadAvatar(uid, dataUrl);
-          setPhoto(downloadUrl);
-        } catch (uploadErr) {
-          console.error('Avatar upload failed, using data URL:', uploadErr);
-          setPhoto(dataUrl);
-        }
-      } else {
-        setPhoto(dataUrl);
+      if (!uid) {
+        Alert.alert('Sign in required', 'Please sign in again to update your photo.');
+        return;
       }
+      // Storage upload only — never persist a base64 data URL into the
+      // user doc (would push it past Firestore's 1 MB doc limit and
+      // break the next save).
+      const downloadUrl = await uploadAvatar(uid, dataUrl);
+      setPhoto(downloadUrl);
       setImgError(false);
     } catch (error) {
       console.error('pick profile photo failed:', error);
-      Alert.alert('Could not use that photo', 'Please try a different image.');
+      Alert.alert(
+        'Could not save that photo',
+        'Upload to Firebase Storage failed. Check your connection and try again.',
+      );
     } finally {
       setPhotoLoading(false);
     }
@@ -920,21 +921,22 @@ function EditKidView({ kid, onBack, onRemove }: { kid: Kid; onBack: () => void; 
       const dataUrl = await pickSquareImage();
       if (!dataUrl) return;
       const uid = user?.uid;
-      if (uid) {
-        try {
-          const downloadUrl = await uploadKidAvatar(uid, kid.id, dataUrl);
-          setPhoto(downloadUrl);
-        } catch (uploadErr) {
-          console.error('Kid avatar upload failed, using data URL:', uploadErr);
-          setPhoto(dataUrl);
-        }
-      } else {
-        setPhoto(dataUrl);
+      if (!uid) {
+        Alert.alert('Sign in required', 'Please sign in again to attach a photo.');
+        return;
       }
+      // Always go via Firebase Storage. Saving a base64 data URL into the
+      // user doc instead would push the kids[] field past Firestore's 1 MB
+      // doc limit and surface as "Could not save changes".
+      const downloadUrl = await uploadKidAvatar(uid, kid.id, dataUrl);
+      setPhoto(downloadUrl);
       setImgError(false);
     } catch (error) {
       console.error('pick child photo failed:', error);
-      Alert.alert('Could not use that photo', 'Please try a different image.');
+      Alert.alert(
+        'Could not save that photo',
+        'Upload to Firebase Storage failed. Check your connection and try again.',
+      );
     } finally {
       setPhotoLoading(false);
     }

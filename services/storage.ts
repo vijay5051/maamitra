@@ -12,16 +12,33 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-/** Convert a canvas data URL (base64) to a Blob for upload. */
-export function dataUrlToBlob(dataUrl: string): Blob {
-  const [header, base64] = dataUrl.split(',');
-  const mime = header.match(/:(.*?);/)?.[1] ?? 'image/jpeg';
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
+/**
+ * Convert a data URL (base64) to a Blob for upload.
+ *
+ * On web we have a global `atob`. On React Native (especially Android
+ * Hermes) `atob` is unreliable / missing — using it threw a silent
+ * ReferenceError, which made the whole kid-photo save flow fail with
+ * "Could not save changes". Use fetch() for native: it natively
+ * resolves data: URLs into Blobs without needing base64 globals.
+ */
+export async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
+  // Fast path: fetch() understands data: URLs on every supported runtime
+  // (RN iOS, RN Android Hermes, modern browsers). It also avoids the
+  // O(n) JS loop our manual decoder used.
+  try {
+    const res = await fetch(dataUrl);
+    return await res.blob();
+  } catch (fetchErr) {
+    // Last-ditch fallback for environments where fetch barfs on data:.
+    // Only runs if globalThis.atob exists (web).
+    if (typeof (globalThis as any).atob !== 'function') throw fetchErr;
+    const [header, base64] = dataUrl.split(',');
+    const mime = header.match(/:(.*?);/)?.[1] ?? 'image/jpeg';
+    const binary = (globalThis as any).atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new Blob([bytes], { type: mime });
   }
-  return new Blob([bytes], { type: mime });
 }
 
 // ─── Upload ──────────────────────────────────────────────────────────────────
@@ -37,7 +54,7 @@ export function dataUrlToBlob(dataUrl: string): Blob {
 export async function uploadImage(path: string, data: string | Blob): Promise<string> {
   if (!storage) throw new Error('Firebase Storage not configured');
 
-  const blob = typeof data === 'string' ? dataUrlToBlob(data) : data;
+  const blob = typeof data === 'string' ? await dataUrlToBlob(data) : data;
   const storageRef = ref(storage, path);
   await uploadBytes(storageRef, blob, { contentType: blob.type || 'image/jpeg' });
   return getDownloadURL(storageRef);
