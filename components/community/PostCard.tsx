@@ -157,7 +157,8 @@ export default function PostCard({
         setEditingCommentId(null);
         setEditingCommentText('');
       }
-    } catch {
+    } catch (error) {
+      console.error('confirmDeleteComment failed:', error);
       infoAlert('Could not delete comment', 'Please try again.');
     } finally {
       setCommentActionBusy(null);
@@ -185,7 +186,8 @@ export default function PostCard({
       await onEditComment?.(post.id, commentId, trimmed);
       setEditingCommentId(null);
       setEditingCommentText('');
-    } catch {
+    } catch (error) {
+      console.error('saveEditComment failed:', error);
       infoAlert('Could not edit comment', 'Please try again.');
     } finally {
       setCommentActionBusy(null);
@@ -457,7 +459,8 @@ export default function PostCard({
       {post.showComments && (
         <View style={styles.commentsSection}>
           {displayedComments?.map((comment) => {
-            const isOwnComment = (comment as any).authorUid === currentUserUid;
+            const commentAuthorUid = (comment as any).authorUid ?? '';
+            const isOwnComment = !!currentUserUid && !!commentAuthorUid && commentAuthorUid === currentUserUid;
             const canDeleteComment = onDeleteComment && comment.id && (
               isOwnComment ||                                  // own comment
               isOwnPost                                         // post owner can remove any comment

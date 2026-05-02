@@ -10,25 +10,22 @@
 ---
 
 ## Active task
-Fix Community comment owner actions: users could not edit/delete their own comments.
+Fix deployed Community comment owner actions still showing "Could not edit/delete comment".
 
 ## Status
-✅ Done by Codex. Root causes: comment editing was not implemented,
-delete was exposed only as a tiny icon, and delete confirmation used
-`Alert.alert`, which is unreliable on web/Safari in this repo. Added inline
-Edit/Save/Cancel/Delete actions for the comment owner and cross-platform
-delete confirmation.
+In progress by Codex. The UI reached production, but edit/delete could still
+surface failure if the comment write succeeded and the denormalized parent post
+summary repair failed. Patched comment edit/delete so the actual comment
+document write decides success, while parent count/latest-comment repair is
+best-effort. Also hid owner actions when either the current uid or comment
+author uid is missing.
 
 ## Last action
-Committed and pushed `068f156 Enable editing and deleting own comments`
-to `main`. Published Android/iOS OTA update group
-`5edfdf51-5e22-4ccc-a88d-28dd6b1951bb` and deployed Firebase Hosting.
-`npx tsc --noEmit` passes.
+Edited `services/social.ts` and `components/community/PostCard.tsx`.
+`npx tsc --noEmit` passes. Commit/push/OTA/web deploy still pending.
 
 ## Next step
-None for this owner-action fix. If a specific comment still cannot be edited
-or deleted, inspect that comment document's `authorUid` against the signed-in
-user uid.
+Pull/rebase main, commit, push, run `npm run update`, then deploy web hosting.
 
 ## In-flight side processes (don't accidentally restart these)
 - **EAS Android build:** `90c536ef-e74c-4b1a-b245-e1f14bf22d0b` —

@@ -314,6 +314,12 @@ export async function deleteComment(postId: string, commentId: string): Promise<
   if (!db) return;
   try {
     await deleteDoc(doc(db, 'communityPosts', postId, 'comments', commentId));
+  } catch (error) {
+    console.error('deleteComment error:', error);
+    throw error;
+  }
+
+  try {
     const postRef = doc(db, 'communityPosts', postId);
     const postSnap = await getDoc(postRef);
     const postData = postSnap.exists() ? postSnap.data() : null;
@@ -345,15 +351,14 @@ export async function deleteComment(postId: string, commentId: string): Promise<
 
     await updateDoc(postRef, updates);
   } catch (error) {
-    console.error('deleteComment error:', error);
-    throw error;
+    console.warn(`deleteComment(${postId}/${commentId}): post summary repair failed`, error);
   }
 }
 
 export async function updateComment(
   postId: string,
   commentId: string,
-  authorUid: string,
+  _authorUid: string,
   text: string,
 ): Promise<void> {
   if (!db) return;
@@ -361,16 +366,16 @@ export async function updateComment(
   if (!trimmed) throw new Error('empty_comment');
   try {
     const commentRef = doc(db, 'communityPosts', postId, 'comments', commentId);
-    const commentSnap = await getDoc(commentRef);
-    if (!commentSnap.exists()) throw new Error('comment_not_found');
-    const commentData = commentSnap.data();
-    if (commentData.authorUid !== authorUid) throw new Error('not_comment_author');
-
     await updateDoc(commentRef, {
       text: trimmed,
       editedAt: serverTimestamp(),
     });
+  } catch (error) {
+    console.error('updateComment error:', error);
+    throw error;
+  }
 
+  try {
     const postRef = doc(db, 'communityPosts', postId);
     const postSnap = await getDoc(postRef);
     const postData = postSnap.exists() ? postSnap.data() : null;
@@ -383,8 +388,7 @@ export async function updateComment(
       });
     }
   } catch (error) {
-    console.error('updateComment error:', error);
-    throw error;
+    console.warn(`updateComment(${postId}/${commentId}): post preview repair failed`, error);
   }
 }
 
