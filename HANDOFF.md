@@ -13,18 +13,19 @@
 Fix Community comment count showing 0 while comments are visible.
 
 ## Status
-In progress by Codex. Patched comment count reconciliation to merge both
+✅ Done by Codex. Patched comment count reconciliation to merge both
 comment arrays (`comments` and `commentList`) instead of letting an empty loaded
 list mask existing comments. Loading comments now also repairs the parent
 Firestore `commentCount` / latest-comment summary from the actual subcollection.
 
 ## Last action
-Edited `components/community/PostCard.tsx`, `store/useCommunityStore.ts`, and
-`services/social.ts`. `npx tsc --noEmit` passes. Commit/push/OTA/web deploy
-still pending.
+Committed and pushed `168f589 Fix visible comments showing zero count`.
+Published Android/iOS OTA update group
+`a63f0d06-8860-44f7-8610-06ea94dd49b2` and deployed Firebase Hosting.
+`npx tsc --noEmit` passes.
 
 ## Next step
-Pull/rebase main, commit, push, run `npm run update`, then deploy web hosting.
+None for this comment-count fix.
 
 ## In-flight side processes (don't accidentally restart these)
 - **EAS Android build:** `90c536ef-e74c-4b1a-b245-e1f14bf22d0b` —
