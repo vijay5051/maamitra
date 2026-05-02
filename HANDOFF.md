@@ -13,16 +13,18 @@
 Group Community comment edit/delete actions under a three-dot menu.
 
 ## Status
-In progress by Codex. Replaced the separate inline comment edit/delete buttons
+✅ Done by Codex. Replaced the separate inline comment edit/delete buttons
 with one ellipsis button that opens a small Edit/Delete dropdown, matching the
 existing post menu pattern.
 
 ## Last action
-Edited `components/community/PostCard.tsx`. `npx tsc --noEmit` passes.
-Commit/push/OTA/web deploy still pending.
+Committed and pushed `077e189 Group comment actions in options menu`.
+Published Android/iOS OTA update group
+`4fb95176-4a1a-4051-a703-6e954ed38976` and deployed Firebase Hosting.
+`npx tsc --noEmit` passes.
 
 ## Next step
-Pull/rebase main, commit, push, run `npm run update`, then deploy web hosting.
+None for this comment-menu polish.
 
 ## In-flight side processes (don't accidentally restart these)
 - **EAS Android build:** `90c536ef-e74c-4b1a-b245-e1f14bf22d0b` —
