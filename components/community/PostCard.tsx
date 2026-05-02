@@ -125,6 +125,7 @@ export default function PostCard({
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingCommentText, setEditingCommentText] = useState('');
   const [commentActionBusy, setCommentActionBusy] = useState<string | null>(null);
+  const [commentMenuOpenId, setCommentMenuOpenId] = useState<string | null>(null);
   const [showReactionPicker, setShowReactionPicker] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -144,6 +145,7 @@ export default function PostCard({
   };
 
   const confirmDeleteComment = async (commentId: string) => {
+    setCommentMenuOpenId(null);
     const ok = await confirmAction(
       'Delete comment',
       'Remove this comment permanently?',
@@ -166,6 +168,7 @@ export default function PostCard({
   };
 
   const startEditComment = (commentId: string, text: string) => {
+    setCommentMenuOpenId(null);
     setEditingCommentId(commentId);
     setEditingCommentText(text);
   };
@@ -468,6 +471,7 @@ export default function PostCard({
             const canEditComment = !!onEditComment && !!comment.id && isOwnComment;
             const isEditing = editingCommentId === comment.id;
             const isBusy = commentActionBusy === comment.id;
+            const isCommentMenuOpen = commentMenuOpenId === comment.id;
             return (
               <View key={comment.id} style={styles.commentRow}>
                 <TouchableOpacity
@@ -537,27 +541,36 @@ export default function PostCard({
                 </View>
                 {(canEditComment || canDeleteComment) && !isEditing ? (
                   <View style={styles.commentOwnerActions}>
-                    {canEditComment ? (
-                      <TouchableOpacity
-                        onPress={() => startEditComment(comment.id, comment.text)}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        style={styles.commentIconBtn}
-                        disabled={isBusy}
-                        accessibilityLabel="Edit comment"
-                      >
-                        <Ionicons name="pencil-outline" size={15} color={Colors.primary} />
-                      </TouchableOpacity>
-                    ) : null}
-                    {canDeleteComment ? (
-                      <TouchableOpacity
-                        onPress={() => confirmDeleteComment(comment.id)}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        style={styles.commentIconBtn}
-                        disabled={isBusy}
-                        accessibilityLabel="Delete comment"
-                      >
-                        <Ionicons name="trash-outline" size={15} color="#ef4444" />
-                      </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => setCommentMenuOpenId((openId) => openId === comment.id ? null : comment.id)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      style={styles.commentMoreBtn}
+                      disabled={isBusy}
+                      accessibilityLabel="Comment options"
+                    >
+                      <Ionicons name="ellipsis-horizontal" size={16} color="#9ca3af" />
+                    </TouchableOpacity>
+                    {isCommentMenuOpen ? (
+                      <View style={styles.commentMenuDropdown}>
+                        {canEditComment ? (
+                          <TouchableOpacity
+                            style={styles.menuItem}
+                            onPress={() => startEditComment(comment.id, comment.text)}
+                          >
+                            <Ionicons name="pencil-outline" size={15} color="#1a1a2e" />
+                            <Text style={styles.menuItemText}>Edit</Text>
+                          </TouchableOpacity>
+                        ) : null}
+                        {canDeleteComment ? (
+                          <TouchableOpacity
+                            style={styles.menuItem}
+                            onPress={() => confirmDeleteComment(comment.id)}
+                          >
+                            <Ionicons name="trash-outline" size={15} color="#ef4444" />
+                            <Text style={[styles.menuItemText, { color: '#ef4444' }]}>Delete</Text>
+                          </TouchableOpacity>
+                        ) : null}
+                      </View>
                     ) : null}
                   </View>
                 ) : null}
@@ -701,17 +714,34 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   commentOwnerActions: {
-    flexDirection: 'row',
+    position: 'relative',
     alignSelf: 'center',
-    gap: 2,
+    zIndex: 20,
   },
-  commentIconBtn: {
+  commentMoreBtn: {
     width: 30,
     height: 30,
     borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#F5F0FF',
+  },
+  commentMenuDropdown: {
+    position: 'absolute',
+    top: 32,
+    right: 0,
+    minWidth: 128,
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
+    paddingVertical: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+    zIndex: 120,
   },
   postText: {
     fontSize: 15,
