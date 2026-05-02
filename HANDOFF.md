@@ -10,21 +10,21 @@
 ---
 
 ## Active task
-Group Community comment edit/delete actions under a three-dot menu.
+Fix Community comment count showing 0 while comments are visible.
 
 ## Status
-✅ Done by Codex. Replaced the separate inline comment edit/delete buttons
-with one ellipsis button that opens a small Edit/Delete dropdown, matching the
-existing post menu pattern.
+In progress by Codex. Patched comment count reconciliation to merge both
+comment arrays (`comments` and `commentList`) instead of letting an empty loaded
+list mask existing comments. Loading comments now also repairs the parent
+Firestore `commentCount` / latest-comment summary from the actual subcollection.
 
 ## Last action
-Committed and pushed `077e189 Group comment actions in options menu`.
-Published Android/iOS OTA update group
-`4fb95176-4a1a-4051-a703-6e954ed38976` and deployed Firebase Hosting.
-`npx tsc --noEmit` passes.
+Edited `components/community/PostCard.tsx`, `store/useCommunityStore.ts`, and
+`services/social.ts`. `npx tsc --noEmit` passes. Commit/push/OTA/web deploy
+still pending.
 
 ## Next step
-None for this comment-menu polish.
+Pull/rebase main, commit, push, run `npm run update`, then deploy web hosting.
 
 ## In-flight side processes (don't accidentally restart these)
 - **EAS Android build:** `90c536ef-e74c-4b1a-b245-e1f14bf22d0b` —

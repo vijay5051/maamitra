@@ -11,6 +11,7 @@ import {
   togglePostReaction,
   addPostComment,
   fetchPostComments,
+  repairPostCommentSummary,
   incrementPublicProfilePostCount,
 } from '../services/social';
 import type { DocumentSnapshot } from 'firebase/firestore';
@@ -66,11 +67,13 @@ function reconcileCommentCount(
   commentCount: number | undefined,
   comments?: Array<{ text?: string }>,
   lastComment?: { text?: string },
+  secondaryComments?: Array<{ text?: string }>,
 ): number {
   return Math.max(
     0,
     commentCount ?? 0,
     comments?.length ?? 0,
+    secondaryComments?.length ?? 0,
     lastComment?.text ? 1 : 0,
   );
 }
@@ -508,26 +511,34 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
           if (p.id !== postId) return p;
           const commentsAlreadyHas = p.comments.some((c) => c.id === localComment.id);
           const listAlreadyHas = (p.commentList ?? []).some((c) => c.id === comment.id);
+          const nextComments = commentsAlreadyHas ? p.comments : [...p.comments, localComment];
+          const nextCommentList = listAlreadyHas
+            ? (p.commentList ?? [])
+            : [...(p.commentList ?? []), comment];
+          const nextLastComment = {
+            id: comment.id,
+            authorUid,
+            authorName: comment.authorName ?? authorName,
+            authorInitial: (comment.authorName ?? authorName).charAt(0).toUpperCase(),
+            authorPhotoUrl: comment.authorPhotoUrl,
+            text,
+          };
           return {
             ...p,
-            comments: commentsAlreadyHas ? p.comments : [...p.comments, localComment],
-            commentList: listAlreadyHas
-              ? (p.commentList ?? [])
-              : [...(p.commentList ?? []), comment],
-            commentCount: commentsAlreadyHas || listAlreadyHas
-              ? (p.commentCount ?? p.comments.length)
-              : (p.commentCount ?? p.comments.length) + 1,
+            comments: nextComments,
+            commentList: nextCommentList,
+            commentCount: reconcileCommentCount(
+              commentsAlreadyHas || listAlreadyHas
+                ? p.commentCount
+                : (p.commentCount ?? p.comments.length) + 1,
+              nextCommentList,
+              nextLastComment,
+              nextComments,
+            ),
             // Mirror what the dispatcher writes onto the parent post so
             // PostCard's "latest comment" preview reflects the new
             // comment immediately, before the next Firestore re-fetch.
-            lastComment: {
-              id: comment.id,
-              authorUid,
-              authorName: comment.authorName ?? authorName,
-              authorInitial: (comment.authorName ?? authorName).charAt(0).toUpperCase(),
-              authorPhotoUrl: comment.authorPhotoUrl,
-              text,
-            },
+            lastComment: nextLastComment,
             lastCommentAt: comment.createdAt instanceof Date ? comment.createdAt : new Date(),
             showComments: true,
           };
@@ -542,14 +553,16 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
   loadCommentsForPost: async (postId: string) => {
     try {
       const comments = await fetchPostComments(postId);
+      repairPostCommentSummary(postId, comments);
 
       set((state) => ({
         posts: state.posts.map((p) =>
           p.id === postId
             ? {
                 ...p,
+                comments: comments as Comment[],
                 commentList: comments,
-                commentCount: reconcileCommentCount(p.commentCount, comments, p.lastComment),
+                commentCount: reconcileCommentCount(p.commentCount, comments, p.lastComment, p.comments),
                 lastComment: p.lastComment ?? comments[comments.length - 1],
                 lastCommentAt: p.lastCommentAt ?? comments[comments.length - 1]?.createdAt,
               }
@@ -645,6 +658,7 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
               Math.max(0, (p.commentCount ?? p.comments.length) - 1),
               newCommentList.length > 0 ? newCommentList : newComments,
               nextLast,
+              newComments,
             ),
             lastComment: nextLast,
             lastCommentAt: nextLast?.createdAt,

@@ -59,6 +59,23 @@ function timeAgo(date: Date | string): string {
   return `${days}d ago`;
 }
 
+function mergeComments<T extends { id?: string; authorUid?: string; text?: string; createdAt?: Date | string }>(
+  ...commentGroups: Array<T[] | undefined>
+): T[] {
+  const seen = new Set<string>();
+  const merged: T[] = [];
+  commentGroups.flatMap((group) => group ?? []).forEach((comment) => {
+    const createdAt = comment.createdAt instanceof Date
+      ? comment.createdAt.toISOString()
+      : comment.createdAt ?? '';
+    const key = comment.id || `${comment.authorUid ?? ''}:${createdAt}:${comment.text ?? ''}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    merged.push(comment);
+  });
+  return merged;
+}
+
 // ─── ReactionPill ────────────────────────────────────────────────────
 // Small tappable pill with a scale pop on tap — the premium-feeling
 // "my reaction landed" signal. Pop runs entirely on the UI thread (shared
@@ -231,7 +248,7 @@ export default function PostCard({
 
   // Support both old embedded `comments` array and new loaded `commentList`
   // Filter out comments from blocked users
-  const rawComments = post.commentList ?? post.comments;
+  const rawComments = mergeComments(post.comments, post.commentList);
   const displayedComments = blockedUids.length > 0
     ? rawComments?.filter((c: any) => !blockedUids.includes(c.authorUid))
     : rawComments;
@@ -239,7 +256,7 @@ export default function PostCard({
   const commentCount = Math.max(
     0,
     post.commentCount ?? 0,
-    displayedComments?.length ?? 0,
+    rawComments.length,
     lastComment?.text ? 1 : 0,
   );
 

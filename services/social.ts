@@ -761,6 +761,35 @@ export async function fetchPostComments(postId: string): Promise<PostComment[]> 
   }
 }
 
+export async function repairPostCommentSummary(postId: string, comments: PostComment[]): Promise<void> {
+  if (!db) return;
+  try {
+    const latest = comments[comments.length - 1];
+    if (latest) {
+      await updateDoc(doc(db, 'communityPosts', postId), {
+        commentCount: comments.length,
+        lastComment: {
+          id: latest.id,
+          authorUid: latest.authorUid,
+          authorName: latest.authorName,
+          authorInitial: latest.authorInitial,
+          authorPhotoUrl: latest.authorPhotoUrl ?? '',
+          text: latest.text,
+        },
+        lastCommentAt: latest.createdAt,
+      });
+    } else {
+      await updateDoc(doc(db, 'communityPosts', postId), {
+        commentCount: 0,
+        lastComment: deleteField(),
+        lastCommentAt: deleteField(),
+      });
+    }
+  } catch (error) {
+    console.warn(`repairPostCommentSummary(${postId}) failed`, error);
+  }
+}
+
 // ─── Block check helper ──────────────────────────────────────────────────────
 
 /** Returns true if either user has blocked the other */
