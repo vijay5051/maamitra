@@ -13,7 +13,7 @@
 Fix deployed Community comment owner actions still showing "Could not edit/delete comment".
 
 ## Status
-In progress by Codex. The UI reached production, but edit/delete could still
+✅ Done by Codex. The UI reached production, but edit/delete could still
 surface failure if the comment write succeeded and the denormalized parent post
 summary repair failed. Patched comment edit/delete so the actual comment
 document write decides success, while parent count/latest-comment repair is
@@ -21,11 +21,15 @@ best-effort. Also hid owner actions when either the current uid or comment
 author uid is missing.
 
 ## Last action
-Edited `services/social.ts` and `components/community/PostCard.tsx`.
-`npx tsc --noEmit` passes. Commit/push/OTA/web deploy still pending.
+Committed and pushed `64938a1 Fix community comment edit delete failures`.
+Published Android/iOS OTA update group
+`a2fe1b29-78b3-4260-a9fd-f447a13df633` and deployed Firebase Hosting.
+`npx tsc --noEmit` passes.
 
 ## Next step
-Pull/rebase main, commit, push, run `npm run update`, then deploy web hosting.
+None for this fix. If a specific older comment still cannot be edited/deleted,
+inspect that comment document's `authorUid`; secure owner actions require it
+to match the signed-in Firebase Auth uid.
 
 ## In-flight side processes (don't accidentally restart these)
 - **EAS Android build:** `90c536ef-e74c-4b1a-b245-e1f14bf22d0b` —
