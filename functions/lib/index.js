@@ -52,7 +52,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.classifyInboxThread = exports.generateInboxReplies = exports.metaWebhookReceiver = exports.dailyMarketingDraftCron = exports.generateMarketingDraft = exports.scoreMarketingDraft = exports.renderMarketingTemplate = exports.repairCommunityCounters = exports.onUserCreated = exports.onFollowDelete = exports.onFollowCreate = exports.onPostDelete = exports.onCommentDelete = exports.onCommentCreate = exports.synthesizeSpeech = exports.adminFactoryReset = exports.factoryReset = exports.processScheduledPushes = exports.adminCreateUser = exports.adminDeleteUser = exports.dispatchPush = void 0;
+exports.publishMarketingDraftNow = exports.scheduledMarketingPublisher = exports.metaInboxReplyPublisher = exports.classifyInboxThread = exports.generateInboxReplies = exports.metaWebhookReceiver = exports.dailyMarketingDraftCron = exports.generateMarketingDraft = exports.scoreMarketingDraft = exports.renderMarketingTemplate = exports.repairCommunityCounters = exports.onUserCreated = exports.onFollowDelete = exports.onFollowCreate = exports.onPostDelete = exports.onCommentDelete = exports.onCommentCreate = exports.synthesizeSpeech = exports.adminFactoryReset = exports.factoryReset = exports.processScheduledPushes = exports.adminCreateUser = exports.adminDeleteUser = exports.dispatchPush = void 0;
 const functions = __importStar(require("firebase-functions/v1"));
 const admin = __importStar(require("firebase-admin"));
 const text_to_speech_1 = __importDefault(require("@google-cloud/text-to-speech"));
@@ -1165,3 +1165,15 @@ exports.dailyMarketingDraftCron = (0, marketing_1.buildDailyMarketingDraftCron)(
 exports.metaWebhookReceiver = (0, marketing_1.buildMetaWebhookReceiver)();
 exports.generateInboxReplies = (0, marketing_1.buildGenerateInboxReplies)(ADMIN_EMAILS);
 exports.classifyInboxThread = (0, marketing_1.buildClassifyInboxThread)(ADMIN_EMAILS);
+// M4b — outbound reply publisher. Firestore trigger on new outbound
+// messages with outboundStatus='pending_send'. Sends via IG Graph API
+// (DMs + comment replies); FB Page deferred to M4c. Skips synthetic
+// test threads.
+exports.metaInboxReplyPublisher = (0, marketing_1.buildMetaInboxReplyPublisher)();
+// M3b — scheduled draft auto-publish.
+// scheduledMarketingPublisher: pubsub every 5 min, picks up drafts where
+// status='scheduled' AND scheduledAt<=now, posts to IG, marks 'posted'.
+// publishMarketingDraftNow: same flow but admin-callable for "Publish
+// now" button on the slide-over.
+exports.scheduledMarketingPublisher = (0, marketing_1.buildScheduledMarketingPublisher)();
+exports.publishMarketingDraftNow = (0, marketing_1.buildPublishMarketingDraftNow)(ADMIN_EMAILS);

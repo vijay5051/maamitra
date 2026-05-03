@@ -50,7 +50,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.buildClassifyInboxThread = exports.buildGenerateInboxReplies = exports.buildMetaWebhookReceiver = exports.buildDailyMarketingDraftCron = exports.buildGenerateMarketingDraft = exports.buildScoreMarketingDraft = void 0;
+exports.buildPublishMarketingDraftNow = exports.buildScheduledMarketingPublisher = exports.buildMetaInboxReplyPublisher = exports.buildClassifyInboxThread = exports.buildGenerateInboxReplies = exports.buildMetaWebhookReceiver = exports.buildDailyMarketingDraftCron = exports.buildGenerateMarketingDraft = exports.buildScoreMarketingDraft = void 0;
 exports.buildRenderMarketingTemplate = buildRenderMarketingTemplate;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions/v1"));
@@ -66,6 +66,10 @@ var inbox_1 = require("./inbox");
 Object.defineProperty(exports, "buildMetaWebhookReceiver", { enumerable: true, get: function () { return inbox_1.buildMetaWebhookReceiver; } });
 Object.defineProperty(exports, "buildGenerateInboxReplies", { enumerable: true, get: function () { return inbox_1.buildGenerateInboxReplies; } });
 Object.defineProperty(exports, "buildClassifyInboxThread", { enumerable: true, get: function () { return inbox_1.buildClassifyInboxThread; } });
+var publisher_1 = require("./publisher");
+Object.defineProperty(exports, "buildMetaInboxReplyPublisher", { enumerable: true, get: function () { return publisher_1.buildMetaInboxReplyPublisher; } });
+Object.defineProperty(exports, "buildScheduledMarketingPublisher", { enumerable: true, get: function () { return publisher_1.buildScheduledMarketingPublisher; } });
+Object.defineProperty(exports, "buildPublishMarketingDraftNow", { enumerable: true, get: function () { return publisher_1.buildPublishMarketingDraftNow; } });
 // firebase-admin is initialized in functions/src/index.ts before this module
 // is imported; we just grab the existing instance.
 // Capability check — Marketing renders are gated on the same admin signal
