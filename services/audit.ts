@@ -39,7 +39,27 @@ export type AdminAction =
   | 'content.publish'
   | 'vaccine.update'
   | 'settings.update'
-  | 'flag.update';
+  | 'flag.update'
+  // Wave 2 — visibility control
+  | 'flag.toggle'
+  | 'flag.rollout_change'
+  | 'maintenance.enable'
+  | 'maintenance.disable'
+  | 'force_update.set'
+  // Wave 4 — safety
+  | 'image.unflag'
+  | 'crisis.escalate'
+  // Wave 7 — org
+  | 'role.create'
+  | 'role.update'
+  | 'role.delete'
+  | 'vaccine_schedule.signoff'
+  | 'rtbf.process'
+  // Wave 8 — ops
+  | 'user.impersonate.start'
+  | 'user.impersonate.end'
+  | 'function.replay'
+  | 'cron.replay';
 
 export interface AuditTarget {
   /** Most actions target a user (uid). May be empty for global actions. */

@@ -14,7 +14,10 @@ import { useFonts } from 'expo-font';
 import { useAuthStore } from '../store/useAuthStore';
 import { useAppSettingsStore } from '../store/useAppSettingsStore';
 import { useFeedbackStore } from '../store/useFeedbackStore';
+import { useRuntimeConfigStore } from '../store/useRuntimeConfigStore';
 import FeedbackSurveyModal from '../components/feedback/FeedbackSurveyModal';
+import MaintenanceOverlay from '../components/MaintenanceOverlay';
+import ForceUpdateOverlay from '../components/ForceUpdateOverlay';
 import RootErrorBoundary from '../components/ui/RootErrorBoundary';
 import { SplashAnimation } from '../components/ui/SplashAnimation';
 import { hasSubmittedTesterFeedback } from '../services/firebase';
@@ -70,6 +73,9 @@ export default function RootLayout() {
     initAuth();
     fetchSettings();
     markInstalledIfNeeded();
+    // Subscribe once at root so every screen reads from a single live source.
+    useRuntimeConfigStore.getState().subscribe();
+    return () => useRuntimeConfigStore.getState().unsubscribe();
   }, []);
 
   // Wire native FCM token-refresh + foreground message listeners once
@@ -149,6 +155,11 @@ export default function RootLayout() {
             visible={surveyVisible}
             onClose={() => { setAutoSurveyVisible(false); closeSurvey(); }}
           />
+          {/* Visibility-control overlays — non-admins only. Order matters:
+              ForceUpdate sits underneath Maintenance so a maintenance window
+              during a forced rollout still wins. */}
+          <ForceUpdateOverlay />
+          <MaintenanceOverlay />
           {!splashDone && (fontsLoaded || fontError) && (
             <View style={StyleSheet.absoluteFill} pointerEvents="none">
               <SplashAnimation onComplete={() => setSplashDone(true)} />
