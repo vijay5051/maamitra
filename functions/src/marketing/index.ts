@@ -26,6 +26,11 @@ import { BrandSnapshot, TEMPLATE_NAMES } from './templates';
 export { buildScoreMarketingDraft } from './scoring';
 export { buildGenerateMarketingDraft, buildDailyMarketingDraftCron } from './generator';
 export { buildMetaWebhookReceiver, buildGenerateInboxReplies, buildClassifyInboxThread } from './inbox';
+export {
+  buildMetaInboxReplyPublisher,
+  buildScheduledMarketingPublisher,
+  buildPublishMarketingDraftNow,
+} from './publisher';
 
 // firebase-admin is initialized in functions/src/index.ts before this module
 // is imported; we just grab the existing instance.

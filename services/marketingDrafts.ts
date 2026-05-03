@@ -238,6 +238,37 @@ export interface GenerateDraftError {
   message: string;
 }
 
+// ── Publish now (M3b) ──────────────────────────────────────────────────────
+
+export interface PublishNowInput { draftId: string }
+export interface PublishNowResult {
+  ok: true;
+  postId: string;
+  permalink: string | null;
+}
+export interface PublishNowError {
+  ok: false;
+  code: string;
+  message: string;
+}
+
+/** Manual "Publish now" — admin button on the slide-over. Calls the same
+ *  publish path as the 5-min cron, but fires immediately so testing isn't
+ *  gated on the cron tick. */
+export async function publishDraftNow(
+  input: PublishNowInput,
+): Promise<PublishNowResult | PublishNowError> {
+  if (!app) throw new Error('Firebase app not configured');
+  const { getFunctions, httpsCallable } = await import('firebase/functions');
+  const functions = getFunctions(app);
+  const call = httpsCallable<PublishNowInput, PublishNowResult | PublishNowError>(
+    functions,
+    'publishMarketingDraftNow',
+  );
+  const result = await call(input);
+  return result.data;
+}
+
 export async function generateMarketingDraft(
   input: GenerateDraftInput,
 ): Promise<GenerateDraftResult | GenerateDraftError> {

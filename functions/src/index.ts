@@ -24,8 +24,11 @@ import {
   buildDailyMarketingDraftCron,
   buildGenerateInboxReplies,
   buildGenerateMarketingDraft,
+  buildMetaInboxReplyPublisher,
   buildMetaWebhookReceiver,
+  buildPublishMarketingDraftNow,
   buildRenderMarketingTemplate,
+  buildScheduledMarketingPublisher,
   buildScoreMarketingDraft,
 } from './marketing';
 
@@ -1352,3 +1355,17 @@ export const dailyMarketingDraftCron = buildDailyMarketingDraftCron();
 export const metaWebhookReceiver = buildMetaWebhookReceiver();
 export const generateInboxReplies = buildGenerateInboxReplies(ADMIN_EMAILS);
 export const classifyInboxThread = buildClassifyInboxThread(ADMIN_EMAILS);
+
+// M4b — outbound reply publisher. Firestore trigger on new outbound
+// messages with outboundStatus='pending_send'. Sends via IG Graph API
+// (DMs + comment replies); FB Page deferred to M4c. Skips synthetic
+// test threads.
+export const metaInboxReplyPublisher = buildMetaInboxReplyPublisher();
+
+// M3b — scheduled draft auto-publish.
+// scheduledMarketingPublisher: pubsub every 5 min, picks up drafts where
+// status='scheduled' AND scheduledAt<=now, posts to IG, marks 'posted'.
+// publishMarketingDraftNow: same flow but admin-callable for "Publish
+// now" button on the slide-over.
+export const scheduledMarketingPublisher = buildScheduledMarketingPublisher();
+export const publishMarketingDraftNow = buildPublishMarketingDraftNow(ADMIN_EMAILS);

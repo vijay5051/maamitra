@@ -42,6 +42,7 @@ import {
   fetchDraft,
   generateMarketingDraft,
   markDraftPosted,
+  publishDraftNow,
   rejectDraft,
   scheduleDraft,
   subscribeDrafts,
@@ -413,6 +414,24 @@ function DraftSlideOver({
     });
   }
 
+  async function handlePublishNow() {
+    if (!draft || !actor) return;
+    setActionError(null);
+    setSaving(true);
+    try {
+      const res = await publishDraftNow({ draftId: draft.id });
+      if (!res.ok) throw new Error(`${res.code}: ${res.message}`);
+      // Server already flipped status='posted' + saved permalink. Snapshot
+      // refreshes on its own; close so admin can see the queue update.
+      await onChanged();
+      onClose();
+    } catch (e: any) {
+      setActionError(`Publish now failed: ${e?.message ?? String(e)}`);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function copyCaption() {
     if (!draft) return;
     if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
@@ -483,9 +502,13 @@ function DraftSlideOver({
               ) : null}
               {isApproved ? (
                 <>
-                  <Pressable onPress={() => setShowSchedule((v) => !v)} style={[styles.btn, styles.btnPrimary]}>
-                    <Ionicons name="calendar" size={16} color="#fff" />
-                    <Text style={styles.btnLabel}>Schedule…</Text>
+                  <Pressable onPress={handlePublishNow} disabled={saving} style={[styles.btn, styles.btnPrimary]}>
+                    <Ionicons name="rocket" size={16} color="#fff" />
+                    <Text style={styles.btnLabel}>{saving ? 'Publishing…' : 'Publish now'}</Text>
+                  </Pressable>
+                  <Pressable onPress={() => setShowSchedule((v) => !v)} style={[styles.btn, styles.btnGhost]}>
+                    <Ionicons name="calendar" size={16} color={Colors.primary} />
+                    <Text style={[styles.btnLabel, { color: Colors.primary }]}>Schedule…</Text>
                   </Pressable>
                   <Pressable onPress={copyCaption} style={[styles.btn, styles.btnGhost]}>
                     <Ionicons name="copy" size={16} color={Colors.primary} />
@@ -503,13 +526,17 @@ function DraftSlideOver({
               ) : null}
               {isScheduled ? (
                 <>
+                  <Pressable onPress={handlePublishNow} disabled={saving} style={[styles.btn, styles.btnPrimary]}>
+                    <Ionicons name="rocket" size={16} color="#fff" />
+                    <Text style={styles.btnLabel}>{saving ? 'Publishing…' : 'Publish now'}</Text>
+                  </Pressable>
                   <Pressable onPress={handleUnschedule} style={[styles.btn, styles.btnGhost]} disabled={saving}>
                     <Ionicons name="calendar-outline" size={16} color={Colors.textMuted} />
                     <Text style={[styles.btnLabel, { color: Colors.textMuted }]}>{saving ? 'Updating…' : 'Unschedule'}</Text>
                   </Pressable>
-                  <Pressable onPress={() => setShowMarkPosted(true)} style={[styles.btn, styles.btnPrimary]}>
-                    <Ionicons name="checkmark-done" size={16} color="#fff" />
-                    <Text style={styles.btnLabel}>Mark posted</Text>
+                  <Pressable onPress={() => setShowMarkPosted(true)} style={[styles.btn, styles.btnGhost]}>
+                    <Ionicons name="checkmark-done" size={16} color={Colors.success} />
+                    <Text style={[styles.btnLabel, { color: Colors.success }]}>Mark posted</Text>
                   </Pressable>
                   <Pressable onPress={copyCaption} style={[styles.btn, styles.btnGhost]}>
                     <Ionicons name="copy" size={16} color={Colors.primary} />
