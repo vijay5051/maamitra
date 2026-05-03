@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Image,
   Platform,
@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import GradientAvatar from '../ui/GradientAvatar';
 import TagPill from '../ui/TagPill';
 import { ChatMessage, useChatStore } from '../../store/useChatStore';
@@ -16,6 +17,37 @@ import { Fonts } from '../../constants/theme';
 import { detectLanguage } from '../../services/voice';
 import { synthesizeSpeech, synthesisToDataUrl } from '../../services/cloudTts';
 import { Colors } from '../../constants/theme';
+
+/**
+ * Action chips embedded by the AI in the form `[GO:Label|/path]` — see the
+ * APP_MAP block in services/claude.ts. We strip them out of the rendered
+ * text and render tappable buttons below the bubble that deep-link into
+ * the right tab/section.
+ */
+interface ActionChip {
+  label: string;
+  path: string;
+}
+
+function parseActionChips(text: string): { stripped: string; chips: ActionChip[] } {
+  const re = /\[GO:([^|\]\n]+)\|([^\]\n]+)\]/g;
+  const chips: ActionChip[] = [];
+  const stripped = text
+    .replace(re, (_match, rawLabel: string, rawPath: string) => {
+      const label = rawLabel.trim();
+      const path = rawPath.trim();
+      // Defence: only accept paths that start with a slash so we don't
+      // get tricked into opening external URLs from the LLM.
+      if (label && path.startsWith('/') && chips.length < 3) {
+        chips.push({ label, path });
+      }
+      return '';
+    })
+    // Collapse the blank lines that the chip removal leaves behind.
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  return { stripped, chips };
+}
 
 interface ChatBubbleProps {
   message: ChatMessage;
@@ -30,9 +62,20 @@ function formatTime(date: Date | string): string {
 
 export default function ChatBubble({ message, onSave, isFirstInGroup = true }: ChatBubbleProps) {
   const isAssistant = message.role === 'assistant';
+  const router = useRouter();
   const voiceLanguage = useChatStore((s) => s.voiceLanguage);
   const [speaking, setSpeaking] = useState(false);
   const [loadingAudio, setLoadingAudio] = useState(false);
+
+  // Pull `[GO:Label|/path]` action tokens out of assistant messages so we
+  // can render tappable deep-link chips (and not show the raw token).
+  const { stripped: displayText, chips: actionChips } = useMemo(
+    () =>
+      isAssistant
+        ? parseActionChips(message.content || '')
+        : { stripped: message.content || '', chips: [] as ActionChip[] },
+    [isAssistant, message.content],
+  );
   // Player ref kept loose-typed because expo-audio has slightly different
   // shapes on web vs native; we only ever call .pause() / .release().
   const playerRef = useRef<any>(null);
@@ -59,9 +102,12 @@ export default function ChatBubble({ message, onSave, isFirstInGroup = true }: C
       // Prefer the language the message was actually written in (so Hindi
       // replies play in Hindi even when the user's preferred voice lang
       // is English). Fall back to the user preference, then en-IN.
-      const detected = detectLanguage(message.content);
+      // Use the chip-stripped text — we don't want the TTS to read out
+      // "[GO: open vaccine tracker / tabs / health …]" tokens.
+      const speakText = displayText || message.content;
+      const detected = detectLanguage(speakText);
       const lang = detected ?? voiceLanguage ?? 'en-IN';
-      const audio = await synthesizeSpeech(message.content, lang);
+      const audio = await synthesizeSpeech(speakText, lang);
       const uri = synthesisToDataUrl(audio);
       const expoAudio = await import('expo-audio');
       const player = expoAudio.createAudioPlayer({ uri });
@@ -141,8 +187,31 @@ export default function ChatBubble({ message, onSave, isFirstInGroup = true }: C
               end={{ x: 0, y: 1 }}
               style={styles.leftBorderStrip}
             />
-            <Text style={[styles.botText, webTextStyle]}>{message.content}</Text>
+            <Text style={[styles.botText, webTextStyle]}>{displayText}</Text>
           </View>
+          {actionChips.length > 0 ? (
+            <View style={styles.actionChipsRow}>
+              {actionChips.map((chip, i) => (
+                <TouchableOpacity
+                  key={`${chip.path}-${i}`}
+                  style={styles.actionChip}
+                  onPress={() => {
+                    try {
+                      router.push(chip.path as any);
+                    } catch (err) {
+                      console.warn('[chat] action chip nav failed:', chip.path, err);
+                    }
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="arrow-forward-circle" size={14} color="#fff" />
+                  <Text style={styles.actionChipText} numberOfLines={1}>
+                    {chip.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          ) : null}
           {message.tag ? (
             <TagPill
               label={message.tag.tag}
@@ -298,6 +367,33 @@ const styles = StyleSheet.create({
   },
   tagPill: {
     marginTop: 6,
+  },
+  actionChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 8,
+  },
+  actionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: Colors.primary,
+    borderRadius: 14,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.22,
+    shadowRadius: 6,
+    elevation: 2,
+    maxWidth: '100%',
+  },
+  actionChipText: {
+    color: '#fff',
+    fontFamily: Fonts.sansMedium,
+    fontSize: 13,
+    fontWeight: '700' as any,
   },
   saveButton: {
     marginTop: 6,
