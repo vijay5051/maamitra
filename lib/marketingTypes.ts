@@ -392,17 +392,23 @@ export interface MarketingDraft {
   rejectReason: string | null;
 }
 
-// ── Inbox (Phase 6) ─────────────────────────────────────────────────────────
+// ── Inbox (M4) ──────────────────────────────────────────────────────────────
 
 export type InboxChannel = 'ig_comment' | 'ig_dm' | 'fb_comment' | 'fb_message';
-export type InboxStatus = 'unread' | 'replied' | 'archived' | 'spam';
+export type InboxStatus = 'unread' | 'replied' | 'resolved' | 'archived' | 'spam';
 export type InboxSentiment = 'positive' | 'question' | 'complaint' | 'neutral' | 'spam';
+export type InboxIntent = 'greeting' | 'question_general' | 'question_medical' | 'praise' | 'complaint' | 'lead' | 'spam' | 'other';
+export type InboxUrgency = 'low' | 'medium' | 'high';
 
 export interface InboxThread {
   id: string;
   channel: InboxChannel;
   status: InboxStatus;
   sentiment: InboxSentiment;
+  /** Classified intent — drives auto-reply rules + escalation. */
+  intent: InboxIntent;
+  /** Routing severity. 'high' surfaces in a top-of-list alert row. */
+  urgency: InboxUrgency;
   /** External author display name from Meta. */
   authorName: string;
   /** External author Meta ID (PSID for Messenger, IGSID for IG). */
@@ -413,8 +419,13 @@ export interface InboxThread {
   lastMessageAt: string;
   /** If this thread is on a post we created, link to the draft. */
   draftId: string | null;
+  /** True for admin-injected test threads (M4a only — until Meta lands).
+   *  Always rendered with a "TEST" badge so it's never confused with real. */
+  isSynthetic: boolean;
   createdAt: string;
 }
+
+export type OutboundStatus = 'pending_send' | 'sent' | 'failed';
 
 export interface InboxMessage {
   id: string;
@@ -429,4 +440,10 @@ export interface InboxMessage {
   sentBy: string | null;
   /** AI-suggested reply this message was generated from. */
   fromSuggestion: boolean;
+  /** Outbound only — pending_send until M4b wires the Graph API call. */
+  outboundStatus?: OutboundStatus;
+  /** Outbound only — error message from the publisher when status=failed. */
+  outboundError?: string | null;
+  /** Inbound only — Meta event ID for idempotency (= Firestore doc id). */
+  externalId?: string;
 }

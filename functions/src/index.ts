@@ -20,8 +20,11 @@ import * as admin from 'firebase-admin';
 import textToSpeech from '@google-cloud/text-to-speech';
 
 import {
+  buildClassifyInboxThread,
   buildDailyMarketingDraftCron,
+  buildGenerateInboxReplies,
   buildGenerateMarketingDraft,
+  buildMetaWebhookReceiver,
   buildRenderMarketingTemplate,
   buildScoreMarketingDraft,
 } from './marketing';
@@ -1336,3 +1339,16 @@ export const generateMarketingDraft = buildGenerateMarketingDraft(ADMIN_EMAILS);
 // Daily 6am IST cron — opt-in via marketing_brand/main.cronEnabled=true.
 // Same generation flow, runs as service account.
 export const dailyMarketingDraftCron = buildDailyMarketingDraftCron();
+
+// M4 — engagement / unified inbox.
+//
+// metaWebhookReceiver is a public HTTPS endpoint (no auth — Meta is the
+// caller). Signature verification via META_APP_SECRET; GET handshake via
+// META_WEBHOOK_VERIFY_TOKEN. Both must be set in functions/.env before
+// Meta can subscribe.
+//
+// generateInboxReplies + classifyInboxThread are admin-callables that
+// reuse the same OPENAI_API_KEY as the M2 caption generator.
+export const metaWebhookReceiver = buildMetaWebhookReceiver();
+export const generateInboxReplies = buildGenerateInboxReplies(ADMIN_EMAILS);
+export const classifyInboxThread = buildClassifyInboxThread(ADMIN_EMAILS);

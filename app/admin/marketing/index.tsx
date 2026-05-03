@@ -25,7 +25,8 @@ import {
   summariseCost,
 } from '../../../services/marketing';
 import { countDraftsByStatus } from '../../../services/marketingDrafts';
-import { BrandKit, DraftStatus } from '../../../lib/marketingTypes';
+import { countByStatus as countInboxByStatus } from '../../../services/marketingInbox';
+import { BrandKit, DraftStatus, InboxStatus } from '../../../lib/marketingTypes';
 import { useAuthStore } from '../../../store/useAuthStore';
 
 const META_APP_ID = '1485870226522993';
@@ -45,6 +46,7 @@ export default function MarketingOverviewScreen() {
   const [brand, setBrand] = useState<BrandKit | null>(null);
   const [costRows, setCostRows] = useState<CostLogRow[]>([]);
   const [draftCounts, setDraftCounts] = useState<Record<DraftStatus, number> | null>(null);
+  const [inboxCounts, setInboxCounts] = useState<Record<InboxStatus | 'all', number> | null>(null);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState<'cron' | 'crisis' | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -55,14 +57,16 @@ export default function MarketingOverviewScreen() {
     setLoading(true);
     setError(null);
     try {
-      const [k, rows, dc] = await Promise.all([
+      const [k, rows, dc, ic] = await Promise.all([
         fetchBrandKit(),
         fetchRecentCostLog(120),
         countDraftsByStatus(),
+        countInboxByStatus(),
       ]);
       setBrand(k);
       setCostRows(rows);
       setDraftCounts(dc);
+      setInboxCounts(ic);
     } catch (e: any) {
       setError(e?.message ?? String(e));
     } finally {
@@ -178,16 +182,16 @@ export default function MarketingOverviewScreen() {
     {
       key: 'webhook',
       label: 'Webhook receiver',
-      description: 'Public Firebase Function endpoint that ingests Meta events (comments, DMs, mentions). Also unblocks the Meta data-deletion URL. Coming in Phase 5.',
-      state: 'pending',
-      hint: 'Phase 5',
+      description: 'metaWebhookReceiver deployed at https://us-central1-maa-mitra-7kird8.cloudfunctions.net/metaWebhookReceiver. GET handshake + HMAC-SHA256 signature verification. Set META_APP_SECRET + META_WEBHOOK_VERIFY_TOKEN in functions/.env, then register the URL in the Meta App Dashboard.',
+      state: 'in_progress',
+      hint: 'Awaiting Meta config',
     },
     {
       key: 'inbox',
       label: 'Unified inbox',
-      description: 'IG + FB comments and DMs in one queue with AI reply suggestions in your brand voice. Coming in Phase 6.',
-      state: 'pending',
-      hint: 'Phase 6',
+      description: 'IG + FB comments and DMs in one queue with AI reply suggestions, sentiment + urgency classification, and synthetic test threads to exercise the UX. Real Meta events flow once webhook + App Review approves.',
+      state: 'done',
+      href: '/admin/marketing/inbox',
     },
     {
       key: 'app-review',
@@ -286,10 +290,10 @@ export default function MarketingOverviewScreen() {
             <Text style={styles.statValue}>{draftCounts?.pending_review ?? 0}</Text>
             <Text style={styles.statLabel}>Pending review</Text>
           </Pressable>
-          <View style={styles.stat}>
-            <Text style={styles.statValue}>0</Text>
+          <Pressable style={styles.stat} onPress={() => router.push('/admin/marketing/inbox' as any)}>
+            <Text style={styles.statValue}>{inboxCounts?.unread ?? 0}</Text>
             <Text style={styles.statLabel}>Unread inbox</Text>
-          </View>
+          </Pressable>
         </View>
 
         <Text style={styles.sectionLabel}>Spend (last 30 days)</Text>
