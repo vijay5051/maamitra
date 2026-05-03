@@ -1151,6 +1151,8 @@ export interface ChatUsageReport {
     activeLast7d: number;
   };
   rows: ChatUsageRow[];
+  /** Diagnostic: populated when the Firestore query failed (e.g. rules) so the UI can render the reason. */
+  error?: string;
 }
 
 function asMillisAdmin(v: any): number | null {
@@ -1163,7 +1165,7 @@ function asMillisAdmin(v: any): number | null {
 }
 
 export async function getChatUsageReport(): Promise<ChatUsageReport> {
-  if (!db) return { totals: { chatUsers: 0, totalThreads: 0, totalMessages: 0, activeLast7d: 0 }, rows: [] };
+  if (!db) return { totals: { chatUsers: 0, totalThreads: 0, totalMessages: 0, activeLast7d: 0 }, rows: [], error: 'Firestore not configured' };
 
   // Index uid → { name, email } from users sweep.
   const usersSnap = await getDocs(collection(db, 'users'));
@@ -1183,6 +1185,7 @@ export async function getChatUsageReport(): Promise<ChatUsageReport> {
   let totalThreads = 0;
   let totalMessages = 0;
   let activeUidsLast7d = new Set<string>();
+  let queryError: string | undefined;
 
   try {
     // Path: chats/{uid}/threads/{threadId}
@@ -1244,8 +1247,9 @@ export async function getChatUsageReport(): Promise<ChatUsageReport> {
       totalThreads += 1;
       totalMessages += messages.length;
     });
-  } catch (err) {
+  } catch (err: any) {
     console.warn('getChatUsageReport collectionGroup failed:', err);
+    queryError = err?.message || err?.code || 'collectionGroup query failed';
   }
 
   const rows = Array.from(byUid.values()).sort((a, b) => b.messageCount - a.messageCount);
@@ -1257,6 +1261,7 @@ export async function getChatUsageReport(): Promise<ChatUsageReport> {
       activeLast7d: activeUidsLast7d.size,
     },
     rows,
+    error: queryError,
   };
 }
 

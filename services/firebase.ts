@@ -1252,6 +1252,10 @@ export async function saveChatThread(uid: string, thread: {
     }, { merge: true });
   } catch (error) {
     console.error('saveChatThread error:', error);
+    // Re-throw so the caller sees the failure (caller can decide whether
+    // to surface to the user). Previously this swallow hid persistent
+    // rule denials that made the chat-usage admin page show 0.
+    throw error;
   }
 }
 

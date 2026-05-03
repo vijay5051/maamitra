@@ -145,10 +145,26 @@ export default function ChatUsage() {
 
       {loading ? (
         <ActivityIndicator color={Colors.primary} style={{ marginTop: 30 }} />
+      ) : report?.error ? (
+        <View style={styles.empty}>
+          <Ionicons name="warning-outline" size={36} color="#EF4444" />
+          <Text style={[styles.emptyText, { color: '#EF4444', fontWeight: '700' }]}>
+            Could not read chat threads
+          </Text>
+          <Text style={[styles.emptyText, { fontSize: 11, paddingHorizontal: 20, textAlign: 'center' }]}>
+            {report.error}
+          </Text>
+          <Text style={[styles.emptyText, { fontSize: 11, paddingHorizontal: 20, textAlign: 'center', marginTop: 6 }]}>
+            Likely a Firestore rules issue on the `threads` collectionGroup. Re-deploy rules and retry.
+          </Text>
+        </View>
       ) : rows.length === 0 ? (
         <View style={styles.empty}>
           <Ionicons name="chatbubbles-outline" size={36} color="#D1D5DB" />
           <Text style={styles.emptyText}>{search ? 'No matches.' : 'Nobody has used chat yet.'}</Text>
+          <Text style={[styles.emptyText, { fontSize: 11, paddingHorizontal: 20, textAlign: 'center', marginTop: 4 }]}>
+            (We see {report?.totals.totalThreads ?? 0} thread doc{(report?.totals.totalThreads ?? 0) === 1 ? '' : 's'} in Firestore. If users have chatted but this is 0, the writes are silently failing — check browser console on the chat tab.)
+          </Text>
         </View>
       ) : rows.map((r) => {
         const heavy = r.intensity >= HEAVY_INTENSITY;

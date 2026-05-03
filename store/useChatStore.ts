@@ -79,7 +79,13 @@ function titleFromText(text: string): string {
 function syncThreadToFirestore(thread: ChatThread): void {
   const uid = getAuthUid();
   if (!uid) return;
-  saveChatThread(uid, thread).catch(() => {});
+  // Surface persistence failures — silent .catch() was hiding rule
+  // denials that left /admin/chat-usage looking empty even after users
+  // had chatted. We still don't throw (UI shouldn't block on a write),
+  // but the error is now visible in the browser console.
+  saveChatThread(uid, thread).catch((err) => {
+    console.error('[chat] saveChatThread failed:', err);
+  });
 }
 
 /**
