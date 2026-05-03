@@ -107,6 +107,22 @@ service cloud.firestore {
       allow write: if isOwner(uid);
     }
 
+    // collectionGroup('threads') — used by /admin/chat-usage to roll up
+    // per-user totals across every chats/* doc. Path-scoped rule above
+    // doesn't satisfy collectionGroup; this wildcard does. Admin-only
+    // because non-admins should never read another user's threads.
+    match /{path=**}/threads/{threadId} {
+      allow read: if isAdmin();
+    }
+
+    // collectionGroup('comments') — used by /admin/users/{uid} 360 to
+    // count a user's authored comments across every post. Same shape:
+    // the path-scoped rule on communityPosts/.../comments doesn't
+    // satisfy collectionGroup queries; admins need this wildcard.
+    match /{path=**}/comments/{commentId} {
+      allow read: if isAdmin();
+    }
+
     // ── Community Posts (active collection) ──────────────────────────────────
     // Public share links (/post/[id]) load a single post for anonymous
     // visitors to convert to signups. So `get` (direct doc lookup) is open
