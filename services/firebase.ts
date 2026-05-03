@@ -845,11 +845,13 @@ export async function deleteUserAccount(uid: string): Promise<void> {
   }
 
   // 1. Delete subcollections keyed under uid (own-data, safe per rules).
+  //    chats/{uid}/threads was retired — bodies aren't persisted any more.
+  //    chat_usage/{uid} (counters) is removed below.
   await Promise.all([
     deleteSubcollection('moods', uid, 'entries'),
     deleteSubcollection('saved_answers', uid, 'items'),
-    deleteSubcollection('chats', uid, 'threads'),
     deleteSubcollection('notifications', uid, 'items'),
+    deleteDoc(doc(db, 'chat_usage', uid)).catch(() => {}),
   ]);
 
   // 2. Community posts authored by this user — and each post's comments.
@@ -1229,78 +1231,10 @@ export async function deleteSavedAnswer(uid: string, itemId: string): Promise<vo
   }
 }
 
-// ─── Chat Threads (multi-thread AI chat history) ──────────────────────────────
-
-export async function saveChatThread(uid: string, thread: {
-  id: string;
-  title: string;
-  messages: any[];
-  createdAt: Date;
-  lastMessageAt: Date;
-}): Promise<void> {
-  if (!db) return;
-  try {
-    await setDoc(doc(db, 'chats', uid, 'threads', thread.id), {
-      id: thread.id,
-      title: thread.title,
-      messages: thread.messages.map((m) => ({
-        ...m,
-        timestamp: m.timestamp instanceof Date ? Timestamp.fromDate(m.timestamp) : m.timestamp,
-      })),
-      createdAt: Timestamp.fromDate(thread.createdAt),
-      lastMessageAt: Timestamp.fromDate(thread.lastMessageAt),
-    }, { merge: true });
-  } catch (error) {
-    console.error('saveChatThread error:', error);
-    // Re-throw so the caller sees the failure (caller can decide whether
-    // to surface to the user). Previously this swallow hid persistent
-    // rule denials that made the chat-usage admin page show 0.
-    throw error;
-  }
-}
-
-export async function loadChatThreads(uid: string, limitN = 20): Promise<any[]> {
-  if (!db) return [];
-  try {
-    const q = query(
-      collection(db, 'chats', uid, 'threads'),
-      orderBy('lastMessageAt', 'desc'),
-      limit(limitN),
-    );
-    const snap = await getDocs(q);
-    return snap.docs.map((d) => {
-      const data = d.data();
-      const tsToDate = (v: any): Date => {
-        if (!v) return new Date();
-        if (v instanceof Date) return v;
-        if (typeof v.toDate === 'function') return v.toDate();
-        return new Date(v);
-      };
-      return {
-        id: d.id,
-        title: data.title ?? 'Chat',
-        messages: (data.messages ?? []).map((m: any) => ({
-          ...m,
-          timestamp: tsToDate(m.timestamp),
-        })),
-        createdAt: tsToDate(data.createdAt),
-        lastMessageAt: tsToDate(data.lastMessageAt),
-      };
-    });
-  } catch (error) {
-    console.error('loadChatThreads error:', error);
-    return [];
-  }
-}
-
-export async function deleteChatThread(uid: string, threadId: string): Promise<void> {
-  if (!db) return;
-  try {
-    await deleteDoc(doc(db, 'chats', uid, 'threads', threadId));
-  } catch (error) {
-    console.error('deleteChatThread error:', error);
-  }
-}
+// AI chat thread bodies were previously persisted to chats/{uid}/threads.
+// Removed for privacy — admin Firestore access could read message text.
+// Threads now live only in zustand-persisted local storage on the device.
+// Anonymous-ish moderation counters are written from services/chatUsage.ts.
 
 // ─── App Settings ─────────────────────────────────────────────────────────────
 

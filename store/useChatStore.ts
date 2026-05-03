@@ -7,7 +7,7 @@ import {
   getTopicTag,
   ChatContext,
 } from '../services/claude';
-import { saveChatThread, deleteChatThread, loadChatThreads } from '../services/firebase';
+import { recordChatMessage, recordThreadStart } from '../services/chatUsage';
 import { stripActionChips } from '../services/claude';
 
 // Lazy-accessed to avoid circular dependency (useAuthStore imports useChatStore)
@@ -76,18 +76,11 @@ function titleFromText(text: string): string {
   return trimmed.length > 40 ? trimmed.slice(0, 40) + '…' : trimmed;
 }
 
-/** Fire-and-forget sync a thread to Firestore for the current user */
-function syncThreadToFirestore(thread: ChatThread): void {
-  const uid = getAuthUid();
-  if (!uid) return;
-  // Surface persistence failures — silent .catch() was hiding rule
-  // denials that left /admin/chat-usage looking empty even after users
-  // had chatted. We still don't throw (UI shouldn't block on a write),
-  // but the error is now visible in the browser console.
-  saveChatThread(uid, thread).catch((err) => {
-    console.error('[chat] saveChatThread failed:', err);
-  });
-}
+// Thread bodies are intentionally NOT persisted to Firestore — that would
+// expose private chat content to anyone with admin Firestore access. Threads
+// live only in zustand-persisted local storage on the device. The admin
+// /chat-usage screen reads anonymous-ish counters from chat_usage/{uid}
+// (services/chatUsage.ts) for abuse moderation, not message text.
 
 /**
  * Reveal the assistant response word-by-word into store.streamingContent.
@@ -205,6 +198,8 @@ export const useChatStore = create<ChatState>()(
           threads: [thread, ...state.threads],
           activeThreadId: thread.id,
         }));
+        const uid = getAuthUid();
+        if (uid) void recordThreadStart(uid);
         return thread.id;
       },
 
@@ -221,9 +216,10 @@ export const useChatStore = create<ChatState>()(
             : state.activeThreadId;
           return { threads: remaining, activeThreadId: newActive };
         });
-        // Fire-and-forget Firestore delete
-        const uid = getAuthUid();
-        if (uid) deleteChatThread(uid, threadId).catch(() => {});
+        // No remote delete — bodies were never sent to Firestore. The
+        // chat_usage counters are intentionally cumulative and not
+        // decremented here (deleting your local thread shouldn't erase
+        // the moderation signal for messages already sent to the model).
       },
 
       renameThread: (threadId: string, title: string) => {
@@ -232,8 +228,7 @@ export const useChatStore = create<ChatState>()(
             t.id === threadId ? { ...t, title: title.trim() || 'New chat' } : t
           ),
         }));
-        const updated = get().threads.find((t) => t.id === threadId);
-        if (updated) syncThreadToFirestore(updated);
+        // Title is local-only metadata — no Firestore write.
       },
 
       sendMessage: async (
@@ -279,6 +274,11 @@ export const useChatStore = create<ChatState>()(
           ),
           isTyping: true,
         }));
+
+        // Privacy-preserving moderation counter — increments per user msg,
+        // no message text leaves the device.
+        const uidForUserMsg = getAuthUid();
+        if (uidForUserMsg) void recordChatMessage(uidForUserMsg, 'user');
 
         // Build message history for the API (active thread's messages only).
         // Attachment fields are passed through as sidecars; services/claude.ts
@@ -327,9 +327,10 @@ export const useChatStore = create<ChatState>()(
           // full text, we just animate the reveal here.
           await revealAnswerProgressively(responseText, assistantMessage.id, set, get);
 
-          // Sync the completed thread to Firestore (fire-and-forget)
-          const updated = get().threads.find((t) => t.id === activeThreadId);
-          if (updated) syncThreadToFirestore(updated);
+          // Counter for the assistant reply — keeps totalMessages accurate
+          // and lastActivity fresh, still no body content sent to Firestore.
+          const uidForAsst = getAuthUid();
+          if (uidForAsst) void recordChatMessage(uidForAsst, 'assistant');
         } catch (error) {
           console.error('sendMessage error:', error);
           set({ isTyping: false });
@@ -410,30 +411,10 @@ export const useChatStore = create<ChatState>()(
         });
       },
 
-      loadThreadsFromFirestore: async () => {
-        const uid = getAuthUid();
-        if (!uid) return;
-        try {
-          const remote = await loadChatThreads(uid);
-          if (remote.length === 0) return;
-
-          set((state) => {
-            // Merge: remote threads take precedence (they have full history),
-            // but keep any local-only threads not yet synced
-            const remoteIds = new Set(remote.map((t) => t.id));
-            const localOnly = state.threads.filter((t) => !remoteIds.has(t.id));
-            const merged = [...remote, ...localOnly].sort(
-              (a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime(),
-            );
-            return {
-              threads: merged,
-              activeThreadId: state.activeThreadId ?? merged[0]?.id ?? null,
-            };
-          });
-        } catch (error) {
-          console.error('loadThreadsFromFirestore error:', error);
-        }
-      },
+      // Threads are device-local. Kept on the interface as a no-op so
+      // existing call sites compile without changes; callers can be
+      // cleaned up later.
+      loadThreadsFromFirestore: async () => {},
     }),
     {
       name: 'maamitra-chat',

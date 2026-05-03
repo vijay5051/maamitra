@@ -1177,87 +1177,68 @@ export async function getChatUsageReport(): Promise<ChatUsageReport> {
     });
   });
 
-  // Aggregate per-user.
-  const byUid = new Map<string, ChatUsageRow>();
-  const now = Date.now();
-  const sevenDaysAgo = now - 7 * 86400000;
+  // Reads from chat_usage/{uid} — the privacy-preserving counter doc that
+  // services/chatUsage.ts increments on every chat turn. No message bodies
+  // are stored anywhere in Firestore.
+  const sevenDaysAgo = Date.now() - 7 * 86400000;
   let totalThreads = 0;
   let totalMessages = 0;
-  let activeUidsLast7d = new Set<string>();
+  let activeUidsLast7d = 0;
   let queryError: string | undefined;
+  const rows: ChatUsageRow[] = [];
 
   try {
-    // Path: chats/{uid}/threads/{threadId}
-    const threadsSnap = await getDocs(collectionGroup(db, 'threads'));
-    threadsSnap.docs.forEach((d) => {
-      const segs = d.ref.path.split('/');
-      // segs[0] === 'chats', segs[1] === uid, segs[2] === 'threads', segs[3] === threadId
-      if (segs[0] !== 'chats' || segs[2] !== 'threads') return;
-      const uid = segs[1];
+    const usageSnap = await getDocs(collection(db, 'chat_usage'));
+    usageSnap.docs.forEach((d) => {
       const data = d.data() as any;
-      const messages: any[] = Array.isArray(data.messages) ? data.messages : [];
-      const lastMsAtMs = asMillisAdmin(data.lastMessageAt);
-      const createdMs = asMillisAdmin(data.createdAt);
+      const uid = d.id;
+      const daily = (data.daily ?? {}) as Record<string, number>;
 
-      const row = byUid.get(uid) ?? {
+      let messagesLast7d = 0;
+      let activeDays = 0;
+      for (const [day, count] of Object.entries(daily)) {
+        const t = Date.parse(day); // YYYY-MM-DD parses as UTC midnight
+        if (Number.isNaN(t) || t < sevenDaysAgo) continue;
+        const c = typeof count === 'number' ? count : 0;
+        messagesLast7d += c;
+        if (c > 0) activeDays += 1;
+      }
+      const intensity = activeDays > 0 ? messagesLast7d / activeDays : 0;
+      if (messagesLast7d > 0) activeUidsLast7d += 1;
+
+      const messageCount = typeof data.totalMessages === 'number' ? data.totalMessages : 0;
+      const userMessageCount = typeof data.userMessages === 'number' ? data.userMessages : 0;
+      const threadCount = typeof data.threadCount === 'number' ? data.threadCount : 0;
+      const lastMs = asMillisAdmin(data.lastActivity);
+
+      rows.push({
         uid,
         name: profile.get(uid)?.name ?? 'Unknown',
         email: profile.get(uid)?.email ?? '',
-        threadCount: 0,
-        messageCount: 0,
-        userMessageCount: 0,
-        messagesLast7d: 0,
-        intensity: 0,
-        lastActivity: null,
+        threadCount,
+        messageCount,
+        userMessageCount,
+        messagesLast7d,
+        intensity,
+        lastActivity: lastMs ? new Date(lastMs).toISOString() : null,
         firstActivity: null,
-      };
+      });
 
-      row.threadCount += 1;
-      row.messageCount += messages.length;
-      const activeDays = new Set<string>();
-      for (const msg of messages) {
-        const role = msg.role ?? msg.from ?? '';
-        if (role === 'user') row.userMessageCount += 1;
-        const t = asMillisAdmin(msg.timestamp);
-        if (t === null) continue;
-        if (t >= sevenDaysAgo) {
-          row.messagesLast7d += 1;
-          activeDays.add(new Date(t).toISOString().slice(0, 10));
-          activeUidsLast7d.add(uid);
-        }
-      }
-      // Intensity = msgs in window / # active days in window. Caps the
-      // skew when one heavy day inflates the per-week rate.
-      if (activeDays.size > 0) {
-        const candidate = row.messagesLast7d / activeDays.size;
-        if (candidate > row.intensity) row.intensity = candidate;
-      }
-
-      if (lastMsAtMs !== null) {
-        const iso = new Date(lastMsAtMs).toISOString();
-        if (!row.lastActivity || iso > row.lastActivity) row.lastActivity = iso;
-      }
-      if (createdMs !== null) {
-        const iso = new Date(createdMs).toISOString();
-        if (!row.firstActivity || iso < row.firstActivity) row.firstActivity = iso;
-      }
-
-      byUid.set(uid, row);
-      totalThreads += 1;
-      totalMessages += messages.length;
+      totalThreads += threadCount;
+      totalMessages += messageCount;
     });
   } catch (err: any) {
-    console.warn('getChatUsageReport collectionGroup failed:', err);
-    queryError = err?.message || err?.code || 'collectionGroup query failed';
+    console.warn('getChatUsageReport chat_usage read failed:', err);
+    queryError = err?.message || err?.code || 'chat_usage read failed';
   }
 
-  const rows = Array.from(byUid.values()).sort((a, b) => b.messageCount - a.messageCount);
+  rows.sort((a, b) => b.messageCount - a.messageCount);
   return {
     totals: {
       chatUsers: rows.length,
       totalThreads,
       totalMessages,
-      activeLast7d: activeUidsLast7d.size,
+      activeLast7d: activeUidsLast7d,
     },
     rows,
     error: queryError,
