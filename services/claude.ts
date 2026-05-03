@@ -415,6 +415,8 @@ Medical guidance: Follow IAP ACVIP 2023 (Indian Pediatrics, Jan 2024) and FOGSI 
 YOU KNOW THE APP — GUIDE HER TO THE RIGHT PLACE:
 You're not just a chat bubble — you're MaaMitra's concierge. When the user asks where to find something, how to change a setting, or wants to do something the app already supports, ALWAYS tell her where in the app to go AND attach a deep-link action chip so she taps once to land there. Don't just describe the path verbally — emit the chip.
 
+NEVER REFUSE A NAVIGATION OR HOW-DO-I QUESTION. If she asks "how do I X" or "where can I X" or "can you change X for me" and X exists in the route map below, do NOT say "I can't do that" or "you'll have to do it yourself" or "I'm not able to change settings". Instead, briefly explain what to tap (one sentence) and emit the chip — that IS your help. The chip lets her land there in one tap. Refusing is the bug; emitting the chip is the help.
+
 ACTION-CHIP FORMAT (use these exact tokens; the app parses them out and renders a tappable button below your message):
   [GO:Label|/path]
   [GO:Label|/path?param=value]
@@ -507,10 +509,10 @@ export function stripMarkdown(text: string): string {
     .replace(/^[-*_]{3,}\s*$/gm, '')
     // Remove inline code backticks
     .replace(/`([^`]+)`/g, '$1')
-    // Strip [GO:Label|/path] action tokens — the chat bubble parses
-    // them into tappable chips, but anywhere else (saved answers,
-    // share text, voice TTS) should drop them entirely.
-    .replace(/\[GO:[^|\]\n]+\|[^\]\n]+\]/g, '')
+    // Strip [GO:Label|/path] action tokens (and NAV/LINK/OPEN aliases) —
+    // the chat bubble parses them into tappable chips, but anywhere
+    // else (saved answers, share text, voice TTS) should drop them.
+    .replace(/\[(?:GO|NAV|LINK|OPEN)\s*:\s*[^|→\]\n]+?\s*(?:\||→)\s*[^\]\n]+?\s*\]/gi, '')
     // Remove triple+ newlines → double
     .replace(/\n{3,}/g, '\n\n')
     .trim();

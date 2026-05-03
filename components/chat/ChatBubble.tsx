@@ -30,20 +30,28 @@ interface ActionChip {
 }
 
 function parseActionChips(text: string): { stripped: string; chips: ActionChip[] } {
-  const re = /\[GO:([^|\]\n]+)\|([^\]\n]+)\]/g;
+  // Tolerant to whitespace inside the brackets and to GO/NAV/LINK aliases
+  // (the model occasionally drifts on the keyword). Both `|` and `→`
+  // accepted as the label↔path separator.
+  const re = /\[(?:GO|NAV|LINK|OPEN)\s*:\s*([^|→\]\n]+?)\s*(?:\||→)\s*([^\]\n]+?)\s*\]/gi;
   const chips: ActionChip[] = [];
+  const seen = new Set<string>();
   const stripped = text
     .replace(re, (_match, rawLabel: string, rawPath: string) => {
       const label = rawLabel.trim();
-      const path = rawPath.trim();
+      let path = rawPath.trim();
       // Defence: only accept paths that start with a slash so we don't
       // get tricked into opening external URLs from the LLM.
-      if (label && path.startsWith('/') && chips.length < 3) {
-        chips.push({ label, path });
-      }
+      if (!label || !path.startsWith('/')) return '';
+      // De-dupe — sometimes the model emits the same chip twice.
+      const key = `${label}::${path}`;
+      if (seen.has(key)) return '';
+      seen.add(key);
+      if (chips.length < 3) chips.push({ label, path });
       return '';
     })
     // Collapse the blank lines that the chip removal leaves behind.
+    .replace(/[ \t]+\n/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
   return { stripped, chips };
