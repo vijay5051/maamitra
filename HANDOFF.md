@@ -56,27 +56,38 @@ inbox — all without the admin ever logging into Meta.
   ie post-Phase 6).
 
 ### Last action
-**Phase 1 SHIPPED + DEPLOYED** (commit `d42f24f`).
+**Phase 2 SHIPPED + DEPLOYED** (commit `63d1cf1`).
 - git push → main ✅
-- firestore.rules deployed ✅
-- OTA published to `production` channel (Android + iOS) ✅
+- functions:renderMarketingTemplate deployed ✅
+- OTA published (update group b8303cf1) ✅
 - Firebase Hosting deployed (web) ✅
 
-Live at https://maamitra.co.in/admin/marketing — sign in as a super
-admin (rocking.vsr@gmail.com etc.) and the new "Marketing" nav group
-is in the sidebar with two items: Overview + Brand kit. Setup
-checklist on the overview honestly reports 1/8 (Meta App is the only
-one currently green).
+Live at https://maamitra.co.in/admin/marketing/preview — sign in as
+super admin, pick template + image source, hit Render. Output saved
+to `marketing/previews/{ts}-{template}.png` in default Storage bucket.
 
 ### Next step
-**Phase 2 — Satori template engine + first 3 templates**
-(tip card, quote card, milestone card).
+**Set Pexels + Replicate API keys** (5 min admin task) so stock + AI
+sources work — until then only tipCard (no background) renders, the
+others gracefully no-op the image fetch.
 
-The renderer pipeline lives in `functions/` (or a new sibling worker
-— TBD), reads brand kit from `marketing_brand/main`, takes
-`{ template, headline, body, accentColor? }`, returns a PNG URL.
-First 3 templates use stock photos from Pexels for backgrounds; AI
-backgrounds (FLUX Schnell on Replicate) come in Phase 3.
+```
+firebase functions:secrets:set PEXELS_API_KEY      # paste key from pexels.com/api
+firebase functions:secrets:set REPLICATE_API_TOKEN # paste from replicate.com/account
+```
+
+Then redeploy with secrets enabled — uncomment the `secrets:` line in
+`functions/src/marketing/index.ts` (line ~80) and run
+`firebase deploy --only functions:renderMarketingTemplate`.
+
+Then **Phase 3 — daily draft generation cron**:
+- Pubsub-triggered Function at 6am IST
+- Reads brand kit's theme calendar for today's weekday
+- Calls Claude Haiku 4.5 for caption + headline + body
+- Picks template + image source (rule-based: tipCard for tips, quoteCard
+  for wisdom, milestoneCard if AI infers age-related content)
+- Calls renderTemplate, writes draft to marketing_drafts/{auto-id}
+- Status starts as `pending_review` for the admin to approve.
 
 ### Dev preview admin
 Local browser previews can bypass auth via
