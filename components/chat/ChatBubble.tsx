@@ -48,20 +48,54 @@ const PATH_ALIASES: Record<string, string> = {
   '/wellness': '/(tabs)/wellness',
   '/library': '/(tabs)/library',
   '/community': '/(tabs)/community',
+  '/chat': '/(tabs)/chat',
+  '/yoga': '/(tabs)/wellness',
+  '/mood': '/(tabs)/wellness?focus=mood',
+  '/vaccines': '/(tabs)/health?tab=vaccines',
+  '/growth': '/(tabs)/health?tab=growth',
+  '/schemes': '/(tabs)/health?tab=schemes',
 };
+
+// Per-screen whitelist of query-param keys that actually do something.
+// Anything else is silently dropped so we don't litter the URL bar with
+// inert ?section=yoga style noise the model occasionally emits.
+const ALLOWED_QUERY_KEYS_BY_PATH: Record<string, string[]> = {
+  '/(tabs)': ['openProfile', 'openSettings'],
+  '/(tabs)/health': ['tab'],
+  '/(tabs)/wellness': ['focus'],
+  '/(tabs)/library': ['tab', 'topic', 'articleId'],
+  '/(tabs)/community': ['search'],
+};
+
+function filterQueryString(pathBase: string, qs: string): string {
+  const allowed = ALLOWED_QUERY_KEYS_BY_PATH[pathBase];
+  if (!qs) return '';
+  if (!allowed) return ''; // unknown base: drop all params
+  const kept: string[] = [];
+  for (const pair of qs.split('&')) {
+    const [k, v = ''] = pair.split('=');
+    if (allowed.includes(k)) kept.push(v ? `${k}=${v}` : k);
+  }
+  return kept.length ? `?${kept.join('&')}` : '';
+}
 
 function normalizeChipPath(raw: string): string | null {
   const trimmed = raw.trim();
   if (!trimmed.startsWith('/')) return null;
-  // Try the alias map first (handles bare `/profile`, `/settings`, etc).
   const [pathOnly, qs = ''] = trimmed.split('?');
+  // Alias map first — handles bare /profile, /yoga, etc.
   if (PATH_ALIASES[pathOnly]) {
     const aliased = PATH_ALIASES[pathOnly];
-    return qs ? `${aliased}${aliased.includes('?') ? '&' : '?'}${qs}` : aliased;
+    const [aliasBase, aliasQs = ''] = aliased.split('?');
+    const merged = [aliasQs, qs].filter(Boolean).join('&');
+    const cleanQs = filterQueryString(aliasBase, merged);
+    return `${aliasBase}${cleanQs}`;
   }
-  // Otherwise the path must start with one of the allowed prefixes.
-  if (ALLOWED_PATH_PREFIXES.some((p) => trimmed.startsWith(p))) return trimmed;
-  return null;
+  // Otherwise must start with a known prefix.
+  if (!ALLOWED_PATH_PREFIXES.some((p) => trimmed.startsWith(p))) return null;
+  // Drop unhandled query params on the known prefix.
+  const cleanQs = filterQueryString(pathOnly, qs);
+  return `${pathOnly}${cleanQs}`;
 }
 
 function parseActionChips(text: string): { stripped: string; chips: ActionChip[] } {
@@ -242,7 +276,13 @@ export default function ChatBubble({ message, onSave, isFirstInGroup = true }: C
                     try {
                       router.push(chip.path as any);
                     } catch (err) {
+                      // Navigation failed — fall back to the home tab
+                      // so the user lands somewhere usable, never on
+                      // an Unmatched-Route screen.
                       console.warn('[chat] action chip nav failed:', chip.path, err);
+                      try {
+                        router.push('/(tabs)' as any);
+                      } catch {}
                     }
                   }}
                   activeOpacity={0.85}
