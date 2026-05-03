@@ -10,22 +10,37 @@
 ---
 
 ## Active task
-Fix Community comment count showing 0 while comments are visible.
+Make MaaMitra chat feel more like a real, caring person — empathy,
+intellectual honesty, hostile-user handling, mental-health crisis
+support, and "answer through the user's health lens" rules.
 
 ## Status
-✅ Done by Codex. Patched comment count reconciliation to merge both
-comment arrays (`comments` and `commentList`) instead of letting an empty loaded
-list mask existing comments. Loading comments now also repairs the parent
-Firestore `commentCount` / latest-comment summary from the actual subcollection.
+✅ System prompt rewritten in `services/claude.ts` `buildSystemPrompt()`.
+Added sections: SOUND LIKE A REAL PERSON (kill AI tells, vary openings,
+contractions, react-first, hold opinions, calibrated certainty),
+EMOTIONAL ATTUNEMENT (loaded-question reading, permission-giving,
+cultural texture, honor-the-unasked, no comparison-bait),
+WHEN SHE'S STRUGGLING OR IN CRISIS (postpartum red flags +
+Vandrevala 1860-2662-345, hostile-user de-escalation, "I don't know"
+honesty), USE WHAT YOU KNOW ABOUT HER (force health-aware framing
+when allergies/conditions are relevant). Mental-health helpline is
+Vandrevala only (per user). Pure prompt change — no schema, no UI.
 
 ## Last action
-Committed and pushed `168f589 Fix visible comments showing zero count`.
-Published Android/iOS OTA update group
-`a63f0d06-8860-44f7-8610-06ea94dd49b2` and deployed Firebase Hosting.
-`npx tsc --noEmit` passes.
+Edited `services/claude.ts:357–432`. `npx tsc --noEmit` passes.
 
 ## Next step
-None for this comment-count fix.
+Commit + push + expo export + firebase deploy + npm run update (OTA).
+Then queued follow-ups for separate sessions:
+- **Phase 1 (profile surfacing):** expand `ChatContext` + `buildContext()`
+  in `app/(tabs)/chat.tsx` to surface growthTracking, foodTracking,
+  healthTracking checklist gaps, all kids (not just active), local
+  time-of-day, days-since-last-chat. No new writes — pure aggregation.
+- **Phase 2 (learned facts memory):** new `users/{uid}/memory` doc
+  with facts/concerns/preferences arrays. Tiny secondary Claude call
+  per Nth chat turn extracts durable facts ("husband travels Mon-Thu",
+  "lives with MIL") and merges with dedup + confidence + cap. Inject
+  into the next system prompt as "WHAT YOU'VE LEARNED ABOUT HER".
 
 ## In-flight side processes (don't accidentally restart these)
 - **EAS Android build:** `90c536ef-e74c-4b1a-b245-e1f14bf22d0b` —
