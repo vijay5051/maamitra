@@ -8,6 +8,7 @@ import {
   ChatContext,
 } from '../services/claude';
 import { saveChatThread, deleteChatThread, loadChatThreads } from '../services/firebase';
+import { stripActionChips } from '../services/claude';
 
 // Lazy-accessed to avoid circular dependency (useAuthStore imports useChatStore)
 const getAuthUid = (): string | undefined => {
@@ -346,7 +347,10 @@ export const useChatStore = create<ChatState>()(
 
         const savedAnswer: SavedAnswer = {
           id: message.id,
-          content: message.content,
+          // Saved-answers card has no router context — strip the
+          // navigation chip tokens before persisting so they don't
+          // appear as raw "[GO:…]" text in the Library.
+          content: stripActionChips(message.content),
           tag: message.tag ?? { tag: '💬 General', color: '#9ca3af' },
           savedAt: new Date(),
         };

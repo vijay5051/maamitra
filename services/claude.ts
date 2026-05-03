@@ -518,6 +518,21 @@ function indianSeason(d: Date): string {
  * Strips markdown formatting from AI responses so text renders as natural
  * conversational language in the chat bubble (which uses plain <Text>).
  */
+/**
+ * Strip [GO:Label|/path] navigation tokens (and aliases) from text.
+ * Use this for surfaces where the chip can't render — saved-answer
+ * text in the Library, copy-to-clipboard, share sheets, voice TTS, etc.
+ * The chat bubble itself parses chips into buttons via parseActionChips,
+ * so don't apply this before the bubble renders.
+ */
+export function stripActionChips(text: string): string {
+  return text
+    .replace(/\[(?:GO|NAV|LINK|OPEN)\s*:\s*[^|→\]\n]+?\s*(?:\||→)\s*[^\]\n]+?\s*\]/gi, '')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 export function stripMarkdown(text: string): string {
   return text
     // Remove bold (**text** and __text__)
@@ -536,10 +551,10 @@ export function stripMarkdown(text: string): string {
     .replace(/^[-*_]{3,}\s*$/gm, '')
     // Remove inline code backticks
     .replace(/`([^`]+)`/g, '$1')
-    // Strip [GO:Label|/path] action tokens (and NAV/LINK/OPEN aliases) —
-    // the chat bubble parses them into tappable chips, but anywhere
-    // else (saved answers, share text, voice TTS) should drop them.
-    .replace(/\[(?:GO|NAV|LINK|OPEN)\s*:\s*[^|→\]\n]+?\s*(?:\||→)\s*[^\]\n]+?\s*\]/gi, '')
+    // NOTE: [GO:Label|/path] action tokens are NOT stripped here. They
+    // need to survive to ChatBubble.parseActionChips so the chip can
+    // render. Use stripActionChips() separately for places that need
+    // them removed (TTS, saved answers, share text).
     // Remove triple+ newlines → double
     .replace(/\n{3,}/g, '\n\n')
     .trim();
