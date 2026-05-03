@@ -202,6 +202,13 @@ function ComposeTab({ onSent }: { onSent: () => Promise<void> }) {
     setAudiencePreviewOpen(false);
   }, [audience]);
 
+  // Eager-load the user list on mount so chip counts and the live
+  // matched list are populated before the admin picks anything.
+  useEffect(() => {
+    void ensureUsersLoaded();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function ensureUsersLoaded() {
     if (usersLoaded || usersLoading) return;
     setUsersLoading(true);
@@ -218,7 +225,7 @@ function ComposeTab({ onSent }: { onSent: () => Promise<void> }) {
 
   function audienceMatches(user: AdminUser, aud: Audience): boolean {
     if (aud === 'custom') return false;
-    if (aud === 'all') return user.hasPushToken;
+    if (aud === 'all') return true;
     return user.audienceBuckets.includes(aud);
   }
 
@@ -226,10 +233,49 @@ function ComposeTab({ onSent }: { onSent: () => Promise<void> }) {
     if (audience === 'custom') return [];
     return allUsers
       .filter((u) => audienceMatches(u, audience))
-      .sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email));
+      .sort((a, b) => {
+        // Push-enabled first, then alphabetical
+        if (a.hasPushToken !== b.hasPushToken) return a.hasPushToken ? -1 : 1;
+        return (a.name || a.email).localeCompare(b.name || b.email);
+      });
   }, [allUsers, audience]);
 
-  const effectiveAudienceCount = audienceMatchedUsers.length - deselectedAudienceUids.size;
+  const audiencePushOnCount = useMemo(
+    () => audienceMatchedUsers.filter((u) => u.hasPushToken).length,
+    [audienceMatchedUsers],
+  );
+
+  // Real reach = bucket match ∩ push-on ∩ not deselected.
+  const effectiveAudienceCount = useMemo(
+    () =>
+      audienceMatchedUsers.filter(
+        (u) => u.hasPushToken && !deselectedAudienceUids.has(u.uid),
+      ).length,
+    [audienceMatchedUsers, deselectedAudienceUids],
+  );
+
+  // Audience counts for the filter chip badges (lazy — only after load).
+  const audienceCounts = useMemo(() => {
+    const map: Record<Audience, { matched: number; pushOn: number }> = {
+      all: { matched: 0, pushOn: 0 },
+      pregnant: { matched: 0, pushOn: 0 },
+      newborn: { matched: 0, pushOn: 0 },
+      toddler: { matched: 0, pushOn: 0 },
+      custom: { matched: 0, pushOn: 0 },
+    };
+    if (!usersLoaded) return map;
+    for (const u of allUsers) {
+      map.all.matched++;
+      if (u.hasPushToken) map.all.pushOn++;
+      for (const b of u.audienceBuckets) {
+        if (b === 'pregnant' || b === 'newborn' || b === 'toddler') {
+          map[b].matched++;
+          if (u.hasPushToken) map[b].pushOn++;
+        }
+      }
+    }
+    return map;
+  }, [allUsers, usersLoaded]);
 
   function toggleAudienceDeselect(uid: string) {
     setDeselectedAudienceUids((prev) => {
@@ -247,8 +293,10 @@ function ComposeTab({ onSent }: { onSent: () => Promise<void> }) {
   const hasAudienceDeselections = audience !== 'custom' && deselectedAudienceUids.size > 0;
   const audienceKeptUids = useMemo(() => {
     if (audience === 'custom') return [];
+    // Skip push-off users — the dispatcher would skip them anyway, but
+    // queuing per-user docs for them creates Firestore noise.
     return audienceMatchedUsers
-      .filter((u) => !deselectedAudienceUids.has(u.uid))
+      .filter((u) => u.hasPushToken && !deselectedAudienceUids.has(u.uid))
       .map((u) => u.uid);
   }, [audienceMatchedUsers, deselectedAudienceUids, audience]);
 
@@ -436,112 +484,128 @@ function ComposeTab({ onSent }: { onSent: () => Promise<void> }) {
         ))}
       </View>
 
-      {/* Audience */}
+      {/* Audience — chip filters; matched list populates below */}
       <Text style={styles.sectionTitle}>Audience</Text>
-      <View style={styles.card}>
-        {AUDIENCE_OPTIONS.map((a, i) => (
-          <View key={a.key}>
-            <TouchableOpacity style={styles.audienceRow} onPress={() => setAudience(a.key)}>
-              <View style={[styles.audienceIcon, audience === a.key && { backgroundColor: Colors.primary }]}>
-                <Ionicons name={a.icon as any} size={16} color={audience === a.key ? '#fff' : '#9ca3af'} />
-              </View>
-              <View style={styles.audienceInfo}>
-                <Text style={styles.audienceLabel}>{a.label}</Text>
-                <Text style={styles.audienceDesc}>{a.desc}</Text>
-              </View>
-              <View style={[styles.radio, audience === a.key && styles.radioActive]}>
-                {audience === a.key ? <View style={styles.radioDot} /> : null}
-              </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.audienceChipRow}>
+        {AUDIENCE_OPTIONS.map((a) => {
+          const active = audience === a.key;
+          const counts = audienceCounts[a.key];
+          const showCount = a.key !== 'custom' && usersLoaded;
+          return (
+            <TouchableOpacity
+              key={a.key}
+              style={[styles.audienceFilterChip, active && styles.audienceFilterChipActive]}
+              onPress={() => setAudience(a.key)}
+              activeOpacity={0.85}
+            >
+              <Ionicons
+                name={a.icon as any}
+                size={13}
+                color={active ? '#fff' : '#6b7280'}
+              />
+              <Text style={[styles.audienceFilterChipText, active && { color: '#fff' }]}>
+                {a.label}
+              </Text>
+              {showCount ? (
+                <View style={[styles.audienceFilterChipBadge, active && styles.audienceFilterChipBadgeActive]}>
+                  <Text style={[styles.audienceFilterChipBadgeText, active && { color: '#fff' }]}>
+                    {counts.pushOn}/{counts.matched}
+                  </Text>
+                </View>
+              ) : null}
             </TouchableOpacity>
-            {i < AUDIENCE_OPTIONS.length - 1 && <View style={styles.divider} />}
-          </View>
-        ))}
-      </View>
+          );
+        })}
+      </ScrollView>
+      <Text style={styles.audienceHelper}>
+        {AUDIENCE_OPTIONS.find((a) => a.key === audience)?.desc}
+        {audience !== 'custom' && usersLoaded ? '   ·   X / Y = push-enabled / total' : ''}
+      </Text>
 
-      {/* Audience preview & deselect — only when an audience is targeted */}
+      {/* Live matched list — always visible for non-custom audiences */}
       {audience !== 'custom' ? (
         <View style={styles.audiencePreviewBlock}>
-          <TouchableOpacity
-            style={styles.audiencePreviewHead}
-            onPress={() => {
-              const next = !audiencePreviewOpen;
-              setAudiencePreviewOpen(next);
-              if (next) void ensureUsersLoaded();
-            }}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name={audiencePreviewOpen ? 'chevron-down' : 'chevron-forward'}
-              size={14}
-              color={Colors.primary}
-            />
-            <Text style={styles.audiencePreviewLabel}>
-              {usersLoaded
-                ? `Preview & deselect — ${effectiveAudienceCount} of ${audienceMatchedUsers.length} will receive`
-                : 'Preview & deselect recipients'}
-            </Text>
-            {hasAudienceDeselections ? (
-              <View style={styles.audiencePreviewBadge}>
-                <Text style={styles.audiencePreviewBadgeText}>
-                  -{deselectedAudienceUids.size}
-                </Text>
-              </View>
-            ) : null}
-          </TouchableOpacity>
-
-          {audiencePreviewOpen ? (
-            <View style={styles.audiencePreviewBody}>
-              {usersLoading ? (
-                <ActivityIndicator color={Colors.primary} style={{ marginVertical: 16 }} />
-              ) : !usersLoaded ? (
-                <Text style={styles.audiencePreviewEmpty}>Tap to load users.</Text>
-              ) : audienceMatchedUsers.length === 0 ? (
-                <Text style={styles.audiencePreviewEmpty}>
-                  No users match this audience yet.
-                </Text>
-              ) : (
-                <>
-                  {hasAudienceDeselections ? (
-                    <TouchableOpacity onPress={clearAudienceDeselects} style={styles.audiencePreviewClear}>
-                      <Ionicons name="refresh" size={11} color="#6B7280" />
-                      <Text style={styles.audiencePreviewClearText}>
-                        Reset deselections ({deselectedAudienceUids.size})
-                      </Text>
-                    </TouchableOpacity>
-                  ) : null}
-                  <ScrollView
-                    style={styles.audiencePreviewList}
-                    nestedScrollEnabled
-                    keyboardShouldPersistTaps="handled"
-                  >
-                    {audienceMatchedUsers.map((u) => {
-                      const isOff = deselectedAudienceUids.has(u.uid);
-                      return (
-                        <Pressable
-                          key={u.uid}
-                          style={[styles.audiencePreviewRow, isOff && { opacity: 0.45 }]}
-                          onPress={() => toggleAudienceDeselect(u.uid)}
-                        >
-                          <View style={[styles.pickerCheckbox, !isOff && styles.pickerCheckboxOn]}>
-                            {!isOff ? <Ionicons name="checkmark" size={12} color="#fff" /> : null}
-                          </View>
-                          <View style={{ flex: 1 }}>
-                            <Text style={styles.pickerRowName} numberOfLines={1}>
-                              {u.name || 'Unnamed'}
-                            </Text>
-                            <Text style={styles.pickerRowMeta} numberOfLines={1}>
-                              {u.email || '—'}
-                              {u.state ? ` · ${u.state}` : ''}
-                            </Text>
-                          </View>
-                        </Pressable>
-                      );
-                    })}
-                  </ScrollView>
-                </>
-              )}
+          <View style={styles.audienceSummaryRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.audienceSummaryHead}>
+                {usersLoaded
+                  ? `${effectiveAudienceCount} will receive`
+                  : 'Loading users…'}
+              </Text>
+              <Text style={styles.audienceSummarySub}>
+                {usersLoaded
+                  ? `${audiencePushOnCount} push-on · ${audienceMatchedUsers.length - audiencePushOnCount} push-off · ${audienceMatchedUsers.length} matched`
+                  : ' '}
+              </Text>
             </View>
-          ) : null}
+            {hasAudienceDeselections ? (
+              <TouchableOpacity onPress={clearAudienceDeselects} style={styles.audiencePreviewClear}>
+                <Ionicons name="refresh" size={11} color="#6B7280" />
+                <Text style={styles.audiencePreviewClearText}>
+                  Reset {deselectedAudienceUids.size}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+
+          {usersLoading && !usersLoaded ? (
+            <ActivityIndicator color={Colors.primary} style={{ marginVertical: 18 }} />
+          ) : audienceMatchedUsers.length === 0 ? (
+            <Text style={styles.audiencePreviewEmpty}>
+              No users match this audience yet.
+            </Text>
+          ) : (
+            <ScrollView
+              style={styles.audiencePreviewList}
+              nestedScrollEnabled
+              keyboardShouldPersistTaps="handled"
+            >
+              {audienceMatchedUsers.map((u) => {
+                const isOff = deselectedAudienceUids.has(u.uid);
+                const pushOn = u.hasPushToken;
+                return (
+                  <Pressable
+                    key={u.uid}
+                    style={[styles.audiencePreviewRow, isOff && { opacity: 0.45 }]}
+                    onPress={() => toggleAudienceDeselect(u.uid)}
+                  >
+                    <View style={[styles.pickerCheckbox, !isOff && styles.pickerCheckboxOn]}>
+                      {!isOff ? <Ionicons name="checkmark" size={12} color="#fff" /> : null}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.pickerRowName} numberOfLines={1}>
+                        {u.name || 'Unnamed'}
+                      </Text>
+                      <Text style={styles.pickerRowMeta} numberOfLines={1}>
+                        {u.email || '—'}
+                        {u.state ? ` · ${u.state}` : ''}
+                      </Text>
+                    </View>
+                    <View
+                      style={[
+                        styles.pushPill,
+                        pushOn ? styles.pushPillOn : styles.pushPillOff,
+                      ]}
+                    >
+                      <Ionicons
+                        name={pushOn ? 'notifications' : 'notifications-off-outline'}
+                        size={10}
+                        color={pushOn ? '#10B981' : '#9CA3AF'}
+                      />
+                      <Text
+                        style={[
+                          styles.pushPillText,
+                          { color: pushOn ? '#10B981' : '#9CA3AF' },
+                        ]}
+                      >
+                        {pushOn ? 'on' : 'off'}
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          )}
         </View>
       ) : null}
 
@@ -1142,25 +1206,32 @@ const styles = StyleSheet.create({
   },
   cancelBtnText: { fontSize: 11, fontWeight: '700', color: '#EF4444' },
 
-  // Audience preview & deselect block (compose tab, audience != 'custom')
+  // Audience filter chips
+  audienceChipRow: { gap: 6, paddingBottom: 4, paddingRight: 4 },
+  audienceFilterChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 11, paddingVertical: 7, borderRadius: 16,
+    backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB',
+  },
+  audienceFilterChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  audienceFilterChipText: { fontSize: 12, fontWeight: '700', color: '#374151' },
+  audienceFilterChipBadge: {
+    paddingHorizontal: 6, paddingVertical: 1, borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+  },
+  audienceFilterChipBadgeActive: { backgroundColor: 'rgba(255,255,255,0.2)' },
+  audienceFilterChipBadgeText: { fontSize: 10, fontWeight: '800', color: '#6B7280' },
+  audienceHelper: { fontSize: 10, color: '#9CA3AF', marginTop: 6, marginBottom: 4 },
+
+  // Live audience list (no toggle — always shown when non-custom)
   audiencePreviewBlock: {
     backgroundColor: '#fff', borderRadius: 12, marginTop: 4,
     borderWidth: 1, borderColor: '#E9D5FF', overflow: 'hidden',
+    paddingHorizontal: 12, paddingTop: 10, paddingBottom: 10,
   },
-  audiencePreviewHead: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingHorizontal: 12, paddingVertical: 11,
-  },
-  audiencePreviewLabel: { flex: 1, fontSize: 12, fontWeight: '700', color: '#1a1a2e' },
-  audiencePreviewBadge: {
-    paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8,
-    backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FECACA',
-  },
-  audiencePreviewBadgeText: { fontSize: 10, fontWeight: '800', color: '#EF4444' },
-  audiencePreviewBody: {
-    borderTopWidth: 1, borderTopColor: '#F3F4F6',
-    paddingHorizontal: 12, paddingTop: 8, paddingBottom: 10,
-  },
+  audienceSummaryRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 8 },
+  audienceSummaryHead: { fontSize: 13, fontWeight: '800', color: '#1a1a2e' },
+  audienceSummarySub: { fontSize: 11, color: '#6B7280', marginTop: 2 },
   audiencePreviewEmpty: {
     fontSize: 12, color: '#9CA3AF', textAlign: 'center', paddingVertical: 14,
   },
@@ -1172,12 +1243,20 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   audiencePreviewClearText: { fontSize: 10, fontWeight: '700', color: '#6B7280' },
-  audiencePreviewList: { maxHeight: 280 },
+  audiencePreviewList: { maxHeight: 320 },
   audiencePreviewRow: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingVertical: 7,
+    paddingVertical: 8,
     borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
   },
+  pushPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8,
+    borderWidth: 1,
+  },
+  pushPillOn: { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' },
+  pushPillOff: { backgroundColor: '#F9FAFB', borderColor: '#E5E7EB' },
+  pushPillText: { fontSize: 10, fontWeight: '800' },
 
   // Custom recipients block (compose tab, audience='custom')
   customRecipientsBlock: {
