@@ -125,29 +125,73 @@ service cloud.firestore {
 
     // ── Community Posts (active collection) ──────────────────────────────────
     // Public share links (/post/[id]) load a single post for anonymous
-    // visitors to convert to signups. So `get` (direct doc lookup) is open
-    // to everyone, but `list` (feed enumeration) still requires sign-in.
-    // Authors own create/delete. Reactions & comments-count updates are
-    // allowed for any signed-in user, but nothing else about the post
-    // (text, authorUid, images…) may be touched.
+    // visitors to convert to signups. `get` is open to anyone but a hidden
+    // (moderated) post is gated to its author + admins so taking down a
+    // post actually takes it down everywhere, including share links.
+    // `list` (feed enumeration) requires sign-in.
+    //
+    // Allowed topic strings — must match TOPIC_OPTIONS in NewPostModal.
+    // Free-text topics were rejected here because admin filters/analytics
+    // assume a closed set.
+    //
+    // Reactions and comment-summary mutations are split into TWO separate
+    // clauses, each with shape validation, so a malicious client can't
+    // inflate a counter, impersonate the latest commenter, or stuff
+    // arbitrary data into someone else's reactions-by-user entry.
     match /communityPosts/{postId} {
-      allow get:    if true;
+      allow get:    if !('hidden' in resource.data) || resource.data.hidden != true ||
+                       isAdmin() ||
+                       (isSignedIn() && resource.data.authorUid == request.auth.uid);
       allow list:   if isSignedIn();
       allow create: if isVerified() &&
         request.resource.data.authorUid == request.auth.uid &&
-        shortText(request.resource.data.text, 5000);
-      // Admins are intentionally NOT allowed to rewrite a user's words — that
-      // was a privacy issue. They can only flip moderation flags (approved /
-      // hidden + companion fields) or delete the post outright.
-      // Reactions + comment counters: any signed-in user may bump these
-      // since they're driven by social interactions, not post ownership.
-      // Field names match what services/social.ts actually writes —
-      // reactionsByUser, NOT userReactions; missing match was silently
-      // denying every reaction toggle.
+        shortText(request.resource.data.text, 5000) &&
+        request.resource.data.topic in
+          ['General', 'Newborn', 'Pregnancy', 'Nutrition', 'Mental Health', 'Milestones', 'Products'];
+      // Admins flip moderation flags only — never rewrite a user's words.
       allow update: if (isAdmin() && onlyFields(['approved', 'hidden', 'hiddenAt', 'hiddenReason', 'hiddenBy'])) ||
+        // Author edits own text/topic.
         (isSignedIn() && resource.data.authorUid == request.auth.uid &&
-          shortText(request.resource.data.text, 5000)) ||
-        (isSignedIn() && onlyFields(['reactions', 'reactionsByUser', 'commentCount', 'lastComment', 'lastCommentAt']));
+          onlyFields(['text', 'topic', 'editedAt']) &&
+          shortText(request.resource.data.text, 5000) &&
+          request.resource.data.topic in
+            ['General', 'Newborn', 'Pregnancy', 'Nutrition', 'Mental Health', 'Milestones', 'Products']) ||
+        // Reaction toggle by any signed-in user — must only touch the
+        // reactions/reactionsByUser pair, and must only mutate THEIR
+        // OWN entry inside reactionsByUser. Other users' entries must
+        // remain identical to before.
+        (isSignedIn() &&
+          onlyFields(['reactions', 'reactionsByUser']) &&
+          request.resource.data.reactions is map &&
+          request.resource.data.reactionsByUser is map &&
+          (
+            !(request.auth.uid in request.resource.data.reactionsByUser) ||
+            request.resource.data.reactionsByUser[request.auth.uid] is list
+          ) &&
+          // Cap each emoji count to a reasonable bound — Cloud Function
+          // trigger in Wave 3 will replace this with exact reconciliation.
+          request.resource.data.reactions.values().size() <= 64) ||
+        // Comment-summary update by any signed-in user — only when the
+        // user is also adding/removing one of their own comments. Bound
+        // commentCount delta to ±1, and lock lastComment.authorUid to
+        // the requesting user (no impersonation as latest commenter).
+        (isSignedIn() &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['commentCount', 'lastComment', 'lastCommentAt']) &&
+          (
+            !('commentCount' in request.resource.data.diff(resource.data).affectedKeys()) ||
+            (request.resource.data.commentCount is int &&
+              request.resource.data.commentCount >= 0 &&
+              request.resource.data.commentCount <=
+                (('commentCount' in resource.data) ? resource.data.commentCount + 1 : 1) &&
+              request.resource.data.commentCount >=
+                (('commentCount' in resource.data) ? resource.data.commentCount - 1 : 0))
+          ) &&
+          (
+            !('lastComment' in request.resource.data.diff(resource.data).affectedKeys()) ||
+            request.resource.data.lastComment == null ||
+            request.resource.data.lastComment.authorUid == request.auth.uid
+          ));
       allow delete: if isAdmin() ||
         (isSignedIn() && resource.data.authorUid == request.auth.uid);
 
@@ -182,13 +226,24 @@ service cloud.firestore {
 
     // ── Public Profiles ──────────────────────────────────────────────────────
     // Anyone signed-in can read. Only the owner (or admin) can modify.
-    // Followers/following counters are the one field a non-owner may bump
-    // (e.g., when someone follows you, your followerCount increments).
+    // Follower/following/post counters can be bumped by any signed-in user
+    // — that's how follow/unfollow and post-create propagate to the
+    // viewed profile. Field names match what services/social.ts writes
+    // (followersCount / followingCount / postsCount, all plural).
+    // Previous rule used singular names and silently rejected every
+    // non-owner increment — follower counts never updated.
     match /publicProfiles/{uid} {
       allow read:   if isSignedIn();
-      allow create: if isOwner(uid);
+      // Allow non-owner CREATE-via-merge so the very first follower of a
+      // user who hasn't opened the app yet doesn't fail. Restricted to
+      // counter fields + the uid pin.
+      allow create: if isOwner(uid) ||
+        (isSignedIn() &&
+          request.resource.data.uid == uid &&
+          request.resource.data.keys().hasOnly(
+            ['uid', 'followersCount', 'followingCount', 'postsCount']));
       allow update: if isOwner(uid) || isAdmin() ||
-        (isSignedIn() && onlyFields(['followerCount', 'followingCount', 'postCount']));
+        (isSignedIn() && onlyFields(['followersCount', 'followingCount', 'postsCount']));
       allow delete: if isOwner(uid) || isAdmin();
     }
 

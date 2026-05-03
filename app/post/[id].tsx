@@ -15,7 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import GradientAvatar from '../../components/ui/GradientAvatar';
 import TagPill from '../../components/ui/TagPill';
 import GradientButton from '../../components/ui/GradientButton';
-import { fetchPostById, type CommunityPost } from '../../services/social';
+import { fetchPostById, subscribePost, type CommunityPost } from '../../services/social';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Colors, Fonts } from '../../constants/theme';
 import { sharePost } from '../../lib/share';
@@ -33,6 +33,7 @@ import { sharePost } from '../../lib/share';
 function timeAgo(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date;
   const diffMs = Date.now() - d.getTime();
+  if (!Number.isFinite(diffMs) || diffMs < 0) return 'just now';
   const mins = Math.floor(diffMs / 60000);
   if (mins < 1) return 'just now';
   if (mins < 60) return `${mins}m ago`;
@@ -57,19 +58,65 @@ export default function PublicPostScreen() {
     if (!id) return;
     setLoading(true);
     setNotFound(false);
-    fetchPostById(id)
-      .then((p) => {
-        if (p) setPost(p);
-        else setNotFound(true);
-      })
-      .catch(() => setNotFound(true))
-      .finally(() => setLoading(false));
-    // Set browser tab title on web for nicer social previews even before
-    // the server renders OG tags.
-    if (Platform.OS === 'web' && typeof document !== 'undefined') {
-      document.title = 'MaaMitra — Shared post';
+    // Live subscription so reactions / comment count / edits appear
+    // without a refresh, and a moderator hide takes effect for new
+    // visitors immediately. The one-shot fetchPostById is kept as the
+    // fallback path for environments where Firebase isn't initialised.
+    const unsub = subscribePost(id, (p) => {
+      if (p) {
+        setPost(p);
+        setNotFound(false);
+      } else {
+        setNotFound(true);
+      }
+      setLoading(false);
+    });
+    if (!unsub) {
+      fetchPostById(id)
+        .then((p) => {
+          if (p) setPost(p);
+          else setNotFound(true);
+        })
+        .catch(() => setNotFound(true))
+        .finally(() => setLoading(false));
     }
+    return () => { try { unsub?.(); } catch (_) {} };
   }, [id]);
+
+  // Set web meta tags from the post so social preview cards
+  // (WhatsApp, Twitter, FB, iMessage) show the author + a snippet of
+  // the body instead of a generic site name. og:image falls back to
+  // the post image when present so the preview has visual weight.
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    const titleBase = post
+      ? `${post.authorName || 'A parent'} on MaaMitra`
+      : 'MaaMitra — Shared post';
+    const desc = post
+      ? (post.text || '').slice(0, 200) || 'A community post on MaaMitra.'
+      : 'Read this post from the MaaMitra parenting community.';
+    document.title = titleBase;
+    const setMeta = (name: string, content: string, attr: 'name' | 'property' = 'name') => {
+      let el = document.querySelector(`meta[${attr}="${name}"]`) as HTMLMetaElement | null;
+      if (!el) {
+        el = document.createElement('meta');
+        el.setAttribute(attr, name);
+        document.head.appendChild(el);
+      }
+      el.setAttribute('content', content);
+    };
+    setMeta('description', desc);
+    setMeta('og:title', titleBase, 'property');
+    setMeta('og:description', desc, 'property');
+    setMeta('og:type', 'article', 'property');
+    setMeta('twitter:card', post?.imageUri ? 'summary_large_image' : 'summary');
+    setMeta('twitter:title', titleBase);
+    setMeta('twitter:description', desc);
+    if (post?.imageUri) {
+      setMeta('og:image', post.imageUri, 'property');
+      setMeta('twitter:image', post.imageUri);
+    }
+  }, [post]);
 
   const handleShare = async () => {
     if (!post) return;

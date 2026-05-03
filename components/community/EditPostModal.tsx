@@ -92,12 +92,16 @@ export default function EditPostModal({
           <TextInput
             style={styles.textArea}
             value={text}
-            onChangeText={(t) => { setText(t); setError(''); }}
+            onChangeText={(t) => { setText(t.slice(0, 5000)); setError(''); }}
             placeholder="Edit your post..."
             placeholderTextColor="#9ca3af"
             multiline
             numberOfLines={4}
+            maxLength={5000}
           />
+          <Text style={[styles.errorText, { color: '#9ca3af' }]}>
+            {text.length} / 5000
+          </Text>
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
           <TouchableOpacity

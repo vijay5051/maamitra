@@ -33,7 +33,7 @@ interface PostCardProps {
   blockedUids?: string[];                                // UIDs blocked by current user — hides their comments
   onReact: (postId: string, emoji: string) => void;
   onToggleComments: (postId: string) => void;
-  onAddComment: (postId: string, text: string) => void;
+  onAddComment: (postId: string, text: string) => void | Promise<void>;
   onViewProfile: (uid: string, name: string) => void;    // open UserProfileModal
   onDeletePost?: (postId: string) => void;               // only provided for own posts
   onEditPost?: (postId: string) => void;                 // only provided for own posts
@@ -50,6 +50,10 @@ function timeAgo(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date;
   const diffMs = Date.now() - d.getTime();
   if (!Number.isFinite(diffMs)) return 'recently';
+  // Server clock skew or an optimistic post created with a future Date
+  // would otherwise render as "1d ago" for a moment in the future.
+  // Treat any future timestamp as "just now" until time catches up.
+  if (diffMs < 0) return 'just now';
   const mins = Math.floor(diffMs / 60000);
   if (mins < 1) return 'just now';
   if (mins < 60) return `${mins}m ago`;
@@ -57,6 +61,13 @@ function timeAgo(date: Date | string): string {
   if (hrs < 24) return `${hrs}h ago`;
   const days = Math.floor(hrs / 24);
   return `${days}d ago`;
+}
+
+// Treat empty strings the same as missing — Image source `{ uri: '' }`
+// triggers a fetch error on web and renders blank on native, where we
+// want the GradientAvatar fallback instead.
+function isUsableUri(uri: string | undefined | null): uri is string {
+  return typeof uri === 'string' && uri.length > 0;
 }
 
 function mergeComments<T extends { id?: string; authorUid?: string; text?: string; createdAt?: Date | string }>(
@@ -121,7 +132,7 @@ function ReactionPill({
   );
 }
 
-export default function PostCard({
+function PostCardInner({
   post,
   currentUserUid,
   currentUserName,
@@ -144,6 +155,10 @@ export default function PostCard({
   const [commentActionBusy, setCommentActionBusy] = useState<string | null>(null);
   const [commentMenuOpenId, setCommentMenuOpenId] = useState<string | null>(null);
   const [showReactionPicker, setShowReactionPicker] = useState(false);
+  // Per-image error flags so a 404 / expired download URL falls back to
+  // the GradientAvatar instead of rendering a blank box.
+  const [authorPhotoErrored, setAuthorPhotoErrored] = useState(false);
+  const [postImageErrored, setPostImageErrored] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const confirmDeletePost = () => {
@@ -214,13 +229,22 @@ export default function PostCard({
     }
   };
 
-  const handleSendComment = () => {
+  const handleSendComment = async () => {
     const trimmed = commentText.trim();
     if (!trimmed || isSubmitting) return;
     setIsSubmitting(true);
-    onAddComment(post.id, trimmed);
+    // Optimistically clear the input so users can keep typing the next
+    // reply, but if the send rejects we restore their text + show a
+    // toast so nobody silently loses what they wrote.
     setCommentText('');
-    setIsSubmitting(false);
+    try {
+      await Promise.resolve(onAddComment(post.id, trimmed));
+    } catch (_err) {
+      setCommentText(trimmed);
+      infoAlert("Couldn't post comment", 'Check your connection and try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleShare = async () => {
@@ -272,10 +296,11 @@ export default function PostCard({
           onPress={() => onViewProfile(post.authorUid ?? '', post.authorName)}
           activeOpacity={0.75}
         >
-          {post.authorPhotoUrl ? (
+          {isUsableUri(post.authorPhotoUrl) && !authorPhotoErrored ? (
             <Image
               source={{ uri: post.authorPhotoUrl }}
               style={styles.authorPhoto}
+              onError={() => setAuthorPhotoErrored(true)}
             />
           ) : (
             <GradientAvatar name={post.authorName} size={40} />
@@ -351,9 +376,15 @@ export default function PostCard({
       <Text style={styles.postText}>{post.text}</Text>
 
       {/* Optional image area */}
-      {post.imageUri ? (
+      {isUsableUri(post.imageUri) && !postImageErrored ? (
         <View style={[styles.imageWrap, post.imageAspectRatio ? { aspectRatio: post.imageAspectRatio } : {}]}>
-          <Image source={{ uri: post.imageUri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+          <Image
+            source={{ uri: post.imageUri }}
+            style={StyleSheet.absoluteFill}
+            resizeMode="cover"
+            accessibilityLabel="Post image"
+            onError={() => setPostImageErrored(true)}
+          />
         </View>
       ) : post.imageEmoji ? (
         <View style={styles.imageArea}>
@@ -595,9 +626,13 @@ export default function PostCard({
             );
           })}
 
-          {/* Comment input */}
+          {/* Comment input — multiline, capped at the same length the
+              Firestore rule enforces (2000 chars). Send button gates on
+              trimmed text so a paragraph of just whitespace can't be
+              posted. blurOnSubmit=false keeps the keyboard up after
+              send for rapid replies. */}
           <View style={styles.commentInputRow}>
-            {currentUserPhotoUrl ? (
+            {isUsableUri(currentUserPhotoUrl) ? (
               <Image source={{ uri: currentUserPhotoUrl }} style={styles.commentPhoto} />
             ) : (
               <GradientAvatar name={currentUserName} size={28} />
@@ -610,12 +645,18 @@ export default function PostCard({
               placeholderTextColor="#9ca3af"
               onSubmitEditing={handleSendComment}
               returnKeyType="send"
+              blurOnSubmit={false}
+              maxLength={2000}
+              multiline
+              accessibilityLabel="Comment input"
             />
             <TouchableOpacity
               onPress={handleSendComment}
               disabled={!commentText.trim() || isSubmitting}
               style={{ opacity: (!commentText.trim() || isSubmitting) ? 0.4 : 1 }}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityLabel="Send comment"
+              accessibilityRole="button"
             >
               <Ionicons
                 name="send"
@@ -1024,4 +1065,32 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#1a1a2e',
   },
+});
+
+// Cards are inside a virtualised FlatList of 50+ items. Without memo,
+// every parent state change (refresh, filter, scroll) re-renders all
+// rows. Custom equality check skips rerenders when the post identity
+// hasn't changed AND the fields the card actually reads are stable.
+export default React.memo(PostCardInner, (prev, next) => {
+  if (prev.post === next.post && prev.blockedUids === next.blockedUids) return true;
+  if (prev.post.id !== next.post.id) return false;
+  // Cheap deep checks on the parts of the post that the card renders.
+  return (
+    prev.post.text === next.post.text &&
+    prev.post.imageUri === next.post.imageUri &&
+    prev.post.commentCount === next.post.commentCount &&
+    prev.post.lastComment?.id === next.post.lastComment?.id &&
+    prev.post.lastComment?.text === next.post.lastComment?.text &&
+    prev.post.showComments === next.post.showComments &&
+    prev.post.authorPhotoUrl === next.post.authorPhotoUrl &&
+    prev.post.authorName === next.post.authorName &&
+    JSON.stringify(prev.post.reactions) === JSON.stringify(next.post.reactions) &&
+    JSON.stringify(prev.post.reactionsByUser?.[next.currentUserUid] ?? []) ===
+      JSON.stringify(next.post.reactionsByUser?.[next.currentUserUid] ?? []) &&
+    (prev.post.commentList?.length ?? 0) === (next.post.commentList?.length ?? 0) &&
+    prev.currentUserUid === next.currentUserUid &&
+    prev.currentUserName === next.currentUserName &&
+    prev.currentUserPhotoUrl === next.currentUserPhotoUrl &&
+    (prev.blockedUids?.length ?? 0) === (next.blockedUids?.length ?? 0)
+  );
 });

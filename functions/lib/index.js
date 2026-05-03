@@ -48,11 +48,21 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.processScheduledPushes = exports.adminCreateUser = exports.adminDeleteUser = exports.dispatchPush = void 0;
+exports.repairCommunityCounters = exports.onUserCreated = exports.onFollowDelete = exports.onFollowCreate = exports.onPostDelete = exports.onCommentDelete = exports.onCommentCreate = exports.synthesizeSpeech = exports.adminFactoryReset = exports.factoryReset = exports.processScheduledPushes = exports.adminCreateUser = exports.adminDeleteUser = exports.dispatchPush = void 0;
 const functions = __importStar(require("firebase-functions/v1"));
 const admin = __importStar(require("firebase-admin"));
+const text_to_speech_1 = __importDefault(require("@google-cloud/text-to-speech"));
 admin.initializeApp();
+// Allow undefined fields in setDoc/update payloads to be silently dropped
+// rather than throwing "Cannot use 'undefined' as a Firestore value".
+// Without this, dispatchPush failed every time a recipient's
+// skippedReason was undefined (the common "successfully sent" case),
+// so admin notifications never recorded a delivery report.
+admin.firestore().settings({ ignoreUndefinedProperties: true });
 const DEFAULT_PREFS = {
     reactions: true,
     comments: true,
@@ -576,6 +586,218 @@ exports.processScheduledPushes = functions.pubsub
     console.log(`processScheduledPushes: promoted ${promoted} of ${snap.size} due entries`);
     return null;
 });
+// ─── factoryReset (one-shot) ──────────────────────────────────────────────────
+// Wipes every user account + per-user data + admin scratch collections,
+// preserving only the founder admin emails. Designed to be called ONCE
+// before opening closed testing to real users so Vijay sees a clean
+// /admin overview.
+//
+// Auth model: HTTPS endpoint guarded by an X-Reset-Token header that
+// must match the FACTORY_RESET_TOKEN env var. Set the env via:
+//   firebase functions:config:set factoryreset.token="<random>"
+//   firebase deploy --only functions:factoryReset
+// Then call:
+//   curl -X POST -H "X-Reset-Token: <random>" \
+//        https://us-central1-maa-mitra-7kird8.cloudfunctions.net/factoryReset
+//
+// SAFE TO LEAVE DEPLOYED — without the secret the endpoint refuses every
+// request. Remove from index.ts after the cleanup if you prefer.
+const KEEP_EMAILS = new Set([
+    'rocking.vsr@gmail.com',
+    'divyashekhawat44@yahoo.in',
+]);
+const SHARED_COLLECTIONS_TO_WIPE = [
+    'push_queue',
+    'admin_audit',
+    'scheduled_pushes',
+    'testerFeedback',
+    'feedback',
+    'supportTickets',
+    'follows',
+    'followRequests',
+    'blocks',
+    'communityPosts',
+    'community_posts',
+    'community',
+    'conversations',
+    'push_notifications',
+];
+const PER_USER_SUBTREES = ['moods', 'saved_answers', 'chats', 'notifications'];
+async function deleteCollectionRecursive(db, collectionPath, batchSize = 200) {
+    let total = 0;
+    while (true) {
+        const snap = await db.collection(collectionPath).limit(batchSize).get();
+        if (snap.empty)
+            break;
+        const batch = db.batch();
+        snap.docs.forEach((d) => batch.delete(d.ref));
+        await batch.commit();
+        total += snap.size;
+        if (snap.size < batchSize)
+            break;
+    }
+    return total;
+}
+async function deleteDocPathRecursive(db, docPath) {
+    const docRef = db.doc(docPath);
+    const subs = await docRef.listCollections();
+    for (const sub of subs) {
+        let snap = await sub.limit(200).get();
+        while (!snap.empty) {
+            const batch = db.batch();
+            snap.docs.forEach((d) => batch.delete(d.ref));
+            await batch.commit();
+            snap = await sub.limit(200).get();
+        }
+    }
+    await docRef.delete().catch(() => { });
+}
+async function performFactoryReset() {
+    const db = admin.firestore();
+    const auth = admin.auth();
+    const summary = {
+        keptEmails: [...KEEP_EMAILS],
+        deletedUsers: 0,
+        deletedAuthRecords: 0,
+        perCollectionDeleted: {},
+    };
+    return await runFactoryResetCore(db, auth, summary);
+}
+async function runFactoryResetCore(db, auth, summary) {
+    // Phase moved into shared helper so the HTTPS-token endpoint and the
+    // admin-callable endpoint exercise identical logic.
+    await runFactoryResetInner(db, auth, summary);
+    summary.ok = true;
+    return summary;
+}
+exports.factoryReset = functions
+    .runWith({ memory: '512MB', timeoutSeconds: 540, secrets: ['FACTORY_RESET_TOKEN'] })
+    .https.onRequest(async (req, res) => {
+    const token = req.get('x-reset-token');
+    const expected = process.env.FACTORY_RESET_TOKEN;
+    if (!expected || token !== expected) {
+        res.status(403).json({ ok: false, error: 'forbidden' });
+        return;
+    }
+    if (req.method !== 'POST') {
+        res.status(405).json({ ok: false, error: 'method-not-allowed' });
+        return;
+    }
+    try {
+        const summary = await performFactoryReset();
+        res.json(summary);
+    }
+    catch (err) {
+        console.error('factoryReset failed:', err);
+        res.status(500).json({ ok: false, error: err?.message || String(err) });
+    }
+});
+// Admin-callable variant: same destructive operation but auth is the
+// caller's super-admin token instead of a static secret. Wired to the
+// /admin "Factory reset" button. Requires an explicit confirm string in
+// the payload so accidental clicks can't trigger it from a console.
+exports.adminFactoryReset = functions
+    .runWith({ memory: '512MB', timeoutSeconds: 540 })
+    .https.onCall(async (data, context) => {
+    const ok = await isAdminTokenAsync(context.auth?.token);
+    if (!ok) {
+        throw new functions.https.HttpsError('permission-denied', 'Only admins can run factory reset.');
+    }
+    if (data?.confirm !== 'WIPE-ALL-USERS') {
+        throw new functions.https.HttpsError('failed-precondition', 'Confirm string mismatch — payload must be { confirm: "WIPE-ALL-USERS" }.');
+    }
+    return await performFactoryReset();
+});
+// Inner cleanup body — kept as a separate function so both endpoints
+// share the same sequence (auth wipe → orphan firestore wipe → shared
+// scratch collections → storage).
+async function runFactoryResetInner(db, auth, summary) {
+    {
+        // Resolve admin UIDs up front — storage paths key by uid, not email.
+        const keepUids = new Set();
+        for (const email of KEEP_EMAILS) {
+            try {
+                const u = await auth.getUserByEmail(email);
+                keepUids.add(u.uid);
+            }
+            catch (err) {
+                console.warn(`factoryReset: keep email ${email} not found in Auth`, err);
+            }
+        }
+        // 1. Walk all auth users; delete the ones not in the keep list.
+        let nextPageToken;
+        do {
+            const page = await auth.listUsers(1000, nextPageToken);
+            for (const u of page.users) {
+                const email = (u.email || '').toLowerCase();
+                if (KEEP_EMAILS.has(email))
+                    continue;
+                await deleteDocPathRecursive(db, `users/${u.uid}`);
+                await deleteDocPathRecursive(db, `publicProfiles/${u.uid}`);
+                for (const sub of PER_USER_SUBTREES) {
+                    await deleteDocPathRecursive(db, `${sub}/${u.uid}`);
+                }
+                try {
+                    await auth.deleteUser(u.uid);
+                    summary.deletedAuthRecords++;
+                }
+                catch (err) {
+                    console.warn(`factoryReset auth delete failed for ${u.uid}:`, err);
+                }
+                summary.deletedUsers++;
+            }
+            nextPageToken = page.pageToken;
+        } while (nextPageToken);
+        // 2. Walk Firestore users collection too — covers orphaned Firestore
+        //    docs whose Auth records are already gone.
+        const orphanSnap = await db.collection('users').get();
+        for (const doc of orphanSnap.docs) {
+            const email = (doc.data()?.email || '').toLowerCase();
+            if (KEEP_EMAILS.has(email))
+                continue;
+            await deleteDocPathRecursive(db, `users/${doc.id}`);
+            await deleteDocPathRecursive(db, `publicProfiles/${doc.id}`);
+            for (const sub of PER_USER_SUBTREES) {
+                await deleteDocPathRecursive(db, `${sub}/${doc.id}`);
+            }
+        }
+        // 3. Wipe shared "scratch" collections so admin counters reset to zero.
+        for (const col of SHARED_COLLECTIONS_TO_WIPE) {
+            const n = await deleteCollectionRecursive(db, col);
+            if (n > 0)
+                summary.perCollectionDeleted[col] = n;
+        }
+        // 4. Storage cleanup — remove orphaned avatars, kid avatars, post
+        //    images, and DM attachments owned by deleted users. Path
+        //    schemes:
+        //      avatars/{uid}.<ext>
+        //      kid-avatars/{uid}/{kidId}.<ext>
+        //      posts/{uid}/{ts}.<ext>
+        //      dm-images/{convId}/{uid}_{ts}.<ext>
+        const bucket = admin.storage().bucket();
+        let storageDeleted = 0;
+        const wipePrefix = async (prefix, uidExtractor) => {
+            const [files] = await bucket.getFiles({ prefix });
+            for (const file of files) {
+                const uid = uidExtractor(file.name);
+                if (!uid || keepUids.has(uid))
+                    continue;
+                await file.delete().catch((err) => {
+                    console.warn(`factoryReset: failed to delete ${file.name}`, err);
+                });
+                storageDeleted++;
+            }
+        };
+        await wipePrefix('avatars/', (name) => name.replace(/^avatars\//, '').split('.')[0]);
+        await wipePrefix('kid-avatars/', (name) => name.split('/')[1] || '');
+        await wipePrefix('posts/', (name) => name.split('/')[1] || '');
+        await wipePrefix('dm-images/', (name) => {
+            const last = name.split('/').pop() || '';
+            return last.split('_')[0] || '';
+        });
+        summary.storageDeleted = storageDeleted;
+    }
+}
 async function pruneDeadTokens(db, deadTokens) {
     const chunks = [];
     for (let i = 0; i < deadTokens.length; i += 10)
@@ -594,3 +816,315 @@ async function pruneDeadTokens(db, deadTokens) {
         await batch.commit();
     }
 }
+// ─── synthesizeSpeech ─────────────────────────────────────────────────────────
+// Reads any chat reply aloud in the user's preferred Indian language.
+// Brain stays Claude — this only converts Claude's *text* output into MP3.
+//
+// Voice mapping picks a warm female Neural2 voice per locale where one
+// exists, falling back to Standard for languages Google hasn't shipped
+// Neural2 for yet. Adjust LANG_VOICE if you want a male voice or a
+// different Neural2 letter (-A through -F).
+//
+// Output is base64 MP3, returned via the callable response so we don't
+// have to manage cleanup of any storage objects.
+const LANG_VOICE = {
+    // Indian English — warm, slightly slower than US English voices.
+    'en-IN': { languageCode: 'en-IN', name: 'en-IN-Neural2-A' },
+    'hi-IN': { languageCode: 'hi-IN', name: 'hi-IN-Neural2-A' },
+    'bn-IN': { languageCode: 'bn-IN', name: 'bn-IN-Standard-A' },
+    'ta-IN': { languageCode: 'ta-IN', name: 'ta-IN-Standard-C' },
+    'te-IN': { languageCode: 'te-IN', name: 'te-IN-Standard-A' },
+    'mr-IN': { languageCode: 'mr-IN', name: 'mr-IN-Standard-A' },
+    'ml-IN': { languageCode: 'ml-IN', name: 'ml-IN-Standard-A' },
+    'kn-IN': { languageCode: 'kn-IN', name: 'kn-IN-Standard-A' },
+    'gu-IN': { languageCode: 'gu-IN', name: 'gu-IN-Standard-A' },
+    'pa-IN': { languageCode: 'pa-IN', name: 'pa-IN-Standard-A' },
+    'ur-IN': { languageCode: 'ur-IN', name: 'ur-IN-Standard-A' },
+    // Fallbacks for plain BCP-47 short codes the client may send.
+    'en': { languageCode: 'en-IN', name: 'en-IN-Neural2-A' },
+    'hi': { languageCode: 'hi-IN', name: 'hi-IN-Neural2-A' },
+};
+const TTS_MAX_CHARS = 1200;
+exports.synthesizeSpeech = functions
+    .runWith({ memory: '256MB', timeoutSeconds: 30 })
+    .https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'Sign in to use voice playback.');
+    }
+    const text = String(data?.text ?? '').trim();
+    const lang = String(data?.lang ?? 'en-IN').trim();
+    if (!text) {
+        throw new functions.https.HttpsError('invalid-argument', 'No text to speak.');
+    }
+    if (text.length > TTS_MAX_CHARS) {
+        throw new functions.https.HttpsError('invalid-argument', `Text exceeds the ${TTS_MAX_CHARS}-char limit; trim before sending.`);
+    }
+    const voice = LANG_VOICE[lang] ?? LANG_VOICE['en-IN'];
+    const client = new text_to_speech_1.default.TextToSpeechClient();
+    const [response] = await client.synthesizeSpeech({
+        input: { text },
+        voice: { languageCode: voice.languageCode, name: voice.name },
+        audioConfig: {
+            audioEncoding: 'MP3',
+            // Slight rate slowdown — motherly tone, not news anchor.
+            speakingRate: 0.96,
+            pitch: 0,
+            sampleRateHertz: 24000,
+        },
+    });
+    const audioContent = response.audioContent;
+    if (!audioContent) {
+        throw new functions.https.HttpsError('internal', 'TTS returned empty audio.');
+    }
+    const base64 = Buffer.isBuffer(audioContent)
+        ? audioContent.toString('base64')
+        : Buffer.from(audioContent).toString('base64');
+    return {
+        ok: true,
+        mimeType: 'audio/mpeg',
+        base64,
+        voice: voice.name,
+        bytes: base64.length,
+    };
+});
+// ──────────────────────────────────────────────────────────────────────────────
+// Wave 3 — Counter-integrity & cascade triggers
+//
+// Before these triggers existed, every denormalized counter on community
+// content was maintained client-side. That worked when nothing went wrong,
+// but every network failure, every concurrent write, and every aborted
+// mutation drifted the counters until a manual repair sweep ran. These
+// triggers are the source of truth: clients send their own writes, the
+// server reconciles. The corresponding Firestore rules (firestore.rules
+// lines 169-187) cap client-side commentCount writes to ±1 so the
+// trigger gets the final word without a tug-of-war.
+// ──────────────────────────────────────────────────────────────────────────────
+const db = admin.firestore();
+/** When a comment is added, atomically bump the parent post's commentCount
+ *  and refresh its lastComment denormalisation. The transaction reads the
+ *  parent at write time so concurrent comment adds don't lose updates. */
+exports.onCommentCreate = functions.firestore
+    .document('communityPosts/{postId}/comments/{commentId}')
+    .onCreate(async (snap, context) => {
+    const { postId, commentId } = context.params;
+    const data = snap.data() ?? {};
+    const postRef = db.doc(`communityPosts/${postId}`);
+    try {
+        await db.runTransaction(async (tx) => {
+            const postSnap = await tx.get(postRef);
+            if (!postSnap.exists)
+                return;
+            const post = postSnap.data() ?? {};
+            // Trust the trigger over the client. We bump from the current
+            // server value (not from the client's increment) so any drift
+            // from concurrent client writes is corrected on this hop.
+            const nextCount = (post.commentCount ?? 0) + 1;
+            tx.update(postRef, {
+                commentCount: nextCount,
+                lastComment: {
+                    id: commentId,
+                    authorUid: data.authorUid ?? '',
+                    authorName: data.authorName ?? '',
+                    authorInitial: data.authorInitial ?? '',
+                    authorPhotoUrl: data.authorPhotoUrl ?? '',
+                    text: data.text ?? '',
+                },
+                lastCommentAt: data.createdAt ?? admin.firestore.FieldValue.serverTimestamp(),
+            });
+        });
+    }
+    catch (err) {
+        console.warn(`onCommentCreate(${postId}/${commentId}) failed`, err);
+    }
+});
+/** When a comment is deleted, decrement the parent post's commentCount
+ *  and refresh lastComment to whatever the new latest is (or clear it if
+ *  the post has zero comments left). */
+exports.onCommentDelete = functions.firestore
+    .document('communityPosts/{postId}/comments/{commentId}')
+    .onDelete(async (snap, context) => {
+    const { postId, commentId } = context.params;
+    const postRef = db.doc(`communityPosts/${postId}`);
+    try {
+        // Read latest remaining comment OUTSIDE the transaction (orderBy
+        // limit queries aren't allowed inside transactions). The race
+        // window is small — if a new comment is created between this
+        // read and the transaction commit, the next onCommentCreate /
+        // onCommentDelete invocation will reconcile.
+        const latestSnap = await db
+            .collection(`communityPosts/${postId}/comments`)
+            .orderBy('createdAt', 'desc')
+            .limit(1)
+            .get();
+        const latest = latestSnap.docs[0];
+        await db.runTransaction(async (tx) => {
+            const postSnap = await tx.get(postRef);
+            if (!postSnap.exists)
+                return;
+            const post = postSnap.data() ?? {};
+            const nextCount = Math.max(0, (post.commentCount ?? 1) - 1);
+            const updates = { commentCount: nextCount };
+            if (post.lastComment?.id === commentId) {
+                if (latest) {
+                    const ld = latest.data();
+                    updates.lastComment = {
+                        id: latest.id,
+                        authorUid: ld.authorUid ?? '',
+                        authorName: ld.authorName ?? '',
+                        authorInitial: ld.authorInitial ?? '',
+                        authorPhotoUrl: ld.authorPhotoUrl ?? '',
+                        text: ld.text ?? '',
+                    };
+                    updates.lastCommentAt = ld.createdAt ?? admin.firestore.FieldValue.serverTimestamp();
+                }
+                else {
+                    updates.lastComment = admin.firestore.FieldValue.delete();
+                    updates.lastCommentAt = admin.firestore.FieldValue.delete();
+                }
+            }
+            tx.update(postRef, updates);
+        });
+    }
+    catch (err) {
+        console.warn(`onCommentDelete(${postId}/${commentId}) failed`, err);
+    }
+});
+/** When a post is deleted, sweep its comments subcollection (the client
+ *  also tries this but rules can deny that path; the trigger runs with
+ *  admin privileges) and decrement the author's postsCount. The image
+ *  blob is cleaned client-side because Storage trigger access requires
+ *  a separate function deployment that we don't run yet. */
+exports.onPostDelete = functions.firestore
+    .document('communityPosts/{postId}')
+    .onDelete(async (snap, context) => {
+    const { postId } = context.params;
+    const data = snap.data() ?? {};
+    const authorUid = data.authorUid ?? '';
+    try {
+        // 1) Cascade comments (admin SDK bypasses rules so this is the
+        //    authoritative sweep — client cascade is best-effort).
+        const comments = await db.collection(`communityPosts/${postId}/comments`).get();
+        if (!comments.empty) {
+            const batch = db.batch();
+            comments.docs.forEach((d) => batch.delete(d.ref));
+            await batch.commit();
+        }
+    }
+    catch (err) {
+        console.warn(`onPostDelete(${postId}) comment sweep failed`, err);
+    }
+    if (authorUid) {
+        try {
+            await db.doc(`publicProfiles/${authorUid}`).set({ uid: authorUid, postsCount: admin.firestore.FieldValue.increment(-1) }, { merge: true });
+        }
+        catch (err) {
+            console.warn(`onPostDelete(${postId}) postsCount decrement failed`, err);
+        }
+    }
+});
+/** Bootstrap a publicProfile when a follow doc lands and the followee has
+ *  none yet (the first-follower-of-new-user race), then bump the counters
+ *  on both ends. Runs server-side so concurrent follows don't both create
+ *  the doc with overlapping merges. */
+exports.onFollowCreate = functions.firestore
+    .document('follows/{followId}')
+    .onCreate(async (snap) => {
+    const data = snap.data() ?? {};
+    const fromUid = data.fromUid;
+    const toUid = data.toUid;
+    if (!fromUid || !toUid || fromUid === toUid)
+        return;
+    try {
+        const batch = db.batch();
+        batch.set(db.doc(`publicProfiles/${toUid}`), { uid: toUid, followersCount: admin.firestore.FieldValue.increment(1) }, { merge: true });
+        batch.set(db.doc(`publicProfiles/${fromUid}`), { uid: fromUid, followingCount: admin.firestore.FieldValue.increment(1) }, { merge: true });
+        await batch.commit();
+    }
+    catch (err) {
+        console.warn(`onFollowCreate(${fromUid}->${toUid}) failed`, err);
+    }
+});
+/** Decrement counters when a follow is removed. Idempotent on the trigger
+ *  itself (Cloud Functions retries) because the increment is bounded
+ *  by the doc lifecycle: each delete fires onDelete exactly once. */
+exports.onFollowDelete = functions.firestore
+    .document('follows/{followId}')
+    .onDelete(async (snap) => {
+    const data = snap.data() ?? {};
+    const fromUid = data.fromUid;
+    const toUid = data.toUid;
+    if (!fromUid || !toUid)
+        return;
+    try {
+        const batch = db.batch();
+        batch.set(db.doc(`publicProfiles/${toUid}`), { uid: toUid, followersCount: admin.firestore.FieldValue.increment(-1) }, { merge: true });
+        batch.set(db.doc(`publicProfiles/${fromUid}`), { uid: fromUid, followingCount: admin.firestore.FieldValue.increment(-1) }, { merge: true });
+        await batch.commit();
+    }
+    catch (err) {
+        console.warn(`onFollowDelete(${fromUid}->${toUid}) failed`, err);
+    }
+});
+/** Bootstrap publicProfile + notifPrefs defaults the moment a new user's
+ *  Firebase Auth record is created. Eliminates the "first follower fails
+ *  because the followee has no publicProfile yet" race and stops every
+ *  client from racing to syncPublicProfile() on first run. */
+exports.onUserCreated = functions.auth.user().onCreate(async (user) => {
+    const uid = user.uid;
+    if (!uid)
+        return;
+    try {
+        await db.doc(`publicProfiles/${uid}`).set({
+            uid,
+            followersCount: 0,
+            followingCount: 0,
+            postsCount: 0,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        }, { merge: true });
+    }
+    catch (err) {
+        console.warn(`onUserCreated(${uid}) bootstrap failed`, err);
+    }
+});
+/** Daily-ish counter-drift repair: walks the publicProfiles collection
+ *  and re-counts followers/following/posts for every profile. Cheap
+ *  enough at our scale (<1000 profiles) to run nightly without
+ *  partitioning; revisit if the user count grows by a magnitude. */
+exports.repairCommunityCounters = functions.pubsub
+    .schedule('every day 03:00')
+    .timeZone('Asia/Kolkata')
+    .onRun(async () => {
+    try {
+        const profiles = await db.collection('publicProfiles').get();
+        let repaired = 0;
+        for (const profile of profiles.docs) {
+            const uid = profile.id;
+            try {
+                const [followers, following, posts] = await Promise.all([
+                    db.collection('follows').where('toUid', '==', uid).get(),
+                    db.collection('follows').where('fromUid', '==', uid).get(),
+                    db.collection('communityPosts').where('authorUid', '==', uid).get(),
+                ]);
+                const data = profile.data() ?? {};
+                if (data.followersCount !== followers.size ||
+                    data.followingCount !== following.size ||
+                    data.postsCount !== posts.size) {
+                    await profile.ref.update({
+                        followersCount: followers.size,
+                        followingCount: following.size,
+                        postsCount: posts.size,
+                        countersRepairedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    });
+                    repaired++;
+                }
+            }
+            catch (err) {
+                console.warn(`repairCommunityCounters(${uid}) failed`, err);
+            }
+        }
+        console.log(`repairCommunityCounters: walked ${profiles.size}, repaired ${repaired}`);
+    }
+    catch (err) {
+        console.error('repairCommunityCounters fatal', err);
+    }
+});

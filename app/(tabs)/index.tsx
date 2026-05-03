@@ -39,7 +39,7 @@ import { useActiveKid } from '../../hooks/useActiveKid';
 import { useVaccineSchedule } from '../../hooks/useVaccineSchedule';
 import { TEETH } from '../../data/teeth';
 import { BABY_FOODS, isAllowedForDiet } from '../../data/babyFoods';
-import { type AppNotification, fetchRecentPosts } from '../../services/social';
+import { type AppNotification, fetchRecentPosts, subscribeRecentPosts } from '../../services/social';
 import { saveUserProfile } from '../../services/firebase';
 import { ARTICLES, type Article } from '../../data/articles';
 import { GOVERNMENT_SCHEMES } from '../../data/schemes';
@@ -262,17 +262,24 @@ export default function HomeTab() {
     return 'homeHeroEvening';
   }, []);
 
-  // Latest real community post for the "From the community" card.
-  // Falls back to null if no posts exist — the card is hidden in that case.
+  // Latest community post for the "From the community" card. Subscribes
+  // live so a new post or reaction/comment update on the latest post
+  // refreshes the card without leaving Home. Hidden when feed is empty.
   const [latestPost, setLatestPost] = useState<any | null>(null);
   useEffect(() => {
-    let cancelled = false;
-    fetchRecentPosts(1)
-      .then((res) => {
+    const unsub = subscribeRecentPosts(1, (posts) => {
+      setLatestPost(posts[0] ?? null);
+    });
+    // Fallback for environments where subscription isn't available
+    // (Firebase not initialised / SSR) — keep the original one-shot.
+    if (!unsub) {
+      let cancelled = false;
+      fetchRecentPosts(1).then((res) => {
         if (!cancelled) setLatestPost(res.posts[0] ?? null);
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
+      }).catch(() => {});
+      return () => { cancelled = true; };
+    }
+    return () => { try { unsub(); } catch (_) {} };
   }, []);
 
   // The "moms in state" count + tile lives on the Community tab now.
@@ -1103,7 +1110,7 @@ export default function HomeTab() {
               <View style={{ flex: 1 }}>
                 <Text style={styles.commEmptyTitle}>Be the first to share</Text>
                 <Text style={styles.commEmptyText}>
-                  Your post will reach 20 fellow parents in this beta 🌱
+                  Start a conversation with other parents 🌱
                 </Text>
               </View>
               <AppIcon name="nav.forward" size={18} />

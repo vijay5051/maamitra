@@ -375,12 +375,16 @@ function NewPostModal({
           <TextInput
             style={newPostStyles.textArea}
             value={text}
-            onChangeText={(t) => { setText(t); setError(''); }}
+            onChangeText={(t) => { setText(t.slice(0, 5000)); setError(''); }}
             placeholder="What's on your mind? Ask a question, share a tip, or celebrate a milestone..."
             placeholderTextColor="#9ca3af"
             multiline
             numberOfLines={4}
+            maxLength={5000}
           />
+          <Text style={[newPostStyles.errorText, { color: '#9ca3af' }]}>
+            {text.length} / 5000
+          </Text>
           {error ? <Text style={newPostStyles.errorText}>{error}</Text> : null}
 
           {/* Photo picker + crop selector */}
@@ -929,6 +933,11 @@ const heroStyles = StyleSheet.create({
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
+// Module-scoped per-post comment teardown registry. Lives outside React
+// state so toggling comments doesn't cause a re-render and unmounting
+// the screen cleans up every open subscription in one pass.
+const __commentTeardowns = new Map<string, () => void>();
+
 export default function CommunityScreen() {
   const insets = useSafeAreaInsets();
   const {
@@ -952,6 +961,8 @@ export default function CommunityScreen() {
     updatePostFirestore,
     updateCommentFirestore,
     deleteCommentFirestore,
+    subscribeToFeed,
+    subscribeToComments,
   } = useCommunityStore();
   const { motherName, photoUrl: myPhotoUrl } = useProfileStore();
   const profile = useProfileStore((s) => s.profile);
@@ -970,15 +981,25 @@ export default function CommunityScreen() {
   const followers = useSocialStore((s) => s.followers);
 
   // ── Load data on mount ──────────────────────────────────────────────────────
+  // Live feed subscription replaces the one-shot loadPostsFromFirestore so
+  // reactions, comment counts, and new posts from other users propagate
+  // without pull-to-refresh. Cleanup tears the listener down on unmount
+  // and on uid change so we don't double-subscribe across hot reloads.
   useEffect(() => {
-    loadPostsFromFirestore();
+    const teardown = subscribeToFeed();
     if (myUid) {
-      // Sync motherName into community store so addPostFirestore can use it
       useCommunityStore.setState({ motherName: motherName || '' });
       loadSocialData();
       syncPublicProfile();
       loadDMCount();
     }
+    return () => {
+      teardown();
+      // Sweep any per-post comment subscriptions so screen unmount
+      // doesn't leak Firestore listeners.
+      __commentTeardowns.forEach((t) => { try { t(); } catch (_) {} });
+      __commentTeardowns.clear();
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [myUid]);
 
@@ -1003,6 +1024,46 @@ export default function CommunityScreen() {
     }
     return all;
   }, [profile, activeKid]);
+
+  // ── Stable handlers (memoised) ─────────────────────────────────────────
+  // The FlatList renderItem closure used to recreate every callback on
+  // every parent render, which busted PostCard's React.memo equality
+  // check and re-rendered all 50 cards on every keystroke / scroll.
+  // useCallback locks each handler to the deps it actually uses.
+  const handleReact = useCallback((postId: string, emoji: string) => {
+    if (myUid) {
+      toggleReactionFirestore(postId, myUid, motherName || 'Anonymous', emoji);
+    } else {
+      toggleReaction(postId, emoji);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myUid, motherName]);
+
+  const handleToggleComments = useCallback((postId: string) => {
+    const post = useCommunityStore.getState().posts.find((p) => p.id === postId);
+    if (post && !post.showComments && post.authorUid) {
+      const teardown = subscribeToComments(postId);
+      __commentTeardowns.set(postId, teardown);
+    } else if (post?.showComments) {
+      const t = __commentTeardowns.get(postId);
+      if (t) { t(); __commentTeardowns.delete(postId); }
+    }
+    toggleComments(postId);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleAddComment = useCallback((postId: string, text: string) => {
+    if (myUid) {
+      return addCommentFirestore(postId, myUid, motherName || 'Anonymous', text, myPhotoUrl || undefined);
+    }
+    addComment(postId, motherName || 'Anonymous', text);
+    return Promise.resolve();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myUid, motherName, myPhotoUrl]);
+
+  const handleViewProfile = useCallback((uid: string) => {
+    if (uid) setViewingUid(uid);
+  }, []);
 
   const [showNewPost, setShowNewPost] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -1065,12 +1126,18 @@ export default function CommunityScreen() {
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await loadPostsFromFirestore();
+      // Re-arm the live subscription to force a clean first-page snapshot
+      // (clears pagination state so older pages reload from scratch). The
+      // subscription itself emits within ~1 RTT.
+      subscribeToFeed();
       if (myUid) {
         await loadSocialData();
       }
     } catch (_) {}
-    setRefreshing(false);
+    // Brief delay so the spinner feels meaningful when the snapshot
+    // round-trip is sub-100ms.
+    setTimeout(() => setRefreshing(false), 350);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [myUid]);
 
   return (
@@ -1298,31 +1365,10 @@ export default function CommunityScreen() {
             currentUserName={motherName}
             currentUserPhotoUrl={myPhotoUrl || undefined}
             blockedUids={blockedUids}
-            onReact={(postId, emoji) => {
-              if (myUid) {
-                toggleReactionFirestore(postId, myUid, motherName || 'Anonymous', emoji);
-              } else {
-                toggleReaction(postId, emoji);
-              }
-            }}
-            onToggleComments={(postId) => {
-              const post = useCommunityStore.getState().posts.find((p) => p.id === postId);
-              // Only fetch from Firestore when opening (not closing), and skip seed posts
-              if (post && !post.showComments && post.authorUid) {
-                loadCommentsForPost(postId);
-              }
-              toggleComments(postId);
-            }}
-            onAddComment={(postId, text) => {
-              if (myUid) {
-                addCommentFirestore(postId, myUid, motherName || 'Anonymous', text, myPhotoUrl || undefined);
-              } else {
-                addComment(postId, motherName || 'Anonymous', text);
-              }
-            }}
-            onViewProfile={(uid, _name) => {
-              if (uid) setViewingUid(uid);
-            }}
+            onReact={handleReact}
+            onToggleComments={handleToggleComments}
+            onAddComment={handleAddComment}
+            onViewProfile={handleViewProfile}
             onDeletePost={myUid && item.authorUid === myUid ? (postId) => {
               deletePostFirestore(postId, myUid).catch(() => {
                 Alert.alert('Error', 'Could not delete the post. Please try again.');

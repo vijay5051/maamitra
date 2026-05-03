@@ -1,6 +1,8 @@
 /* eslint-disable */
-// sw-version: 3 — bumped 2026-05-03 to drop the duplicate notification
-// fix (browsers were getting two visible notifications per push).
+// sw-version: 4 — bumped 2026-05-03 alongside the community-section
+// hardening waves (rules tightening, realtime feed, server-side counter
+// triggers). No SW behaviour changes; bump triggers a fresh fetch on
+// next visit so the old SW doesn't cling to a stale `tag` strategy.
 /**
  * MaaMitra — Firebase Cloud Messaging service worker
  *

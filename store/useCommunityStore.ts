@@ -13,8 +13,10 @@ import {
   fetchPostComments,
   repairPostCommentSummary,
   incrementPublicProfilePostCount,
+  subscribeRecentPosts,
+  subscribePostComments,
 } from '../services/social';
-import type { DocumentSnapshot } from 'firebase/firestore';
+import type { DocumentSnapshot, Unsubscribe } from 'firebase/firestore';
 
 export interface Comment {
   id: string;
@@ -115,8 +117,19 @@ interface CommunityState {
   updateCommentFirestore: (postId: string, commentId: string, authorUid: string, text: string) => Promise<void>;
   deletePostFirestore: (postId: string, authorUid: string) => Promise<void>;
   deleteCommentFirestore: (postId: string, commentId: string) => Promise<void>;
+  // Realtime subscriptions — see comments where they live for the lifecycle
+  // contract. The store remembers the unsubscribe handles so the screen
+  // can re-subscribe across remounts without leaking listeners.
+  subscribeToFeed: () => () => void;
+  subscribeToComments: (postId: string) => () => void;
   resetCommunity: () => void;
 }
+
+// Module-scoped unsubscribe handles. Stored outside Zustand state so they
+// don't trigger re-renders when set/cleared and don't get serialised by
+// any future persist middleware.
+let _feedUnsub: Unsubscribe | null = null;
+const _commentUnsubs = new Map<string, Unsubscribe>();
 
 export const useCommunityStore = create<CommunityState>((set, get) => ({
   posts: [],
@@ -318,16 +331,139 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
         };
       });
 
-      set((state) => ({
-        posts: [...state.posts, ...newPosts],
-        lastPostDoc: lastDoc,
-        hasMorePosts: fsPosts.length >= POSTS_PAGE_SIZE,
-        isLoadingMore: false,
-      }));
+      // Dedupe by id when appending: a fresh post created mid-scroll
+      // (or a re-fired onEndReached racing the previous batch) would
+      // otherwise insert a duplicate row. Map keeps the first-seen
+      // entry so optimistic local state isn't clobbered by older
+      // server data.
+      set((state) => {
+        const seen = new Set(state.posts.map((p) => p.id));
+        const additions = newPosts.filter((p) => !seen.has(p.id));
+        return {
+          posts: [...state.posts, ...additions],
+          lastPostDoc: lastDoc,
+          hasMorePosts: fsPosts.length >= POSTS_PAGE_SIZE,
+          isLoadingMore: false,
+        };
+      });
     } catch (error) {
       console.error('loadMorePosts error:', error);
       set({ isLoadingMore: false });
     }
+  },
+
+  subscribeToFeed: () => {
+    // Idempotent: if a subscription is already running (hot reload, double
+    // mount), tear it down and start fresh so the callback set always
+    // points at the latest store closure.
+    if (_feedUnsub) { try { _feedUnsub(); } catch (_) {} _feedUnsub = null; }
+    set({ isLoadingPosts: true });
+    const unsub = subscribeRecentPosts(POSTS_PAGE_SIZE, (fsPosts, lastDoc) => {
+      // Realtime-derived posts replace the FIRST PAGE only. Older pages
+      // loaded via loadMorePosts (which appends after lastPostDoc) stay
+      // in place — we identify them by ids that aren't in the live set
+      // and merge them after the live page so infinite-scroll history
+      // isn't wiped on every snapshot.
+      const liveIds = new Set(fsPosts.map((p) => p.id));
+      const livePosts: Post[] = fsPosts.map((fsPost) => {
+        const lastComment = fsPost.lastComment;
+        // Preserve local-only state on existing posts (showComments,
+        // optimistic commentList) so a snapshot doesn't collapse an
+        // open comments thread or wipe an in-flight comment.
+        const existing = get().posts.find((p) => p.id === fsPost.id);
+        return {
+          id: fsPost.id,
+          authorName: fsPost.authorName ?? '',
+          authorInitial: (fsPost.authorName ?? '?').charAt(0).toUpperCase(),
+          authorUid: fsPost.authorUid ?? '',
+          authorPhotoUrl: (fsPost as any).authorPhotoUrl ?? undefined,
+          badge: fsPost.badge ?? 'Community Member',
+          topic: fsPost.topic ?? 'General',
+          text: fsPost.text ?? '',
+          imageUri: fsPost.imageUri,
+          imageAspectRatio: fsPost.imageAspectRatio,
+          imageEmoji: (fsPost as any).imageEmoji,
+          imageCaption: (fsPost as any).imageCaption,
+          reactions: fsPost.reactions ?? {},
+          userReactions: existing?.userReactions ?? [],
+          reactionsByUser: fsPost.reactionsByUser ?? {},
+          comments: existing?.comments ?? [],
+          commentList: existing?.commentList ?? [],
+          commentCount: reconcileCommentCount(
+            fsPost.commentCount,
+            existing?.comments,
+            lastComment,
+            existing?.commentList,
+          ),
+          lastComment,
+          lastCommentAt: fsPost.lastCommentAt,
+          authorFollowersOnly: (fsPost as any).authorFollowersOnly ?? false,
+          createdAt: fsPost.createdAt instanceof Date
+            ? fsPost.createdAt
+            : new Date(fsPost.createdAt),
+          showComments: existing?.showComments ?? false,
+        };
+      });
+      set((state) => {
+        const olderPages = state.posts.filter((p) => !liveIds.has(p.id));
+        return {
+          posts: [...livePosts, ...olderPages],
+          lastPostDoc: lastDoc ?? state.lastPostDoc,
+          isLoadingPosts: false,
+          // Only reset hasMorePosts on the very first snapshot, so
+          // pagination state survives reactions/comment edits that
+          // re-fire the snapshot but don't change pagination depth.
+          hasMorePosts: state.lastPostDoc === null
+            ? fsPosts.length >= POSTS_PAGE_SIZE
+            : state.hasMorePosts,
+        };
+      });
+    });
+    if (unsub) _feedUnsub = unsub;
+    return () => {
+      if (_feedUnsub) { try { _feedUnsub(); } catch (_) {} _feedUnsub = null; }
+    };
+  },
+
+  subscribeToComments: (postId: string) => {
+    if (!postId) return () => {};
+    // One subscription per post; re-subscribing replaces the prior one
+    // so the latest closure is always active.
+    const prior = _commentUnsubs.get(postId);
+    if (prior) { try { prior(); } catch (_) {} _commentUnsubs.delete(postId); }
+    const unsub = subscribePostComments(postId, (comments) => {
+      set((state) => ({
+        posts: state.posts.map((post) => {
+          if (post.id !== postId) return post;
+          // Drop optimistic temp ids that have a server twin (matched on
+          // text + author, since the server-issued id is different).
+          const realIds = new Set(comments.map((c) => c.id));
+          const surviving = (post.commentList ?? []).filter((c) => {
+            const isOptimistic = c.id.startsWith('opt-');
+            if (!isOptimistic) return false;
+            return !comments.some(
+              (s) => s.authorUid === c.authorUid && s.text === c.text,
+            );
+          });
+          const merged = [...comments, ...surviving]
+            .sort((a, b) => {
+              const ta = a.createdAt?.getTime?.() ?? 0;
+              const tb = b.createdAt?.getTime?.() ?? 0;
+              return ta - tb;
+            });
+          return {
+            ...post,
+            commentList: merged,
+            commentCount: Math.max(post.commentCount ?? 0, merged.length),
+          };
+        }),
+      }));
+    });
+    if (unsub) _commentUnsubs.set(postId, unsub);
+    return () => {
+      const u = _commentUnsubs.get(postId);
+      if (u) { try { u(); } catch (_) {} _commentUnsubs.delete(postId); }
+    };
   },
 
   addPostFirestore: async (
@@ -477,6 +613,53 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
     const posts = get().posts;
     const post = posts.find((p) => p.id === postId);
     const postAuthorUid = post?.authorUid ?? '';
+    const authorInitial = authorName.charAt(0).toUpperCase();
+
+    // Optimistic insert FIRST so the comment appears in the thread
+    // instantly. Temp id is replaced when the server responds (or
+    // backed out on failure). The realtime subscriptionToComments
+    // filter uses the 'opt-' prefix to dedupe its own twin.
+    const tempId = `opt-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const optimisticComment: PostComment = {
+      id: tempId,
+      authorUid,
+      authorName,
+      authorInitial,
+      authorPhotoUrl,
+      text,
+      createdAt: new Date(),
+    };
+    const optimisticLocal: Comment = {
+      id: tempId,
+      authorName,
+      authorInitial,
+      authorUid,
+      authorPhotoUrl,
+      text,
+      createdAt: new Date(),
+    };
+
+    set((state) => ({
+      posts: state.posts.map((p) => {
+        if (p.id !== postId) return p;
+        return {
+          ...p,
+          comments: [...p.comments, optimisticLocal],
+          commentList: [...(p.commentList ?? []), optimisticComment],
+          commentCount: (p.commentCount ?? 0) + 1,
+          lastComment: {
+            id: tempId,
+            authorUid,
+            authorName,
+            authorInitial,
+            authorPhotoUrl,
+            text,
+          },
+          lastCommentAt: new Date(),
+          showComments: true,
+        };
+      }),
+    }));
 
     try {
       const comment = await addPostComment(
@@ -484,7 +667,7 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
         {
           authorUid,
           authorName,
-          authorInitial: authorName.charAt(0).toUpperCase(),
+          authorInitial,
           ...(authorPhotoUrl && { authorPhotoUrl }),
           text,
         },
@@ -492,59 +675,59 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
         authorName
       );
 
-      // Also build a local Comment for backward-compat `comments` array
-      const localComment: Comment = {
-        id: comment.id,
-        authorName: comment.authorName ?? authorName,
-        authorInitial: (comment.authorName ?? authorName).charAt(0).toUpperCase(),
-        authorUid,
-        authorPhotoUrl: comment.authorPhotoUrl,
-        text,
-        createdAt: comment.createdAt instanceof Date ? comment.createdAt : new Date(comment.createdAt),
-      };
-
-      // Dedupe by id when appending: a concurrent fetchPostComments
-      // (e.g. user expanded the comment list mid-send) can deliver this
-      // comment from the server before the optimistic add runs.
+      // Swap the optimistic temp entry for the real server doc. If the
+      // realtime subscription already swept the temp out, this is a
+      // no-op for that path but updates lastComment to the real id.
       set((state) => ({
         posts: state.posts.map((p) => {
           if (p.id !== postId) return p;
-          const commentsAlreadyHas = p.comments.some((c) => c.id === localComment.id);
-          const listAlreadyHas = (p.commentList ?? []).some((c) => c.id === comment.id);
-          const nextComments = commentsAlreadyHas ? p.comments : [...p.comments, localComment];
-          const nextCommentList = listAlreadyHas
-            ? (p.commentList ?? [])
-            : [...(p.commentList ?? []), comment];
-          const nextLastComment = {
-            id: comment.id,
-            authorUid,
-            authorName: comment.authorName ?? authorName,
-            authorInitial: (comment.authorName ?? authorName).charAt(0).toUpperCase(),
-            authorPhotoUrl: comment.authorPhotoUrl,
-            text,
-          };
+          const realCommentList = (p.commentList ?? []).map((c) =>
+            c.id === tempId ? { ...comment } : c,
+          );
+          const realLocal = p.comments.map((c) =>
+            c.id === tempId
+              ? { ...c, id: comment.id, createdAt: comment.createdAt instanceof Date ? comment.createdAt : c.createdAt }
+              : c,
+          );
           return {
             ...p,
-            comments: nextComments,
-            commentList: nextCommentList,
-            commentCount: reconcileCommentCount(
-              commentsAlreadyHas || listAlreadyHas
-                ? p.commentCount
-                : (p.commentCount ?? p.comments.length) + 1,
-              nextCommentList,
-              nextLastComment,
-              nextComments,
-            ),
-            // Mirror what the dispatcher writes onto the parent post so
-            // PostCard's "latest comment" preview reflects the new
-            // comment immediately, before the next Firestore re-fetch.
-            lastComment: nextLastComment,
-            lastCommentAt: comment.createdAt instanceof Date ? comment.createdAt : new Date(),
-            showComments: true,
+            comments: realLocal,
+            commentList: realCommentList,
+            lastComment: p.lastComment?.id === tempId
+              ? { ...p.lastComment, id: comment.id }
+              : p.lastComment,
           };
         }),
       }));
     } catch (error) {
+      // Roll back the optimistic insert so the user sees their message
+      // didn't go through (caller surfaces a toast). The Wave 4 polish
+      // will add a "retry" affordance keyed on this rollback path.
+      set((state) => ({
+        posts: state.posts.map((p) => {
+          if (p.id !== postId) return p;
+          const cleanedList = (p.commentList ?? []).filter((c) => c.id !== tempId);
+          const cleanedLocal = p.comments.filter((c) => c.id !== tempId);
+          return {
+            ...p,
+            comments: cleanedLocal,
+            commentList: cleanedList,
+            commentCount: Math.max(0, (p.commentCount ?? 1) - 1),
+            lastComment: p.lastComment?.id === tempId
+              ? cleanedList[cleanedList.length - 1]
+                ? {
+                    id: cleanedList[cleanedList.length - 1].id,
+                    authorUid: cleanedList[cleanedList.length - 1].authorUid,
+                    authorName: cleanedList[cleanedList.length - 1].authorName,
+                    authorInitial: cleanedList[cleanedList.length - 1].authorInitial,
+                    authorPhotoUrl: cleanedList[cleanedList.length - 1].authorPhotoUrl,
+                    text: cleanedList[cleanedList.length - 1].text,
+                  }
+                : undefined
+              : p.lastComment,
+          };
+        }),
+      }));
       console.error('addCommentFirestore error:', error);
       throw error;
     }

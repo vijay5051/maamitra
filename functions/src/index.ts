@@ -1042,3 +1042,262 @@ export const synthesizeSpeech = functions
       bytes: base64.length,
     };
   });
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Wave 3 — Counter-integrity & cascade triggers
+//
+// Before these triggers existed, every denormalized counter on community
+// content was maintained client-side. That worked when nothing went wrong,
+// but every network failure, every concurrent write, and every aborted
+// mutation drifted the counters until a manual repair sweep ran. These
+// triggers are the source of truth: clients send their own writes, the
+// server reconciles. The corresponding Firestore rules (firestore.rules
+// lines 169-187) cap client-side commentCount writes to ±1 so the
+// trigger gets the final word without a tug-of-war.
+// ──────────────────────────────────────────────────────────────────────────────
+
+const db = admin.firestore();
+
+/** When a comment is added, atomically bump the parent post's commentCount
+ *  and refresh its lastComment denormalisation. The transaction reads the
+ *  parent at write time so concurrent comment adds don't lose updates. */
+export const onCommentCreate = functions.firestore
+  .document('communityPosts/{postId}/comments/{commentId}')
+  .onCreate(async (snap, context) => {
+    const { postId, commentId } = context.params as { postId: string; commentId: string };
+    const data = snap.data() ?? {};
+    const postRef = db.doc(`communityPosts/${postId}`);
+    try {
+      await db.runTransaction(async (tx) => {
+        const postSnap = await tx.get(postRef);
+        if (!postSnap.exists) return;
+        const post = postSnap.data() ?? {};
+        // Trust the trigger over the client. We bump from the current
+        // server value (not from the client's increment) so any drift
+        // from concurrent client writes is corrected on this hop.
+        const nextCount = (post.commentCount ?? 0) + 1;
+        tx.update(postRef, {
+          commentCount: nextCount,
+          lastComment: {
+            id: commentId,
+            authorUid: data.authorUid ?? '',
+            authorName: data.authorName ?? '',
+            authorInitial: data.authorInitial ?? '',
+            authorPhotoUrl: data.authorPhotoUrl ?? '',
+            text: data.text ?? '',
+          },
+          lastCommentAt: data.createdAt ?? admin.firestore.FieldValue.serverTimestamp(),
+        });
+      });
+    } catch (err) {
+      console.warn(`onCommentCreate(${postId}/${commentId}) failed`, err);
+    }
+  });
+
+/** When a comment is deleted, decrement the parent post's commentCount
+ *  and refresh lastComment to whatever the new latest is (or clear it if
+ *  the post has zero comments left). */
+export const onCommentDelete = functions.firestore
+  .document('communityPosts/{postId}/comments/{commentId}')
+  .onDelete(async (snap, context) => {
+    const { postId, commentId } = context.params as { postId: string; commentId: string };
+    const postRef = db.doc(`communityPosts/${postId}`);
+    try {
+      // Read latest remaining comment OUTSIDE the transaction (orderBy
+      // limit queries aren't allowed inside transactions). The race
+      // window is small — if a new comment is created between this
+      // read and the transaction commit, the next onCommentCreate /
+      // onCommentDelete invocation will reconcile.
+      const latestSnap = await db
+        .collection(`communityPosts/${postId}/comments`)
+        .orderBy('createdAt', 'desc')
+        .limit(1)
+        .get();
+      const latest = latestSnap.docs[0];
+      await db.runTransaction(async (tx) => {
+        const postSnap = await tx.get(postRef);
+        if (!postSnap.exists) return;
+        const post = postSnap.data() ?? {};
+        const nextCount = Math.max(0, (post.commentCount ?? 1) - 1);
+        const updates: Record<string, any> = { commentCount: nextCount };
+        if (post.lastComment?.id === commentId) {
+          if (latest) {
+            const ld = latest.data();
+            updates.lastComment = {
+              id: latest.id,
+              authorUid: ld.authorUid ?? '',
+              authorName: ld.authorName ?? '',
+              authorInitial: ld.authorInitial ?? '',
+              authorPhotoUrl: ld.authorPhotoUrl ?? '',
+              text: ld.text ?? '',
+            };
+            updates.lastCommentAt = ld.createdAt ?? admin.firestore.FieldValue.serverTimestamp();
+          } else {
+            updates.lastComment = admin.firestore.FieldValue.delete();
+            updates.lastCommentAt = admin.firestore.FieldValue.delete();
+          }
+        }
+        tx.update(postRef, updates);
+      });
+    } catch (err) {
+      console.warn(`onCommentDelete(${postId}/${commentId}) failed`, err);
+    }
+  });
+
+/** When a post is deleted, sweep its comments subcollection (the client
+ *  also tries this but rules can deny that path; the trigger runs with
+ *  admin privileges) and decrement the author's postsCount. The image
+ *  blob is cleaned client-side because Storage trigger access requires
+ *  a separate function deployment that we don't run yet. */
+export const onPostDelete = functions.firestore
+  .document('communityPosts/{postId}')
+  .onDelete(async (snap, context) => {
+    const { postId } = context.params as { postId: string };
+    const data = snap.data() ?? {};
+    const authorUid = data.authorUid ?? '';
+    try {
+      // 1) Cascade comments (admin SDK bypasses rules so this is the
+      //    authoritative sweep — client cascade is best-effort).
+      const comments = await db.collection(`communityPosts/${postId}/comments`).get();
+      if (!comments.empty) {
+        const batch = db.batch();
+        comments.docs.forEach((d) => batch.delete(d.ref));
+        await batch.commit();
+      }
+    } catch (err) {
+      console.warn(`onPostDelete(${postId}) comment sweep failed`, err);
+    }
+    if (authorUid) {
+      try {
+        await db.doc(`publicProfiles/${authorUid}`).set(
+          { uid: authorUid, postsCount: admin.firestore.FieldValue.increment(-1) },
+          { merge: true },
+        );
+      } catch (err) {
+        console.warn(`onPostDelete(${postId}) postsCount decrement failed`, err);
+      }
+    }
+  });
+
+/** Bootstrap a publicProfile when a follow doc lands and the followee has
+ *  none yet (the first-follower-of-new-user race), then bump the counters
+ *  on both ends. Runs server-side so concurrent follows don't both create
+ *  the doc with overlapping merges. */
+export const onFollowCreate = functions.firestore
+  .document('follows/{followId}')
+  .onCreate(async (snap) => {
+    const data = snap.data() ?? {};
+    const fromUid = data.fromUid;
+    const toUid = data.toUid;
+    if (!fromUid || !toUid || fromUid === toUid) return;
+    try {
+      const batch = db.batch();
+      batch.set(
+        db.doc(`publicProfiles/${toUid}`),
+        { uid: toUid, followersCount: admin.firestore.FieldValue.increment(1) },
+        { merge: true },
+      );
+      batch.set(
+        db.doc(`publicProfiles/${fromUid}`),
+        { uid: fromUid, followingCount: admin.firestore.FieldValue.increment(1) },
+        { merge: true },
+      );
+      await batch.commit();
+    } catch (err) {
+      console.warn(`onFollowCreate(${fromUid}->${toUid}) failed`, err);
+    }
+  });
+
+/** Decrement counters when a follow is removed. Idempotent on the trigger
+ *  itself (Cloud Functions retries) because the increment is bounded
+ *  by the doc lifecycle: each delete fires onDelete exactly once. */
+export const onFollowDelete = functions.firestore
+  .document('follows/{followId}')
+  .onDelete(async (snap) => {
+    const data = snap.data() ?? {};
+    const fromUid = data.fromUid;
+    const toUid = data.toUid;
+    if (!fromUid || !toUid) return;
+    try {
+      const batch = db.batch();
+      batch.set(
+        db.doc(`publicProfiles/${toUid}`),
+        { uid: toUid, followersCount: admin.firestore.FieldValue.increment(-1) },
+        { merge: true },
+      );
+      batch.set(
+        db.doc(`publicProfiles/${fromUid}`),
+        { uid: fromUid, followingCount: admin.firestore.FieldValue.increment(-1) },
+        { merge: true },
+      );
+      await batch.commit();
+    } catch (err) {
+      console.warn(`onFollowDelete(${fromUid}->${toUid}) failed`, err);
+    }
+  });
+
+/** Bootstrap publicProfile + notifPrefs defaults the moment a new user's
+ *  Firebase Auth record is created. Eliminates the "first follower fails
+ *  because the followee has no publicProfile yet" race and stops every
+ *  client from racing to syncPublicProfile() on first run. */
+export const onUserCreated = functions.auth.user().onCreate(async (user) => {
+  const uid = user.uid;
+  if (!uid) return;
+  try {
+    await db.doc(`publicProfiles/${uid}`).set(
+      {
+        uid,
+        followersCount: 0,
+        followingCount: 0,
+        postsCount: 0,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+  } catch (err) {
+    console.warn(`onUserCreated(${uid}) bootstrap failed`, err);
+  }
+});
+
+/** Daily-ish counter-drift repair: walks the publicProfiles collection
+ *  and re-counts followers/following/posts for every profile. Cheap
+ *  enough at our scale (<1000 profiles) to run nightly without
+ *  partitioning; revisit if the user count grows by a magnitude. */
+export const repairCommunityCounters = functions.pubsub
+  .schedule('every day 03:00')
+  .timeZone('Asia/Kolkata')
+  .onRun(async () => {
+    try {
+      const profiles = await db.collection('publicProfiles').get();
+      let repaired = 0;
+      for (const profile of profiles.docs) {
+        const uid = profile.id;
+        try {
+          const [followers, following, posts] = await Promise.all([
+            db.collection('follows').where('toUid', '==', uid).get(),
+            db.collection('follows').where('fromUid', '==', uid).get(),
+            db.collection('communityPosts').where('authorUid', '==', uid).get(),
+          ]);
+          const data = profile.data() ?? {};
+          if (
+            data.followersCount !== followers.size ||
+            data.followingCount !== following.size ||
+            data.postsCount !== posts.size
+          ) {
+            await profile.ref.update({
+              followersCount: followers.size,
+              followingCount: following.size,
+              postsCount: posts.size,
+              countersRepairedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
+            repaired++;
+          }
+        } catch (err) {
+          console.warn(`repairCommunityCounters(${uid}) failed`, err);
+        }
+      }
+      console.log(`repairCommunityCounters: walked ${profiles.size}, repaired ${repaired}`);
+    } catch (err) {
+      console.error('repairCommunityCounters fatal', err);
+    }
+  });

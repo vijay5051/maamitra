@@ -190,6 +190,16 @@ export async function updatePost(
 
 export async function deletePost(postId: string): Promise<void> {
   if (!db) return;
+
+  // Phase 0: snapshot the post so we can clean its image after delete.
+  // Reading inside try/catch — if the post is already gone, the rest
+  // of the cleanup still runs idempotently.
+  let imageUri = '';
+  try {
+    const snap = await getDoc(doc(db, 'communityPosts', postId));
+    if (snap.exists()) imageUri = (snap.data() as any).imageUri ?? '';
+  } catch (_) {}
+
   // Phase 1: comments. Best-effort — if the subcollection read or batch fails
   // for any reason (rules, transient network, orphaned writes), we still
   // attempt phase 2 so the post itself goes away. Orphan comment docs are
@@ -212,6 +222,14 @@ export async function deletePost(postId: string): Promise<void> {
   } catch (error) {
     console.error('deletePost error:', error);
     throw error;
+  }
+
+  // Phase 3: orphan blob cleanup. Best-effort, fire-and-forget so a
+  // Storage hiccup doesn't surface to the caller — the post is already
+  // gone from Firestore, which is what users see.
+  if (imageUri) {
+    const { deleteStoredImage } = await import('./storage');
+    deleteStoredImage(imageUri).catch(() => {});
   }
 }
 
@@ -319,40 +337,11 @@ export async function deleteComment(postId: string, commentId: string): Promise<
     throw error;
   }
 
-  try {
-    const postRef = doc(db, 'communityPosts', postId);
-    const postSnap = await getDoc(postRef);
-    const postData = postSnap.exists() ? postSnap.data() : null;
-    const updates: Record<string, any> = { commentCount: increment(-1) };
-
-    if (postData?.lastComment?.id === commentId) {
-      const latestSnap = await getDocs(query(
-        collection(db, 'communityPosts', postId, 'comments'),
-        orderBy('createdAt', 'desc'),
-        limit(1),
-      ));
-      const latest = latestSnap.docs[0];
-      if (latest) {
-        const data = latest.data();
-        updates.lastComment = {
-          id: latest.id,
-          authorUid: data.authorUid ?? '',
-          authorName: data.authorName ?? '',
-          authorInitial: data.authorInitial ?? '',
-          authorPhotoUrl: data.authorPhotoUrl ?? '',
-          text: data.text ?? '',
-        };
-        updates.lastCommentAt = data.createdAt ?? serverTimestamp();
-      } else {
-        updates.lastComment = deleteField();
-        updates.lastCommentAt = deleteField();
-      }
-    }
-
-    await updateDoc(postRef, updates);
-  } catch (error) {
-    console.warn(`deleteComment(${postId}/${commentId}): post summary repair failed`, error);
-  }
+  // commentCount + lastComment repair is now handled by the
+  // onCommentDelete Cloud Function trigger so it stays atomic with
+  // the delete and matches what onCommentCreate does for the inverse
+  // operation. The previous client-side path raced with concurrent
+  // adds and could leave lastComment pointing at the just-deleted doc.
 }
 
 export async function updateComment(
@@ -421,6 +410,13 @@ export async function createPost(data: {
     incrementPublicProfilePostCount(data.authorUid, 1);
     return ref.id;
   } catch (error) {
+    // Image was already uploaded to Storage by the caller before this
+    // function was invoked. If the doc-write fails (rules / App Check /
+    // network) we'd otherwise leak the blob forever — clean it up.
+    if (data.imageUri) {
+      const { deleteStoredImage } = await import('./storage');
+      deleteStoredImage(data.imageUri).catch(() => {});
+    }
     console.error('createPost error:', error);
     return '';
   }
@@ -432,6 +428,110 @@ export const POSTS_PAGE_SIZE = 15;
 export interface FetchPostsResult {
   posts: CommunityPost[];
   lastDoc: DocumentSnapshot | null;
+}
+
+// Internal helper: hydrate a Firestore doc into the CommunityPost shape
+// used everywhere in the app. Centralising the mapping stops the feed,
+// the share page, and the realtime subscription from drifting apart.
+function hydratePost(d: { id: string; data: () => any }): CommunityPost {
+  const data = d.data() ?? {};
+  return {
+    id: d.id,
+    authorUid: data.authorUid ?? '',
+    authorName: data.authorName ?? '',
+    authorInitial: data.authorInitial ?? '',
+    authorPhotoUrl: data.authorPhotoUrl ?? undefined,
+    badge: data.badge ?? '',
+    topic: data.topic ?? '',
+    text: data.text ?? '',
+    imageUri: data.imageUri,
+    imageAspectRatio: data.imageAspectRatio,
+    imageEmoji: data.imageEmoji,
+    imageCaption: data.imageCaption,
+    reactions: data.reactions ?? {},
+    reactionsByUser: data.reactionsByUser ?? {},
+    commentCount: data.commentCount ?? 0,
+    lastComment: data.lastComment ?? undefined,
+    lastCommentAt: data.lastCommentAt ? firestoreDate(data.lastCommentAt) : undefined,
+    authorFollowersOnly: data.authorFollowersOnly ?? false,
+    hidden: data.hidden === true,
+    hiddenReason: data.hiddenReason ?? '',
+    createdAt: firestoreDate(data.createdAt),
+  } as CommunityPost;
+}
+
+/** Realtime subscription to the most recent N posts. The community feed
+ *  uses this for the first page so reactions, comment counts, and new
+ *  posts from other users propagate live without pull-to-refresh.
+ *  Older pages still load via fetchRecentPosts(afterDoc). Returns
+ *  unsubscribe; null when Firebase isn't configured. */
+export function subscribeRecentPosts(
+  limitN: number,
+  cb: (posts: CommunityPost[], lastDoc: DocumentSnapshot | null) => void,
+): Unsubscribe | null {
+  if (!db) return null;
+  const q = query(collection(db, 'communityPosts'), orderBy('createdAt', 'desc'), limit(limitN));
+  return onSnapshot(
+    q,
+    (snap) => {
+      const lastDoc = snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] : null;
+      const posts = snap.docs.filter((d) => d.data().hidden !== true).map(hydratePost);
+      cb(posts, lastDoc);
+    },
+    (err) => console.warn('subscribeRecentPosts error:', err),
+  );
+}
+
+/** Realtime subscription to a single post (e.g. the share-link page +
+ *  any in-flight reaction/comment updates). Returns unsubscribe. */
+export function subscribePost(
+  postId: string,
+  cb: (post: CommunityPost | null) => void,
+): Unsubscribe | null {
+  if (!db || !postId) return null;
+  return onSnapshot(
+    doc(db, 'communityPosts', postId),
+    (snap) => {
+      if (!snap.exists()) { cb(null); return; }
+      const data = snap.data();
+      if (data.hidden === true) { cb(null); return; }
+      cb(hydratePost({ id: snap.id, data: () => data }));
+    },
+    (err) => console.warn(`subscribePost(${postId}) error:`, err),
+  );
+}
+
+/** Realtime subscription to a post's comments subcollection. Used while
+ *  the comments sheet is open so messages from other users appear without
+ *  re-tap. Returns unsubscribe. */
+export function subscribePostComments(
+  postId: string,
+  cb: (comments: PostComment[]) => void,
+): Unsubscribe | null {
+  if (!db || !postId) return null;
+  const q = query(
+    collection(db, 'communityPosts', postId, 'comments'),
+    orderBy('createdAt', 'asc'),
+  );
+  return onSnapshot(
+    q,
+    (snap) => {
+      cb(snap.docs.map((d) => {
+        const data = d.data();
+        return {
+          id: d.id,
+          authorUid: data.authorUid ?? '',
+          authorName: data.authorName ?? '',
+          authorInitial: data.authorInitial ?? '',
+          authorPhotoUrl: data.authorPhotoUrl,
+          text: data.text ?? '',
+          createdAt: firestoreDate(data.createdAt),
+          editedAt: data.editedAt ? firestoreDate(data.editedAt) : undefined,
+        } as PostComment;
+      }));
+    },
+    (err) => console.warn(`subscribePostComments(${postId}) error:`, err),
+  );
 }
 
 export async function fetchRecentPosts(
@@ -500,6 +600,12 @@ export async function fetchPostById(postId: string): Promise<CommunityPost | nul
     const snap = await getDoc(ref);
     if (!snap.exists()) return null;
     const data = snap.data();
+    // Don't expose moderated posts via the public share route. Rules now
+    // also gate the `get` call, but defend in depth: an admin or the
+    // author hitting this function should still resolve the doc, while
+    // a stranger with the URL gets the same "not found" UX as a real
+    // delete. (Author/admin checks happen at render time in /post/[id].)
+    if (data.hidden === true) return null;
     const createdAt = data.createdAt?.toDate
       ? data.createdAt.toDate()
       : data.createdAt instanceof Date
@@ -603,16 +709,28 @@ export async function togglePostReaction(
       const reactionsByUser: Record<string, string[]> = { ...(data.reactionsByUser ?? {}) };
       const myReactionsList: string[] = reactionsByUser[myUid] ? [...reactionsByUser[myUid]] : [];
 
-      const alreadyReacted = myReactionsList.includes(emoji);
-
-      if (alreadyReacted) {
-        reactions[emoji] = Math.max(0, (reactions[emoji] ?? 1) - 1);
-        if (reactions[emoji] === 0) delete reactions[emoji];
-        reactionsByUser[myUid] = myReactionsList.filter((e) => e !== emoji);
+      // One-reaction-per-user (Instagram/FB model): tapping the same emoji
+      // toggles it off; tapping a different emoji swaps the previous one
+      // out. Stops a single user inflating a post's total reaction count
+      // by stacking ❤️ + 👍 + 🎉.
+      const alreadyHasThis = myReactionsList.includes(emoji);
+      // Decrement every existing reaction this user had — at most one
+      // (since the new model only ever stores one), but the loop
+      // safely cleans up legacy multi-reaction state from before this
+      // change shipped.
+      for (const prev of myReactionsList) {
+        reactions[prev] = Math.max(0, (reactions[prev] ?? 1) - 1);
+        if (reactions[prev] === 0) delete reactions[prev];
+      }
+      if (alreadyHasThis) {
+        // Tapping the same emoji = clear (no reaction).
+        reactionsByUser[myUid] = [];
       } else {
         reactions[emoji] = (reactions[emoji] ?? 0) + 1;
-        reactionsByUser[myUid] = [...myReactionsList, emoji];
+        reactionsByUser[myUid] = [emoji];
       }
+      // Drop empty entry to keep the map small and the rule's size cap honest.
+      if (reactionsByUser[myUid].length === 0) delete reactionsByUser[myUid];
 
       tx.update(postRef, { reactions, reactionsByUser });
       return {
@@ -681,21 +799,11 @@ export async function addPostComment(
       createdAt: serverTimestamp(),
     });
 
-    // Bump commentCount + denormalise the latest comment onto the parent
-    // post so PostCard can show a "latest comment" preview without a
-    // per-post subcollection read on every feed render.
-    await updateDoc(doc(db, 'communityPosts', postId), {
-      commentCount: increment(1),
-      lastComment: {
-        id: ref.id,
-        authorUid: data.authorUid,
-        authorName: data.authorName,
-        authorInitial: data.authorInitial,
-        authorPhotoUrl: data.authorPhotoUrl ?? '',
-        text: data.text,
-      },
-      lastCommentAt: serverTimestamp(),
-    });
+    // commentCount + lastComment are now maintained by the
+    // onCommentCreate Cloud Function trigger (functions/src/index.ts)
+    // so concurrent comments don't race against each other and counters
+    // don't drift on partial-failure paths. The client still updates
+    // its local store optimistically — see useCommunityStore.addCommentFirestore.
 
     // notify post author
     if (data.authorUid !== postAuthorUid) {
@@ -878,9 +986,11 @@ export async function acceptFollowRequest(
       fromUid, toUid, fromName, toName, fromPhotoUrl, toPhotoUrl,
       createdAt: serverTimestamp(),
     });
-    // Use set-merge so profiles are created if missing, incremented if existing
-    batch.set(toRef, { uid: toUid, followersCount: increment(1) }, { merge: true });
-    batch.set(fromRef, { uid: fromUid, followingCount: increment(1) }, { merge: true });
+    // Counter increments are now done by the onFollowCreate Cloud
+    // Function trigger so accept/cancel/block paths don't fight each
+    // other on the same publicProfile docs.
+    void toRef;
+    void fromRef;
 
     await batch.commit();
 
@@ -922,12 +1032,17 @@ export async function cancelFollowRequest(
 export async function unfollowUser(myUid: string, targetUid: string): Promise<void> {
   if (!db) return;
   try {
-    // Atomic batch: delete follow + decrement both profiles' counts
-    const batch = writeBatch(db);
-    batch.delete(doc(db, 'follows', `${myUid}_${targetUid}`));
-    batch.set(doc(db, 'publicProfiles', targetUid), { followersCount: increment(-1) }, { merge: true });
-    batch.set(doc(db, 'publicProfiles', myUid), { followingCount: increment(-1) }, { merge: true });
-    await batch.commit();
+    // Idempotency guard: only decrement counters if the follow doc still
+    // exists. Without this, a double-tap of "unfollow" (or a stale local
+    // optimistic state calling this twice) drives followersCount/followingCount
+    // negative and the UI shows "-1 followers" until a Cloud Function repair
+    // sweep runs.
+    const followRef = doc(db, 'follows', `${myUid}_${targetUid}`);
+    const snap = await getDoc(followRef);
+    if (!snap.exists()) return;
+
+    // Decrements handled by onFollowDelete Cloud Function trigger.
+    await deleteDoc(followRef);
   } catch (error) {
     console.error('unfollowUser error:', error);
   }
@@ -1057,6 +1172,10 @@ export async function getOutgoingFollowRequests(uid: string): Promise<FollowRequ
 
 export async function blockUser(myUid: string, targetUid: string): Promise<void> {
   if (!db) return;
+  // No-op if a user somehow tries to block themselves — guards against an
+  // orphan blocks/{uid}_{uid} doc + cascaded count corruption when both
+  // sides of the cascade resolve to the same uid.
+  if (!myUid || !targetUid || myUid === targetUid) return;
   try {
     await setDoc(doc(db, 'blocks', `${myUid}_${targetUid}`), {
       blockerUid: myUid,
@@ -1067,23 +1186,11 @@ export async function blockUser(myUid: string, targetUid: string): Promise<void>
     // also update blockedUids array in publicProfile
     await setDoc(doc(db, 'publicProfiles', myUid), { blockedUids: arrayUnion(targetUid) }, { merge: true });
 
-    // Remove both follow directions and decrement publicProfile counts
-    const myFollowsTarget = await getDoc(doc(db, 'follows', `${myUid}_${targetUid}`));
-    const targetFollowsMe = await getDoc(doc(db, 'follows', `${targetUid}_${myUid}`));
-
-    if (myFollowsTarget.exists()) {
-      await deleteDoc(doc(db, 'follows', `${myUid}_${targetUid}`));
-      // I was following them: decrement my followingCount, their followersCount
-      try { await updateDoc(doc(db, 'publicProfiles', myUid), { followingCount: increment(-1) }); } catch (_) {}
-      try { await updateDoc(doc(db, 'publicProfiles', targetUid), { followersCount: increment(-1) }); } catch (_) {}
-    }
-
-    if (targetFollowsMe.exists()) {
-      await deleteDoc(doc(db, 'follows', `${targetUid}_${myUid}`));
-      // They were following me: decrement their followingCount, my followersCount
-      try { await updateDoc(doc(db, 'publicProfiles', targetUid), { followingCount: increment(-1) }); } catch (_) {}
-      try { await updateDoc(doc(db, 'publicProfiles', myUid), { followersCount: increment(-1) }); } catch (_) {}
-    }
+    // Cascade: remove both follow directions. Counter decrements are
+    // handled by the onFollowDelete trigger so this stays simple
+    // (no read-then-decrement race) and idempotent.
+    try { await deleteDoc(doc(db, 'follows', `${myUid}_${targetUid}`)); } catch (_) {}
+    try { await deleteDoc(doc(db, 'follows', `${targetUid}_${myUid}`)); } catch (_) {}
   } catch (error) {
     console.error('blockUser error:', error);
   }

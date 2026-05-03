@@ -9,7 +9,7 @@ service firebase.storage {
       allow write: if request.auth != null
         && fileName.matches(request.auth.uid + '\\..*')
         && request.resource.size < 5 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*');
+        && request.resource.contentType.matches('image/(jpeg|jpg|png|webp|heic|heif|gif)');
     }
 
     // Community post images — users can upload only into their own folder
@@ -18,7 +18,7 @@ service firebase.storage {
       allow write: if request.auth != null
         && request.auth.uid == uid
         && request.resource.size < 5 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*');
+        && request.resource.contentType.matches('image/(jpeg|jpg|png|webp|heic|heif|gif)');
     }
 
     // Child profile photos — kid-avatars/{uid}/{kidId}.<ext>
@@ -30,7 +30,7 @@ service firebase.storage {
       allow write: if request.auth != null
         && request.auth.uid == uid
         && request.resource.size < 5 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*');
+        && request.resource.contentType.matches('image/(jpeg|jpg|png|webp|heic|heif|gif)');
     }
 
     // DM image attachments — path is dm-images/{convId}/{uid}_{timestamp}.jpg
@@ -43,7 +43,7 @@ service firebase.storage {
       allow write: if request.auth != null
         && fileName.matches(request.auth.uid + '_.*')
         && request.resource.size < 5 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*');
+        && request.resource.contentType.matches('image/(jpeg|jpg|png|webp|heic|heif|gif)');
     }
 
     // Deny everything else by default
