@@ -56,6 +56,29 @@ inbox — all without the admin ever logging into Meta.
   ie post-Phase 6).
 
 ### Last action
+**M1 strategic foundation shipped** (commits `4baf769` + `79c2731`).
+
+Roadmap reorganised into milestones M1-M5 (see "Roadmap" section). M1
+is the foundation that shapes M2's daily generator.
+
+What shipped in M1:
+- BrandKit schema gained personas[], pillars[], culturalCalendar[],
+  compliance{forbiddenWords, disclaimers, blockedTopics}, costCaps, and
+  a curated illustrations[] bank from `assets/illustrations/` (72 files).
+- New /admin/marketing/strategy editor (5 sections, sanitised on save).
+- New scoreMarketingDraft Cloud Function (regex compliance screen +
+  auto-disclaimer detection). Pairs with the strategy editor.
+- renderMarketingTemplate now logs every render to `marketing_cost_log`
+  with per-provider INR cost. Spend tile on /admin/marketing/.
+- Indian-mom defaults: 5 personas, 7 pillars, 12 cultural events,
+  20+ forbidden words, 9 disclaimer rules, ₹200/day + ₹3000/mo caps.
+- Marketing palette stays pink (`#E91E63`) — distinct from app's
+  purple — deliberate brand-identity split. Logged in user memory.
+
+Web rebuilt + Firebase Hosting deployed. OTA update group
+`23d2d778-d8e7-492e-aee5-1ef011b4968b`.
+
+### Earlier this session
 **Phase 2 + Imagen + gpt-image-1 providers shipped** (commit `974573f`).
 - 4 image providers now wired: Pexels (free stock), FLUX Schnell (cheap
   AI), **Imagen 3 via Gemini API** (default — best Indian context),
@@ -89,8 +112,25 @@ without `index.html` — the entire site was 404'ing. Cleaned + rebuilt
 - To rotate: edit `functions/.env`, redeploy
   `functions:renderMarketingTemplate`. Done.
 
+### Roadmap (re-organised this session)
+
+The original 8-phase plan was reorganised into 5 milestones (M1-M5).
+Each milestone is shippable + end-to-end testable.
+
+- **M1 — Strategic foundation** ✅ Shipped this session.
+- **M2 — Content engine + approval queue.** Daily cron writes drafts;
+  admin approves in `/admin/marketing/drafts`. Manual-publish mode
+  (copy caption + download image). End-to-end testable in one go.
+- **M3 — Multi-channel publishing.** IG + FB auto via Graph (post-Meta
+  approval); + LinkedIn, X, YouTube Shorts, WhatsApp Business, email,
+  push. A/B variant runner.
+- **M4 — Engagement.** Webhook receiver, unified inbox, AI replies,
+  sentiment routing, auto-reply for FAQ, crisis pause.
+- **M5 — Performance + growth.** Per-post analytics, weekly insight
+  digest, feedback loop, UGC pipeline, attribution.
+
 ### Next step
-**Phase 3 — daily draft generation cron**:
+**M2 — Content engine + approval queue:**
 - Pubsub-triggered Function at 6am IST
 - Reads brand kit's theme calendar for today's weekday
 - Calls Claude Haiku 4.5 for caption + headline + body
@@ -220,6 +260,8 @@ Latest deploy: 2026-05-03.
   not for acting on behalf of users.
 
 ## Recent commits
+- `79c2731` chore(functions) — rebuild lib/ for M1 scoring + cost log
+- `4baf769` feat(marketing) — M1 strategic foundation
 - `4c0c35e` chore(functions) — rebuild lib/ for new providers
 - `974573f` feat(marketing) — Imagen + gpt-image-1 providers, two-level picker
 - `26e39f7` docs(handoff) — Pexels/Replicate live; Tip Card fix shipped
