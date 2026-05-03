@@ -52,7 +52,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.dailyMarketingDraftCron = exports.generateMarketingDraft = exports.scoreMarketingDraft = exports.renderMarketingTemplate = exports.repairCommunityCounters = exports.onUserCreated = exports.onFollowDelete = exports.onFollowCreate = exports.onPostDelete = exports.onCommentDelete = exports.onCommentCreate = exports.synthesizeSpeech = exports.adminFactoryReset = exports.factoryReset = exports.processScheduledPushes = exports.adminCreateUser = exports.adminDeleteUser = exports.dispatchPush = void 0;
+exports.classifyInboxThread = exports.generateInboxReplies = exports.metaWebhookReceiver = exports.dailyMarketingDraftCron = exports.generateMarketingDraft = exports.scoreMarketingDraft = exports.renderMarketingTemplate = exports.repairCommunityCounters = exports.onUserCreated = exports.onFollowDelete = exports.onFollowCreate = exports.onPostDelete = exports.onCommentDelete = exports.onCommentCreate = exports.synthesizeSpeech = exports.adminFactoryReset = exports.factoryReset = exports.processScheduledPushes = exports.adminCreateUser = exports.adminDeleteUser = exports.dispatchPush = void 0;
 const functions = __importStar(require("firebase-functions/v1"));
 const admin = __importStar(require("firebase-admin"));
 const text_to_speech_1 = __importDefault(require("@google-cloud/text-to-speech"));
@@ -1153,3 +1153,15 @@ exports.generateMarketingDraft = (0, marketing_1.buildGenerateMarketingDraft)(AD
 // Daily 6am IST cron — opt-in via marketing_brand/main.cronEnabled=true.
 // Same generation flow, runs as service account.
 exports.dailyMarketingDraftCron = (0, marketing_1.buildDailyMarketingDraftCron)();
+// M4 — engagement / unified inbox.
+//
+// metaWebhookReceiver is a public HTTPS endpoint (no auth — Meta is the
+// caller). Signature verification via META_APP_SECRET; GET handshake via
+// META_WEBHOOK_VERIFY_TOKEN. Both must be set in functions/.env before
+// Meta can subscribe.
+//
+// generateInboxReplies + classifyInboxThread are admin-callables that
+// reuse the same OPENAI_API_KEY as the M2 caption generator.
+exports.metaWebhookReceiver = (0, marketing_1.buildMetaWebhookReceiver)();
+exports.generateInboxReplies = (0, marketing_1.buildGenerateInboxReplies)(ADMIN_EMAILS);
+exports.classifyInboxThread = (0, marketing_1.buildClassifyInboxThread)(ADMIN_EMAILS);
