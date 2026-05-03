@@ -56,6 +56,47 @@ inbox — all without the admin ever logging into Meta.
   ie post-Phase 6).
 
 ### Last action
+**M4a engagement layer shipped** (commits `875431d` + `ca2ef7b`).
+
+What's now live:
+- `/admin/marketing/inbox` — split-pane unified inbox: thread list
+  with filter chips (All/Unread/Replied/Resolved/Archived/Spam),
+  conversation pane with message bubbles, AI suggest panel, reply
+  queue, header actions (re-classify, resolve, spam, archive,
+  delete). TEST badge on synthetic threads. Unread dot per row.
+- 3 new Cloud Functions:
+  - `metaWebhookReceiver` (public HTTPS) — GET handshake +
+    HMAC-SHA256 signature verification + idempotent ingestion of
+    IG/FB comments and DMs. URL:
+    `https://us-central1-maa-mitra-7kird8.cloudfunctions.net/metaWebhookReceiver`
+  - `generateInboxReplies` (admin callable) — OpenAI gpt-4o-mini
+    returns 3 distinct draft replies (warm/informative/concise) in
+    brand voice with compliance forbidden list applied.
+  - `classifyInboxThread` (admin callable) — auto-tags sentiment
+    + intent + urgency. Updates the thread doc.
+- Synthetic test thread injector — admin clicks "Inject test thread"
+  to seed realistic inbound messages. Tagged isSynthetic=true with
+  TEST badge in UI; CLAUDE.md "no mocks in prod" honoured (opt-in,
+  labelled, deletable).
+- Outbound replies queue with status='pending_send'. UI explicitly
+  says "queued — copy/paste to Meta until M4b lands". Each queued
+  outbound message shows a Copy button.
+- Overview: Unified inbox checklist row → done; Webhook checklist
+  row → "in progress (Awaiting Meta config)". Unread inbox stat
+  tile is live + clickable.
+
+M4b (when Meta App Review approves the inbox permissions):
+- Set `META_APP_SECRET` + `META_WEBHOOK_VERIFY_TOKEN` in
+  `functions/.env`, redeploy `metaWebhookReceiver`.
+- Register webhook URL in Meta App Dashboard → subscribe to
+  `instagram` (comments + messages) + `pages` (feed + messages).
+- Wire outbound Graph API call: ~30 LOC in
+  `functions/src/marketing/inbox.ts` next to the receiver. Trigger
+  on Firestore write where `outboundStatus=pending_send`, POST to
+  `/v21.0/{ig-user-id}/messages` (DM) or `/v21.0/{comment-id}/replies`
+  (comment), update message status to `sent` or `failed`.
+
+### Earlier this session
 **M3 ship-today scope shipped** (commits `fa7300f` + `8943fef`).
 
 What's now live:
@@ -174,18 +215,25 @@ Each milestone is shippable + end-to-end testable.
 - **M3b — Auto-publish adapters.** Deferred until external creds ready.
   Meta Graph (post-Review), LinkedIn API, X paid tier, YouTube Shorts,
   WhatsApp Business. Each ~50 LOC + OAuth.
-- **M4 — Engagement.** Webhook receiver, unified inbox, AI replies,
-  sentiment routing, auto-reply for FAQ.
+- **M4a — Engagement (UI + endpoint scaffolding)** ✅ Shipped this
+  session. Real Meta events flow once webhook URL registered + App
+  Review approves inbox permissions.
+- **M4b — Real Meta wiring** (~60 LOC + dashboard config). Set
+  META_APP_SECRET + META_WEBHOOK_VERIFY_TOKEN, register URL, add
+  outbound Graph publisher.
 - **M5 — Performance + growth.** Per-post analytics, weekly insight
   digest, feedback loop, UGC pipeline, attribution.
 
 ### Next step
-**M3b — Auto-publish adapters** (when external creds ready) OR
-**M4 — Engagement (unified inbox + AI replies)** if you'd rather
-unblock that workflow first. M4 needs the Meta webhook URL (Phase 5
-of the original plan), so it's also gated on Meta App Review for the
-production webhook subscription. Could mock-build M4 against
-synthetic events to validate the UI/UX before Meta is ready.
+**M5 — Performance + growth** (analytics dashboards, weekly insight
+digest, feedback loop into content engine, UGC pipeline,
+attribution). All buildable today — no external setup gates this.
+
+OR — when Meta App Review lands, knock out M3b + M4b in one push:
+- M3b: outbound publisher cron that fires due `scheduled` drafts
+  via Graph API
+- M4b: outbound reply publisher (Firestore trigger on
+  outboundStatus=pending_send → Graph API → mark sent/failed)
 
 To enable the daily cron now that M3 is shipped:
 - /admin/marketing/ → "Daily 6am IST cron" toggle card → Enable.
@@ -320,6 +368,8 @@ Latest deploy: 2026-05-03.
   not for acting on behalf of users.
 
 ## Recent commits
+- `ca2ef7b` chore(functions) — rebuild lib/ for M4 webhook + AI inbox
+- `875431d` feat(marketing) — M4a unified inbox + webhook + AI replies
 - `8943fef` chore(functions) — rebuild lib/ for M3 cron crisis check
 - `fa7300f` feat(marketing) — M3 scheduling/calendar/A/B/crisis/export
 - `a169f76` chore(functions) — rebuild lib/ for M2 generator + cron
