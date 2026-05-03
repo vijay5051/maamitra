@@ -432,6 +432,14 @@ service cloud.firestore {
         allow read, write: if isAdmin();
       }
     }
+    // Cost log — one row per render call (renderMarketingTemplate writes).
+    // Admin reads for the dashboard; writes only happen server-side via the
+    // Cloud Function's service account, which bypasses these rules. Rule
+    // here just blocks any client-side mutation.
+    match /marketing_cost_log/{rowId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
 
     // ── Consent ledger (Wave 7: DPDP compliance) ─────────────────────────────
     // Append-only. Users may write THEIR OWN consent rows during onboarding;

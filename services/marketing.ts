@@ -10,11 +10,24 @@
 import { doc, getDoc, onSnapshot, serverTimestamp, setDoc, Unsubscribe } from 'firebase/firestore';
 
 import {
+  AudiencePersona,
+  BrandIllustration,
   BrandKit,
+  ComplianceRules,
+  ContentPillar,
+  CostCaps,
+  CulturalEvent,
+  DisclaimerRule,
   defaultBrandKit,
+  DEFAULT_COMPLIANCE,
+  DEFAULT_COST_CAPS,
+  DEFAULT_CULTURAL_CALENDAR,
   DEFAULT_FONTS,
   DEFAULT_HASHTAGS,
+  DEFAULT_ILLUSTRATIONS,
   DEFAULT_PALETTE,
+  DEFAULT_PERSONAS,
+  DEFAULT_PILLARS,
   DEFAULT_THEME_CALENDAR,
   DEFAULT_VOICE,
   WeekDay,
@@ -62,6 +75,12 @@ export async function saveBrandKit(
   if (patch.themeCalendar) sanitised.themeCalendar = sanitiseThemeCalendar(patch.themeCalendar);
   if (patch.hashtags) sanitised.hashtags = sanitiseHashtags(patch.hashtags);
   if (patch.defaultPostTime !== undefined) sanitised.defaultPostTime = sanitiseTime(patch.defaultPostTime);
+  if (patch.personas) sanitised.personas = sanitisePersonas(patch.personas);
+  if (patch.pillars) sanitised.pillars = sanitisePillars(patch.pillars);
+  if (patch.culturalCalendar) sanitised.culturalCalendar = sanitiseCulturalCalendar(patch.culturalCalendar);
+  if (patch.compliance) sanitised.compliance = sanitiseCompliance(patch.compliance);
+  if (patch.costCaps) sanitised.costCaps = sanitiseCostCaps(patch.costCaps);
+  if (patch.illustrations) sanitised.illustrations = sanitiseIllustrations(patch.illustrations);
 
   sanitised.updatedAt = serverTimestamp();
   sanitised.updatedBy = actor.email ?? actor.uid;
@@ -141,6 +160,153 @@ function sanitiseTime(t: string): string {
   return /^[0-2]\d:[0-5]\d$/.test(t) ? t : '09:00';
 }
 
+// ── M1: strategic foundation sanitisers ─────────────────────────────────────
+// Each list-shaped field has a hard upper bound to keep documents within
+// Firestore's 1 MiB ceiling and to prevent UI lists from getting unwieldy.
+
+const ID_RE = /^[a-z0-9_]{1,40}$/;
+function sanitiseId(value: unknown, fallback: string): string {
+  if (typeof value === 'string') {
+    const cleaned = value.toLowerCase().trim().replace(/[^a-z0-9_]/g, '_').slice(0, 40);
+    if (ID_RE.test(cleaned)) return cleaned;
+  }
+  return fallback;
+}
+
+function sanitisePersonas(input: unknown): AudiencePersona[] {
+  if (!Array.isArray(input)) return DEFAULT_PERSONAS;
+  return input
+    .map((p, i): AudiencePersona | null => {
+      if (!p || typeof p !== 'object') return null;
+      const obj = p as Record<string, unknown>;
+      const id = sanitiseId(obj.id, `persona_${i}`);
+      const label = typeof obj.label === 'string' ? obj.label.trim().slice(0, 60) : '';
+      if (!label) return null;
+      return {
+        id,
+        label,
+        description: typeof obj.description === 'string' ? obj.description.trim().slice(0, 400) : '',
+        enabled: typeof obj.enabled === 'boolean' ? obj.enabled : true,
+      };
+    })
+    .filter((x): x is AudiencePersona => x !== null)
+    .slice(0, 12);
+}
+
+function sanitisePillars(input: unknown): ContentPillar[] {
+  if (!Array.isArray(input)) return DEFAULT_PILLARS;
+  return input
+    .map((p, i): ContentPillar | null => {
+      if (!p || typeof p !== 'object') return null;
+      const obj = p as Record<string, unknown>;
+      const id = sanitiseId(obj.id, `pillar_${i}`);
+      const label = typeof obj.label === 'string' ? obj.label.trim().slice(0, 60) : '';
+      if (!label) return null;
+      return {
+        id,
+        label,
+        description: typeof obj.description === 'string' ? obj.description.trim().slice(0, 400) : '',
+        emoji: typeof obj.emoji === 'string' ? obj.emoji.trim().slice(0, 4) : undefined,
+        enabled: typeof obj.enabled === 'boolean' ? obj.enabled : true,
+      };
+    })
+    .filter((x): x is ContentPillar => x !== null)
+    .slice(0, 12);
+}
+
+const DATE_RE = /^\d{4}-\d{2}(-\d{2})?$/;
+function sanitiseCulturalCalendar(input: unknown): CulturalEvent[] {
+  if (!Array.isArray(input)) return DEFAULT_CULTURAL_CALENDAR;
+  return input
+    .map((e, i): CulturalEvent | null => {
+      if (!e || typeof e !== 'object') return null;
+      const obj = e as Record<string, unknown>;
+      const id = sanitiseId(obj.id, `event_${i}`);
+      const label = typeof obj.label === 'string' ? obj.label.trim().slice(0, 60) : '';
+      const date = typeof obj.date === 'string' && DATE_RE.test(obj.date.trim()) ? obj.date.trim() : '';
+      if (!label || !date) return null;
+      const recurrence = obj.recurrence === 'one_off' ? 'one_off' : 'yearly';
+      return {
+        id,
+        label,
+        date,
+        recurrence,
+        pillarHint: typeof obj.pillarHint === 'string' ? sanitiseId(obj.pillarHint, '') || undefined : undefined,
+        promptHint: typeof obj.promptHint === 'string' ? obj.promptHint.trim().slice(0, 240) || undefined : undefined,
+      };
+    })
+    .filter((x): x is CulturalEvent => x !== null)
+    .slice(0, 50);
+}
+
+function sanitiseCompliance(input: unknown): ComplianceRules {
+  if (!input || typeof input !== 'object') return DEFAULT_COMPLIANCE;
+  const obj = input as Record<string, unknown>;
+  const trimList = (arr: unknown, max: number, charCap: number) =>
+    Array.isArray(arr)
+      ? Array.from(
+          new Set(
+            arr
+              .map((x) => (typeof x === 'string' ? x.trim().toLowerCase().slice(0, charCap) : ''))
+              .filter(Boolean),
+          ),
+        ).slice(0, max)
+      : [];
+  const disclaimers: DisclaimerRule[] = Array.isArray(obj.requiredDisclaimers)
+    ? obj.requiredDisclaimers
+        .map((d): DisclaimerRule | null => {
+          if (!d || typeof d !== 'object') return null;
+          const r = d as Record<string, unknown>;
+          const trigger = typeof r.trigger === 'string' ? r.trigger.trim().toLowerCase().slice(0, 60) : '';
+          const text = typeof r.text === 'string' ? r.text.trim().slice(0, 300) : '';
+          if (!trigger || !text) return null;
+          return { trigger, text };
+        })
+        .filter((x): x is DisclaimerRule => x !== null)
+        .slice(0, 30)
+    : DEFAULT_COMPLIANCE.requiredDisclaimers;
+  return {
+    medicalForbiddenWords: trimList(obj.medicalForbiddenWords, 80, 60),
+    requiredDisclaimers: disclaimers,
+    blockedTopics: trimList(obj.blockedTopics, 40, 100),
+  };
+}
+
+function sanitiseCostCaps(input: unknown): CostCaps {
+  if (!input || typeof input !== 'object') return DEFAULT_COST_CAPS;
+  const obj = input as Record<string, unknown>;
+  const num = (v: unknown, fallback: number, lo: number, hi: number) => {
+    const n = typeof v === 'number' && Number.isFinite(v) ? v : fallback;
+    return Math.max(lo, Math.min(hi, Math.round(n)));
+  };
+  return {
+    dailyInr: num(obj.dailyInr, DEFAULT_COST_CAPS.dailyInr, 0, 50_000),
+    monthlyInr: num(obj.monthlyInr, DEFAULT_COST_CAPS.monthlyInr, 0, 1_000_000),
+    alertAtPct: num(obj.alertAtPct, DEFAULT_COST_CAPS.alertAtPct, 1, 100),
+  };
+}
+
+function sanitiseIllustrations(input: unknown): BrandIllustration[] {
+  if (!Array.isArray(input)) return DEFAULT_ILLUSTRATIONS;
+  return input
+    .map((it): BrandIllustration | null => {
+      if (!it || typeof it !== 'object') return null;
+      const obj = it as Record<string, unknown>;
+      const path = typeof obj.path === 'string' ? obj.path.trim().slice(0, 200) : '';
+      const label = typeof obj.label === 'string' ? obj.label.trim().slice(0, 80) : '';
+      if (!path || !label) return null;
+      const pillarIds = Array.isArray(obj.pillarIds)
+        ? obj.pillarIds
+            .map((p) => (typeof p === 'string' ? sanitiseId(p, '') : ''))
+            .filter((s): s is string => Boolean(s))
+            .slice(0, 12)
+        : [];
+      return { path, label, pillarIds };
+    })
+    .filter((x): x is BrandIllustration => x !== null)
+    .slice(0, 60);
+}
+
 // ── Template renderer (Phase 2) ─────────────────────────────────────────────
 // Calls the renderMarketingTemplate Cloud Function with template name + props
 // + an optional background spec. The Phase-3 cron uses the same payload.
@@ -195,6 +361,104 @@ export async function renderMarketingTemplate(
   return result.data;
 }
 
+// ── Compliance / scoring (M1) ──────────────────────────────────────────────
+// Server-side regex screen against the brand's own ComplianceRules. Runs on
+// any caption draft before it hits the queue. The Phase-3 cron will call
+// this implicitly via the Cloud Function; the preview page calls it
+// explicitly so the admin sees flags before approving.
+
+export type ComplianceFlag = {
+  type: 'forbidden_word' | 'blocked_topic';
+  phrase: string;
+  /** Index of the match in the original caption. */
+  index: number;
+};
+
+export interface ScoreCaptionInput {
+  caption: string;
+}
+
+export interface ScoreCaptionResult {
+  ok: true;
+  flags: ComplianceFlag[];
+  /** Disclaimers that match the caption — caller appends to the caption tail. */
+  requiredDisclaimers: string[];
+  /** True when nothing tripped a forbidden word or blocked topic. */
+  passes: boolean;
+}
+export interface ScoreCaptionError {
+  ok: false;
+  code: string;
+  message: string;
+}
+
+export async function scoreMarketingDraft(
+  input: ScoreCaptionInput,
+): Promise<ScoreCaptionResult | ScoreCaptionError> {
+  if (!app) throw new Error('Firebase app not configured');
+  const { getFunctions, httpsCallable } = await import('firebase/functions');
+  const functions = getFunctions(app);
+  const call = httpsCallable<ScoreCaptionInput, ScoreCaptionResult | ScoreCaptionError>(
+    functions,
+    'scoreMarketingDraft',
+  );
+  const result = await call(input);
+  return result.data;
+}
+
+// ── Cost log (M1) ──────────────────────────────────────────────────────────
+// Every render writes a row to `marketing_cost_log` so the dashboard tile and
+// monthly cap enforcement have real numbers. This wrapper just reads recent
+// rows for the dashboard; writes happen server-side inside the renderer.
+
+export interface CostLogRow {
+  id: string;
+  ts: string;            // ISO
+  template: string;
+  imageSource: ImageSourceTag;
+  costInr: number;
+  actor: string | null;
+}
+
+export async function fetchRecentCostLog(limitN = 60): Promise<CostLogRow[]> {
+  if (!db) return [];
+  try {
+    const { collection, getDocs, limit, orderBy, query } = await import('firebase/firestore');
+    const q = query(collection(db, 'marketing_cost_log'), orderBy('ts', 'desc'), limit(Math.min(limitN, 200)));
+    const snap = await getDocs(q);
+    return snap.docs.map((d): CostLogRow => {
+      const data = d.data() as any;
+      const ts = data?.ts;
+      const iso = ts?.toDate ? ts.toDate().toISOString() : (typeof ts === 'string' ? ts : new Date().toISOString());
+      return {
+        id: d.id,
+        ts: iso,
+        template: typeof data?.template === 'string' ? data.template : 'unknown',
+        imageSource: (typeof data?.imageSource === 'string' ? data.imageSource : 'none') as ImageSourceTag,
+        costInr: typeof data?.costInr === 'number' ? data.costInr : 0,
+        actor: typeof data?.actor === 'string' ? data.actor : null,
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
+/** Sums cost rows for "today" and "this month" against the IST calendar. */
+export function summariseCost(rows: CostLogRow[]): { today: number; month: number; lastTs: string | null } {
+  const istNow = new Date(Date.now() + 5.5 * 3600 * 1000); // crude IST shift
+  const todayKey = istNow.toISOString().slice(0, 10);
+  const monthKey = istNow.toISOString().slice(0, 7);
+  let today = 0;
+  let month = 0;
+  for (const r of rows) {
+    const istTs = new Date(new Date(r.ts).getTime() + 5.5 * 3600 * 1000).toISOString();
+    if (istTs.startsWith(monthKey)) month += r.costInr;
+    if (istTs.startsWith(todayKey)) today += r.costInr;
+  }
+  return { today, month, lastTs: rows[0]?.ts ?? null };
+}
+
 function normaliseBrandKit(data: any): BrandKit {
   const fallback = defaultBrandKit();
   const ts = data?.updatedAt;
@@ -208,6 +472,12 @@ function normaliseBrandKit(data: any): BrandKit {
     themeCalendar: sanitiseThemeCalendar(data?.themeCalendar ?? DEFAULT_THEME_CALENDAR),
     hashtags: Array.isArray(data?.hashtags) ? sanitiseHashtags(data.hashtags) : DEFAULT_HASHTAGS,
     defaultPostTime: typeof data?.defaultPostTime === 'string' ? sanitiseTime(data.defaultPostTime) : '09:00',
+    personas: sanitisePersonas(data?.personas),
+    pillars: sanitisePillars(data?.pillars),
+    culturalCalendar: sanitiseCulturalCalendar(data?.culturalCalendar),
+    compliance: sanitiseCompliance(data?.compliance),
+    costCaps: sanitiseCostCaps(data?.costCaps),
+    illustrations: sanitiseIllustrations(data?.illustrations),
     updatedAt: iso,
     updatedBy: typeof data?.updatedBy === 'string' ? data.updatedBy : null,
   };

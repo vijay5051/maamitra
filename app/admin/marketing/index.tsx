@@ -17,7 +17,12 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { Colors, FontSize, Radius, Shadow, Spacing } from '../../../constants/theme';
 import { AdminPage, StatusBadge, ToolbarButton } from '../../../components/admin/ui';
-import { fetchBrandKit } from '../../../services/marketing';
+import {
+  CostLogRow,
+  fetchBrandKit,
+  fetchRecentCostLog,
+  summariseCost,
+} from '../../../services/marketing';
 import { BrandKit } from '../../../lib/marketingTypes';
 
 const META_APP_ID = '1485870226522993';
@@ -34,6 +39,7 @@ interface ChecklistRow {
 export default function MarketingOverviewScreen() {
   const router = useRouter();
   const [brand, setBrand] = useState<BrandKit | null>(null);
+  const [costRows, setCostRows] = useState<CostLogRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,8 +49,9 @@ export default function MarketingOverviewScreen() {
     setLoading(true);
     setError(null);
     try {
-      const k = await fetchBrandKit();
+      const [k, rows] = await Promise.all([fetchBrandKit(), fetchRecentCostLog(120)]);
       setBrand(k);
+      setCostRows(rows);
     } catch (e: any) {
       setError(e?.message ?? String(e));
     } finally {
@@ -54,6 +61,14 @@ export default function MarketingOverviewScreen() {
 
   const brandConfigured = !!brand && !!brand.logoUrl;
   const brandPartial = !!brand && !brand.logoUrl;
+  const strategyConfigured = !!brand && (brand.personas?.length ?? 0) > 0 && (brand.pillars?.length ?? 0) > 0;
+
+  const cost = summariseCost(costRows);
+  const dailyCap = brand?.costCaps?.dailyInr ?? 0;
+  const monthlyCap = brand?.costCaps?.monthlyInr ?? 0;
+  const dailyPct = dailyCap > 0 ? Math.min(100, Math.round((cost.today / dailyCap) * 100)) : 0;
+  const monthlyPct = monthlyCap > 0 ? Math.min(100, Math.round((cost.month / monthlyCap) * 100)) : 0;
+  const alertAt = brand?.costCaps?.alertAtPct ?? 80;
 
   const checklist: ChecklistRow[] = [
     {
@@ -72,6 +87,15 @@ export default function MarketingOverviewScreen() {
           : 'No brand kit yet. Set up logo, palette, voice, and weekly theme calendar.',
       state: brandConfigured ? 'done' : brandPartial ? 'in_progress' : 'pending',
       href: '/admin/marketing/brand-kit',
+    },
+    {
+      key: 'strategy',
+      label: 'Strategy (personas, pillars, calendar, compliance)',
+      description: strategyConfigured
+        ? `${brand!.personas.length} personas · ${brand!.pillars.length} pillars · ${brand!.culturalCalendar.length} calendar events · ${brand!.compliance.medicalForbiddenWords.length} forbidden words.`
+        : 'Define audience personas, content pillars, cultural calendar, compliance rules, and cost caps. Drives every draft below.',
+      state: strategyConfigured ? 'done' : 'pending',
+      href: '/admin/marketing/strategy',
     },
     {
       key: 'connections',
@@ -149,6 +173,35 @@ export default function MarketingOverviewScreen() {
           </View>
         </View>
 
+        <Text style={styles.sectionLabel}>Spend (last 30 days)</Text>
+        <View style={styles.costGrid}>
+          <CostTile
+            label="Today"
+            valueInr={cost.today}
+            capInr={dailyCap}
+            pct={dailyPct}
+            alertAtPct={alertAt}
+          />
+          <CostTile
+            label="This month"
+            valueInr={cost.month}
+            capInr={monthlyCap}
+            pct={monthlyPct}
+            alertAtPct={alertAt}
+          />
+          <View style={styles.costMetaTile}>
+            <Text style={styles.costMetaValue}>{costRows.length}</Text>
+            <Text style={styles.costMetaLabel}>Renders captured</Text>
+            {cost.lastTs ? (
+              <Text style={styles.costMetaSub}>
+                Last: {new Date(cost.lastTs).toLocaleString('en-IN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' })}
+              </Text>
+            ) : (
+              <Text style={styles.costMetaSub}>No renders yet</Text>
+            )}
+          </View>
+        </View>
+
         <Text style={styles.sectionLabel}>Setup checklist</Text>
         <View style={{ gap: Spacing.sm }}>
           {checklist.map((row) => (
@@ -157,6 +210,40 @@ export default function MarketingOverviewScreen() {
         </View>
       </AdminPage>
     </>
+  );
+}
+
+function CostTile({
+  label,
+  valueInr,
+  capInr,
+  pct,
+  alertAtPct,
+}: {
+  label: string;
+  valueInr: number;
+  capInr: number;
+  pct: number;
+  alertAtPct: number;
+}) {
+  const isAlert = pct >= alertAtPct;
+  const isOver = capInr > 0 && valueInr >= capInr;
+  const tone = isOver ? Colors.error : isAlert ? Colors.warning : Colors.primary;
+  return (
+    <View style={styles.costTile}>
+      <Text style={styles.costLabel}>{label}</Text>
+      <Text style={styles.costValue}>
+        ₹{valueInr.toFixed(2)}
+        {capInr > 0 ? <Text style={styles.costCap}> / ₹{capInr}</Text> : null}
+      </Text>
+      <View style={styles.costBarTrack}>
+        <View style={[styles.costBarFill, { width: `${pct}%`, backgroundColor: tone }]} />
+      </View>
+      <Text style={[styles.costPctLabel, { color: tone }]}>
+        {capInr > 0 ? `${pct}% used` : 'No cap set'}
+        {isOver ? ' · cap reached' : isAlert ? ' · approaching cap' : ''}
+      </Text>
+    </View>
   );
 }
 
@@ -234,4 +321,35 @@ const styles = StyleSheet.create({
   },
   cardLabel: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textDark },
   cardBody: { fontSize: FontSize.sm, color: Colors.textMuted, lineHeight: 20 },
+
+  costGrid: { flexDirection: 'row', gap: Spacing.md, flexWrap: 'wrap', marginBottom: Spacing.lg },
+  costTile: {
+    flex: 1,
+    minWidth: 220,
+    backgroundColor: Colors.cardBg,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.borderSoft,
+    ...Shadow.sm,
+  },
+  costLabel: { fontSize: FontSize.xs, color: Colors.textMuted, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.6 },
+  costValue: { fontSize: 22, fontWeight: '800', color: Colors.textDark, marginTop: 4 },
+  costCap: { fontSize: FontSize.sm, fontWeight: '500', color: Colors.textMuted },
+  costBarTrack: { height: 6, backgroundColor: Colors.bgLight, borderRadius: 3, marginTop: Spacing.sm, overflow: 'hidden' },
+  costBarFill: { height: '100%', borderRadius: 3 },
+  costPctLabel: { fontSize: FontSize.xs, fontWeight: '600', marginTop: 6 },
+
+  costMetaTile: {
+    minWidth: 140,
+    backgroundColor: Colors.cardBg,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.borderSoft,
+    ...Shadow.sm,
+  },
+  costMetaValue: { fontSize: 22, fontWeight: '800', color: Colors.textDark },
+  costMetaLabel: { fontSize: FontSize.xs, color: Colors.textMuted, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.6, marginTop: 2 },
+  costMetaSub: { fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 6 },
 });

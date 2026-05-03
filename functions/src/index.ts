@@ -19,7 +19,7 @@ import * as functions from 'firebase-functions/v1';
 import * as admin from 'firebase-admin';
 import textToSpeech from '@google-cloud/text-to-speech';
 
-import { buildRenderMarketingTemplate } from './marketing';
+import { buildRenderMarketingTemplate, buildScoreMarketingDraft } from './marketing';
 
 admin.initializeApp();
 
@@ -1316,3 +1316,8 @@ export const repairCommunityCounters = functions.pubsub
 //   firebase functions:secrets:set PEXELS_API_KEY
 //   firebase functions:secrets:set REPLICATE_API_TOKEN
 export const renderMarketingTemplate = buildRenderMarketingTemplate(ADMIN_EMAILS);
+
+// Compliance screen on every caption draft. Reads rules from
+// marketing_brand/main; pure regex, no LLM. Pairs with the M1 strategy
+// editor at /admin/marketing/strategy.
+export const scoreMarketingDraft = buildScoreMarketingDraft(ADMIN_EMAILS);
