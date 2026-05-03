@@ -1,25 +1,21 @@
 /**
  * Admin — User Management
  *
- * Lists every signed-up user with quick stats. Tap a row to drop into the
- * per-user 360 (/admin/users/[uid]) — that's where every action (delete,
- * role change, DSAR export, push) lives. This screen is just the index.
+ * Lists every signed-up user. Tap a row → /admin/users/[uid] for the 360
+ * (delete, role change, DSAR export, push). This screen is the index.
  *
- * Bulk-select lets the admin pick multiple users for a one-shot personal
- * push (welcome ping, beta survey nudge, etc.). Destructive bulk actions
- * are intentionally not available — those need the 360 view's per-user
- * confirmation.
+ * Wave 3 rebuild: AdminPage shell, paginated DataTable with sortable
+ * columns and bulk-select for personal push, KPI cards, two modals
+ * (BulkPushModal + CreateUserModal) preserved as-is and ported off
+ * the old style sheet.
  */
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Modal,
-  Platform,
   Pressable,
-  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -28,96 +24,250 @@ import {
   View,
 } from 'react-native';
 
+import { Colors, FontSize, Radius, Shadow, Spacing } from '../../constants/theme';
+import {
+  AdminPage,
+  Column,
+  DataTable,
+  StatCard,
+  StatusBadge,
+  Toolbar,
+  ToolbarButton,
+} from '../../components/admin/ui';
 import { AdminUser, getUsers } from '../../services/firebase';
 import { createAdminManagedUser, sendPersonalPushFromAdmin } from '../../services/admin';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useAdminRole } from '../../lib/useAdminRole';
 import { ADMIN_ROLE_LABELS, ADMIN_ROLES, AdminRole, can } from '../../lib/admin';
-import { Colors } from '../../constants/theme';
-import { infoAlert } from '../../lib/cross-platform-alerts';
 
-// ─── Avatar ───────────────────────────────────────────────────────────────────
+export default function UsersScreen() {
+  const router = useRouter();
+  const { user: authUser } = useAuthStore();
+  const role = useAdminRole();
+  const canPush = can(role, 'send_personal_push');
+  const canManageAdminRoles = can(role, 'manage_admin_roles');
 
-function Avatar({ name, size = 40 }: { name: string; size?: number }) {
-  const initial = (name ?? '?').charAt(0).toUpperCase();
-  const colors = [Colors.primary, '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b'];
-  const bg = colors[initial.charCodeAt(0) % colors.length];
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [pushOpen, setPushOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+
+  useEffect(() => { void load(); }, []);
+
+  async function load() {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getUsers();
+      setUsers(data.sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? ''))));
+    } catch (e: any) {
+      setError(e?.message ?? String(e));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function bulkSend(title: string, body: string) {
+    if (!authUser || !canPush) return;
+    const uids = Array.from(selected);
+    let sent = 0; let failed = 0;
+    for (const uid of uids) {
+      try { await sendPersonalPushFromAdmin(authUser, uid, { title, body }); sent++; }
+      catch { failed++; }
+    }
+    setPushOpen(false);
+    setSelected(new Set());
+    setError(failed ? `${sent} sent, ${failed} failed.` : null);
+  }
+
+  async function handleCreateUser(payload: { name: string; email: string; password: string; adminRole: AdminRole | null }) {
+    if (!authUser) return;
+    try {
+      const result = await createAdminManagedUser(authUser, payload);
+      setCreateOpen(false);
+      await load();
+      router.push(`/admin/users/${result.uid}` as any);
+    } catch (e: any) {
+      Alert.alert('Could not create user', e?.message || 'Please try again.');
+    }
+  }
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return users;
+    return users.filter((u) =>
+      u.name.toLowerCase().includes(q) ||
+      u.email.toLowerCase().includes(q) ||
+      u.state.toLowerCase().includes(q),
+    );
+  }, [users, search]);
+
+  const completeCount = filtered.filter((u) => u.onboardingComplete).length;
+
+  const columns: Column<AdminUser>[] = [
+    {
+      key: 'name',
+      header: 'Name',
+      width: 240,
+      render: (u) => (
+        <View style={styles.cellNameRow}>
+          <Avatar name={u.name} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.cellName} numberOfLines={1}>{u.name || 'Unnamed'}</Text>
+            <Text style={styles.cellMeta} numberOfLines={1}>{u.email || '—'}</Text>
+          </View>
+        </View>
+      ),
+      sort: (u) => u.name,
+    },
+    {
+      key: 'state',
+      header: 'State',
+      width: 130,
+      render: (u) => <Text style={styles.cellPlain}>{u.state || '—'}</Text>,
+      sort: (u) => u.state,
+    },
+    {
+      key: 'kidsCount',
+      header: 'Kids',
+      width: 80,
+      align: 'right',
+      render: (u) => <Text style={styles.cellNumber}>{u.kidsCount}</Text>,
+      sort: (u) => u.kidsCount,
+    },
+    {
+      key: 'onboarding',
+      header: 'Status',
+      width: 130,
+      render: (u) =>
+        u.onboardingComplete
+          ? <StatusBadge label="Onboarded" color={Colors.success} />
+          : <StatusBadge label="Pending" color={Colors.warning} />,
+      sort: (u) => (u.onboardingComplete ? 1 : 0),
+    },
+    {
+      key: 'adminRole',
+      header: 'Role',
+      width: 130,
+      render: (u) => {
+        const r = (u as any).adminRole as AdminRole | undefined;
+        if (!r) return <Text style={styles.cellMuted}>User</Text>;
+        return <StatusBadge label={ADMIN_ROLE_LABELS[r]} color={Colors.primary} variant="outline" />;
+      },
+      sort: (u) => (u as any).adminRole ?? '',
+    },
+    {
+      key: 'createdAt',
+      header: 'Joined',
+      width: 130,
+      align: 'right',
+      render: (u) => (
+        <Text style={styles.cellMeta}>
+          {u.createdAt
+            ? new Date(u.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+            : '—'}
+        </Text>
+      ),
+      sort: (u) => u.createdAt ?? '',
+    },
+  ];
+
   return (
-    <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2, backgroundColor: bg }]}>
-      <Text style={[styles.avatarText, { fontSize: size * 0.42 }]}>{initial}</Text>
+    <>
+      <Stack.Screen options={{ title: 'Users' }} />
+      <AdminPage
+        title="Users"
+        description="Every signed-up user. Tap a row for the 360 view, or bulk-select to send a personal push."
+        crumbs={[{ label: 'Admin', href: '/admin' }, { label: 'Users' }]}
+        headerActions={
+          <>
+            <ToolbarButton label="Refresh" icon="refresh" onPress={load} />
+            {canPush && selected.size > 0 ? (
+              <ToolbarButton
+                label={`Push to ${selected.size}`}
+                icon="paper-plane-outline"
+                variant="primary"
+                onPress={() => setPushOpen(true)}
+              />
+            ) : null}
+            <ToolbarButton
+              label="New user"
+              icon="person-add-outline"
+              variant="primary"
+              onPress={() => setCreateOpen(true)}
+            />
+          </>
+        }
+        toolbar={
+          <Toolbar
+            search={{
+              value: search,
+              onChange: setSearch,
+              placeholder: 'Search name, email, state…',
+            }}
+            leading={<Text style={styles.countText}>{filtered.length} of {users.length}</Text>}
+          />
+        }
+        error={error}
+      >
+        <View style={styles.statsRow}>
+          <StatCard label="Total"      value={users.length}     icon="people-outline" />
+          <StatCard label="Onboarded"  value={completeCount}    icon="checkmark-done-outline" />
+          <StatCard label="Pending"    value={filtered.length - completeCount} icon="time-outline" />
+          <StatCard
+            label="With kids"
+            value={filtered.filter((u) => u.kidsCount > 0).length}
+            icon="happy-outline"
+          />
+        </View>
+
+        <DataTable
+          rows={filtered}
+          columns={columns}
+          rowKey={(u) => u.uid}
+          loading={loading}
+          selectable={canPush}
+          selected={selected}
+          onSelectChange={setSelected}
+          onRowPress={(u) => router.push(`/admin/users/${u.uid}` as any)}
+          emptyTitle={search ? 'No users match' : 'No users yet'}
+          emptyBody={search ? 'Try a different search.' : 'New signups will appear here.'}
+        />
+      </AdminPage>
+
+      <BulkPushModal
+        visible={pushOpen}
+        count={selected.size}
+        onCancel={() => setPushOpen(false)}
+        onSend={bulkSend}
+      />
+      <CreateUserModal
+        visible={createOpen}
+        canManageAdminRoles={canManageAdminRoles}
+        onCancel={() => setCreateOpen(false)}
+        onCreate={handleCreateUser}
+      />
+    </>
+  );
+}
+
+// ─── Avatar ───────────────────────────────────────────────────────────────
+function Avatar({ name }: { name: string }) {
+  const initial = (name ?? '?').charAt(0).toUpperCase();
+  const palette = [Colors.primary, '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b'];
+  const bg = palette[initial.charCodeAt(0) % palette.length];
+  return (
+    <View style={[styles.avatar, { backgroundColor: bg }]}>
+      <Text style={styles.avatarText}>{initial}</Text>
     </View>
   );
 }
 
-// ─── User Row ─────────────────────────────────────────────────────────────────
-
-function UserRow({
-  user,
-  selectMode,
-  selected,
-  onToggleSelect,
-  onOpen,
-}: {
-  user: AdminUser;
-  selectMode: boolean;
-  selected: boolean;
-  onToggleSelect: () => void;
-  onOpen: () => void;
-}) {
-  const joinDate = user.createdAt
-    ? new Date(user.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-    : 'Unknown';
-
-  return (
-    <Pressable
-      style={[styles.userCard, selected && styles.userCardSelected]}
-      onPress={selectMode ? onToggleSelect : onOpen}
-      onLongPress={onToggleSelect}
-      android_ripple={{ color: '#f3f4f6' }}
-    >
-      <View style={styles.userRow}>
-        {selectMode ? (
-          <View style={[styles.checkbox, selected && styles.checkboxOn]}>
-            {selected ? <Ionicons name="checkmark" size={14} color="#fff" /> : null}
-          </View>
-        ) : (
-          <Avatar name={user.name} />
-        )}
-        <View style={styles.userInfo}>
-          <Text style={styles.userName} numberOfLines={1}>{user.name || 'Unnamed'}</Text>
-          <Text style={styles.userEmail} numberOfLines={1}>{user.email || '—'}</Text>
-          <View style={styles.metaRow}>
-            <Ionicons name="calendar-outline" size={11} color="#9ca3af" />
-            <Text style={styles.metaText}>{joinDate}</Text>
-            <Text style={styles.metaDot}>·</Text>
-            <Ionicons name="people-outline" size={11} color="#9ca3af" />
-            <Text style={styles.metaText}>{user.kidsCount} {user.kidsCount === 1 ? 'kid' : 'kids'}</Text>
-            {user.state ? (
-              <>
-                <Text style={styles.metaDot}>·</Text>
-                <Ionicons name="location-outline" size={11} color="#9ca3af" />
-                <Text style={styles.metaText}>{user.state}</Text>
-              </>
-            ) : null}
-          </View>
-        </View>
-        <View style={styles.userMeta}>
-          <View style={[styles.statusDot, { backgroundColor: user.onboardingComplete ? '#22c55e' : '#f59e0b' }]} />
-          {!selectMode && <Ionicons name="chevron-forward" size={16} color="#d1d5db" />}
-        </View>
-      </View>
-    </Pressable>
-  );
-}
-
-// ─── Bulk push modal ─────────────────────────────────────────────────────────
-
-function BulkPushModal({
-  visible,
-  count,
-  onCancel,
-  onSend,
-}: {
+// ─── Bulk Push Modal (preserved from old screen, restyled) ─────────────────
+function BulkPushModal({ visible, count, onCancel, onSend }: {
   visible: boolean;
   count: number;
   onCancel: () => void;
@@ -132,13 +282,12 @@ function BulkPushModal({
         <View style={styles.modalCard}>
           <Text style={styles.modalTitle}>Send push to {count} user{count === 1 ? '' : 's'}</Text>
           <Text style={styles.modalHint}>
-            Personal push — only these users get it. Used for direct outreach;
-            broadcasts live in the Notifications tab.
+            Personal push — only these users get it. Broadcasts live in Notifications.
           </Text>
           <TextInput
             style={styles.modalInput}
             placeholder="Title (max 120 chars)"
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={Colors.textMuted}
             value={title}
             onChangeText={setTitle}
             maxLength={120}
@@ -146,29 +295,28 @@ function BulkPushModal({
           <TextInput
             style={[styles.modalInput, styles.modalTextarea]}
             placeholder="Message (max 300 chars)"
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={Colors.textMuted}
             value={body}
             onChangeText={setBody}
             maxLength={300}
             multiline
           />
           <View style={styles.modalActions}>
-            <TouchableOpacity style={styles.modalBtn} onPress={onCancel} disabled={sending}>
-              <Text style={styles.modalBtnText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.modalBtn, styles.modalBtnPrimary]}
-              disabled={sending || !title.trim() || !body.trim()}
+            <ToolbarButton label="Cancel" variant="ghost" onPress={onCancel} disabled={sending} />
+            <ToolbarButton
+              label={sending ? 'Sending…' : `Send to ${count}`}
+              variant="primary"
+              icon="paper-plane-outline"
               onPress={async () => {
+                if (!title.trim() || !body.trim() || sending) return;
                 setSending(true);
                 try {
                   await onSend(title.trim(), body.trim());
                   setTitle(''); setBody('');
                 } finally { setSending(false); }
               }}
-            >
-              <Text style={[styles.modalBtnText, { color: '#fff' }]}>{sending ? 'Sending…' : `Send to ${count}`}</Text>
-            </TouchableOpacity>
+              disabled={sending || !title.trim() || !body.trim()}
+            />
           </View>
         </View>
       </View>
@@ -176,6 +324,7 @@ function BulkPushModal({
   );
 }
 
+// ─── Create User Modal (preserved from old screen, restyled) ───────────────
 function CreateUserModal({
   visible,
   canManageAdminRoles,
@@ -193,12 +342,7 @@ function CreateUserModal({
   const [adminRole, setAdminRole] = useState<AdminRole | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const reset = () => {
-    setName('');
-    setEmail('');
-    setPassword('');
-    setAdminRole(null);
-  };
+  const reset = () => { setName(''); setEmail(''); setPassword(''); setAdminRole(null); };
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
@@ -206,19 +350,19 @@ function CreateUserModal({
         <View style={styles.modalCard}>
           <Text style={styles.modalTitle}>Add user</Text>
           <Text style={styles.modalHint}>
-            Create an email-password account for a user, then optionally grant an admin role.
+            Create an email-password account, then optionally grant an admin role.
           </Text>
           <TextInput
             style={styles.modalInput}
             placeholder="Full name"
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={Colors.textMuted}
             value={name}
             onChangeText={setName}
           />
           <TextInput
             style={styles.modalInput}
             placeholder="Email address"
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={Colors.textMuted}
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
@@ -227,7 +371,7 @@ function CreateUserModal({
           <TextInput
             style={styles.modalInput}
             placeholder="Temporary password (min 8 chars)"
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={Colors.textMuted}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -240,19 +384,17 @@ function CreateUserModal({
                 <TouchableOpacity
                   style={[styles.roleChip, adminRole === null && styles.roleChipActive]}
                   onPress={() => setAdminRole(null)}
-                  activeOpacity={0.75}
                 >
                   <Text style={[styles.roleChipText, adminRole === null && styles.roleChipTextActive]}>User only</Text>
                 </TouchableOpacity>
-                {ADMIN_ROLES.map((role) => (
+                {ADMIN_ROLES.map((r) => (
                   <TouchableOpacity
-                    key={role}
-                    style={[styles.roleChip, adminRole === role && styles.roleChipActive]}
-                    onPress={() => setAdminRole(role)}
-                    activeOpacity={0.75}
+                    key={r}
+                    style={[styles.roleChip, adminRole === r && styles.roleChipActive]}
+                    onPress={() => setAdminRole(r)}
                   >
-                    <Text style={[styles.roleChipText, adminRole === role && styles.roleChipTextActive]}>
-                      {ADMIN_ROLE_LABELS[role]}
+                    <Text style={[styles.roleChipText, adminRole === r && styles.roleChipTextActive]}>
+                      {ADMIN_ROLE_LABELS[r]}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -260,29 +402,20 @@ function CreateUserModal({
             </View>
           ) : null}
           <View style={styles.modalActions}>
-            <TouchableOpacity style={styles.modalBtn} onPress={onCancel} disabled={saving}>
-              <Text style={styles.modalBtnText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.modalBtn, styles.modalBtnPrimary]}
+            <ToolbarButton label="Cancel" variant="ghost" onPress={onCancel} disabled={saving} />
+            <ToolbarButton
+              label={saving ? 'Creating…' : 'Create user'}
+              variant="primary"
+              icon="person-add-outline"
               disabled={saving || !name.trim() || !email.trim() || password.length < 8}
               onPress={async () => {
                 setSaving(true);
                 try {
-                  await onCreate({
-                    name: name.trim(),
-                    email: email.trim(),
-                    password,
-                    adminRole,
-                  });
+                  await onCreate({ name: name.trim(), email: email.trim(), password, adminRole });
                   reset();
-                } finally {
-                  setSaving(false);
-                }
+                } finally { setSaving(false); }
               }}
-            >
-              <Text style={[styles.modalBtnText, { color: '#fff' }]}>{saving ? 'Creating…' : 'Create user'}</Text>
-            </TouchableOpacity>
+            />
           </View>
         </View>
       </View>
@@ -290,349 +423,56 @@ function CreateUserModal({
   );
 }
 
-// ─── Main Screen ──────────────────────────────────────────────────────────────
-
-export default function UsersScreen() {
-  const router = useRouter();
-  const { user: authUser } = useAuthStore();
-  const role = useAdminRole();
-
-  const [users, setUsers] = useState<AdminUser[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [search, setSearch] = useState('');
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [pushOpen, setPushOpen] = useState(false);
-  const [createOpen, setCreateOpen] = useState(false);
-
-  useEffect(() => { void load(); }, []);
-
-  async function load() {
-    setLoading(true);
-    try {
-      const data = await getUsers();
-      setUsers(data.sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? ''))));
-    } catch (err) {
-      console.error('admin/users load failed:', err);
-      setUsers([]);
-    } finally {
-      // Always release the spinner; otherwise a sort throw would leave
-      // the page stuck (recently observed with raw Firestore Timestamps).
-      setLoading(false);
-    }
-  }
-
-  async function refresh() {
-    setRefreshing(true);
-    try {
-      const data = await getUsers();
-      setUsers(data.sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? ''))));
-    } catch (err) {
-      console.error('admin/users refresh failed:', err);
-    } finally {
-      setRefreshing(false);
-    }
-  }
-
-  function toggleSelect(uid: string) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(uid)) next.delete(uid);
-      else next.add(uid);
-      return next;
-    });
-  }
-
-  function clearSelection() { setSelected(new Set()); }
-
-  async function bulkSend(title: string, body: string) {
-    if (!authUser) return;
-    if (!can(role, 'send_personal_push')) {
-      infoAlert('Not allowed', 'Your role does not allow sending personal push.');
-      return;
-    }
-    const uids = Array.from(selected);
-    let sent = 0;
-    let failed = 0;
-    for (const uid of uids) {
-      try {
-        await sendPersonalPushFromAdmin(authUser, uid, { title, body });
-        sent++;
-      } catch {
-        failed++;
-      }
-    }
-    setPushOpen(false);
-    clearSelection();
-    infoAlert('Push queued', `${sent} sent${failed ? `, ${failed} failed` : ''}.`);
-  }
-
-  async function handleCreateUser(payload: { name: string; email: string; password: string; adminRole: AdminRole | null }) {
-    if (!authUser) return;
-    if (!can(role, 'view_users')) {
-      infoAlert('Not allowed', 'Your role does not allow creating users.');
-      return;
-    }
-    try {
-      const result = await createAdminManagedUser(authUser, payload);
-      setCreateOpen(false);
-      await refresh();
-      infoAlert(
-        'User created',
-        payload.adminRole
-          ? `${payload.name} was created and promoted as ${ADMIN_ROLE_LABELS[payload.adminRole]}.`
-          : `${payload.name} was created successfully.`,
-      );
-      router.push(`/admin/users/${result.uid}` as any);
-    } catch (error: any) {
-      console.error('create user failed:', error);
-      Alert.alert('Could not create user', error?.message || 'Please try again.');
-    }
-  }
-
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    if (!q) return users;
-    return users.filter(
-      (u) =>
-        u.name.toLowerCase().includes(q) ||
-        u.email.toLowerCase().includes(q) ||
-        u.state.toLowerCase().includes(q),
-    );
-  }, [users, search]);
-
-  const complete = filtered.filter((u) => u.onboardingComplete).length;
-  const incomplete = filtered.length - complete;
-  const selectMode = selected.size > 0;
-
-  return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={Colors.primary} />}
-    >
-      {/* Stats bar */}
-      <View style={styles.statsRow}>
-        <View style={styles.statChip}>
-          <Text style={styles.statNum}>{users.length}</Text>
-          <Text style={styles.statLbl}>Total</Text>
-        </View>
-        <View style={styles.statChip}>
-          <Text style={[styles.statNum, { color: '#22c55e' }]}>{complete}</Text>
-          <Text style={styles.statLbl}>Active</Text>
-        </View>
-        <View style={styles.statChip}>
-          <Text style={[styles.statNum, { color: '#f59e0b' }]}>{incomplete}</Text>
-          <Text style={styles.statLbl}>Incomplete</Text>
-        </View>
-        <View style={styles.statChip}>
-          <Text style={[styles.statNum, { color: '#8b5cf6' }]}>
-            {users.reduce((sum, u) => sum + u.kidsCount, 0)}
-          </Text>
-          <Text style={styles.statLbl}>Kids logged</Text>
-        </View>
-      </View>
-
-      {/* Search */}
-      <View style={styles.headerActions}>
-        <TouchableOpacity
-          style={styles.addUserBtn}
-          onPress={() => setCreateOpen(true)}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="person-add-outline" size={16} color="#fff" />
-          <Text style={styles.addUserBtnText}>Add user</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.searchWrap}>
-        <Ionicons name="search" size={16} color="#9ca3af" />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search by name, email or state…"
-          placeholderTextColor="#9ca3af"
-          value={search}
-          onChangeText={setSearch}
-        />
-        {search.length > 0 && (
-          <TouchableOpacity onPress={() => setSearch('')}>
-            <Ionicons name="close-circle" size={16} color="#9ca3af" />
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Selection bar */}
-      {selectMode ? (
-        <View style={styles.selectBar}>
-          <Text style={styles.selectBarText}>{selected.size} selected</Text>
-          <View style={{ flex: 1 }} />
-          <TouchableOpacity style={styles.selectBarBtn} onPress={clearSelection}>
-            <Text style={styles.selectBarBtnText}>Clear</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.selectBarBtn, styles.selectBarBtnPrimary]}
-            onPress={() => setPushOpen(true)}
-          >
-            <Ionicons name="paper-plane-outline" size={13} color="#fff" />
-            <Text style={[styles.selectBarBtnText, { color: '#fff' }]}>Send push</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <Text style={styles.tipLine}>Long-press to multi-select. Tap to open profile 360.</Text>
-      )}
-
-      {/* List */}
-      {loading ? (
-        <ActivityIndicator color={Colors.primary} style={{ marginTop: 40 }} />
-      ) : filtered.length === 0 ? (
-        <View style={styles.empty}>
-          <Ionicons name="people-outline" size={40} color="#d1d5db" />
-          <Text style={styles.emptyText}>{search ? 'No users match your search' : 'No users yet'}</Text>
-          {search ? (
-            <TouchableOpacity onPress={() => setSearch('')}>
-              <Text style={styles.emptyAction}>Clear search</Text>
-            </TouchableOpacity>
-          ) : null}
-        </View>
-      ) : (
-        filtered.map((u) => (
-          <UserRow
-            key={u.uid}
-            user={u}
-            selectMode={selectMode}
-            selected={selected.has(u.uid)}
-            onToggleSelect={() => toggleSelect(u.uid)}
-            onOpen={() => router.push(`/admin/users/${u.uid}` as any)}
-          />
-        ))
-      )}
-
-      <BulkPushModal
-        visible={pushOpen}
-        count={selected.size}
-        onCancel={() => setPushOpen(false)}
-        onSend={bulkSend}
-      />
-      <CreateUserModal
-        visible={createOpen}
-        canManageAdminRoles={can(role, 'manage_admin_roles')}
-        onCancel={() => setCreateOpen(false)}
-        onCreate={handleCreateUser}
-      />
-    </ScrollView>
-  );
-}
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fafafa' },
-  content: { padding: 16, paddingBottom: 40 },
+  statsRow: { flexDirection: 'row', gap: Spacing.md, flexWrap: 'wrap' },
+  countText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textLight, letterSpacing: 0.4 },
 
-  statsRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
-  headerActions: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 12 },
-  addUserBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: Colors.primary,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  addUserBtnText: { color: '#fff', fontSize: 13, fontWeight: '800' },
-  statChip: {
-    flex: 1, backgroundColor: '#fff', borderRadius: 12,
-    paddingVertical: 10, alignItems: 'center',
-    borderWidth: 1, borderColor: '#f3f4f6',
-  },
-  statNum: { fontSize: 20, fontWeight: '800', color: '#1a1a2e' },
-  statLbl: { fontSize: 10, color: '#9ca3af', marginTop: 1, fontWeight: '600' },
+  cellNameRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  cellName: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textDark },
+  cellMeta: { fontSize: FontSize.xs, color: Colors.textLight, marginTop: 2 },
+  cellPlain: { fontSize: FontSize.sm, color: Colors.textDark },
+  cellMuted: { fontSize: FontSize.xs, color: Colors.textMuted, fontWeight: '600' },
+  cellNumber: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textDark, fontVariant: ['tabular-nums'] },
 
-  searchWrap: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 12,
-    paddingVertical: 10, marginBottom: 12,
-    borderWidth: 1, borderColor: '#e5e7eb',
+  avatar: {
+    width: 36, height: 36, borderRadius: 18,
+    alignItems: 'center', justifyContent: 'center',
   },
-  searchInput: { flex: 1, fontSize: 14, color: '#1a1a2e' },
+  avatarText: { color: Colors.white, fontWeight: '800', fontSize: FontSize.sm },
 
-  selectBar: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#EDE4FF', borderRadius: 12, padding: 10, marginBottom: 12,
-    borderWidth: 1, borderColor: Colors.primary,
+  modalBackdrop: {
+    flex: 1, backgroundColor: 'rgba(28,16,51,0.55)',
+    alignItems: 'center', justifyContent: 'center', padding: Spacing.lg,
   },
-  selectBarText: { fontSize: 13, fontWeight: '700', color: Colors.primary },
-  selectBarBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 8,
-    backgroundColor: '#fff', borderWidth: 1, borderColor: '#e5e7eb',
+  modalCard: {
+    width: '100%', maxWidth: 480,
+    backgroundColor: Colors.cardBg,
+    borderRadius: Radius.xl,
+    padding: Spacing.xl,
+    gap: Spacing.md,
+    ...Shadow.lg,
   },
-  selectBarBtnPrimary: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  selectBarBtnText: { fontSize: 12, fontWeight: '700', color: '#1a1a2e' },
-
-  tipLine: { fontSize: 11, color: '#9ca3af', marginBottom: 8, marginLeft: 4 },
-
-  userCard: {
-    backgroundColor: '#fff', borderRadius: 14, marginBottom: 8,
-    borderWidth: 1, borderColor: '#f3f4f6', overflow: 'hidden',
-  },
-  userCardSelected: { borderColor: Colors.primary, backgroundColor: '#FAF5FF' },
-  userRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 },
-  checkbox: {
-    width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: '#d1d5db',
-    alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff',
-  },
-  checkboxOn: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  avatar: { alignItems: 'center', justifyContent: 'center' },
-  avatarText: { color: '#fff', fontWeight: '800' },
-  userInfo: { flex: 1 },
-  userName: { fontSize: 14, fontWeight: '700', color: '#1a1a2e' },
-  userEmail: { fontSize: 11, color: '#6b7280', marginTop: 2 },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4, flexWrap: 'wrap' },
-  metaText: { fontSize: 10, color: '#9ca3af' },
-  metaDot: { fontSize: 10, color: '#d1d5db' },
-  userMeta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  statusDot: { width: 8, height: 8, borderRadius: 4 },
-
-  empty: { alignItems: 'center', paddingVertical: 40, gap: 10 },
-  emptyText: { fontSize: 14, color: '#9ca3af' },
-  emptyAction: { fontSize: 13, color: Colors.primary, fontWeight: '700' },
-
-  // Bulk push modal
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
-  modalCard: { backgroundColor: '#fff', borderRadius: 16, padding: 20, gap: 12 },
-  modalTitle: { fontSize: 16, fontWeight: '800', color: '#1a1a2e' },
-  modalHint: { fontSize: 12, color: '#6b7280', lineHeight: 17 },
+  modalTitle: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.textDark },
+  modalHint: { fontSize: FontSize.sm, color: Colors.textLight, lineHeight: 19 },
   modalInput: {
-    backgroundColor: '#f9fafb', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10,
-    fontSize: 13, color: '#1a1a2e', borderWidth: 1, borderColor: '#e5e7eb',
+    borderWidth: 1, borderColor: Colors.border,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md, paddingVertical: 10,
+    fontSize: FontSize.sm, color: Colors.textDark,
+    backgroundColor: Colors.bgLight,
   },
-  rolePickerWrap: { gap: 8 },
-  rolePickerLabel: { fontSize: 12, fontWeight: '700', color: '#4b5563' },
-  rolePickerRow: { gap: 8, paddingRight: 4 },
+  modalTextarea: { minHeight: 80, textAlignVertical: 'top' },
+  modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: Spacing.sm, marginTop: Spacing.sm },
+  rolePickerWrap: { gap: 6 },
+  rolePickerLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textLight, letterSpacing: 0.4, textTransform: 'uppercase' },
+  rolePickerRow: { gap: 6 },
   roleChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    backgroundColor: '#fff',
+    paddingHorizontal: Spacing.md, paddingVertical: 6,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.bgLight,
+    borderWidth: 1, borderColor: Colors.borderSoft,
   },
-  roleChipActive: {
-    backgroundColor: '#F3E8FF',
-    borderColor: Colors.primary,
-  },
-  roleChipText: { fontSize: 12, fontWeight: '700', color: '#4b5563' },
-  roleChipTextActive: { color: Colors.primary },
-  modalTextarea: { height: 88, textAlignVertical: 'top' as any },
-  modalActions: { flexDirection: 'row', gap: 8, marginTop: 4 },
-  modalBtn: {
-    flex: 1, paddingVertical: 11, borderRadius: 10, alignItems: 'center',
-    backgroundColor: '#f3f4f6', borderWidth: 1, borderColor: '#e5e7eb',
-    flexDirection: 'row', justifyContent: 'center', gap: 6,
-  },
-  modalBtnPrimary: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  modalBtnText: { fontSize: 13, fontWeight: '700', color: '#1a1a2e' },
+  roleChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  roleChipText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textDark },
+  roleChipTextActive: { color: Colors.white },
 });

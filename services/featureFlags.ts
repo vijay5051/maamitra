@@ -223,13 +223,16 @@ export function isFeatureEnabled(
 // ─── Firestore I/O ────────────────────────────────────────────────────────
 const RUNTIME_DOC_PATH = 'app_config/runtime';
 
-function runtimeDocRef(): DocumentReference {
-  return doc(db!, RUNTIME_DOC_PATH);
+function runtimeDocRef(): DocumentReference | null {
+  if (!db) return null;
+  return doc(db, RUNTIME_DOC_PATH);
 }
 
 export async function fetchRuntimeConfig(): Promise<RuntimeConfig> {
+  const ref = runtimeDocRef();
+  if (!ref) return defaultRuntimeConfig();
   try {
-    const snap = await getDoc(runtimeDocRef());
+    const snap = await getDoc(ref);
     return normaliseRuntimeConfig(snap.exists() ? snap.data() : null);
   } catch (e) {
     return defaultRuntimeConfig();
@@ -239,8 +242,14 @@ export async function fetchRuntimeConfig(): Promise<RuntimeConfig> {
 export function subscribeRuntimeConfig(
   cb: (cfg: RuntimeConfig) => void,
 ): Unsubscribe {
+  const ref = runtimeDocRef();
+  if (!ref) {
+    // No Firestore yet — emit defaults synchronously and return a no-op unsub.
+    cb(defaultRuntimeConfig());
+    return () => {};
+  }
   return onSnapshot(
-    runtimeDocRef(),
+    ref,
     (snap) => cb(normaliseRuntimeConfig(snap.exists() ? snap.data() : null)),
     () => cb(defaultRuntimeConfig()),
   );
@@ -260,8 +269,10 @@ async function writeRuntimeConfig(
   auditAction: AdminAction,
   auditMeta: Record<string, any>,
 ): Promise<void> {
+  const ref = runtimeDocRef();
+  if (!ref) throw new Error('Firestore not ready');
   await setDoc(
-    runtimeDocRef(),
+    ref,
     {
       ...patch,
       updatedAt: serverTimestamp(),
@@ -284,8 +295,10 @@ export async function setFeatureFlag(
   for (const [k, v] of Object.entries(patch)) {
     update[`features.${key}.${k}`] = v;
   }
+  const ref = runtimeDocRef();
+  if (!ref) throw new Error('Firestore not ready');
   await setDoc(
-    runtimeDocRef(),
+    ref,
     { ...update, updatedAt: serverTimestamp(), updatedBy: actor.email ?? actor.uid },
     { merge: true },
   );
