@@ -56,12 +56,32 @@ inbox — all without the admin ever logging into Meta.
   ie post-Phase 6).
 
 ### Last action
-Set up Meta App + use cases + Settings→Basic. Committing Phase 1 code now.
+**Phase 1 SHIPPED + DEPLOYED** (commit `d42f24f`).
+- git push → main ✅
+- firestore.rules deployed ✅
+- OTA published to `production` channel (Android + iOS) ✅
+- Firebase Hosting deployed (web) ✅
+
+Live at https://maamitra.co.in/admin/marketing — sign in as a super
+admin (rocking.vsr@gmail.com etc.) and the new "Marketing" nav group
+is in the sidebar with two items: Overview + Brand kit. Setup
+checklist on the overview honestly reports 1/8 (Meta App is the only
+one currently green).
 
 ### Next step
-Finish Phase 1 (brand kit + nav + schema), commit + push, then either
-continue into Phase 2 (templating engine) or pivot back to Meta to
-add the webhook URL once Phase 5 ships.
+**Phase 2 — Satori template engine + first 3 templates**
+(tip card, quote card, milestone card).
+
+The renderer pipeline lives in `functions/` (or a new sibling worker
+— TBD), reads brand kit from `marketing_brand/main`, takes
+`{ template, headline, body, accentColor? }`, returns a PNG URL.
+First 3 templates use stock photos from Pexels for backgrounds; AI
+backgrounds (FLUX Schnell on Replicate) come in Phase 3.
+
+### Dev preview admin
+Local browser previews can bypass auth via
+`http://localhost:8081/admin/marketing?previewAdmin=1`. Bypass is
+__DEV__-only and stripped from prod builds. See `lib/devPreviewAdmin.ts`.
 
 ## Wave summary — what shipped
 
