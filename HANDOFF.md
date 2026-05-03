@@ -56,31 +56,35 @@ inbox — all without the admin ever logging into Meta.
   ie post-Phase 6).
 
 ### Last action
-**Phase 2 SHIPPED + DEPLOYED** (commit `63d1cf1`).
-- git push → main ✅
-- functions:renderMarketingTemplate deployed ✅
-- OTA published (update group b8303cf1) ✅
-- Firebase Hosting deployed (web) ✅
+**Phase 2 fully wired up + Tip Card UI fix** (commit `8f5abbc`).
+- Pexels + Replicate keys loaded via `functions/.env` (gitignored)
+- functions:renderMarketingTemplate redeployed (now reads keys via
+  `process.env.*`, no Secret Manager / `secrets:` line needed)
+- Tip Card UI: hides Pexels/AI picker since template is text-only
+  by design (was a dead-click violation)
+- Web rebuilt + Firebase Hosting deployed
+- OTA published (update group `63e3ea9e-566b-4da2-bfae-843e66cbe3ea`)
 
-Live at https://maamitra.co.in/admin/marketing/preview — sign in as
-super admin, pick template + image source, hit Render. Output saved
-to `marketing/previews/{ts}-{template}.png` in default Storage bucket.
+Live at https://maamitra.co.in/admin/marketing/preview — Tip Card now
+shows a hint instead of the picker; Quote Card / Milestone Card pull
+real Pexels photos and (optionally) AI backgrounds from FLUX Schnell.
+
+**Earlier fix this session**: previous deploy had shipped a `dist/`
+without `index.html` — the entire site was 404'ing. Cleaned + rebuilt
++ redeployed and now both root and admin routes serve correctly.
+
+### Secret-management approach (decided this session)
+- We use `functions/.env` (gitignored via root `.gitignore` `.env`
+  rule) for Pexels + Replicate. Loaded by Firebase Functions on
+  deploy as ordinary env vars.
+- Do **not** uncomment the `secrets:` line in
+  `functions/src/marketing/index.ts` — that path uses GCP Secret
+  Manager which we deliberately bypassed.
+- To rotate: edit `functions/.env`, redeploy
+  `functions:renderMarketingTemplate`. Done.
 
 ### Next step
-**Set Pexels + Replicate API keys** (5 min admin task) so stock + AI
-sources work — until then only tipCard (no background) renders, the
-others gracefully no-op the image fetch.
-
-```
-firebase functions:secrets:set PEXELS_API_KEY      # paste key from pexels.com/api
-firebase functions:secrets:set REPLICATE_API_TOKEN # paste from replicate.com/account
-```
-
-Then redeploy with secrets enabled — uncomment the `secrets:` line in
-`functions/src/marketing/index.ts` (line ~80) and run
-`firebase deploy --only functions:renderMarketingTemplate`.
-
-Then **Phase 3 — daily draft generation cron**:
+**Phase 3 — daily draft generation cron**:
 - Pubsub-triggered Function at 6am IST
 - Reads brand kit's theme calendar for today's weekday
 - Calls Claude Haiku 4.5 for caption + headline + body
@@ -210,6 +214,11 @@ Latest deploy: 2026-05-03.
   not for acting on behalf of users.
 
 ## Recent commits
+- `8f5abbc` fix(marketing) — hide bg-image picker for Tip Card
+- `4334dc9` docs(handoff) — Phase 2 shipped
+- `63d1cf1` feat(marketing) — Phase 2 (Satori + 3 templates)
+- `45b362f` docs(handoff) — Phase 1 shipped
+- `d42f24f` feat(marketing) — Phase 1 foundation + brand kit editor
 - `37e37f1` waves 7+8 — DPDP, custom roles, impersonation, AI assist
 - `4bea0e4` waves 5+6 — segments, draft/publish, what's new
 - `ed9fa75` wave 3f — notifications + settings (Wave 3 complete)
