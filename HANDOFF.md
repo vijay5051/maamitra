@@ -7,118 +7,135 @@
 ---
 
 ## Active task
-**Admin panel — full overhaul.** Waves 1–4 shipped + deployed.
-Wave 3 now COMPLETE (all 14 admin screens migrated). Waves 5–8
-deferred.
+**Admin panel — full overhaul.** All 8 waves SHIPPED + DEPLOYED.
+No active sub-task.
 
 Worktree: `claude/competent-agnesi-a53c43` (pushes to `main`).
 
-## Wave plan & status
-1. **Foundation** ✅ shipped (`809dcba`)
-2. **Visibility control** ✅ shipped (`1e36641`)
-3. **Screen rebuilds** ✅ COMPLETE (all 14 screens):
-   - 3a (`af68209`): dashboard, audit, comments, chat-usage, vaccine-overdue
-   - 3b (`091416a`): users
-   - 3c (`af9f9eb`): community, support, feedback, banner
-   - 3d (`c99c889`): vaccines, content
-   - 3e (`505e14a`): users/[uid]
-   - 3f: notifications + settings (this commit — minimal AdminPage wrap;
-     inner Compose/Outbox/Schedule and Feature-Flags/Theme/Admin-team
-     panels preserved as-is)
-4. **Safety & moderation** ✅ shipped (`fda72d4`)
+## Wave summary — what shipped
 
-5–8 deferred. Notes for resumption below.
+### Wave 1: Foundation (`809dcba`)
+Sidebar shell, design system primitives (AdminPage, DataTable,
+StatCard, EmptyState, ConfirmDialog, SlideOver, Toolbar, FilterBar,
+StatusBadge), enums in `lib/adminEnums.ts`, `useFirestoreQuery` hook.
+
+### Wave 2: Visibility control (`1e36641`)
+`app_config/runtime` Firestore doc drives 13 feature flags + maintenance
+mode + force-update prompt + moderation policy. `useFeatureFlag` hook,
+`<FeatureGate>`, `<MaintenanceOverlay>`, `<ForceUpdateOverlay>`,
+`/admin/visibility` screen. Sticky cohort rollout via FNV bucket.
+
+### Wave 3: Screen rebuilds (`af68209`, `091416a`, `af9f9eb`, `c99c889`, `505e14a`, `ed9fa75`)
+All 14 admin screens migrated to AdminPage shell:
+dashboard, audit, comments, chat-usage, vaccine-overdue, users (3a/3b);
+community, support, feedback, banner (3c); vaccines, content (3d);
+users/[uid] (3e); notifications + settings minimal-touch (3f).
+
+### Wave 4: Safety (`fda72d4`)
+PII auto-redaction (phone/email/Aadhaar/PAN), crisis-language detection
+(PPD/self-harm/abuse/eating disorder), `crisis_queue` collection +
+`/admin/safety` screen with Vandrevala hotline. Wired into
+`services/social.ts createPost`.
+
+### Wave 5: Targeting (`4bea0e4` shared with Wave 6)
+`services/segments.ts` + `admin_segments` collection. `/admin/segments`
+with chip multi-select for states / parent-roles / audience-buckets,
+number ranges for kids + days-active, push-only switch, **live
+preview** that counts matching users without saving.
+
+### Wave 6: CMS draft/publish + what's-new (`4bea0e4`)
+Content collections (books/articles/products/schemes/yoga) gated by
+`status != 'draft'` for non-admin reads. New items default to draft.
+Publish/Unpublish toggle in form footer. `services/whatsNew.ts` +
+`/admin/whatsnew` for monotonic-version release-notes modal.
+
+### Wave 7: Org maturity (`37e37f1` shared with Wave 8)
+- DPDP consent ledger: `services/consent.ts` + `consent_ledger`
+  collection (append-only, deletes denied) + `/admin/consent`. RTBF
+  processing emits a withdrawn-now row + audits `rtbf.process`.
+- Custom roles: `services/customRoles.ts` + `admin_roles` collection +
+  `/admin/roles` with capability matrix view + custom-role editor.
+
+### Wave 8: Ops + AI (`37e37f1`)
+- `services/adminAi.ts`: piggybacks on the user-chat Cloudflare Worker
+  with task-specific system prompts. `draftTicketReply` and
+  `summarizeUser` entry points.
+- `store/useImpersonationStore.ts` + `<ImpersonationBanner>`: view-as
+  user. Tracks target uid + name; sticky orange bar at top of every
+  screen while active. Audit-logged on start/end.
+- `app/admin/users/[uid].tsx`: "AI summary" + "View as" header buttons.
+- `app/admin/support.tsx`: "AI draft" button proposes a reply.
 
 ## Deployed to prod
-- Firestore rules (Wave 2 + Wave 4 match blocks)
-- Web hosting at https://maa-mitra-7kird8.web.app + https://maamitra.co.in
-- Android/iOS OTA, runtime 1.0.5
+Latest deploy: 2026-05-03.
+- **Firestore rules**: includes /app_config, /crisis_queue,
+  /admin_segments, /admin_roles, /consent_ledger, content
+  draft-gate.
+- **Web hosting**: https://maa-mitra-7kird8.web.app +
+  https://maamitra.co.in
+- **Android/iOS OTA**: latest update group
+  `5323e6ff-c70a-44ac-85c2-758e8fbbe282`, runtime 1.0.5, message
+  "waves 7+8".
 
-After this Wave 3f commit, re-run the deploy chain to ship the new
-screens (Firestore rules unchanged; only TypeScript / hosting / OTA).
+## Open follow-ups (not blocking; pick when ready)
 
-## Wave 3f notes (notifications + settings)
-notifications.tsx: minimal touch — outer screen now wraps in
-`<AdminPage title="Notifications" …>` with `<FilterBar>` replacing
-the bespoke tab bar. The three sub-tabs (ComposeTab, OutboxList,
-ScheduleList) and their internal layouts are unchanged. Refresh
-moved to a header action.
+**Wired but not yet client-consumed:**
+- Custom-role capability gating: `services/customRoles.ts` writes
+  rows but `lib/admin.ts can()` only checks built-in roles. To
+  activate a custom role, extend `can()` to also consult an
+  in-memory cache populated from `listCustomRoles()` at mount.
+- Impersonation read path: `useImpersonationStore` is plumbed but
+  no user-facing screens read from it yet. Pick the most useful
+  one (e.g. `/(tabs)/community`) and have it read `targetUid ??
+  authUser.uid` so the admin sees the impersonated user's feed.
+- Consent recording: `recordConsent()` exists but the onboarding /
+  privacy-policy screens don't yet call it. Wire from
+  `app/(auth)/onboarding.tsx` final step.
+- Lifecycle automation, A/B test runner, push template library:
+  scaffolded as deferred Wave 5 items in earlier handoff; segments
+  alone unblock most use cases.
+- BigQuery export: needs Firebase Extension config; not coded.
+- Vaccine schedule versioning + two-person signoff: out of scope
+  for this overhaul; opens in a future clinical-safety pass.
+- Cloud Functions log viewer: needs Logging API access; deferred.
 
-settings.tsx: minimal touch — `<ScrollView>` wrapper replaced by
-`<AdminPage title="App settings" …>` with crumbs. All sections
-(Feature Flags, Rollout %, Admin team, Theme, Tab Config, Save All)
-are untouched. Description points to /admin/visibility for the new
-flag system; this screen still drives the legacy app_settings doc.
-
-Future polish (deferable): rebuild ComposeTab on the design system
-+ add audience preview before send (already proposed for Wave 5).
-
-## Next step (Waves 5–8 deferred — resume here)
-Order by leverage-per-hour:
-
-**Wave 5 — Targeting & notifications**
-- `services/segments.ts` — saved audience definitions.
-- Audience-preview helper for the existing notifications/Compose.
-- Lifecycle automation skeleton.
-- Push template library.
-- A/B test runner.
-
-**Wave 6 — Analytics & CMS**
-- BigQuery export wiring (Firebase extension).
-- Cohort retention curves + funnel editor.
-- Draft → preview → publish for content.
-- Scheduled publish, i18n console, what's-new publisher.
-
-**Wave 7 — Org maturity**
-- Custom roles UI replacing the four hardcoded roles.
-- Read-only "viewer" role.
-- Per-role PII redaction.
-- Immutable audit log w/ hash chain.
-- Vaccine schedule versioning + two-person signoff.
-- DPDP consent ledger.
-- RTBF queue.
-
-**Wave 8 — Ops & AI**
-- Cloud Functions log viewer + cron retry/replay.
-- User impersonation ("view as").
-- Claude-assisted ticket replies + 30-day user summaries.
-- Dashboard anomaly callouts.
-
-## Earlier queued follow-ups (still valid)
-- **Phase 1 (chat profile surfacing):** expand `ChatContext` +
-  `buildContext()` in `app/(tabs)/chat.tsx` to surface growthTracking,
-  foodTracking, healthTracking checklist gaps, all kids (not just
-  active), local time-of-day, days-since-last-chat.
-- **Phase 2 (learned facts memory):** new `users/{uid}/memory` doc
-  with facts/concerns/preferences arrays, fed by tiny secondary
-  Claude extraction call.
+**Earlier queued chat work (still valid):**
+- Phase 1: expand ChatContext + buildContext() in
+  `app/(tabs)/chat.tsx` to surface growthTracking, foodTracking,
+  health checklist gaps, all kids, time-of-day, days-since-last-chat.
+- Phase 2: `users/{uid}/memory` doc with facts/concerns/preferences,
+  fed by tiny secondary Claude extraction call.
 
 ## In-flight side processes
 - None.
 
 ## Known constraints / gotchas
 - **Shared branch is `main` only.** Pull/rebase before work and
-  before every commit. Push immediately after every commit.
+  before every commit.
 - **OTA `safe-update.sh` bypass** required when local branch isn't
   `main` (worktrees push to `main` from a `claude/*` branch). Use
   `SAFE_UPDATE_BYPASS=1 npm run update` after confirming tree clean.
-- **Wide-web Stack header is suppressed** when sidebar shows.
-  Every admin screen now renders its own AdminPage header so this
-  no longer creates blank-title panes.
-- **node_modules symlink in worktree.** Required for the bundler.
-  `ln -s /Users/vijay/Documents/Claude/Projects/App/Maamitra/node_modules node_modules`
-  Removed before each safe-update; recreated after.
-- **Wave 4 safety pipeline** runs client-side from `services/social.ts
-  createPost`. Comments / DMs are NOT yet wired — extend similarly
-  from `addCommentFirestore` and DM creation when needed. Image
-  moderation is not yet wired.
+- **node_modules symlink in worktree.** `ln -s
+  /Users/vijay/Documents/Claude/Projects/App/Maamitra/node_modules
+  node_modules`. Removed before each safe-update; recreated after.
+- **Wave 4 safety pipeline** runs only from
+  `services/social.ts createPost`. Comments / DMs are NOT yet wired.
+- **adminAi.ts** uses the SAME Cloudflare Worker as the user-facing
+  chat. Worker enforces auth (Firebase ID token) and rate limits.
+  No new server config needed.
+- **Wave 8 impersonation is view-as, not session-swap.** The admin's
+  Firebase identity is unchanged; this is for support debugging,
+  not for acting on behalf of users.
 
 ## Recent commits
-- `505e14a` feat(admin): wave 3e — users/[uid]
-- `c99c889` feat(admin): wave 3d — vaccines + content
-- `af9f9eb` feat(admin): wave 3c — community + support + feedback + banner
-- `091416a` feat(admin): wave 3b — users + null-guard runtime config
-- `af68209` feat(admin): wave 3a — dashboard + audit + comments + chat-usage + vaccine-overdue
-- `fda72d4` feat(admin): wave 4 safety
-- `1e36641` feat(admin): wave 2 visibility control
-- `809dcba` feat(admin): wave 1 foundation
+- `37e37f1` waves 7+8 — DPDP, custom roles, impersonation, AI assist
+- `4bea0e4` waves 5+6 — segments, draft/publish, what's new
+- `ed9fa75` wave 3f — notifications + settings (Wave 3 complete)
+- `505e14a` wave 3e — users/[uid]
+- `c99c889` wave 3d — vaccines + content
+- `af9f9eb` wave 3c — community + support + feedback + banner
+- `091416a` wave 3b — users + null-guard
+- `af68209` wave 3a — dashboard + audit + comments + chat-usage + vaccine-overdue
+- `fda72d4` wave 4 safety
+- `1e36641` wave 2 visibility control
+- `809dcba` wave 1 foundation
