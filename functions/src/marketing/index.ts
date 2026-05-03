@@ -15,7 +15,7 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions/v1';
 
-import { fluxSchnell, pexelsSearch } from './imageSources';
+import { fluxSchnell, imagenGenerate, openaiImage, pexelsSearch } from './imageSources';
 import { renderTemplate } from './renderer';
 import { BrandSnapshot, TEMPLATE_NAMES } from './templates';
 
@@ -39,18 +39,20 @@ async function callerIsMarketingAdmin(token: admin.auth.DecodedIdToken | undefin
   }
 }
 
+/** Discriminated union — explicit about provider so we can extend without
+ *  breaking callers. The Phase-3 cron will produce the same shape. */
+type BackgroundSpec =
+  | { type: 'url'; url: string }
+  | { type: 'stock'; provider: 'pexels'; query: string }
+  | { type: 'ai'; model: 'flux' | 'imagen' | 'dalle'; prompt: string };
+
+type ImageSourceTag = 'pexels' | 'flux' | 'imagen' | 'dalle' | 'caller-supplied' | 'none';
+
 interface RenderPayload {
   template: string;
   props: Record<string, any>;
-  /** If set, render uses this as the background image URL. Mutually exclusive
-   *  with stockQuery / aiPrompt. */
-  backgroundUrl?: string;
-  /** If set, fetches a Pexels photo with this query and injects as the
-   *  background. */
-  stockQuery?: string;
-  /** If set, generates an AI image with this prompt via FLUX Schnell. Falls
-   *  back to stockQuery if the AI call fails. */
-  aiPrompt?: string;
+  /** Background image source. Omit for templates that don't use one (Tip Card). */
+  background?: BackgroundSpec;
   /** Optional explicit dimensions (default 1080×1080). */
   width?: number;
   height?: number;
@@ -62,7 +64,7 @@ interface RenderResponseOk {
   storagePath: string;
   width: number;
   height: number;
-  imageSource: 'pexels' | 'flux' | 'caller-supplied' | 'none';
+  imageSource: ImageSourceTag;
   imageAttribution: string | null;
   bytes: number;
 }
@@ -101,29 +103,39 @@ export function buildRenderMarketingTemplate(allowList: ReadonlySet<string>) {
       const props = (data?.props ?? {}) as Record<string, any>;
 
       // ── Resolve background image (if any) ─────────────────────────────
-      let imageSource: RenderResponseOk['imageSource'] = 'none';
+      // Each provider returns a string (URL or data: URL) on success or null
+      // on any failure — no provider throws. Caller picks one provider per
+      // render; we don't auto-fallback because the cost/style profile
+      // differs significantly between FLUX, Imagen, and gpt-image-1.
+      let imageSource: ImageSourceTag = 'none';
       let imageAttribution: string | null = null;
-      let backgroundUrl: string | undefined = data?.backgroundUrl;
+      let backgroundUrl: string | undefined;
 
-      if (!backgroundUrl && data?.aiPrompt) {
-        const ai = await fluxSchnell(data.aiPrompt, { aspectRatio: '1:1' });
-        if (ai) {
-          backgroundUrl = ai;
-          imageSource = 'flux';
-        }
-      }
-      if (!backgroundUrl && data?.stockQuery) {
-        const stock = await pexelsSearch(data.stockQuery);
+      const bg = data?.background;
+      if (bg?.type === 'url' && typeof bg.url === 'string' && bg.url) {
+        backgroundUrl = bg.url;
+        imageSource = 'caller-supplied';
+      } else if (bg?.type === 'stock' && bg.provider === 'pexels' && typeof bg.query === 'string' && bg.query.trim()) {
+        const stock = await pexelsSearch(bg.query.trim());
         if (stock) {
           backgroundUrl = stock.url;
           imageAttribution = stock.attribution;
           imageSource = 'pexels';
         }
-      }
-      if (!backgroundUrl && data?.backgroundUrl) {
-        imageSource = 'caller-supplied';
-      } else if (data?.backgroundUrl) {
-        imageSource = 'caller-supplied';
+      } else if (bg?.type === 'ai' && typeof bg.prompt === 'string' && bg.prompt.trim()) {
+        const prompt = bg.prompt.trim();
+        let url: string | null = null;
+        if (bg.model === 'imagen') {
+          url = await imagenGenerate(prompt, { aspectRatio: '1:1' });
+          if (url) imageSource = 'imagen';
+        } else if (bg.model === 'dalle') {
+          url = await openaiImage(prompt, { quality: 'medium', size: '1024x1024' });
+          if (url) imageSource = 'dalle';
+        } else {
+          url = await fluxSchnell(prompt, { aspectRatio: '1:1' });
+          if (url) imageSource = 'flux';
+        }
+        if (url) backgroundUrl = url;
       }
 
       // Templates that take a backgroundUrl key it explicitly.

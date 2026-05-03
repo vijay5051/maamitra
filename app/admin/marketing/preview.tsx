@@ -16,6 +16,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, Radius, Shadow, Spacing } from '../../../constants/theme';
 import { AdminPage, EmptyState, ToolbarButton } from '../../../components/admin/ui';
 import {
+  AiImageModel,
+  BackgroundSpec,
   RenderableTemplateName,
   RenderTemplateInput,
   RenderTemplateResult,
@@ -23,9 +25,19 @@ import {
   renderMarketingTemplate,
 } from '../../../services/marketing';
 
-type ImageSource = 'none' | 'pexels' | 'flux';
+type SourceKind = 'none' | 'stock' | 'ai';
 
-const TEMPLATE_PRESETS: Record<RenderableTemplateName, { label: string; props: Record<string, any>; defaultStock?: string; defaultAi?: string }> = {
+interface TemplatePreset {
+  label: string;
+  props: Record<string, any>;
+  defaultStockQuery?: string;
+  defaultAiPrompt?: string;
+}
+
+// Defaults are Indian-context-rich on purpose — Pexels' library skews
+// Western, and AI models follow specific cultural cues much better than
+// generic ones. Tweak in admin to taste.
+const TEMPLATE_PRESETS: Record<RenderableTemplateName, TemplatePreset> = {
   tipCard: {
     label: 'Tip Card',
     props: {
@@ -44,7 +56,9 @@ const TEMPLATE_PRESETS: Record<RenderableTemplateName, { label: string; props: R
       quote: 'There is no way to be a perfect mother, and a million ways to be a good one.',
       attribution: 'Jill Churchill',
     },
-    defaultStock: 'mother and baby soft warm light',
+    defaultStockQuery: 'indian mother holding newborn warm light saree',
+    defaultAiPrompt:
+      'soft warm photograph of an indian mother gently holding her newborn baby, traditional saree, golden hour light through a window, tender quiet mood, watercolour pastel palette, high detail, professional photography',
   },
   milestoneCard: {
     label: 'Milestone Card',
@@ -59,28 +73,62 @@ const TEMPLATE_PRESETS: Record<RenderableTemplateName, { label: string; props: R
         'Recognises familiar people from across the room',
       ],
     },
-    defaultStock: 'happy indian baby 4 months',
+    defaultStockQuery: 'indian baby 4 months bright natural light playful',
+    defaultAiPrompt:
+      'cheerful indian baby around 4 months old exploring on a soft pastel mat at home, bright natural light, marigold accents, joyful expression, lifestyle photography, warm tones',
   },
 };
 
+interface AiModelOption {
+  value: AiImageModel;
+  label: string;
+  hint: string;
+}
+
+const AI_MODELS: AiModelOption[] = [
+  { value: 'imagen', label: 'Imagen (Google)', hint: 'Best for Indian skin tones, traditional clothing, Indian environments. ~₹3.30/render.' },
+  { value: 'dalle',  label: 'gpt-image-1 (OpenAI)', hint: 'Strong prompt adherence for compositional details. ~₹3.50/render (medium quality).' },
+  { value: 'flux',   label: 'FLUX Schnell',  hint: 'Cheapest + fastest, generic look. ~₹0.25/render.' },
+];
+
 export default function MarketingPreviewScreen() {
   const [template, setTemplate] = useState<RenderableTemplateName>('tipCard');
-  const [imageSource, setImageSource] = useState<ImageSource>('none');
-  const [stockQuery, setStockQuery] = useState<string>(TEMPLATE_PRESETS.tipCard.defaultStock ?? '');
-  const [aiPrompt, setAiPrompt] = useState<string>('');
+  // Tip Card has no background; non-tip templates default to AI/Imagen for
+  // best Indian-context fidelity (admins can swap to stock for free, or to
+  // FLUX for the cheap-and-fast option).
+  const [sourceKind, setSourceKind] = useState<SourceKind>('none');
+  const [aiModel, setAiModel] = useState<AiImageModel>('imagen');
+  const [stockQuery, setStockQuery] = useState<string>(TEMPLATE_PRESETS.tipCard.defaultStockQuery ?? '');
+  const [aiPrompt, setAiPrompt] = useState<string>(TEMPLATE_PRESETS.tipCard.defaultAiPrompt ?? '');
   const [propsJson, setPropsJson] = useState<string>(JSON.stringify(TEMPLATE_PRESETS.tipCard.props, null, 2));
   const [rendering, setRendering] = useState(false);
   const [result, setResult] = useState<RenderTemplateResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   function pickTemplate(t: RenderableTemplateName) {
+    const preset = TEMPLATE_PRESETS[t];
     setTemplate(t);
-    setPropsJson(JSON.stringify(TEMPLATE_PRESETS[t].props, null, 2));
-    setStockQuery(TEMPLATE_PRESETS[t].defaultStock ?? '');
-    setAiPrompt(TEMPLATE_PRESETS[t].defaultAi ?? '');
-    if (t === 'tipCard') setImageSource('none');
-    else if (TEMPLATE_PRESETS[t].defaultStock) setImageSource('pexels');
+    setPropsJson(JSON.stringify(preset.props, null, 2));
+    setStockQuery(preset.defaultStockQuery ?? '');
+    setAiPrompt(preset.defaultAiPrompt ?? '');
+    // Tip Card has no background. Other templates default to AI for the
+    // higher-quality Indian-context render; user can switch to stock or none.
+    setSourceKind(t === 'tipCard' ? 'none' : 'ai');
     setResult(null);
+  }
+
+  function buildBackground(): BackgroundSpec | undefined {
+    if (template === 'tipCard') return undefined;
+    if (sourceKind === 'none') return undefined;
+    if (sourceKind === 'stock') {
+      const q = stockQuery.trim();
+      if (!q) return undefined;
+      return { type: 'stock', provider: 'pexels', query: q };
+    }
+    // ai
+    const p = aiPrompt.trim();
+    if (!p) return undefined;
+    return { type: 'ai', model: aiModel, prompt: p };
   }
 
   async function render() {
@@ -95,8 +143,8 @@ export default function MarketingPreviewScreen() {
         throw new Error(`Invalid JSON in props: ${e?.message ?? e}`);
       }
       const input: RenderTemplateInput = { template, props };
-      if (imageSource === 'pexels' && stockQuery.trim()) input.stockQuery = stockQuery.trim();
-      if (imageSource === 'flux' && aiPrompt.trim()) input.aiPrompt = aiPrompt.trim();
+      const bg = buildBackground();
+      if (bg) input.background = bg;
 
       const res = await renderMarketingTemplate(input);
       if (!res.ok) {
@@ -165,48 +213,80 @@ export default function MarketingPreviewScreen() {
                   No background image — Tip Card uses your brand palette as the canvas.
                 </Text>
               ) : (
-                <View style={styles.chipRow}>
-                  {(['none', 'pexels', 'flux'] as ImageSource[]).map((s) => (
-                    <Pressable
-                      key={s}
-                      onPress={() => setImageSource(s)}
-                      style={[styles.tab, imageSource === s && styles.tabActive]}
-                    >
-                      <Text style={[styles.tabLabel, imageSource === s && styles.tabLabelActive]}>
-                        {s === 'none' ? 'No image' : s === 'pexels' ? 'Pexels stock' : 'AI (FLUX)'}
+                <>
+                  <View style={styles.chipRow}>
+                    {(['none', 'stock', 'ai'] as SourceKind[]).map((s) => (
+                      <Pressable
+                        key={s}
+                        onPress={() => setSourceKind(s)}
+                        style={[styles.tab, sourceKind === s && styles.tabActive]}
+                      >
+                        <Text style={[styles.tabLabel, sourceKind === s && styles.tabLabelActive]}>
+                          {s === 'none' ? 'No image' : s === 'stock' ? 'Stock photo' : 'AI image'}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+
+                  {sourceKind === 'stock' ? (
+                    <View style={{ marginTop: Spacing.md }}>
+                      <Text style={styles.fieldLabel}>Pexels search query</Text>
+                      <Text style={styles.fieldHint}>
+                        Pexels skews Western — prepend "indian", "south asian", or specific cues
+                        like "saree" / "kurta" to get the right look. Free.
                       </Text>
-                    </Pressable>
-                  ))}
-                </View>
+                      <TextInput
+                        style={styles.fieldInput}
+                        value={stockQuery}
+                        onChangeText={setStockQuery}
+                        placeholder="indian mother newborn warm light"
+                        placeholderTextColor={Colors.textMuted}
+                        autoCapitalize="none"
+                      />
+                    </View>
+                  ) : null}
+
+                  {sourceKind === 'ai' ? (
+                    <View style={{ marginTop: Spacing.md, gap: Spacing.md }}>
+                      <View>
+                        <Text style={styles.fieldLabel}>Model</Text>
+                        <View style={[styles.chipRow, { marginTop: 6 }]}>
+                          {AI_MODELS.map((m) => (
+                            <Pressable
+                              key={m.value}
+                              onPress={() => setAiModel(m.value)}
+                              style={[styles.tab, aiModel === m.value && styles.tabActive]}
+                            >
+                              <Text style={[styles.tabLabel, aiModel === m.value && styles.tabLabelActive]}>
+                                {m.label}
+                              </Text>
+                            </Pressable>
+                          ))}
+                        </View>
+                        <Text style={[styles.fieldHint, { marginTop: 6 }]}>
+                          {AI_MODELS.find((m) => m.value === aiModel)?.hint}
+                        </Text>
+                      </View>
+
+                      <View>
+                        <Text style={styles.fieldLabel}>Prompt</Text>
+                        <Text style={styles.fieldHint}>
+                          Be specific about culture, lighting, mood, and style for the strongest
+                          results.
+                        </Text>
+                        <TextInput
+                          style={[styles.fieldInput, { minHeight: 100, textAlignVertical: 'top' }]}
+                          value={aiPrompt}
+                          onChangeText={setAiPrompt}
+                          multiline
+                          placeholder="soft warm photograph of an indian mother holding her newborn..."
+                          placeholderTextColor={Colors.textMuted}
+                        />
+                      </View>
+                    </View>
+                  ) : null}
+                </>
               )}
-              {template !== 'tipCard' && imageSource === 'pexels' ? (
-                <View style={{ marginTop: Spacing.sm }}>
-                  <Text style={styles.fieldLabel}>Search query</Text>
-                  <Text style={styles.fieldHint}>e.g. "indian mother newborn warm light".</Text>
-                  <TextInput
-                    style={styles.fieldInput}
-                    value={stockQuery}
-                    onChangeText={setStockQuery}
-                    placeholder="search query"
-                    placeholderTextColor={Colors.textMuted}
-                    autoCapitalize="none"
-                  />
-                </View>
-              ) : null}
-              {template !== 'tipCard' && imageSource === 'flux' ? (
-                <View style={{ marginTop: Spacing.sm }}>
-                  <Text style={styles.fieldLabel}>AI prompt</Text>
-                  <Text style={styles.fieldHint}>Describe the image. ~₹0.25/render via Replicate FLUX Schnell.</Text>
-                  <TextInput
-                    style={[styles.fieldInput, { minHeight: 80, textAlignVertical: 'top' }]}
-                    value={aiPrompt}
-                    onChangeText={setAiPrompt}
-                    multiline
-                    placeholder="watercolor illustration of a baby holding a flower, warm pastel palette"
-                    placeholderTextColor={Colors.textMuted}
-                  />
-                </View>
-              ) : null}
             </Section>
 
             <Section title="Template props (JSON)" description="Edit to tweak text. Length caps + sanitisation happen server-side; invalid JSON shows here as an error.">

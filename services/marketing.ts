@@ -142,21 +142,24 @@ function sanitiseTime(t: string): string {
 }
 
 // ── Template renderer (Phase 2) ─────────────────────────────────────────────
-// Calls the renderMarketingTemplate Cloud Function with template name +
-// props + optional image source (caller URL, Pexels query, or AI prompt).
-// Returns the public URL of the rendered PNG in Firebase Storage.
+// Calls the renderMarketingTemplate Cloud Function with template name + props
+// + an optional background spec. The Phase-3 cron uses the same payload.
 
 export type RenderableTemplateName = 'tipCard' | 'quoteCard' | 'milestoneCard';
+export type AiImageModel = 'flux' | 'imagen' | 'dalle';
+export type ImageSourceTag = 'pexels' | 'flux' | 'imagen' | 'dalle' | 'caller-supplied' | 'none';
+
+/** Discriminated union — picks one provider per render. */
+export type BackgroundSpec =
+  | { type: 'url'; url: string }
+  | { type: 'stock'; provider: 'pexels'; query: string }
+  | { type: 'ai'; model: AiImageModel; prompt: string };
 
 export interface RenderTemplateInput {
   template: RenderableTemplateName;
   props: Record<string, any>;
-  /** Use this URL directly as the background. */
-  backgroundUrl?: string;
-  /** Search query for Pexels stock photos. */
-  stockQuery?: string;
-  /** Prompt for FLUX Schnell AI generation. Falls back to stockQuery on failure. */
-  aiPrompt?: string;
+  /** Background image source. Omit for templates without one (Tip Card). */
+  background?: BackgroundSpec;
   /** Override dimensions (default 1080×1080). */
   width?: number;
   height?: number;
@@ -168,7 +171,7 @@ export interface RenderTemplateResult {
   storagePath: string;
   width: number;
   height: number;
-  imageSource: 'pexels' | 'flux' | 'caller-supplied' | 'none';
+  imageSource: ImageSourceTag;
   imageAttribution: string | null;
   bytes: number;
 }
