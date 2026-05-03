@@ -15,7 +15,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Colors,
@@ -163,6 +163,28 @@ export default function HomeTab() {
   const [settingsView, setSettingsView] = useState<
     null | 'main' | 'edit-profile' | 'privacy'
   >(null);
+
+  // Deep-link query params: chat-bubble action chips and other in-app
+  // links can navigate to /(tabs)?openProfile=1 to pop the profile
+  // sheet, or /(tabs)?openSettings=1 (or =privacy / =edit) to open
+  // the corresponding Settings view. We consume the param once on
+  // mount/route-change so a refresh doesn't keep re-opening the sheet.
+  const search = useLocalSearchParams<{
+    openProfile?: string;
+    openSettings?: string;
+  }>();
+  useEffect(() => {
+    if (search.openProfile === '1' || search.openProfile === 'true') {
+      setProfileOpen(true);
+    }
+    if (search.openSettings) {
+      const v = String(search.openSettings);
+      if (v === 'privacy') setSettingsView('privacy');
+      else if (v === 'edit' || v === 'edit-profile') setSettingsView('edit-profile');
+      else setSettingsView('main');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search.openProfile, search.openSettings]);
 
   const { motherName, parentGender, photoUrl, profile, kids } = useProfileStore();
   const activeKidId = useProfileStore((s) => s.activeKidId);

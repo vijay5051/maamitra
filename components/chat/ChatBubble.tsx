@@ -29,6 +29,41 @@ interface ActionChip {
   path: string;
 }
 
+// Whitelist of route bases the LLM is allowed to deep-link to. Anything
+// that doesn't start with one of these gets dropped at parse time so a
+// fabricated /profile / /settings / /home path never reaches the
+// router (where it produces an "Unmatched Route" page).
+const ALLOWED_PATH_PREFIXES = [
+  '/(tabs)',
+  '/post/',
+  '/conversation/',
+];
+// Common aliases the model occasionally invents → the real route.
+const PATH_ALIASES: Record<string, string> = {
+  '/profile': '/(tabs)?openProfile=1',
+  '/settings': '/(tabs)?openSettings=1',
+  '/home': '/(tabs)',
+  '/family': '/(tabs)/family',
+  '/health': '/(tabs)/health',
+  '/wellness': '/(tabs)/wellness',
+  '/library': '/(tabs)/library',
+  '/community': '/(tabs)/community',
+};
+
+function normalizeChipPath(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith('/')) return null;
+  // Try the alias map first (handles bare `/profile`, `/settings`, etc).
+  const [pathOnly, qs = ''] = trimmed.split('?');
+  if (PATH_ALIASES[pathOnly]) {
+    const aliased = PATH_ALIASES[pathOnly];
+    return qs ? `${aliased}${aliased.includes('?') ? '&' : '?'}${qs}` : aliased;
+  }
+  // Otherwise the path must start with one of the allowed prefixes.
+  if (ALLOWED_PATH_PREFIXES.some((p) => trimmed.startsWith(p))) return trimmed;
+  return null;
+}
+
 function parseActionChips(text: string): { stripped: string; chips: ActionChip[] } {
   // Tolerant to whitespace inside the brackets and to GO/NAV/LINK aliases
   // (the model occasionally drifts on the keyword). Both `|` and `→`
@@ -39,10 +74,10 @@ function parseActionChips(text: string): { stripped: string; chips: ActionChip[]
   const stripped = text
     .replace(re, (_match, rawLabel: string, rawPath: string) => {
       const label = rawLabel.trim();
-      let path = rawPath.trim();
-      // Defence: only accept paths that start with a slash so we don't
-      // get tricked into opening external URLs from the LLM.
-      if (!label || !path.startsWith('/')) return '';
+      const path = normalizeChipPath(rawPath);
+      // Defence: drop chips that don't resolve to a known route — better
+      // to silently skip than to ship the user to "Unmatched Route".
+      if (!label || !path) return '';
       // De-dupe — sometimes the model emits the same chip twice.
       const key = `${label}::${path}`;
       if (seen.has(key)) return '';
