@@ -526,6 +526,23 @@ export async function sendMessage(
     // app-specific articles / schemes / milestones that actually match
     // the question being asked.
     const latestUserMsg = [...messages].reverse().find((m) => m.role === 'user');
+
+    // Auto-compact long threads. The proxy worker rejects any payload
+    // with more than 40 messages, which used to soft-brick the chat for
+    // any user whose conversation crossed 20 turns — every send would
+    // 400 and the client would loop "I'm having a little trouble".
+    // Keep the most recent 30 messages, but always start with a 'user'
+    // role so Anthropic doesn't reject the alternation. If trimming
+    // would drop the most recent message, that means the input is
+    // already smaller than the cap and we can pass it through unchanged.
+    const MAX_HISTORY = 30;
+    let trimmed = messages;
+    if (messages.length > MAX_HISTORY) {
+      const tail = messages.slice(-MAX_HISTORY);
+      const firstUserIdx = tail.findIndex((m) => m.role === 'user');
+      trimmed = firstUserIdx >= 0 ? tail.slice(firstUserIdx) : tail;
+    }
+
     const res = await fetch(WORKER_URL, {
       method: 'POST',
       headers: {
@@ -534,7 +551,7 @@ export async function sendMessage(
       },
       body: JSON.stringify({
         systemPrompt: buildSystemPrompt(context, latestUserMsg?.content),
-        messages: messages.map(toAnthropicMessage),
+        messages: trimmed.map(toAnthropicMessage),
       }),
     });
 
