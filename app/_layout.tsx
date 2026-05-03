@@ -18,6 +18,7 @@ import { useRuntimeConfigStore } from '../store/useRuntimeConfigStore';
 import FeedbackSurveyModal from '../components/feedback/FeedbackSurveyModal';
 import MaintenanceOverlay from '../components/MaintenanceOverlay';
 import ForceUpdateOverlay from '../components/ForceUpdateOverlay';
+import ImpersonationBanner from '../components/ImpersonationBanner';
 import RootErrorBoundary from '../components/ui/RootErrorBoundary';
 import { SplashAnimation } from '../components/ui/SplashAnimation';
 import { hasSubmittedTesterFeedback } from '../services/firebase';
@@ -150,6 +151,7 @@ export default function RootLayout() {
       <GestureHandlerRootView style={{ flex: 1 }}>
         <SafeAreaProvider>
           <StatusBar style="light" />
+          <ImpersonationBanner />
           <Stack screenOptions={{ headerShown: false }} />
           <FeedbackSurveyModal
             visible={surveyVisible}

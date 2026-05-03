@@ -95,6 +95,13 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    label: 'Compliance',
+    items: [
+      { href: '/admin/consent', label: 'DPDP consent ledger', icon: 'document-text-outline', cap: 'view_audit_log', fresh: true },
+      { href: '/admin/roles',   label: 'Roles & capabilities', icon: 'key-outline', cap: 'manage_admin_roles', fresh: true },
+    ],
+  },
+  {
     label: 'Settings',
     items: [
       { href: '/admin/settings', label: 'App settings', icon: 'settings-outline', cap: 'edit_settings' },

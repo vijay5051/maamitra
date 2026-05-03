@@ -35,6 +35,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useAdminRole } from '../../lib/useAdminRole';
 import { can } from '../../lib/admin';
 import { listSupportTickets, replyToTicket, setTicketStatus, SupportTicket } from '../../services/admin';
+import { draftTicketReply, isAdminAiConfigured } from '../../services/adminAi';
 
 const QUICK_REPLIES = [
   { label: 'Acknowledge', text: 'Thank you for reaching out — we have received your message and will look into it.' },
@@ -248,8 +249,29 @@ function TicketDrawer({ ticket, canReply, canClose, onClose, onReply, onSetStatu
   const [text, setText] = useState('');
   const [sendPush, setSendPush] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [drafting, setDrafting] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
 
-  useEffect(() => { setText(''); setSendPush(true); }, [ticket?.id]);
+  useEffect(() => { setText(''); setSendPush(true); setDraftError(null); }, [ticket?.id]);
+
+  async function aiDraft() {
+    if (!ticket) return;
+    setDrafting(true);
+    setDraftError(null);
+    try {
+      const draft = await draftTicketReply({
+        subject: ticket.subject,
+        message: ticket.message,
+        userName: ticket.name,
+        priorReplies: ticket.replies?.map((r) => ({ from: 'admin' as const, text: r.text })) ?? [],
+      });
+      setText(draft);
+    } catch (e: any) {
+      setDraftError(e?.message ?? 'AI draft failed.');
+    } finally {
+      setDrafting(false);
+    }
+  }
 
   return (
     <SlideOver
@@ -338,7 +360,18 @@ function TicketDrawer({ ticket, canReply, canClose, onClose, onReply, onSetStatu
                 ))}
               </ScrollView>
 
-              <Text style={[styles.sectionLabel, { marginTop: Spacing.lg }]}>Reply</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: Spacing.lg }}>
+                <Text style={styles.sectionLabel}>Reply</Text>
+                <View style={{ flex: 1 }} />
+                {isAdminAiConfigured() ? (
+                  <ToolbarButton
+                    label={drafting ? 'Drafting…' : 'AI draft'}
+                    icon="sparkles-outline"
+                    onPress={aiDraft}
+                    disabled={drafting}
+                  />
+                ) : null}
+              </View>
               <TextInput
                 style={styles.replyInput}
                 placeholder="Write a reply…"
@@ -348,8 +381,10 @@ function TicketDrawer({ ticket, canReply, canClose, onClose, onReply, onSetStatu
                 multiline
                 maxLength={2000}
               />
+              {draftError ? <Text style={[styles.helperText, { color: Colors.error }]}>{draftError}</Text> : null}
               <Text style={styles.helperText}>
                 Replies are stored in the ticket thread. Toggle "Send push" to also notify the user.
+                {isAdminAiConfigured() ? ' Tap "AI draft" to have Claude propose a reply you can edit before sending.' : ''}
               </Text>
             </>
           ) : null}

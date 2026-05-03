@@ -395,6 +395,23 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // ── Custom roles (Wave 7: org maturity) ──────────────────────────────────
+    match /admin_roles/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    // ── Consent ledger (Wave 7: DPDP compliance) ─────────────────────────────
+    // Append-only. Users may write THEIR OWN consent rows during onboarding;
+    // admins read/write everything for compliance audits + RTBF processing.
+    // Never deletable from the client.
+    match /consent_ledger/{docId} {
+      allow read:   if isAdmin();
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid
+                    || isAdmin();
+      allow update: if isAdmin();
+      allow delete: if false;
+    }
+
     // ── Crisis queue (Wave 4: safety) ────────────────────────────────────────
     // Auto-flagged content (PPD / self-harm / abuse / eating disorders).
     // - Authors create only docs flagging their OWN content; they cannot
