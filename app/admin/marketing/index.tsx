@@ -23,7 +23,8 @@ import {
   fetchRecentCostLog,
   summariseCost,
 } from '../../../services/marketing';
-import { BrandKit } from '../../../lib/marketingTypes';
+import { countDraftsByStatus } from '../../../services/marketingDrafts';
+import { BrandKit, DraftStatus } from '../../../lib/marketingTypes';
 
 const META_APP_ID = '1485870226522993';
 
@@ -40,6 +41,7 @@ export default function MarketingOverviewScreen() {
   const router = useRouter();
   const [brand, setBrand] = useState<BrandKit | null>(null);
   const [costRows, setCostRows] = useState<CostLogRow[]>([]);
+  const [draftCounts, setDraftCounts] = useState<Record<DraftStatus, number> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,9 +51,14 @@ export default function MarketingOverviewScreen() {
     setLoading(true);
     setError(null);
     try {
-      const [k, rows] = await Promise.all([fetchBrandKit(), fetchRecentCostLog(120)]);
+      const [k, rows, dc] = await Promise.all([
+        fetchBrandKit(),
+        fetchRecentCostLog(120),
+        countDraftsByStatus(),
+      ]);
       setBrand(k);
       setCostRows(rows);
+      setDraftCounts(dc);
     } catch (e: any) {
       setError(e?.message ?? String(e));
     } finally {
@@ -113,10 +120,12 @@ export default function MarketingOverviewScreen() {
     },
     {
       key: 'generator',
-      label: 'Daily draft generator',
-      description: 'Cron at 6am IST: Claude Haiku writes captions, picks template + theme, renders PNG, queues a draft for review. Coming in Phase 3.',
-      state: 'pending',
-      hint: 'Phase 3',
+      label: 'Draft generator + queue',
+      description: strategyConfigured
+        ? 'OpenAI gpt-4o-mini writes the caption, picks template, renders via Imagen → marketing_drafts queue. Daily 6am IST cron is opt-in.'
+        : 'Set up Strategy first — generator needs personas + pillars to produce on-brand drafts.',
+      state: strategyConfigured ? 'done' : 'pending',
+      href: '/admin/marketing/drafts',
     },
     {
       key: 'webhook',
@@ -163,10 +172,10 @@ export default function MarketingOverviewScreen() {
             <Text style={styles.statValue}>2</Text>
             <Text style={styles.statLabel}>Use cases · 10 perms</Text>
           </View>
-          <View style={styles.stat}>
-            <Text style={styles.statValue}>0</Text>
-            <Text style={styles.statLabel}>Drafts in queue</Text>
-          </View>
+          <Pressable style={styles.stat} onPress={() => router.push('/admin/marketing/drafts' as any)}>
+            <Text style={styles.statValue}>{draftCounts?.pending_review ?? 0}</Text>
+            <Text style={styles.statLabel}>Pending review</Text>
+          </Pressable>
           <View style={styles.stat}>
             <Text style={styles.statValue}>0</Text>
             <Text style={styles.statLabel}>Unread inbox</Text>

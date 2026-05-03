@@ -19,7 +19,12 @@ import * as functions from 'firebase-functions/v1';
 import * as admin from 'firebase-admin';
 import textToSpeech from '@google-cloud/text-to-speech';
 
-import { buildRenderMarketingTemplate, buildScoreMarketingDraft } from './marketing';
+import {
+  buildDailyMarketingDraftCron,
+  buildGenerateMarketingDraft,
+  buildRenderMarketingTemplate,
+  buildScoreMarketingDraft,
+} from './marketing';
 
 admin.initializeApp();
 
@@ -1321,3 +1326,13 @@ export const renderMarketingTemplate = buildRenderMarketingTemplate(ADMIN_EMAILS
 // marketing_brand/main; pure regex, no LLM. Pairs with the M1 strategy
 // editor at /admin/marketing/strategy.
 export const scoreMarketingDraft = buildScoreMarketingDraft(ADMIN_EMAILS);
+
+// M2 — content engine. Manual "Generate now" trigger + daily cron.
+// generateMarketingDraft uses OpenAI gpt-4o-mini for caption JSON, picks an
+// AI image (default Imagen) with Pexels fallback, renders the matching
+// template, and writes a marketing_drafts row with status=pending_review.
+export const generateMarketingDraft = buildGenerateMarketingDraft(ADMIN_EMAILS);
+
+// Daily 6am IST cron — opt-in via marketing_brand/main.cronEnabled=true.
+// Same generation flow, runs as service account.
+export const dailyMarketingDraftCron = buildDailyMarketingDraftCron();

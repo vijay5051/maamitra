@@ -66,6 +66,8 @@ export type AdminAction =
   | 'marketing.draft.approve'
   | 'marketing.draft.reject'
   | 'marketing.draft.regenerate'
+  | 'marketing.draft.edit_caption'
+  | 'marketing.draft.delete'
   | 'marketing.draft.schedule'
   | 'marketing.draft.publish'
   | 'marketing.draft.unschedule'

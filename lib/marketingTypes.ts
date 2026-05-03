@@ -340,7 +340,7 @@ export interface MarketingDraft {
   /** Which weekday-theme generated this draft. */
   themeKey: WeekDay;
   themeLabel: string;
-  /** AI-generated caption with hashtags appended. ≤ 2200 chars (IG cap). */
+  /** AI-generated caption with hashtags + disclaimers appended. ≤ 2200 chars. */
   caption: string;
   /** Rendered assets. Single image → 1 entry, carousel → ≤ 10. */
   assets: DraftAsset[];
@@ -353,11 +353,33 @@ export interface MarketingDraft {
   postPermalinks: Partial<Record<MarketingPlatform, string>>;
   /** If status = 'failed', the error from the publisher. */
   publishError: string | null;
-  /** Brand-safety flags caught by AI screen. */
+  /** Compliance flags caught by scoreMarketingDraft. */
   safetyFlags: string[];
+  /** ── M2: persona + pillar + event tagging ──────────────────────────────── */
+  personaId: string | null;
+  personaLabel: string | null;
+  pillarId: string | null;
+  pillarLabel: string | null;
+  /** Cultural calendar event id this draft references, if any. */
+  eventId: string | null;
+  eventLabel: string | null;
+  /** Locale of the caption ('en' | 'hinglish' | 'hi'). */
+  locale: string | null;
+  /** Headline shown in queue cards (≤ 80 chars). Distinct from caption. */
+  headline: string | null;
+  /** Image prompt used by the generator — kept so admin can regenerate. */
+  imagePrompt: string | null;
+  /** Image source provider used for the rendered asset. */
+  imageSource: string | null;
+  /** Per-draft cost (₹) attributable to this generation (caption + image). */
+  costInr: number;
   generatedAt: string | null;
+  generatedBy: string | null;
   approvedAt: string | null;
   approvedBy: string | null;
+  rejectedAt: string | null;
+  rejectedBy: string | null;
+  rejectReason: string | null;
 }
 
 // ── Inbox (Phase 6) ─────────────────────────────────────────────────────────
