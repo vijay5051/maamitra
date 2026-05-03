@@ -1,6 +1,6 @@
 /* eslint-disable */
-// sw-version: 2 — bumped 2026-04-20 to force iOS PWA to drop the
-// 1-year-cached old SW after the cache-control fix deployed.
+// sw-version: 3 — bumped 2026-05-03 to drop the duplicate notification
+// fix (browsers were getting two visible notifications per push).
 /**
  * MaaMitra — Firebase Cloud Messaging service worker
  *
@@ -31,23 +31,31 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-// Background payloads arrive here. We render an OS notification and —
-// critically — attach `data.url` so click routes the user straight to
-// the source post / thread / notifications page in the app.
+// Background payloads arrive here.
+//
+// IMPORTANT: when the payload contains a top-level `notification` block,
+// FCM's browser SW already auto-displays the OS notification AND routes
+// clicks through `webpush.fcmOptions.link`. If we ALSO call
+// showNotification here, the user sees two identical notifications per
+// push. So we only render manually for *data-only* payloads (no
+// notification block), which is when FCM hands the whole job to us.
+//
+// Click routing for the auto-displayed case is handled by the dispatcher
+// setting `webpush.fcmOptions.link`. Click routing for the data-only
+// case is handled by the notificationclick listener below.
 messaging.onBackgroundMessage((payload) => {
-  const title = payload.notification?.title || payload.data?.title || 'MaaMitra';
-  const body = payload.notification?.body || payload.data?.body || '';
-  const url = payload.data?.url || '/';
+  if (payload?.notification) return;
+
+  const title = payload?.data?.title || 'MaaMitra';
+  const body = payload?.data?.body || '';
+  const url = payload?.data?.url || '/';
 
   self.registration.showNotification(title, {
     body,
     icon: '/icon-192.png',
     badge: '/icon-192.png',
     data: { url },
-    // Use a tag so a burst of related notifications (e.g. several
-    // reactions on one post) collapses to the latest one instead of
-    // stacking into an alert wall.
-    tag: payload.data?.tag || 'maamitra',
+    tag: payload?.data?.tag || 'maamitra',
     renotify: false,
   });
 });
