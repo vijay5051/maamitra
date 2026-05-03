@@ -76,6 +76,13 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    label: 'Marketing',
+    items: [
+      { href: '/admin/marketing',             label: 'Overview',     icon: 'planet-outline',         cap: 'view_marketing', fresh: true },
+      { href: '/admin/marketing/brand-kit',   label: 'Brand kit',    icon: 'color-palette-outline',  cap: 'manage_marketing_brand', fresh: true },
+    ],
+  },
+  {
     label: 'Operations',
     items: [
       { href: '/admin/chat-usage',      label: 'Chat usage',     icon: 'pulse-outline', cap: 'view_dashboard' },

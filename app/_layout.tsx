@@ -12,6 +12,10 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { useAuthStore } from '../store/useAuthStore';
+// Dev-only: lets local browser previews bypass auth as the demo admin via
+// `?previewAdmin=1`. The module no-ops in production builds because the
+// import is guarded by __DEV__ at the call site below.
+import { maybeEnablePreviewAdmin } from '../lib/devPreviewAdmin';
 import { useAppSettingsStore } from '../store/useAppSettingsStore';
 import { useFeedbackStore } from '../store/useFeedbackStore';
 import { useRuntimeConfigStore } from '../store/useRuntimeConfigStore';
@@ -71,6 +75,7 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
+    if (__DEV__) maybeEnablePreviewAdmin();
     initAuth();
     fetchSettings();
     markInstalledIfNeeded();

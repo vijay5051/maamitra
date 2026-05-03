@@ -7,10 +7,61 @@
 ---
 
 ## Active task
-**Admin panel — full overhaul.** All 8 waves SHIPPED + DEPLOYED.
-No active sub-task.
+**Marketing automation module — Phase 1 (foundation + brand kit).**
 
-Worktree: `claude/competent-agnesi-a53c43` (pushes to `main`).
+Worktree: `claude/crazy-cannon-8929dc` (pushes to `main`).
+
+### Goal
+Build a full marketing platform inside the admin panel that auto-generates
+IG + FB content (image carousels, posts), routes through admin approval,
+auto-publishes via Meta Graph API, and unifies comments + DMs into an
+inbox — all without the admin ever logging into Meta.
+
+### Plan (phased)
+1. **Foundation + Brand Kit** ← current. Marketing nav group, Firestore
+   schema, types, service, brand-kit editor (logo + palette + fonts +
+   theme calendar). Real, no placeholders.
+2. **Templating engine.** Satori-based React/HTML→PNG renderer with
+   ~10 branded templates (tip card, quote card, milestone, carousel
+   cover/slide, myth-buster, Q&A, statistic). Text-perfect because real
+   fonts; backgrounds from Pexels/Unsplash + occasional FLUX Schnell.
+3. **Daily draft generation.** Firebase Function cron (6am IST) calls
+   Claude Haiku 4.5 for captions, picks template+theme, renders PNG,
+   stores draft in `marketing_drafts`.
+4. **Approval UI + Calendar + Manual-publish mode.** Drafts queue with
+   approve/edit/regenerate/reject; calendar view of scheduled+posted;
+   "Copy caption + download image" mode while Meta App Review pending.
+5. **Webhook receiver Firebase Function.** Public HTTPS endpoint Meta
+   pings on comment/DM events. Writes to `marketing_inbox` thread tree.
+6. **Inbox UI.** Unified IG/FB comments+DMs with AI reply suggestions
+   (Claude in brand voice), saved replies, sentiment tags.
+7. **Auto-publish flip.** When Meta App Review approved, switch from
+   manual mode to a publisher cron that calls Graph API.
+8. **Analytics.** Per-post + weekly digest from Insights API.
+
+### Meta side — already configured
+- **App ID**: `1485870226522993` (App name: MaaMitra; type: Business)
+- App Secret saved by user (not in repo)
+- Linked to MaaMitra Business Portfolio (id 1341006954572747)
+- Use cases configured: Manage messaging & content on Instagram (3 perms);
+  Manage everything on your Page (7 perms). All "Ready for testing".
+- App Settings → Basic: Privacy + Terms URLs set, App domain `maamitra.co.in`,
+  Category Lifestyle, Contact `info@maamitra.co.in`.
+- **Outstanding**: data-deletion URL rejected by Meta because our SPA
+  shell HTML has no visible content — fix in Phase 5 (callback endpoint).
+  Not blocking dev mode.
+- Webhook URL: not set yet (waits for Phase 5 endpoint).
+- Test asset wiring (App Roles → Roles): not done yet (waits for OAuth in Phase 4).
+- App Review submission: not done yet (waits for working screencast,
+  ie post-Phase 6).
+
+### Last action
+Set up Meta App + use cases + Settings→Basic. Committing Phase 1 code now.
+
+### Next step
+Finish Phase 1 (brand kit + nav + schema), commit + push, then either
+continue into Phase 2 (templating engine) or pivot back to Meta to
+add the webhook URL once Phase 5 ships.
 
 ## Wave summary — what shipped
 

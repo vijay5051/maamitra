@@ -59,7 +59,20 @@ export type AdminAction =
   | 'user.impersonate.start'
   | 'user.impersonate.end'
   | 'function.replay'
-  | 'cron.replay';
+  | 'cron.replay'
+  // Marketing — Phase 1 brand kit; later phases will add draft / inbox actions
+  | 'marketing.brand.update'
+  | 'marketing.draft.generate'
+  | 'marketing.draft.approve'
+  | 'marketing.draft.reject'
+  | 'marketing.draft.regenerate'
+  | 'marketing.draft.schedule'
+  | 'marketing.draft.publish'
+  | 'marketing.draft.unschedule'
+  | 'marketing.connection.connect'
+  | 'marketing.connection.disconnect'
+  | 'marketing.inbox.reply'
+  | 'marketing.inbox.archive';
 
 export interface AuditTarget {
   /** Most actions target a user (uid). May be empty for global actions. */

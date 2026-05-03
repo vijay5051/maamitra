@@ -401,6 +401,38 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // ── Marketing automation ─────────────────────────────────────────────────
+    // Brand kit (logo, palette, voice, theme calendar): single doc at
+    // marketing_brand/main. Drives every rendered post + AI prompt. Admin-
+    // only read AND write — there's no client-facing surface for these.
+    match /marketing_brand/{docId} {
+      allow read, write: if isAdmin();
+    }
+    // Connections (Meta OAuth tokens): single doc at marketing_connections/main.
+    // Tokens stay encrypted server-side; this rule just gates the metadata
+    // (which IG handle is connected, when, by whom). Admin-only.
+    match /marketing_connections/{docId} {
+      allow read, write: if isAdmin();
+    }
+    // Drafts queue: drafts created by the daily cron, approved/edited/rejected
+    // by admins, consumed by the publisher cron. Admin-only end-to-end.
+    match /marketing_drafts/{docId} {
+      allow read, write: if isAdmin();
+    }
+    // Live posts (post-publish receipts + insights snapshots). Admin-only.
+    match /marketing_posts/{docId} {
+      allow read, write: if isAdmin();
+    }
+    // Inbox threads (comments + DMs received via Meta webhook). Admin-only.
+    // The webhook itself runs as a Cloud Function with its own service account
+    // and bypasses these rules.
+    match /marketing_inbox/{threadId} {
+      allow read, write: if isAdmin();
+      match /messages/{messageId} {
+        allow read, write: if isAdmin();
+      }
+    }
+
     // ── Consent ledger (Wave 7: DPDP compliance) ─────────────────────────────
     // Append-only. Users may write THEIR OWN consent rows during onboarding;
     // admins read/write everything for compliance audits + RTBF processing.

@@ -97,7 +97,14 @@ export type AdminCapability =
   | 'edit_vaccines'
   | 'publish_content'
   | 'export_user_data'
-  | 'hard_delete_user';
+  | 'hard_delete_user'
+  // Marketing automation — see app/admin/marketing/*
+  | 'view_marketing'
+  | 'manage_marketing_brand'
+  | 'manage_marketing_drafts'
+  | 'publish_marketing'
+  | 'manage_marketing_inbox'
+  | 'manage_marketing_connections';
 
 const CAP_BY_ROLE: Record<AdminRole, ReadonlySet<AdminCapability>> = {
   super: new Set<AdminCapability>([
@@ -109,6 +116,8 @@ const CAP_BY_ROLE: Record<AdminRole, ReadonlySet<AdminCapability>> = {
     'send_personal_push', 'send_broadcast_push', 'schedule_push', 'manage_banner',
     'edit_content', 'edit_vaccines', 'publish_content',
     'export_user_data', 'hard_delete_user',
+    'view_marketing', 'manage_marketing_brand', 'manage_marketing_drafts',
+    'publish_marketing', 'manage_marketing_inbox', 'manage_marketing_connections',
   ]),
   moderator: new Set<AdminCapability>([
     'view_dashboard', 'view_users', 'view_user_360',
@@ -116,18 +125,26 @@ const CAP_BY_ROLE: Record<AdminRole, ReadonlySet<AdminCapability>> = {
     'view_support', 'reply_support', 'close_ticket',
     'send_personal_push',
     'export_user_data',
+    // Moderators handle the marketing inbox (comments + DMs) since it's
+    // moderation-shaped work — same skills as community + support.
+    'view_marketing', 'manage_marketing_inbox',
   ]),
   support: new Set<AdminCapability>([
     'view_dashboard', 'view_users', 'view_user_360',
     'view_support', 'reply_support', 'close_ticket',
     'send_personal_push',
     'export_user_data',
+    // Support also fields IG/FB DMs from the marketing inbox.
+    'view_marketing', 'manage_marketing_inbox',
   ]),
   content: new Set<AdminCapability>([
     'view_dashboard',
     'edit_content', 'edit_vaccines', 'publish_content',
     'manage_banner',
     'send_broadcast_push', 'schedule_push',
+    // Content editors own brand voice + drafts; super still owns connections
+    // and the publish flip so an editor can't ship to the live page alone.
+    'view_marketing', 'manage_marketing_brand', 'manage_marketing_drafts',
   ]),
 };
 
