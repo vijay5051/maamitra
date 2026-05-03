@@ -52,7 +52,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.renderMarketingTemplate = exports.repairCommunityCounters = exports.onUserCreated = exports.onFollowDelete = exports.onFollowCreate = exports.onPostDelete = exports.onCommentDelete = exports.onCommentCreate = exports.synthesizeSpeech = exports.adminFactoryReset = exports.factoryReset = exports.processScheduledPushes = exports.adminCreateUser = exports.adminDeleteUser = exports.dispatchPush = void 0;
+exports.scoreMarketingDraft = exports.renderMarketingTemplate = exports.repairCommunityCounters = exports.onUserCreated = exports.onFollowDelete = exports.onFollowCreate = exports.onPostDelete = exports.onCommentDelete = exports.onCommentCreate = exports.synthesizeSpeech = exports.adminFactoryReset = exports.factoryReset = exports.processScheduledPushes = exports.adminCreateUser = exports.adminDeleteUser = exports.dispatchPush = void 0;
 const functions = __importStar(require("firebase-functions/v1"));
 const admin = __importStar(require("firebase-admin"));
 const text_to_speech_1 = __importDefault(require("@google-cloud/text-to-speech"));
@@ -1141,3 +1141,7 @@ exports.repairCommunityCounters = functions.pubsub
 //   firebase functions:secrets:set PEXELS_API_KEY
 //   firebase functions:secrets:set REPLICATE_API_TOKEN
 exports.renderMarketingTemplate = (0, marketing_1.buildRenderMarketingTemplate)(ADMIN_EMAILS);
+// Compliance screen on every caption draft. Reads rules from
+// marketing_brand/main; pure regex, no LLM. Pairs with the M1 strategy
+// editor at /admin/marketing/strategy.
+exports.scoreMarketingDraft = (0, marketing_1.buildScoreMarketingDraft)(ADMIN_EMAILS);

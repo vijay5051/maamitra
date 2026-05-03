@@ -7,11 +7,15 @@
 //     photo or AI background, uploads the resulting PNG to Storage, returns
 //     a public download URL the admin UI can preview / save into a draft.
 //
+// Phase 1 (M1):
+//   scoreMarketingDraft(callable) — see ./scoring.ts. Compliance regex screen
+//     against the rules in marketing_brand/main; runs on every caption draft.
+//
 // Future phases will add:
-//   generateDailyMarketingDrafts (Phase 3) — pubsub cron
-//   publishMarketingDraft        (Phase 4 manual / Phase 7 auto)
-//   metaWebhookReceiver          (Phase 5)
-//   replyToInboxMessage          (Phase 6)
+//   generateDailyMarketingDrafts (M2) — pubsub cron
+//   publishMarketingDraft        (M3)
+//   metaWebhookReceiver          (M4)
+//   replyToInboxMessage          (M4)
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -46,12 +50,15 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.buildScoreMarketingDraft = void 0;
 exports.buildRenderMarketingTemplate = buildRenderMarketingTemplate;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions/v1"));
 const imageSources_1 = require("./imageSources");
 const renderer_1 = require("./renderer");
 const templates_1 = require("./templates");
+var scoring_1 = require("./scoring");
+Object.defineProperty(exports, "buildScoreMarketingDraft", { enumerable: true, get: function () { return scoring_1.buildScoreMarketingDraft; } });
 // firebase-admin is initialized in functions/src/index.ts before this module
 // is imported; we just grab the existing instance.
 // Capability check — Marketing renders are gated on the same admin signal
@@ -191,6 +198,23 @@ function buildRenderMarketingTemplate(allowList) {
             return { ok: false, code: 'upload-failed', message: e?.message ?? String(e) };
         }
         const url = `https://storage.googleapis.com/${bucket.name}/${storagePath}`;
+        // Cost log — written best-effort. Daily/monthly dashboard tile reads
+        // from this collection. Numbers are May-2026 INR estimates per
+        // imageSources.ts; revise when provider pricing moves.
+        try {
+            const costInr = imageSourceCostInr(imageSource);
+            await admin.firestore().collection('marketing_cost_log').add({
+                ts: admin.firestore.FieldValue.serverTimestamp(),
+                template: templateName,
+                imageSource,
+                costInr,
+                bytes: result.png.length,
+                actor: context.auth?.token?.email ?? context.auth?.uid ?? null,
+            });
+        }
+        catch (e) {
+            console.warn('[renderMarketingTemplate] cost log write failed (non-fatal)', e);
+        }
         return {
             ok: true,
             url,
@@ -202,4 +226,16 @@ function buildRenderMarketingTemplate(allowList) {
             bytes: result.png.length,
         };
     });
+}
+/** Estimated cost (₹) per render by image-source provider. May-2026 rates. */
+function imageSourceCostInr(source) {
+    switch (source) {
+        case 'imagen': return 3.30;
+        case 'dalle': return 3.50;
+        case 'flux': return 0.25;
+        case 'pexels': return 0;
+        case 'caller-supplied': return 0;
+        case 'none': return 0;
+        default: return 0;
+    }
 }
