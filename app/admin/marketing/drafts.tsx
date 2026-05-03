@@ -13,7 +13,7 @@
  *     in the audit trail)
  */
 
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -41,17 +41,21 @@ import {
   deleteDraft,
   fetchDraft,
   generateMarketingDraft,
+  markDraftPosted,
   rejectDraft,
+  scheduleDraft,
   subscribeDrafts,
+  unscheduleDraft,
   updateDraftCaption,
 } from '../../../services/marketingDrafts';
-import { DraftStatus, MarketingDraft } from '../../../lib/marketingTypes';
+import { DraftStatus, MarketingDraft, MarketingPlatform } from '../../../lib/marketingTypes';
 import { useAuthStore } from '../../../store/useAuthStore';
 
 const STATUS_FILTERS: { value: DraftStatus | 'all'; label: string }[] = [
   { value: 'all',            label: 'All' },
   { value: 'pending_review', label: 'Pending review' },
   { value: 'approved',       label: 'Approved' },
+  { value: 'scheduled',      label: 'Scheduled' },
   { value: 'rejected',       label: 'Rejected' },
   { value: 'posted',         label: 'Posted' },
 ];
@@ -67,6 +71,7 @@ const STATUS_TONES: Record<DraftStatus, string> = {
 
 export default function MarketingDraftsScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ open?: string }>();
   const user = useAuthStore((s) => s.user);
   const [filter, setFilter] = useState<DraftStatus | 'all'>('pending_review');
   const [drafts, setDrafts] = useState<MarketingDraft[]>([]);
@@ -74,6 +79,14 @@ export default function MarketingDraftsScreen() {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+
+  // Deep-link from calendar: /admin/marketing/drafts?open=<id> opens that
+  // draft's slide-over once the snapshot has loaded the row.
+  useEffect(() => {
+    const target = typeof params.open === 'string' ? params.open : null;
+    if (target && target !== openId) setOpenId(target);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.open]);
 
   const counts = useMemo(() => {
     const out: Record<DraftStatus | 'all', number> = {
@@ -98,14 +111,26 @@ export default function MarketingDraftsScreen() {
     return () => unsub();
   }, []);
 
-  async function handleGenerate() {
+  async function handleGenerate(count: 1 | 2 = 1) {
     setError(null);
     setGenerating(true);
     try {
-      const res = await generateMarketingDraft({});
-      if (!res.ok) throw new Error(`${res.code}: ${res.message}`);
-      // Snapshot will surface it; jump straight into review.
-      setOpenId(res.draftId);
+      // For "Generate 2 variants" we kick off two parallel calls with the
+      // same (empty) override so the slot picker chooses identically and
+      // the only delta is GPT temperature noise.
+      const calls = Array.from({ length: count }, () => generateMarketingDraft({}));
+      const results = await Promise.all(calls);
+      const failures = results.filter((r) => !r.ok);
+      if (failures.length === results.length) {
+        const f = failures[0] as any;
+        throw new Error(`${f.code}: ${f.message}`);
+      }
+      // Open the first successful one for review.
+      const firstOk = results.find((r) => r.ok) as any;
+      setOpenId(firstOk.draftId);
+      if (failures.length > 0) {
+        setError(`${failures.length} of ${results.length} variants failed — first error: ${(failures[0] as any).message}`);
+      }
     } catch (e: any) {
       setError(e?.message ?? String(e));
     } finally {
@@ -127,13 +152,21 @@ export default function MarketingDraftsScreen() {
           { label: 'Drafts' },
         ]}
         headerActions={
-          <ToolbarButton
-            label={generating ? 'Generating…' : 'Generate now'}
-            icon="sparkles"
-            variant="primary"
-            onPress={handleGenerate}
-            disabled={generating}
-          />
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <ToolbarButton
+              label={generating ? 'Generating…' : 'Generate 2 (A/B)'}
+              icon="sparkles"
+              onPress={() => handleGenerate(2)}
+              disabled={generating}
+            />
+            <ToolbarButton
+              label={generating ? 'Generating…' : 'Generate now'}
+              icon="sparkles"
+              variant="primary"
+              onPress={() => handleGenerate(1)}
+              disabled={generating}
+            />
+          </View>
         }
         loading={loading && drafts.length === 0}
         error={error}
@@ -248,12 +281,21 @@ function DraftSlideOver({
   const [actionError, setActionError] = useState<string | null>(null);
   const [rejectingReason, setRejectingReason] = useState<string | null>(null);
   const [regenerating, setRegenerating] = useState(false);
+  const [scheduleDraftAt, setScheduleDraftAt] = useState<string>('');
+  const [showSchedule, setShowSchedule] = useState(false);
+  const [showExport, setShowExport] = useState(false);
+  const [showMarkPosted, setShowMarkPosted] = useState(false);
 
   useEffect(() => {
     setEditingCaption(false);
     setCaptionDraft(draft?.caption ?? '');
     setActionError(null);
     setRejectingReason(null);
+    setShowSchedule(false);
+    setShowExport(false);
+    setShowMarkPosted(false);
+    // Default schedule input to tomorrow 9am IST in local datetime-local format.
+    setScheduleDraftAt(defaultScheduleAt());
   }, [draft?.id]);
 
   if (!draft || !actor) {
@@ -334,6 +376,43 @@ function DraftSlideOver({
     });
   }
 
+  async function handleSchedule() {
+    if (!draft || !actor) return;
+    if (!scheduleDraftAt) {
+      setActionError('Pick a date and time first.');
+      return;
+    }
+    const iso = scheduleInputToIso(scheduleDraftAt);
+    if (!iso) {
+      setActionError('Invalid date/time.');
+      return;
+    }
+    await withGuard('Schedule', async () => {
+      await scheduleDraft(actor, draft.id, iso);
+      setShowSchedule(false);
+      onClose();
+    });
+  }
+
+  async function handleUnschedule() {
+    if (!draft || !actor) return;
+    await withGuard('Unschedule', async () => {
+      await unscheduleDraft(actor, draft.id);
+    });
+  }
+
+  async function handleMarkPosted() {
+    if (!draft || !actor) return;
+    await withGuard('Mark posted', async () => {
+      // Manual-publish mode — admin already pasted to whichever channels.
+      // We don't capture per-channel permalinks via UI yet (M3b will);
+      // store an empty map so the row doesn't fail validation.
+      await markDraftPosted(actor, draft.id, {});
+      setShowMarkPosted(false);
+      onClose();
+    });
+  }
+
   async function copyCaption() {
     if (!draft) return;
     if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
@@ -355,6 +434,7 @@ function DraftSlideOver({
   const thumb = draft.assets[0]?.url;
   const isPending = draft.status === 'pending_review';
   const isApproved = draft.status === 'approved';
+  const isScheduled = draft.status === 'scheduled';
 
   return (
     <SlideOver
@@ -403,13 +483,37 @@ function DraftSlideOver({
               ) : null}
               {isApproved ? (
                 <>
-                  <Pressable onPress={copyCaption} style={[styles.btn, styles.btnPrimary]}>
-                    <Ionicons name="copy" size={16} color="#fff" />
-                    <Text style={styles.btnLabel}>Copy caption</Text>
+                  <Pressable onPress={() => setShowSchedule((v) => !v)} style={[styles.btn, styles.btnPrimary]}>
+                    <Ionicons name="calendar" size={16} color="#fff" />
+                    <Text style={styles.btnLabel}>Schedule…</Text>
+                  </Pressable>
+                  <Pressable onPress={copyCaption} style={[styles.btn, styles.btnGhost]}>
+                    <Ionicons name="copy" size={16} color={Colors.primary} />
+                    <Text style={[styles.btnLabel, { color: Colors.primary }]}>Copy caption</Text>
                   </Pressable>
                   <Pressable onPress={downloadImage} style={[styles.btn, styles.btnGhost]}>
                     <Ionicons name="download" size={16} color={Colors.primary} />
                     <Text style={[styles.btnLabel, { color: Colors.primary }]}>Download image</Text>
+                  </Pressable>
+                  <Pressable onPress={() => setShowMarkPosted(true)} style={[styles.btn, styles.btnGhost]}>
+                    <Ionicons name="checkmark-done" size={16} color={Colors.success} />
+                    <Text style={[styles.btnLabel, { color: Colors.success }]}>Mark posted</Text>
+                  </Pressable>
+                </>
+              ) : null}
+              {isScheduled ? (
+                <>
+                  <Pressable onPress={handleUnschedule} style={[styles.btn, styles.btnGhost]} disabled={saving}>
+                    <Ionicons name="calendar-outline" size={16} color={Colors.textMuted} />
+                    <Text style={[styles.btnLabel, { color: Colors.textMuted }]}>{saving ? 'Updating…' : 'Unschedule'}</Text>
+                  </Pressable>
+                  <Pressable onPress={() => setShowMarkPosted(true)} style={[styles.btn, styles.btnPrimary]}>
+                    <Ionicons name="checkmark-done" size={16} color="#fff" />
+                    <Text style={styles.btnLabel}>Mark posted</Text>
+                  </Pressable>
+                  <Pressable onPress={copyCaption} style={[styles.btn, styles.btnGhost]}>
+                    <Ionicons name="copy" size={16} color={Colors.primary} />
+                    <Text style={[styles.btnLabel, { color: Colors.primary }]}>Copy</Text>
                   </Pressable>
                 </>
               ) : null}
@@ -462,6 +566,56 @@ function DraftSlideOver({
           </View>
         ) : null}
 
+        {showSchedule ? (
+          <View style={styles.schedBox}>
+            <Text style={styles.captionLabel}>Schedule for (IST)</Text>
+            <Text style={styles.fieldHint}>The post stays as-is; it just shows up on the calendar at this time and the cron auto-publishes once Meta access lands. Until then, manual publish.</Text>
+            <DateTimeInput value={scheduleDraftAt} onChange={setScheduleDraftAt} />
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+              <Pressable onPress={handleSchedule} disabled={saving} style={[styles.btn, styles.btnPrimary]}>
+                <Text style={styles.btnLabel}>{saving ? 'Saving…' : 'Confirm schedule'}</Text>
+              </Pressable>
+              <Pressable onPress={() => setShowSchedule(false)} style={[styles.btn, styles.btnGhost]}>
+                <Text style={[styles.btnLabel, { color: Colors.textMuted }]}>Cancel</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
+
+        {draft.scheduledAt ? (
+          <View style={styles.schedShown}>
+            <Ionicons name="calendar" size={16} color={Colors.primary} />
+            <Text style={styles.schedShownLabel}>
+              Scheduled · {new Date(draft.scheduledAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Kolkata' })}
+            </Text>
+          </View>
+        ) : null}
+
+        {showMarkPosted ? (
+          <View style={styles.schedBox}>
+            <Text style={styles.captionLabel}>Mark this draft as posted?</Text>
+            <Text style={styles.fieldHint}>Use this once you've manually pasted to your channels. Status flips to "posted" and the draft moves out of the active queue.</Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+              <Pressable onPress={handleMarkPosted} disabled={saving} style={[styles.btn, styles.btnPrimary]}>
+                <Text style={styles.btnLabel}>{saving ? 'Saving…' : 'Yes, mark posted'}</Text>
+              </Pressable>
+              <Pressable onPress={() => setShowMarkPosted(false)} style={[styles.btn, styles.btnGhost]}>
+                <Text style={[styles.btnLabel, { color: Colors.textMuted }]}>Cancel</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
+
+        {(isApproved || isScheduled || draft.status === 'posted') ? (
+          <View style={styles.exportBlock}>
+            <Pressable onPress={() => setShowExport((v) => !v)} style={styles.exportToggle}>
+              <Ionicons name={showExport ? 'chevron-down' : 'chevron-forward'} size={16} color={Colors.textMuted} />
+              <Text style={styles.exportToggleLabel}>Export package — per-channel ready-to-paste</Text>
+            </Pressable>
+            {showExport ? <ExportPackage draft={draft} /> : null}
+          </View>
+        ) : null}
+
         <View>
           <View style={styles.captionHead}>
             <Text style={styles.captionLabel}>Caption</Text>
@@ -508,6 +662,198 @@ function DraftSlideOver({
       </View>
     </SlideOver>
   );
+}
+
+// ── Date-time input (web datetime-local; native plain text) ────────────────
+
+function DateTimeInput({ value, onChange }: { value: string; onChange: (next: string) => void }) {
+  if (Platform.OS === 'web') {
+    return (
+      <TextInput
+        style={[styles.input, { marginTop: 6 }]}
+        // @ts-expect-error — Expo Web renders TextInput as <input>; passing
+        // `type="datetime-local"` upgrades it to the native picker. Not in
+        // the RN typings, but supported at runtime.
+        type="datetime-local"
+        value={value}
+        onChangeText={onChange}
+      />
+    );
+  }
+  return (
+    <TextInput
+      style={[styles.input, { marginTop: 6 }]}
+      value={value}
+      onChangeText={onChange}
+      placeholder="YYYY-MM-DDTHH:mm"
+      placeholderTextColor={Colors.textMuted}
+      autoCapitalize="none"
+    />
+  );
+}
+
+function defaultScheduleAt(): string {
+  // Tomorrow 9am IST in `YYYY-MM-DDTHH:mm` for the datetime-local input.
+  const ist = new Date(Date.now() + 5.5 * 3600 * 1000 + 24 * 3600 * 1000);
+  ist.setUTCHours(9 - 5, 30, 0, 0); // 9am IST → 03:30 UTC; we'll show in IST text
+  // Reformat to `YYYY-MM-DDTHH:mm` based on the IST clock.
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const istClock = new Date(Date.now() + 5.5 * 3600 * 1000 + 24 * 3600 * 1000);
+  return `${istClock.getUTCFullYear()}-${pad(istClock.getUTCMonth() + 1)}-${pad(istClock.getUTCDate())}T09:00`;
+}
+
+function scheduleInputToIso(local: string): string | null {
+  // The datetime-local input's value is naive local time. We treat it as IST
+  // (since the admin lives in India) and convert to a UTC ISO string.
+  const m = local.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
+  if (!m) return null;
+  const [, y, mo, da, h, mi] = m;
+  // IST is UTC+5:30 with no DST.
+  const utcMs = Date.UTC(+y, +mo - 1, +da, +h, +mi) - 5.5 * 3600 * 1000;
+  return new Date(utcMs).toISOString();
+}
+
+// ── Export package — per-channel ready-to-paste content ─────────────────────
+// All adaptation is client-side string formatting. No extra LLM calls.
+
+type ChannelKey = 'instagram' | 'facebook' | 'twitter' | 'linkedin' | 'whatsapp' | 'email' | 'push';
+
+interface ChannelDef {
+  key: ChannelKey;
+  label: string;
+  hint: string;
+  /** Build the export content from a draft. Returns either a single block
+   *  or labelled fields (e.g. email subject + body). */
+  build: (draft: MarketingDraft) => Array<{ label?: string; text: string }>;
+}
+
+function ExportPackage({ draft }: { draft: MarketingDraft }) {
+  const [activeKey, setActiveKey] = useState<ChannelKey>('instagram');
+  const channels: ChannelDef[] = [
+    { key: 'instagram', label: 'Instagram', hint: '≤2200 chars · keeps full caption', build: igExport },
+    { key: 'facebook',  label: 'Facebook',  hint: 'Same caption; FB allows long form', build: fbExport },
+    { key: 'twitter',   label: 'X / Twitter', hint: '≤280 chars · trims body, keeps top hashtags', build: twExport },
+    { key: 'linkedin',  label: 'LinkedIn',  hint: 'Body reformatted for professional tone framing', build: liExport },
+    { key: 'whatsapp',  label: 'WhatsApp Status', hint: 'Punchy first 200 chars + key hashtags', build: waExport },
+    { key: 'email',     label: 'Email',     hint: 'Subject + body for newsletter blast', build: emailExport },
+    { key: 'push',      label: 'Push',      hint: '≤30c title · ≤120c body for FCM', build: pushExport },
+  ];
+  const active = channels.find((c) => c.key === activeKey)!;
+  const blocks = active.build(draft);
+
+  async function copyBlock(text: string) {
+    if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
+      await navigator.clipboard.writeText(text);
+    }
+  }
+
+  return (
+    <View style={styles.exportBody}>
+      <View style={styles.channelRow}>
+        {channels.map((c) => (
+          <Pressable
+            key={c.key}
+            onPress={() => setActiveKey(c.key)}
+            style={[styles.channelChip, activeKey === c.key && styles.channelChipActive]}
+          >
+            <Text style={[styles.channelChipLabel, activeKey === c.key && styles.channelChipLabelActive]}>{c.label}</Text>
+          </Pressable>
+        ))}
+      </View>
+      <Text style={styles.fieldHint}>{active.hint}</Text>
+      <View style={{ gap: 8, marginTop: 8 }}>
+        {blocks.map((b, idx) => (
+          <View key={idx} style={styles.exportBlockRow}>
+            {b.label ? <Text style={styles.exportBlockLabel}>{b.label}</Text> : null}
+            <View style={styles.exportTextRow}>
+              <Text style={styles.exportText} selectable>{b.text}</Text>
+              <Pressable onPress={() => copyBlock(b.text)} style={styles.copyBtn}>
+                <Ionicons name="copy" size={14} color={Colors.primary} />
+                <Text style={styles.copyBtnLabel}>Copy</Text>
+              </Pressable>
+            </View>
+            <Text style={styles.exportLen}>{b.text.length} chars</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+// Channel adapters — pure string transforms over the existing caption.
+
+function splitCaption(caption: string): { body: string; tags: string; disclaimers: string } {
+  // Split off the trailing hashtag block and any preceding disclaimer
+  // paragraph. `assembleCaption` in the generator joins these with two
+  // newlines, so we reverse that here.
+  const parts = caption.split(/\n\n+/);
+  const tagPart = parts.length > 1 && parts[parts.length - 1].trim().startsWith('#')
+    ? parts.pop()!
+    : '';
+  // Disclaimers are paragraphs that start with an italicised asterisk.
+  const disclaimerParts: string[] = [];
+  while (parts.length > 1 && /^\s*\*/.test(parts[parts.length - 1])) {
+    disclaimerParts.unshift(parts.pop()!);
+  }
+  return {
+    body: parts.join('\n\n').trim(),
+    tags: tagPart.trim(),
+    disclaimers: disclaimerParts.join('\n\n').trim(),
+  };
+}
+
+function igExport(d: MarketingDraft) {
+  return [{ text: d.caption }];
+}
+
+function fbExport(d: MarketingDraft) {
+  return [{ text: d.caption }];
+}
+
+function twExport(d: MarketingDraft) {
+  const { body, tags } = splitCaption(d.caption);
+  // X cap is 280. Reserve ~40 for top 2-3 hashtags.
+  const tagList = (tags.match(/#\w+/g) ?? []).slice(0, 2).join(' ');
+  const reserve = tagList.length + (tagList ? 1 : 0);
+  const trimmed = body.length + reserve > 275 ? body.slice(0, 275 - reserve - 1) + '…' : body;
+  const out = (trimmed + (tagList ? ` ${tagList}` : '')).slice(0, 280);
+  return [{ text: out }];
+}
+
+function liExport(d: MarketingDraft) {
+  const { body, tags } = splitCaption(d.caption);
+  const tagList = (tags.match(/#\w+/g) ?? []).slice(0, 5).join(' ');
+  const lead = d.headline ? `${d.headline}\n\n` : '';
+  const text = `${lead}${body}${tagList ? `\n\n${tagList}` : ''}`;
+  return [{ text }];
+}
+
+function waExport(d: MarketingDraft) {
+  const { body, tags } = splitCaption(d.caption);
+  const trimmed = body.length > 200 ? body.slice(0, 197) + '…' : body;
+  const tagList = (tags.match(/#\w+/g) ?? []).slice(0, 3).join(' ');
+  return [{ text: `${trimmed}${tagList ? `\n\n${tagList}` : ''}` }];
+}
+
+function emailExport(d: MarketingDraft) {
+  const subject = d.headline ?? d.themeLabel;
+  const { body } = splitCaption(d.caption);
+  const emailBody = `Hi maa,\n\n${body}\n\n— team MaaMitra`;
+  return [
+    { label: 'Subject', text: subject },
+    { label: 'Body', text: emailBody },
+  ];
+}
+
+function pushExport(d: MarketingDraft) {
+  const title = (d.headline ?? d.themeLabel).slice(0, 30);
+  const { body } = splitCaption(d.caption);
+  const firstSentence = body.split(/[.?!]\s/)[0] ?? body;
+  const pushBody = firstSentence.slice(0, 117) + (firstSentence.length > 117 ? '…' : '');
+  return [
+    { label: 'Title', text: title },
+    { label: 'Body', text: pushBody },
+  ];
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -608,4 +954,34 @@ const styles = StyleSheet.create({
   btnLabel: { color: '#fff', fontWeight: '700', fontSize: FontSize.sm },
   errorText: { color: Colors.error, fontSize: FontSize.xs, fontWeight: '600' },
   rejectRow: { flexDirection: 'row', gap: 6, alignItems: 'center', flexWrap: 'wrap' },
+
+  schedBox: { backgroundColor: Colors.bgLight, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border, gap: 4 },
+  schedShown: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, paddingHorizontal: 10, backgroundColor: Colors.primarySoft, borderRadius: Radius.sm, alignSelf: 'flex-start' },
+  schedShownLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.primary },
+  fieldHint: { fontSize: FontSize.xs, color: Colors.textMuted, lineHeight: 18 },
+
+  exportBlock: { backgroundColor: Colors.bgLight, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
+  exportToggle: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm },
+  exportToggleLabel: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textDark },
+  exportBody: { padding: Spacing.md, gap: Spacing.sm, borderTopWidth: 1, borderTopColor: Colors.border, backgroundColor: '#fff' },
+  channelRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  channelChip: {
+    paddingHorizontal: 10, paddingVertical: 6,
+    borderRadius: 999, borderWidth: 1,
+    borderColor: Colors.border, backgroundColor: Colors.bgLight,
+  },
+  channelChipActive: { backgroundColor: Colors.primarySoft, borderColor: Colors.primary },
+  channelChipLabel: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.textMuted },
+  channelChipLabelActive: { color: Colors.primary, fontWeight: '700' },
+  exportBlockRow: { gap: 4, paddingVertical: 6, borderTopWidth: 1, borderTopColor: Colors.borderSoft },
+  exportBlockLabel: { fontSize: 11, fontWeight: '700', color: Colors.textLight, letterSpacing: 0.6, textTransform: 'uppercase' },
+  exportTextRow: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
+  exportText: { flex: 1, fontSize: FontSize.sm, color: Colors.textDark, lineHeight: 20 },
+  exportLen: { fontSize: 10, color: Colors.textMuted, textAlign: 'right' },
+  copyBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 8, paddingVertical: 4,
+    borderRadius: Radius.sm, backgroundColor: Colors.primarySoft,
+  },
+  copyBtnLabel: { fontSize: 11, fontWeight: '700', color: Colors.primary },
 });

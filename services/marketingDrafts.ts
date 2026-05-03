@@ -154,6 +154,55 @@ export async function deleteDraft(
   await logAdminAction(actor, 'marketing.draft.delete', { docId: id });
 }
 
+/** Schedule a draft for a specific time. ISO string in any TZ; admin enters
+ *  IST via the picker, the input arrives normalised. Sets status='scheduled'
+ *  so the calendar view renders it on its day. */
+export async function scheduleDraft(
+  actor: { uid: string; email: string | null | undefined },
+  id: string,
+  scheduledAtIso: string,
+  platforms?: MarketingPlatform[],
+): Promise<void> {
+  if (!db) throw new Error('Firestore not ready');
+  const update: Record<string, unknown> = {
+    status: 'scheduled',
+    scheduledAt: scheduledAtIso,
+    approvedAt: serverTimestamp(),
+    approvedBy: actor.email ?? actor.uid,
+  };
+  if (platforms?.length) update.platforms = platforms.slice(0, 6);
+  await updateDoc(doc(db, DRAFTS_COL, id), update);
+  await logAdminAction(actor, 'marketing.draft.schedule', { docId: id }, { scheduledAt: scheduledAtIso });
+}
+
+export async function unscheduleDraft(
+  actor: { uid: string; email: string | null | undefined },
+  id: string,
+): Promise<void> {
+  if (!db) throw new Error('Firestore not ready');
+  await updateDoc(doc(db, DRAFTS_COL, id), {
+    status: 'approved',
+    scheduledAt: null,
+  });
+  await logAdminAction(actor, 'marketing.draft.unschedule', { docId: id });
+}
+
+/** Manual-publish mode marker — admin posted to the channels themselves and
+ *  is recording the receipt. Stores the platform → permalink map. */
+export async function markDraftPosted(
+  actor: { uid: string; email: string | null | undefined },
+  id: string,
+  permalinks: Partial<Record<MarketingPlatform, string>>,
+): Promise<void> {
+  if (!db) throw new Error('Firestore not ready');
+  await updateDoc(doc(db, DRAFTS_COL, id), {
+    status: 'posted',
+    postedAt: serverTimestamp(),
+    postPermalinks: permalinks,
+  });
+  await logAdminAction(actor, 'marketing.draft.publish', { docId: id });
+}
+
 // ── Generator (server-side) wrapper ─────────────────────────────────────────
 // Calls generateMarketingDraft Cloud Function. Used by "Generate now" button
 // + the daily cron internally (cron calls the same internal function with

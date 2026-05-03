@@ -589,9 +589,13 @@ export function buildDailyMarketingDraftCron() {
     .timeZone('UTC')
     .onRun(async () => {
       const brandSnap = await admin.firestore().doc('marketing_brand/main').get();
-      const enabled = brandSnap.exists && (brandSnap.data() as any)?.cronEnabled === true;
-      if (!enabled) {
+      const data = (brandSnap.exists ? brandSnap.data() : {}) as any;
+      if (data?.cronEnabled !== true) {
         console.log('[dailyMarketingDraftCron] disabled — set marketing_brand/main.cronEnabled=true to opt in');
+        return null;
+      }
+      if (data?.crisisPaused === true) {
+        console.log('[dailyMarketingDraftCron] crisis pause active — skipping today');
         return null;
       }
       const result = await runGenerator({}, null);

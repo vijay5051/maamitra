@@ -145,6 +145,13 @@ export interface BrandKit {
   costCaps: CostCaps;
   /** Curated bank of in-app illustrations available as backgrounds. */
   illustrations: BrandIllustration[];
+  /** Daily 6am-IST cron. Off by default to keep test deploys safe. */
+  cronEnabled: boolean;
+  /** When true, the cron + scheduled-publisher both no-op. Used during
+   *  national tragedies, app outages, sensitive news. */
+  crisisPaused: boolean;
+  /** Human-readable note explaining the active pause (shown in admin UI). */
+  crisisPauseReason: string | null;
   updatedAt: string | null;
   updatedBy: string | null;
 }
@@ -290,6 +297,9 @@ export function defaultBrandKit(brandName = 'MaaMitra'): BrandKit {
     compliance: DEFAULT_COMPLIANCE,
     costCaps: DEFAULT_COST_CAPS,
     illustrations: DEFAULT_ILLUSTRATIONS,
+    cronEnabled: false,
+    crisisPaused: false,
+    crisisPauseReason: null,
     updatedAt: null,
     updatedBy: null,
   };

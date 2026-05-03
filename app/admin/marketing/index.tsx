@@ -21,10 +21,12 @@ import {
   CostLogRow,
   fetchBrandKit,
   fetchRecentCostLog,
+  saveBrandKit,
   summariseCost,
 } from '../../../services/marketing';
 import { countDraftsByStatus } from '../../../services/marketingDrafts';
 import { BrandKit, DraftStatus } from '../../../lib/marketingTypes';
+import { useAuthStore } from '../../../store/useAuthStore';
 
 const META_APP_ID = '1485870226522993';
 
@@ -39,10 +41,12 @@ interface ChecklistRow {
 
 export default function MarketingOverviewScreen() {
   const router = useRouter();
+  const user = useAuthStore((s) => s.user);
   const [brand, setBrand] = useState<BrandKit | null>(null);
   const [costRows, setCostRows] = useState<CostLogRow[]>([]);
   const [draftCounts, setDraftCounts] = useState<Record<DraftStatus, number> | null>(null);
   const [loading, setLoading] = useState(true);
+  const [toggling, setToggling] = useState<'cron' | 'crisis' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => { void load(); }, []);
@@ -63,6 +67,43 @@ export default function MarketingOverviewScreen() {
       setError(e?.message ?? String(e));
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function toggleCron() {
+    if (!brand || !user) return;
+    setToggling('cron');
+    setError(null);
+    try {
+      const next = !brand.cronEnabled;
+      await saveBrandKit({ uid: user.uid, email: user.email }, { cronEnabled: next });
+      setBrand({ ...brand, cronEnabled: next });
+    } catch (e: any) {
+      setError(e?.message ?? String(e));
+    } finally {
+      setToggling(null);
+    }
+  }
+
+  async function toggleCrisis() {
+    if (!brand || !user) return;
+    setToggling('crisis');
+    setError(null);
+    try {
+      const next = !brand.crisisPaused;
+      let reason: string | null = brand.crisisPauseReason ?? null;
+      if (next && typeof window !== 'undefined') {
+        reason = window.prompt('Reason for the pause (optional, e.g. "national tragedy", "app outage"):', '') ?? null;
+      }
+      await saveBrandKit(
+        { uid: user.uid, email: user.email },
+        { crisisPaused: next, crisisPauseReason: next ? reason : null },
+      );
+      setBrand({ ...brand, crisisPaused: next, crisisPauseReason: next ? reason : null });
+    } catch (e: any) {
+      setError(e?.message ?? String(e));
+    } finally {
+      setToggling(null);
     }
   }
 
@@ -128,6 +169,13 @@ export default function MarketingOverviewScreen() {
       href: '/admin/marketing/drafts',
     },
     {
+      key: 'calendar',
+      label: 'Calendar + scheduling',
+      description: 'Approved drafts plotted on a week grid. Schedule a draft from its slide-over; the cron auto-publishes once Meta access lands. Until then, manual publish.',
+      state: 'done',
+      href: '/admin/marketing/calendar',
+    },
+    {
       key: 'webhook',
       label: 'Webhook receiver',
       description: 'Public Firebase Function endpoint that ingests Meta events (comments, DMs, mentions). Also unblocks the Meta data-deletion URL. Coming in Phase 5.',
@@ -163,6 +211,68 @@ export default function MarketingOverviewScreen() {
         loading={loading && !brand}
         error={error}
       >
+        {brand?.crisisPaused ? (
+          <View style={styles.crisisBanner}>
+            <Ionicons name="pause-circle" size={20} color="#fff" />
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={styles.crisisTitle}>Crisis pause active</Text>
+              <Text style={styles.crisisSub}>
+                Daily cron is paused. New posts won't auto-publish.{brand.crisisPauseReason ? ` Reason: ${brand.crisisPauseReason}` : ''}
+              </Text>
+            </View>
+            <Pressable
+              onPress={toggleCrisis}
+              disabled={toggling === 'crisis'}
+              style={styles.crisisAction}
+            >
+              <Text style={styles.crisisActionLabel}>{toggling === 'crisis' ? '…' : 'Resume'}</Text>
+            </Pressable>
+          </View>
+        ) : null}
+
+        {brand ? (
+          <View style={styles.toggleRow}>
+            <View style={[styles.toggleCard, brand.cronEnabled && styles.toggleCardOn]}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.toggleTitle}>Daily 6am IST cron</Text>
+                <Text style={styles.toggleSub}>
+                  {brand.cronEnabled
+                    ? 'On — a fresh draft lands in the queue every morning.'
+                    : 'Off — drafts only happen when you click Generate now.'}
+                </Text>
+              </View>
+              <Pressable
+                onPress={toggleCron}
+                disabled={toggling === 'cron'}
+                style={[styles.toggleBtn, brand.cronEnabled && styles.toggleBtnOn]}
+              >
+                <Text style={[styles.toggleBtnLabel, brand.cronEnabled && styles.toggleBtnLabelOn]}>
+                  {toggling === 'cron' ? '…' : brand.cronEnabled ? 'Disable' : 'Enable'}
+                </Text>
+              </Pressable>
+            </View>
+            <View style={[styles.toggleCard, brand.crisisPaused && { borderColor: Colors.error }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.toggleTitle}>Crisis pause</Text>
+                <Text style={styles.toggleSub}>
+                  {brand.crisisPaused
+                    ? 'Active. Use Resume above when safe.'
+                    : 'Halts cron + scheduled publishes during outages or sensitive news.'}
+                </Text>
+              </View>
+              <Pressable
+                onPress={toggleCrisis}
+                disabled={toggling === 'crisis'}
+                style={[styles.toggleBtn, brand.crisisPaused && { backgroundColor: Colors.error }]}
+              >
+                <Text style={[styles.toggleBtnLabel, brand.crisisPaused && { color: '#fff' }]}>
+                  {toggling === 'crisis' ? '…' : brand.crisisPaused ? 'Resume' : 'Pause'}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
+
         <View style={styles.statBar}>
           <View style={styles.stat}>
             <Text style={styles.statValue}>{doneCount}<Text style={styles.statTotal}> / {checklist.length}</Text></Text>
@@ -361,4 +471,39 @@ const styles = StyleSheet.create({
   costMetaValue: { fontSize: 22, fontWeight: '800', color: Colors.textDark },
   costMetaLabel: { fontSize: FontSize.xs, color: Colors.textMuted, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.6, marginTop: 2 },
   costMetaSub: { fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 6 },
+
+  crisisBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
+    backgroundColor: Colors.error,
+    paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md,
+    borderRadius: Radius.lg,
+    marginBottom: Spacing.md,
+  },
+  crisisTitle: { color: '#fff', fontWeight: '800', fontSize: FontSize.md },
+  crisisSub: { color: '#fff', fontSize: FontSize.xs, opacity: 0.9 },
+  crisisAction: { paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm, backgroundColor: '#fff', borderRadius: Radius.sm },
+  crisisActionLabel: { color: Colors.error, fontWeight: '800', fontSize: FontSize.xs },
+
+  toggleRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md, marginBottom: Spacing.lg },
+  toggleCard: {
+    flex: 1, minWidth: 280,
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
+    backgroundColor: Colors.cardBg,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    borderWidth: 1, borderColor: Colors.borderSoft,
+    ...Shadow.sm,
+  },
+  toggleCardOn: { borderColor: Colors.primary, backgroundColor: Colors.primarySoft },
+  toggleTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textDark },
+  toggleSub: { fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 2, lineHeight: 18 },
+  toggleBtn: {
+    paddingHorizontal: 14, paddingVertical: 8,
+    borderRadius: Radius.sm,
+    backgroundColor: Colors.bgLight,
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  toggleBtnOn: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  toggleBtnLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textMuted },
+  toggleBtnLabelOn: { color: '#fff' },
 });

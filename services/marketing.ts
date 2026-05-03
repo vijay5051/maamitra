@@ -81,6 +81,11 @@ export async function saveBrandKit(
   if (patch.compliance) sanitised.compliance = sanitiseCompliance(patch.compliance);
   if (patch.costCaps) sanitised.costCaps = sanitiseCostCaps(patch.costCaps);
   if (patch.illustrations) sanitised.illustrations = sanitiseIllustrations(patch.illustrations);
+  if (patch.cronEnabled !== undefined) sanitised.cronEnabled = !!patch.cronEnabled;
+  if (patch.crisisPaused !== undefined) sanitised.crisisPaused = !!patch.crisisPaused;
+  if (patch.crisisPauseReason !== undefined) {
+    sanitised.crisisPauseReason = patch.crisisPauseReason ? String(patch.crisisPauseReason).slice(0, 200) : null;
+  }
 
   sanitised.updatedAt = serverTimestamp();
   sanitised.updatedBy = actor.email ?? actor.uid;
@@ -478,6 +483,9 @@ function normaliseBrandKit(data: any): BrandKit {
     compliance: sanitiseCompliance(data?.compliance),
     costCaps: sanitiseCostCaps(data?.costCaps),
     illustrations: sanitiseIllustrations(data?.illustrations),
+    cronEnabled: data?.cronEnabled === true,
+    crisisPaused: data?.crisisPaused === true,
+    crisisPauseReason: typeof data?.crisisPauseReason === 'string' ? data.crisisPauseReason : null,
     updatedAt: iso,
     updatedBy: typeof data?.updatedBy === 'string' ? data.updatedBy : null,
   };
