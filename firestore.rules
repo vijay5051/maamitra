@@ -389,6 +389,24 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // ── Crisis queue (Wave 4: safety) ────────────────────────────────────────
+    // Auto-flagged content (PPD / self-harm / abuse / eating disorders).
+    // - Authors create only docs flagging their OWN content; they cannot
+    //   read the queue or anyone else's flag.
+    // - Admins read/write everything.
+    // - The doc shape is locked to prevent payload abuse (no full message
+    //   bodies — only a 240-char snippet), and `severity` must be one of
+    //   the allowed strings.
+    match /crisis_queue/{docId} {
+      allow read:   if isAdmin();
+      allow create: if isSignedIn()
+        && request.resource.data.authorUid == request.auth.uid
+        && request.resource.data.severity in ['low','medium','high','critical']
+        && request.resource.data.status == 'open'
+        && request.resource.data.snippet.size() <= 240;
+      allow update, delete: if isAdmin();
+    }
+
     // ── Content collections: books, articles, products, schemes, yoga ────────
     match /books/{docId}    { allow read: if isSignedIn(); allow write: if isAdmin(); }
     match /articles/{docId} { allow read: if isSignedIn(); allow write: if isAdmin(); }

@@ -87,6 +87,12 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    label: 'Safety',
+    items: [
+      { href: '/admin/safety', label: 'Crisis queue', icon: 'shield-checkmark-outline', cap: 'moderate_posts', fresh: true },
+    ],
+  },
+  {
     label: 'Settings',
     items: [
       { href: '/admin/settings', label: 'App settings', icon: 'settings-outline', cap: 'edit_settings' },

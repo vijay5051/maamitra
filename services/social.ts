@@ -398,16 +398,48 @@ export async function createPost(data: {
 }): Promise<string> {
   if (!db) return '';
   try {
+    // Safety pass (Wave 4): redact PII, detect crisis language, honour
+    // moderation.requireApproval and autoHideKeywords from runtime config.
+    // Lazy-imported to avoid pulling the safety module into screens that
+    // never post. We use evaluateContent (synchronous, no side-effect
+    // queue write yet) so we can include the post docId in the crisis
+    // queue entry below.
+    const { evaluateContent } = await import('./safety');
+    const safety = evaluateContent(data.text, {
+      uid: data.authorUid,
+      authorName: data.authorName,
+      source: 'community_post',
+    });
+
     const ref = await addDoc(collection(db, 'communityPosts'), {
       ...data,
+      text: safety.cleanedText,
       reactions: {},
       reactionsByUser: {},
       commentCount: 0,
-      approved: true,
+      approved: !safety.shouldHold,
+      hidden: safety.shouldAutoHide,
+      hideReason: safety.shouldAutoHide ? `auto:${safety.matchedKeyword}` : undefined,
+      // Tags surfaced to admin moderation UIs without leaking content
+      // to non-admin clients (rules can deny if needed):
+      flaggedPII: safety.pii.redacted ? safety.pii.found : undefined,
+      flaggedCrisis: safety.crisis ? safety.crisis.severity : undefined,
       createdAt: serverTimestamp(),
     });
     // fire and forget
     incrementPublicProfilePostCount(data.authorUid, 1);
+    // Update the crisis_queue doc with the final post id for click-through.
+    if (safety.crisis) {
+      try {
+        const { fileCrisisFinding } = await import('./safety');
+        await fileCrisisFinding(data.text, safety.crisis, {
+          uid: data.authorUid,
+          authorName: data.authorName,
+          source: 'community_post',
+          docId: ref.id,
+        });
+      } catch (_) { /* best-effort */ }
+    }
     return ref.id;
   } catch (error) {
     // Image was already uploaded to Storage by the caller before this
