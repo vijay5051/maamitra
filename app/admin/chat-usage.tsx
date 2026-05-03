@@ -1,292 +1,217 @@
 /**
  * Admin · Chat usage.
  *
- * Per-user view of who's actually using the AI chat and how heavily. Shows
- * thread count, total messages, user-authored messages, last-7d messages,
- * and an "intensity" metric (messages per active day in the last 7 days).
+ * Per-user view of who's using AI chat and how heavily. The intensity
+ * column (messages-per-active-day in last 7d) is the abuse signal —
+ * if a single uid stands well above the rest, throttle them.
  *
- * The intensity column is the abuse signal — if a single uid is well above
- * the rest, that's the one to throttle. We highlight rows over 50 msg/day
- * as "heavy", but the threshold is purely visual; rate limits will live in
- * services/claude.ts when we add them.
+ * Wave 3 rebuild: AdminPage shell, KPI grid, paginated DataTable with
+ * sortable columns, intensity badge inline.
  */
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+
+import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
 import {
-  ActivityIndicator,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-import { Colors } from '../../constants/theme';
+  AdminPage,
+  Column,
+  DataTable,
+  EmptyState,
+  StatCard,
+  StatusBadge,
+  Toolbar,
+  ToolbarButton,
+} from '../../components/admin/ui';
 import { ChatUsageReport, ChatUsageRow, getChatUsageReport } from '../../services/admin';
-
-type SortKey = 'messages' | 'threads' | 'last7d' | 'intensity' | 'last';
 
 const HEAVY_INTENSITY = 50;
 
 export default function ChatUsage() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
-
   const [report, setReport] = useState<ChatUsageReport | null>(null);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [sort, setSort] = useState<SortKey>('messages');
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
 
   useEffect(() => { void load(); }, []);
 
   async function load() {
     setLoading(true);
-    setReport(await getChatUsageReport());
-    setLoading(false);
-  }
-  async function refresh() {
-    setRefreshing(true);
-    setReport(await getChatUsageReport());
-    setRefreshing(false);
+    setError(null);
+    try {
+      const r = await getChatUsageReport();
+      setReport(r);
+      if (r.error) setError(r.error);
+    } catch (e: any) {
+      setError(e?.message ?? String(e));
+    } finally {
+      setLoading(false);
+    }
   }
 
   const rows = useMemo(() => {
     if (!report) return [] as ChatUsageRow[];
-    let r = [...report.rows];
-    const q = search.toLowerCase().trim();
-    if (q) {
-      r = r.filter((x) =>
-        x.name.toLowerCase().includes(q) ||
-        x.email.toLowerCase().includes(q) ||
-        x.uid.toLowerCase().includes(q),
-      );
-    }
-    r.sort((a, b) => {
-      switch (sort) {
-        case 'threads':   return b.threadCount - a.threadCount;
-        case 'last7d':    return b.messagesLast7d - a.messagesLast7d;
-        case 'intensity': return b.intensity - a.intensity;
-        case 'last':      return (b.lastActivity ?? '').localeCompare(a.lastActivity ?? '');
-        case 'messages':
-        default:          return b.messageCount - a.messageCount;
-      }
-    });
-    return r;
-  }, [report, search, sort]);
+    const q = search.trim().toLowerCase();
+    if (!q) return report.rows;
+    return report.rows.filter((x) =>
+      x.name.toLowerCase().includes(q) ||
+      x.email.toLowerCase().includes(q) ||
+      x.uid.toLowerCase().includes(q),
+    );
+  }, [report, search]);
 
-  const heavy = rows.filter((r) => r.intensity >= HEAVY_INTENSITY).length;
+  const heavyCount = useMemo(
+    () => rows.filter((r) => r.intensity >= HEAVY_INTENSITY).length,
+    [rows],
+  );
 
-  return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 40 }]}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={Colors.primary} />}
-    >
-      <LinearGradient colors={['#FED7AA', '#FDBA74']} style={styles.headerCard}>
-        <Text style={styles.headerEyebrow}>Admin · Chat</Text>
-        <Text style={styles.headerTitle}>Usage & intensity</Text>
-        <Text style={styles.headerSub}>
-          {report ? `${report.totals.chatUsers} chat user${report.totals.chatUsers === 1 ? '' : 's'} · ${report.totals.totalThreads} threads · ${report.totals.totalMessages.toLocaleString('en-IN')} messages` : 'Loading…'}
-          {heavy > 0 ? `  · ${heavy} heavy user${heavy === 1 ? '' : 's'}` : ''}
-        </Text>
-      </LinearGradient>
-
-      {/* Top stats */}
-      {report ? (
-        <View style={styles.statsRow}>
-          <Stat value={report.totals.chatUsers} label="Chat users" tint="#8B5CF6" />
-          <Stat value={report.totals.activeLast7d} label="Active 7d" tint="#10B981" />
-          <Stat value={report.totals.totalThreads} label="Threads" tint="#0EA5E9" />
-          <Stat value={report.totals.totalMessages} label="Messages" tint={Colors.primary} />
-        </View>
-      ) : null}
-
-      <View style={styles.searchWrap}>
-        <Ionicons name="search" size={16} color="#9CA3AF" />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search name, email, uid…"
-          placeholderTextColor="#9CA3AF"
-          value={search}
-          onChangeText={setSearch}
-        />
-        {search ? (
-          <TouchableOpacity onPress={() => setSearch('')}>
-            <Ionicons name="close-circle" size={16} color="#9CA3AF" />
-          </TouchableOpacity>
-        ) : null}
-      </View>
-
-      {/* Sort chips */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
-        {([
-          ['messages', 'Total messages'],
-          ['threads', 'Threads'],
-          ['last7d', 'Last 7 days'],
-          ['intensity', 'Intensity'],
-          ['last', 'Last active'],
-        ] as Array<[SortKey, string]>).map(([k, label]) => (
-          <TouchableOpacity
-            key={k}
-            style={[styles.sortChip, sort === k && styles.sortChipActive]}
-            onPress={() => setSort(k)}
-          >
-            <Text style={[styles.sortChipText, sort === k && { color: '#fff' }]}>{label}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
-      {loading ? (
-        <ActivityIndicator color={Colors.primary} style={{ marginTop: 30 }} />
-      ) : report?.error ? (
-        <View style={styles.empty}>
-          <Ionicons name="warning-outline" size={36} color="#EF4444" />
-          <Text style={[styles.emptyText, { color: '#EF4444', fontWeight: '700' }]}>
-            Could not read chat threads
-          </Text>
-          <Text style={[styles.emptyText, { fontSize: 11, paddingHorizontal: 20, textAlign: 'center' }]}>
-            {report.error}
-          </Text>
-          <Text style={[styles.emptyText, { fontSize: 11, paddingHorizontal: 20, textAlign: 'center', marginTop: 6 }]}>
-            Likely a Firestore rules issue on the `threads` collectionGroup. Re-deploy rules and retry.
-          </Text>
-        </View>
-      ) : rows.length === 0 ? (
-        <View style={styles.empty}>
-          <Ionicons name="chatbubbles-outline" size={36} color="#D1D5DB" />
-          <Text style={styles.emptyText}>{search ? 'No matches.' : 'Nobody has used chat yet.'}</Text>
-          <Text style={[styles.emptyText, { fontSize: 11, paddingHorizontal: 20, textAlign: 'center', marginTop: 4 }]}>
-            (We see {report?.totals.totalThreads ?? 0} thread doc{(report?.totals.totalThreads ?? 0) === 1 ? '' : 's'} in Firestore. If users have chatted but this is 0, the writes are silently failing — check browser console on the chat tab.)
-          </Text>
-        </View>
-      ) : rows.map((r) => {
+  const columns: Column<ChatUsageRow>[] = [
+    {
+      key: 'intensity',
+      header: 'Intensity',
+      width: 130,
+      render: (r) => {
         const heavy = r.intensity >= HEAVY_INTENSITY;
+        const med = r.intensity >= 20;
+        const color = heavy ? Colors.error : med ? Colors.warning : Colors.success;
         return (
-          <Pressable
-            key={r.uid}
-            style={[styles.row, heavy && styles.rowHeavy]}
-            onPress={() => router.push(`/admin/users/${r.uid}` as any)}
-          >
-            <View style={styles.rowHead}>
-              <View style={[styles.intensityBadge, { backgroundColor: heavy ? '#EF4444' : r.intensity >= 20 ? '#F59E0B' : '#10B981' }]}>
-                <Text style={styles.intensityValue}>{Math.round(r.intensity)}</Text>
-                <Text style={styles.intensityUnit}>/d</Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.rowName} numberOfLines={1}>{r.name}</Text>
-                <Text style={styles.rowMeta} numberOfLines={1}>{r.email || r.uid.slice(0, 12)}</Text>
-              </View>
-              {heavy ? (
-                <View style={styles.heavyTag}>
-                  <Ionicons name="flame" size={11} color="#fff" />
-                  <Text style={styles.heavyTagText}>Heavy</Text>
-                </View>
-              ) : null}
-              <Ionicons name="chevron-forward" size={14} color="#D1D5DB" />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View style={[styles.badge, { backgroundColor: color }]}>
+              <Text style={styles.badgeValue}>{Math.round(r.intensity)}</Text>
+              <Text style={styles.badgeUnit}>/d</Text>
             </View>
-            <View style={styles.rowMetricsGrid}>
-              <Metric label="Total messages" value={r.messageCount} />
-              <Metric label="From user" value={r.userMessageCount} />
-              <Metric label="Threads" value={r.threadCount} />
-              <Metric label="Last 7d" value={r.messagesLast7d} />
-              <Metric label="Last active" value={r.lastActivity ? new Date(r.lastActivity).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '—'} />
-            </View>
-          </Pressable>
+            {heavy ? <StatusBadge label="Heavy" color={Colors.error} /> : null}
+          </View>
         );
-      })}
+      },
+      sort: (r) => r.intensity,
+    },
+    {
+      key: 'name',
+      header: 'User',
+      width: 220,
+      render: (r) => (
+        <View>
+          <Text style={styles.cellPrimary} numberOfLines={1}>{r.name || '—'}</Text>
+          <Text style={styles.cellMeta} numberOfLines={1}>{r.email || r.uid.slice(0, 12)}</Text>
+        </View>
+      ),
+      sort: (r) => r.name,
+    },
+    {
+      key: 'messageCount',
+      header: 'Total msgs',
+      width: 120,
+      align: 'right',
+      render: (r) => <Text style={styles.cellNumber}>{r.messageCount.toLocaleString('en-IN')}</Text>,
+      sort: (r) => r.messageCount,
+    },
+    {
+      key: 'userMessageCount',
+      header: 'From user',
+      width: 110,
+      align: 'right',
+      render: (r) => <Text style={styles.cellNumber}>{r.userMessageCount.toLocaleString('en-IN')}</Text>,
+      sort: (r) => r.userMessageCount,
+    },
+    {
+      key: 'threadCount',
+      header: 'Threads',
+      width: 100,
+      align: 'right',
+      render: (r) => <Text style={styles.cellNumber}>{r.threadCount}</Text>,
+      sort: (r) => r.threadCount,
+    },
+    {
+      key: 'messagesLast7d',
+      header: 'Last 7d',
+      width: 100,
+      align: 'right',
+      render: (r) => <Text style={styles.cellNumber}>{r.messagesLast7d}</Text>,
+      sort: (r) => r.messagesLast7d,
+    },
+    {
+      key: 'lastActivity',
+      header: 'Last active',
+      width: 130,
+      align: 'right',
+      render: (r) => (
+        <Text style={styles.cellMeta}>
+          {r.lastActivity
+            ? new Date(r.lastActivity).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+            : '—'}
+        </Text>
+      ),
+      sort: (r) => r.lastActivity ?? '',
+    },
+  ];
 
-      <Text style={styles.foot}>
-        Intensity = messages per active day in the last 7 days. Heavy = 50+/day.
-        We don't render message bodies here — open the user 360 if you need
-        the conversation context.
-      </Text>
-    </ScrollView>
-  );
-}
+  const totals = report?.totals;
 
-function Stat({ value, label, tint }: { value: number; label: string; tint: string }) {
   return (
-    <View style={[styles.stat, { borderTopColor: tint }]}>
-      <Text style={[styles.statValue, { color: tint }]}>{value.toLocaleString('en-IN')}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
-  );
-}
+    <>
+      <Stack.Screen options={{ title: 'Chat usage' }} />
+      <AdminPage
+        title="Chat usage & intensity"
+        description="Who's using AI chat, how heavily, and which users to throttle. Intensity = messages per active day in the last 7 days. Heavy = 50+/day."
+        crumbs={[{ label: 'Admin', href: '/admin' }, { label: 'Chat usage' }]}
+        headerActions={<ToolbarButton label="Refresh" icon="refresh" onPress={load} />}
+        toolbar={
+          <Toolbar
+            search={{
+              value: search,
+              onChange: setSearch,
+              placeholder: 'Search name, email, uid…',
+            }}
+            leading={<Text style={styles.countText}>{rows.length} users · {heavyCount} heavy</Text>}
+          />
+        }
+      >
+        {totals ? (
+          <View style={styles.statsRow}>
+            <StatCard label="Chat users"   value={totals.chatUsers}      icon="people-outline" />
+            <StatCard label="Active 7d"    value={totals.activeLast7d}   icon="radio-outline" />
+            <StatCard label="Threads"      value={totals.totalThreads}   icon="git-branch-outline" />
+            <StatCard label="Total msgs"   value={totals.totalMessages}  icon="chatbubbles-outline" />
+          </View>
+        ) : null}
 
-function Metric({ label, value }: { label: string; value: number | string }) {
-  return (
-    <View style={styles.metric}>
-      <Text style={styles.metricValue}>{typeof value === 'number' ? value.toLocaleString('en-IN') : value}</Text>
-      <Text style={styles.metricLabel}>{label}</Text>
-    </View>
+        {error ? (
+          <EmptyState
+            kind="error"
+            title="Couldn't read chat threads"
+            body={`${error}\n\nLikely a Firestore rules issue on the 'threads' collectionGroup. Re-deploy rules and retry.`}
+          />
+        ) : (
+          <DataTable
+            rows={rows}
+            columns={columns}
+            rowKey={(r) => r.uid}
+            loading={loading}
+            onRowPress={(r) => router.push(`/admin/users/${r.uid}` as any)}
+            emptyTitle={search ? 'No users match' : 'No chat activity yet'}
+            emptyBody={search ? 'Try a different search.' : 'Once users start chatting, their stats appear here.'}
+          />
+        )}
+      </AdminPage>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.bgLight },
-  content: { padding: 16, gap: 12 },
-
-  headerCard: { borderRadius: 16, padding: 16 },
-  headerEyebrow: { fontSize: 11, fontWeight: '800', color: '#92400E', letterSpacing: 1.2, textTransform: 'uppercase' },
-  headerTitle: { fontSize: 24, fontWeight: '800', color: '#1a1a2e', marginTop: 2 },
-  headerSub: { fontSize: 12, color: '#78350F', marginTop: 4 },
-
-  statsRow: { flexDirection: 'row', gap: 6 },
-  stat: {
-    flex: 1, backgroundColor: '#fff', borderRadius: 10, padding: 10,
-    alignItems: 'center', borderTopWidth: 3, borderColor: '#F0EDF5', borderWidth: 1,
+  statsRow: { flexDirection: 'row', gap: Spacing.md, flexWrap: 'wrap' },
+  countText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textLight, letterSpacing: 0.4 },
+  cellPrimary: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textDark },
+  cellMeta: { fontSize: FontSize.xs, color: Colors.textLight, marginTop: 2 },
+  cellNumber: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textDark, fontVariant: ['tabular-nums'] },
+  badge: {
+    width: 56,
+    paddingVertical: 6,
+    borderRadius: Radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  statValue: { fontSize: 18, fontWeight: '800' },
-  statLabel: { fontSize: 9, color: '#6B7280', marginTop: 2, textTransform: 'uppercase', fontWeight: '700' },
-
-  searchWrap: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10,
-    borderWidth: 1, borderColor: '#E5E7EB',
-  },
-  searchInput: { flex: 1, fontSize: 13, color: '#1a1a2e' },
-
-  sortChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 14, backgroundColor: '#fff', borderWidth: 1, borderColor: '#E5E7EB' },
-  sortChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  sortChipText: { fontSize: 11, fontWeight: '700', color: '#1a1a2e' },
-
-  empty: { alignItems: 'center', padding: 30, gap: 8 },
-  emptyText: { fontSize: 13, color: '#9CA3AF' },
-
-  row: {
-    backgroundColor: '#fff', borderRadius: 12, padding: 12,
-    borderWidth: 1, borderColor: '#F0EDF5', gap: 10,
-  },
-  rowHeavy: { borderColor: '#FECACA', backgroundColor: '#FEF2F2' },
-  rowHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  intensityBadge: {
-    width: 50, paddingVertical: 6, borderRadius: 8,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  intensityValue: { color: '#fff', fontSize: 14, fontWeight: '800' },
-  intensityUnit: { color: '#fff', fontSize: 9, fontWeight: '700', marginTop: -1 },
-  rowName: { fontSize: 14, fontWeight: '800', color: '#1a1a2e' },
-  rowMeta: { fontSize: 11, color: '#6B7280', marginTop: 2 },
-  heavyTag: {
-    flexDirection: 'row', alignItems: 'center', gap: 3,
-    backgroundColor: '#EF4444', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8,
-  },
-  heavyTagText: { fontSize: 10, fontWeight: '800', color: '#fff' },
-
-  rowMetricsGrid: { flexDirection: 'row', gap: 6, flexWrap: 'wrap' },
-  metric: {
-    flex: 1, minWidth: 80, backgroundColor: Colors.bgLight, borderRadius: 8, padding: 8,
-    borderWidth: 1, borderColor: '#F0EDF5',
-  },
-  metricValue: { fontSize: 14, fontWeight: '800', color: '#1a1a2e' },
-  metricLabel: { fontSize: 9, color: '#9CA3AF', marginTop: 2, textTransform: 'uppercase', fontWeight: '700' },
-
-  foot: { fontSize: 11, color: '#9CA3AF', textAlign: 'center', marginTop: 8, lineHeight: 16 },
+  badgeValue: { color: Colors.white, fontSize: FontSize.md, fontWeight: '800' },
+  badgeUnit: { color: Colors.white, fontSize: 9, fontWeight: '700', marginTop: -1 },
 });

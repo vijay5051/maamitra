@@ -3,87 +3,98 @@
  *
  * Reads recent comments across BOTH active (communityPosts) and legacy
  * (community_posts) post collections via collectionGroup('comments').
- * Lets the admin filter, search, and delete inline.
  *
- * Why a separate screen from /admin/community: comments are ~10× higher
- * volume than posts and need their own scan view. The post-detail surface
- * still exists for context (we link out via "View post →").
+ * Wave 3 rebuild: AdminPage shell, DataTable with bulk-select + bulk delete,
+ * SlideOver for full comment text + post link, ConfirmDialog for deletes.
  */
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Colors } from '../../constants/theme';
+import { Colors, FontSize, Spacing } from '../../constants/theme';
+import {
+  AdminPage,
+  Column,
+  ConfirmDialog,
+  DataTable,
+  SlideOver,
+  Toolbar,
+  ToolbarButton,
+} from '../../components/admin/ui';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useAdminRole } from '../../lib/useAdminRole';
 import { can } from '../../lib/admin';
 import { AdminComment, deleteComment, listRecentComments } from '../../services/admin';
-import { confirmAction, infoAlert } from '../../lib/cross-platform-alerts';
 
 export default function CommentsScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const { user: actor } = useAuthStore();
   const role = useAdminRole();
+  const canModerate = can(role, 'moderate_comments');
 
   const [comments, setComments] = useState<AdminComment[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [acting, setActing] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [detail, setDetail] = useState<AdminComment | null>(null);
+  const [confirm, setConfirm] = useState<null | (() => Promise<void>)>(null);
+  const [confirmTitle, setConfirmTitle] = useState('');
+  const [confirmBody, setConfirmBody] = useState('');
 
   useEffect(() => { void load(); }, []);
 
   async function load() {
     setLoading(true);
-    setComments(await listRecentComments(150));
-    setLoading(false);
-  }
-
-  async function refresh() {
-    setRefreshing(true);
-    setComments(await listRecentComments(150));
-    setRefreshing(false);
-  }
-
-  async function handleDelete(c: AdminComment) {
-    if (!actor) return;
-    if (!can(role, 'moderate_comments')) {
-      infoAlert('Not allowed', 'Your role does not include comment moderation.');
-      return;
-    }
-    const ok = await confirmAction(
-      'Delete comment',
-      `Delete this comment by ${c.author}?\n\n"${c.text.slice(0, 120)}${c.text.length > 120 ? '…' : ''}"`,
-      { confirmLabel: 'Delete' },
-    );
-    if (!ok) return;
-    setActing(c.id);
+    setError(null);
     try {
-      await deleteComment(actor, c.id, c.postId, c.postCollection);
-      setComments((prev) => prev.filter((x) => x.id !== c.id));
+      setComments(await listRecentComments(150));
     } catch (e: any) {
-      infoAlert('Failed', e?.message ?? 'Could not delete comment.');
+      setError(e?.message ?? String(e));
     } finally {
-      setActing(null);
+      setLoading(false);
     }
+  }
+
+  async function handleDeleteOne(c: AdminComment) {
+    if (!actor || !canModerate) return;
+    setConfirmTitle('Delete comment?');
+    setConfirmBody(`By ${c.author}: "${c.text.slice(0, 140)}${c.text.length > 140 ? '…' : ''}"`);
+    setConfirm(() => async () => {
+      try {
+        await deleteComment(actor, c.id, c.postId, c.postCollection);
+        setComments((prev) => prev.filter((x) => x.id !== c.id));
+        setDetail(null);
+      } catch (e: any) {
+        setError(e?.message ?? 'Could not delete comment.');
+      }
+    });
+  }
+
+  async function handleBulkDelete() {
+    if (!actor || !canModerate) return;
+    const ids = Array.from(selected);
+    setConfirmTitle(`Delete ${ids.length} comment${ids.length === 1 ? '' : 's'}?`);
+    setConfirmBody('This cannot be undone. Each deletion is audit-logged.');
+    setConfirm(() => async () => {
+      const targets = comments.filter((c) => ids.includes(c.id));
+      let succeeded = 0;
+      for (const c of targets) {
+        try {
+          await deleteComment(actor, c.id, c.postId, c.postCollection);
+          succeeded++;
+        } catch (_) { /* keep going */ }
+      }
+      setComments((prev) => prev.filter((c) => !ids.includes(c.id)));
+      setSelected(new Set());
+      if (succeeded < ids.length) {
+        setError(`${ids.length - succeeded} of ${ids.length} deletions failed.`);
+      }
+    });
   }
 
   const filtered = useMemo(() => {
-    const q = search.toLowerCase();
+    const q = search.trim().toLowerCase();
     if (!q) return comments;
     return comments.filter((c) =>
       c.text.toLowerCase().includes(q) ||
@@ -91,107 +102,157 @@ export default function CommentsScreen() {
     );
   }, [comments, search]);
 
-  return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 40 }]}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={Colors.primary} />}
-    >
-      <LinearGradient colors={['#F5F0FF', '#EDE4FF']} style={styles.headerCard}>
-        <Text style={styles.headerEyebrow}>Admin · Community</Text>
-        <Text style={styles.headerTitle}>Comments</Text>
-        <Text style={styles.headerSub}>{comments.length} most recent comments across all posts.</Text>
-      </LinearGradient>
-
-      <View style={styles.searchWrap}>
-        <Ionicons name="search" size={16} color="#9CA3AF" />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search comment text or author…"
-          placeholderTextColor="#9CA3AF"
-          value={search}
-          onChangeText={setSearch}
-        />
-        {search ? (
-          <TouchableOpacity onPress={() => setSearch('')}>
-            <Ionicons name="close-circle" size={16} color="#9CA3AF" />
-          </TouchableOpacity>
-        ) : null}
-      </View>
-
-      {loading ? (
-        <ActivityIndicator color={Colors.primary} style={{ marginTop: 30 }} />
-      ) : filtered.length === 0 ? (
-        <View style={styles.empty}>
-          <Ionicons name="chatbubble-outline" size={36} color="#D1D5DB" />
-          <Text style={styles.emptyText}>{search ? 'No comments match' : 'No comments to moderate.'}</Text>
+  const columns: Column<AdminComment>[] = [
+    {
+      key: 'author',
+      header: 'Author',
+      width: 180,
+      render: (c) => (
+        <View>
+          <Text style={styles.cellPrimary} numberOfLines={1}>{c.author}</Text>
+          {c.authorUid ? (
+            <Pressable onPress={() => router.push(`/admin/users/${c.authorUid}` as any)}>
+              <Text style={styles.cellLink}>open profile →</Text>
+            </Pressable>
+          ) : null}
         </View>
-      ) : (
-        filtered.map((c) => (
-          <View key={c.id} style={styles.commentCard}>
-            <View style={styles.commentHead}>
-              <Text style={styles.commentAuthor} numberOfLines={1}>{c.author}</Text>
-              <Text style={styles.commentDate}>
-                {c.createdAt ? new Date(c.createdAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
-              </Text>
-            </View>
-            <Text style={styles.commentText}>{c.text}</Text>
-            <View style={styles.commentFoot}>
-              <Pressable onPress={() => c.authorUid && router.push(`/admin/users/${c.authorUid}` as any)}>
-                <Text style={styles.commentLink}>Open author profile →</Text>
-              </Pressable>
-              <View style={{ flex: 1 }} />
-              {can(role, 'moderate_comments') && (
-                <TouchableOpacity
-                  style={[styles.deleteBtn, acting === c.id && { opacity: 0.5 }]}
-                  disabled={acting === c.id}
-                  onPress={() => handleDelete(c)}
-                >
-                  <Ionicons name="trash-outline" size={13} color="#ef4444" />
-                  <Text style={styles.deleteBtnText}>{acting === c.id ? 'Deleting…' : 'Delete'}</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-        ))
-      )}
-    </ScrollView>
+      ),
+      sort: (c) => c.author,
+    },
+    {
+      key: 'text',
+      header: 'Comment',
+      render: (c) => (
+        <Text style={styles.cellBody} numberOfLines={3}>{c.text}</Text>
+      ),
+    },
+    {
+      key: 'createdAt',
+      header: 'When',
+      width: 130,
+      align: 'right',
+      render: (c) => (
+        <Text style={styles.cellMeta}>
+          {c.createdAt
+            ? new Date(c.createdAt).toLocaleString('en-IN', {
+                day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+              })
+            : '—'}
+        </Text>
+      ),
+      sort: (c) => c.createdAt ?? '',
+    },
+  ];
+
+  return (
+    <>
+      <Stack.Screen options={{ title: 'Comments' }} />
+      <AdminPage
+        title="Comments"
+        description="Recent comments across every post. Bulk-select to remove spam in one pass."
+        crumbs={[{ label: 'Admin', href: '/admin' }, { label: 'Comments' }]}
+        headerActions={
+          <>
+            <ToolbarButton label="Refresh" icon="refresh" onPress={load} />
+            {canModerate && selected.size > 0 ? (
+              <ToolbarButton
+                label={`Delete ${selected.size}`}
+                icon="trash-outline"
+                variant="danger"
+                onPress={handleBulkDelete}
+              />
+            ) : null}
+          </>
+        }
+        toolbar={
+          <Toolbar
+            search={{
+              value: search,
+              onChange: setSearch,
+              placeholder: 'Search comment text or author…',
+            }}
+            leading={<Text style={styles.countText}>{filtered.length} of {comments.length}</Text>}
+          />
+        }
+        error={error}
+      >
+        <DataTable
+          rows={filtered}
+          columns={columns}
+          rowKey={(c) => c.id}
+          loading={loading}
+          selectable={canModerate}
+          selected={selected}
+          onSelectChange={setSelected}
+          onRowPress={(c) => setDetail(c)}
+          emptyTitle={search ? 'No comments match' : 'No comments to moderate'}
+          emptyBody={search ? 'Try a different search.' : 'When users comment on posts, they appear here.'}
+        />
+      </AdminPage>
+
+      <SlideOver
+        visible={!!detail}
+        title={detail?.author ?? ''}
+        subtitle={detail?.createdAt ? new Date(detail.createdAt).toLocaleString('en-IN') : undefined}
+        onClose={() => setDetail(null)}
+        footer={
+          <>
+            {detail?.authorUid ? (
+              <ToolbarButton
+                label="Open author"
+                icon="person-circle-outline"
+                onPress={() => {
+                  router.push(`/admin/users/${detail.authorUid}` as any);
+                  setDetail(null);
+                }}
+              />
+            ) : null}
+            {canModerate && detail ? (
+              <ToolbarButton
+                label="Delete comment"
+                icon="trash-outline"
+                variant="danger"
+                onPress={() => handleDeleteOne(detail)}
+              />
+            ) : null}
+          </>
+        }
+      >
+        {detail ? (
+          <>
+            <Text style={styles.detailLabel}>Comment</Text>
+            <Text style={styles.detailBody}>{detail.text}</Text>
+            <Text style={[styles.detailLabel, { marginTop: Spacing.lg }]}>Post</Text>
+            <Text style={styles.detailMeta}>id {detail.postId}</Text>
+            <Text style={styles.detailMeta}>collection {detail.postCollection}</Text>
+          </>
+        ) : null}
+      </SlideOver>
+
+      <ConfirmDialog
+        visible={!!confirm}
+        title={confirmTitle}
+        body={confirmBody}
+        destructive
+        confirmLabel="Delete"
+        onCancel={() => setConfirm(null)}
+        onConfirm={async () => {
+          const fn = confirm;
+          setConfirm(null);
+          if (fn) await fn();
+        }}
+      />
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.bgLight },
-  content: { padding: 16, gap: 12 },
-
-  headerCard: { borderRadius: 16, padding: 16 },
-  headerEyebrow: { fontSize: 11, fontWeight: '800', color: Colors.primary, letterSpacing: 1.2, textTransform: 'uppercase' },
-  headerTitle: { fontSize: 24, fontWeight: '800', color: '#1a1a2e', marginTop: 2 },
-  headerSub: { fontSize: 12, color: '#6B7280', marginTop: 4 },
-
-  searchWrap: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#fff', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10,
-    borderWidth: 1, borderColor: '#E5E7EB',
-  },
-  searchInput: { flex: 1, fontSize: 13, color: '#1a1a2e' },
-
-  empty: { alignItems: 'center', padding: 30, gap: 8 },
-  emptyText: { fontSize: 13, color: '#9CA3AF' },
-
-  commentCard: {
-    backgroundColor: '#fff', borderRadius: 12, padding: 12,
-    borderWidth: 1, borderColor: '#F0EDF5', gap: 6,
-  },
-  commentHead: { flexDirection: 'row', alignItems: 'center' },
-  commentAuthor: { flex: 1, fontSize: 13, fontWeight: '800', color: '#1a1a2e' },
-  commentDate: { fontSize: 11, color: '#9CA3AF' },
-  commentText: { fontSize: 13, color: '#374151', lineHeight: 19 },
-  commentFoot: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
-  commentLink: { fontSize: 11, fontWeight: '700', color: Colors.primary },
-  deleteBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FECACA',
-    paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8,
-  },
-  deleteBtnText: { fontSize: 11, fontWeight: '700', color: '#ef4444' },
+  cellPrimary: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textDark },
+  cellLink: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.primary, marginTop: 2 },
+  cellBody: { fontSize: FontSize.sm, color: Colors.textDark, lineHeight: 19 },
+  cellMeta: { fontSize: FontSize.xs, color: Colors.textLight },
+  countText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textLight, letterSpacing: 0.4 },
+  detailLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textLight, letterSpacing: 0.5, textTransform: 'uppercase' },
+  detailBody: { fontSize: FontSize.md, color: Colors.textDark, lineHeight: 22, marginTop: 6 },
+  detailMeta: { fontSize: FontSize.sm, color: Colors.textLight, fontFamily: 'DMMono_400Regular', marginTop: 4 },
 });
