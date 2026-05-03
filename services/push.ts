@@ -96,18 +96,15 @@ export type PushSupportStatus =
 export async function checkPushSupportDetailed(): Promise<PushSupportStatus> {
   if (Platform.OS !== 'web') return { ok: false, reason: 'platform-native' };
   if (typeof window === 'undefined') return { ok: false, reason: 'ssr' };
-  if (!('Notification' in window)) return { ok: false, reason: 'no-notification-api' };
-  if (!('serviceWorker' in navigator)) return { ok: false, reason: 'no-service-worker' };
-  if (!('PushManager' in window)) return { ok: false, reason: 'no-push-manager' };
-  if (!('indexedDB' in window)) return { ok: false, reason: 'no-indexed-db' };
 
-  // iOS-specific: Apple only allows web push in *standalone* mode
-  // (the PWA launched from the home-screen icon, not opened in a
-  // regular Safari tab). Detect via navigator.standalone (legacy) or
-  // display-mode media query.
-  const ua = navigator.userAgent || '';
+  // Check iOS *before* the generic API probes — iOS Safari in a regular
+  // tab fails the PushManager / serviceWorker checks no matter the Safari
+  // version, and the actionable fix is always "add to Home Screen", not
+  // "your browser doesn't support push". Returning the generic reason
+  // here was confusing every iOS user.
+  const ua = (typeof navigator !== 'undefined' && navigator.userAgent) || '';
   const isIos = /iPad|iPhone|iPod/.test(ua);
-  const nav = navigator as any;
+  const nav = (typeof navigator !== 'undefined' ? navigator : {}) as any;
   const isStandalone =
     nav.standalone === true ||
     (typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)').matches);
@@ -115,9 +112,19 @@ export async function checkPushSupportDetailed(): Promise<PushSupportStatus> {
     return {
       ok: false,
       reason: 'ios-not-standalone',
-      hint: 'On iPhone, launch MaaMitra from your Home Screen icon (not from Safari) to enable push.',
+      hint:
+        'On iPhone, push notifications work only when MaaMitra is added to your Home Screen.\n\n' +
+        '1. Tap the Share icon (square with an arrow) at the bottom of Safari\n' +
+        '2. Scroll and tap "Add to Home Screen"\n' +
+        '3. Open MaaMitra from the new Home Screen icon and try again.\n\n' +
+        '(Requires iOS 16.4 or newer.)',
     };
   }
+
+  if (!('Notification' in window)) return { ok: false, reason: 'no-notification-api' };
+  if (!('serviceWorker' in navigator)) return { ok: false, reason: 'no-service-worker' };
+  if (!('PushManager' in window)) return { ok: false, reason: 'no-push-manager' };
+  if (!('indexedDB' in window)) return { ok: false, reason: 'no-indexed-db' };
 
   // Finally, ask FCM's own check — but treat a `false` here on iOS as
   // informational rather than a hard block. FCM's isSupported() checks
