@@ -56,14 +56,20 @@ inbox — all without the admin ever logging into Meta.
   ie post-Phase 6).
 
 ### Last action
-**Phase 2 fully wired up + Tip Card UI fix** (commit `8f5abbc`).
-- Pexels + Replicate keys loaded via `functions/.env` (gitignored)
-- functions:renderMarketingTemplate redeployed (now reads keys via
-  `process.env.*`, no Secret Manager / `secrets:` line needed)
-- Tip Card UI: hides Pexels/AI picker since template is text-only
-  by design (was a dead-click violation)
+**Phase 2 + Imagen + gpt-image-1 providers shipped** (commit `974573f`).
+- 4 image providers now wired: Pexels (free stock), FLUX Schnell (cheap
+  AI), **Imagen 3 via Gemini API** (default — best Indian context),
+  and **OpenAI gpt-image-1** (strongest prompt adherence).
+- Cloud Function payload refactored to a discriminated `background`
+  union — Phase-3 cron will use the same shape.
+- Preview UI is now a two-level picker (Source kind → AI Model)
+  with Indian-context-rich default prompts per template.
+- Defaults: Tip Card = no bg; Quote/Milestone Card = AI / Imagen.
+- Tip Card picker stays hidden (template is text-only by design).
+- 4 keys in `functions/.env`: PEXELS_API_KEY, REPLICATE_API_TOKEN,
+  GEMINI_API_KEY, OPENAI_API_KEY. (Gitignored via root `.env` rule.)
 - Web rebuilt + Firebase Hosting deployed
-- OTA published (update group `63e3ea9e-566b-4da2-bfae-843e66cbe3ea`)
+- OTA published (update group `6f634104-780e-4ee2-a670-12b68f6f892b`)
 
 Live at https://maamitra.co.in/admin/marketing/preview — Tip Card now
 shows a hint instead of the picker; Quote Card / Milestone Card pull
@@ -214,6 +220,9 @@ Latest deploy: 2026-05-03.
   not for acting on behalf of users.
 
 ## Recent commits
+- `4c0c35e` chore(functions) — rebuild lib/ for new providers
+- `974573f` feat(marketing) — Imagen + gpt-image-1 providers, two-level picker
+- `26e39f7` docs(handoff) — Pexels/Replicate live; Tip Card fix shipped
 - `8f5abbc` fix(marketing) — hide bg-image picker for Tip Card
 - `4334dc9` docs(handoff) — Phase 2 shipped
 - `63d1cf1` feat(marketing) — Phase 2 (Satori + 3 templates)
