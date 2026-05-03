@@ -11,6 +11,7 @@
  * the "who could I be sending to" surface stays simple.
  */
 import { Ionicons } from '@expo/vector-icons';
+import { Stack } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -30,6 +31,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Colors } from '../../constants/theme';
+import { AdminPage, FilterBar, ToolbarButton } from '../../components/admin/ui';
 import { enqueueBroadcastPush, getUsers, AdminUser } from '../../services/firebase';
 import {
   listPushDeliveryReport,
@@ -124,36 +126,50 @@ export default function NotificationsScreen() {
     setRefreshing(false);
   }
 
-  return (
-    <View style={[styles.container, { paddingBottom: insets.bottom }]}>
-      {/* Tab bar */}
-      <View style={styles.tabBar}>
-        <TabBtn label="Compose"  active={tab === 'compose'}  onPress={() => setTab('compose')}  />
-        <TabBtn label={`Outbox (${outbox.length})`} active={tab === 'outbox'} onPress={() => setTab('outbox')} />
-        <TabBtn label={`Scheduled (${scheduled.filter((s) => s.status === 'scheduled').length})`} active={tab === 'schedule'} onPress={() => setTab('schedule')} />
-      </View>
+  const filterChips = [
+    { key: 'compose', label: 'Compose' },
+    { key: 'outbox', label: 'Outbox', count: outbox.length },
+    { key: 'schedule', label: 'Scheduled', count: scheduled.filter((s) => s.status === 'scheduled').length },
+  ];
 
-      {tab === 'compose' && <ComposeTab onSent={loadAll} />}
-      {tab === 'outbox' && (
-        <OutboxList outbox={outbox} refreshing={refreshing} onRefresh={loadAll} />
-      )}
-      {tab === 'schedule' && (
-        <ScheduleList
-          scheduled={scheduled}
-          refreshing={refreshing}
-          onRefresh={loadAll}
-          onCancel={async (id) => {
-            if (!actor) return;
-            const ok = await confirmAction('Cancel scheduled push?', 'It will not be sent. This is logged.');
-            if (!ok) return;
-            try {
-              await cancelScheduledPush(actor, id);
-              await loadAll();
-            } catch (e: any) { infoAlert('Failed', e?.message ?? ''); }
-          }}
-        />
-      )}
-    </View>
+  return (
+    <>
+      <Stack.Screen options={{ title: 'Notifications' }} />
+      <AdminPage
+        title="Notifications"
+        description="Compose broadcast pushes, watch the outbox for delivery, and manage scheduled sends. All sends are audit-logged."
+        crumbs={[{ label: 'Admin', href: '/admin' }, { label: 'Notifications' }]}
+        headerActions={<ToolbarButton label="Refresh" icon="refresh" onPress={loadAll} />}
+        toolbar={
+          <FilterBar
+            chips={filterChips}
+            active={tab}
+            onChange={(k) => setTab(k as Tab)}
+          />
+        }
+      >
+        {tab === 'compose' && <ComposeTab onSent={loadAll} />}
+        {tab === 'outbox' && (
+          <OutboxList outbox={outbox} refreshing={refreshing} onRefresh={loadAll} />
+        )}
+        {tab === 'schedule' && (
+          <ScheduleList
+            scheduled={scheduled}
+            refreshing={refreshing}
+            onRefresh={loadAll}
+            onCancel={async (id) => {
+              if (!actor) return;
+              const ok = await confirmAction('Cancel scheduled push?', 'It will not be sent. This is logged.');
+              if (!ok) return;
+              try {
+                await cancelScheduledPush(actor, id);
+                await loadAll();
+              } catch (e: any) { infoAlert('Failed', e?.message ?? ''); }
+            }}
+          />
+        )}
+      </AdminPage>
+    </>
   );
 }
 

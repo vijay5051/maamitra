@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   Alert,
@@ -22,6 +22,7 @@ import { ADMIN_ROLE_LABELS, AdminRole, ADMIN_ROLES } from '../../lib/admin';
 import { useAdminRole } from '../../lib/useAdminRole';
 import { logAdminAction } from '../../services/audit';
 import { confirmAction, infoAlert } from '../../lib/cross-platform-alerts';
+import { AdminPage } from '../../components/admin/ui';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -406,7 +407,13 @@ export default function AdminSettings() {
   ];
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <>
+      <Stack.Screen options={{ title: 'App settings' }} />
+      <AdminPage
+        title="App settings"
+        description="Feature flags, rollout %, admin team, theme, tab configuration. New flag work happens in /admin/visibility — this screen continues to drive the legacy app_settings doc."
+        crumbs={[{ label: 'Admin', href: '/admin' }, { label: 'Settings' }]}
+      >
       {/* Section 1: Feature Flags */}
       <Section title="Feature Flags">
         {featureRows.map((row, i) => (
@@ -602,7 +609,8 @@ export default function AdminSettings() {
       </TouchableOpacity>
 
       <View style={{ height: 40 }} />
-    </ScrollView>
+      </AdminPage>
+    </>
   );
 }
 
