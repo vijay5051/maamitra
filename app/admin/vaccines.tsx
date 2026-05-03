@@ -1,27 +1,44 @@
 /**
- * Admin — Vaccine Schedule Manager
- * View, edit, and manage the IAP vaccine schedule.
- * Changes saved to Firestore override the static data/vaccines.ts defaults.
+ * Admin — Vaccine Schedule Manager.
+ *
+ * Wave 3 rebuild. View, edit, and add to the IAP vaccine schedule. Edits
+ * are saved to Firestore and override the static data/vaccines.ts defaults.
+ *
+ * Note: clinical safety. Every edit is audit-logged via the existing
+ * services/firebase content helpers. Wave 7 will add two-person signoff
+ * + version history; for now this remains a single-admin edit surface.
  */
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useState } from 'react';
+import { Stack } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+
+import { Colors, FontSize, Radius, Shadow, Spacing } from '../../constants/theme';
+import {
+  AdminPage,
+  ConfirmDialog,
+  EmptyState,
+  StatCard,
+  StatusBadge,
+  Toolbar,
+  ToolbarButton,
+} from '../../components/admin/ui';
 import { VACCINE_SCHEDULE } from '../../data/vaccines';
-import { getContent, createContent, updateContent, deleteContent, setContentById } from '../../services/firebase';
-import { Colors } from '../../constants/theme';
+import {
+  createContent,
+  deleteContent,
+  getContent,
+  setContentById,
+  updateContent,
+} from '../../services/firebase';
 
 interface VaccineItem {
   id: string;
@@ -31,25 +48,241 @@ interface VaccineItem {
   daysFromBirth: number;
   ageLabel: string;
   category: string;
-  isCustom?: boolean; // true = admin-added via Firestore
+  isCustom?: boolean;
+  isOverridden?: boolean;
 }
 
 const CATEGORIES = ['Birth', 'Primary Series', 'Boosters', 'Seasonal', 'Adolescent', 'Nutrition', 'Optional', 'Catch-up'];
 
-// ─── Form Modal ───────────────────────────────────────────────────────────────
+const CATEGORY_COLORS: Record<string, string> = {
+  'Birth': Colors.primary,
+  'Primary Series': '#8b5cf6',
+  'Boosters': Colors.success,
+  'Seasonal': '#0ea5e9',
+  'Adolescent': '#ec4899',
+  'Nutrition': '#84cc16',
+  'Optional': Colors.warning,
+  'Catch-up': '#06b6d4',
+};
 
-function VaccineFormModal({
-  visible,
-  vaccine,
-  onClose,
-  onSave,
-}: {
+export default function VaccinesScreen() {
+  const [firestoreVaccines, setFirestoreVaccines] = useState<VaccineItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<VaccineItem | null>(null);
+  const [confirmDel, setConfirmDel] = useState<VaccineItem | null>(null);
+
+  useEffect(() => { void load(); }, []);
+
+  async function load() {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await getContent('vaccines');
+      setFirestoreVaccines(data as VaccineItem[]);
+    } catch (e: any) {
+      setError(e?.message ?? String(e));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Static vaccines + Firestore overrides + pure-custom additions, merged.
+  const merged = useMemo(() => {
+    const staticItems: VaccineItem[] = VACCINE_SCHEDULE.map((v) => ({
+      id: v.id,
+      name: v.name,
+      shortName: v.shortName,
+      description: v.description,
+      daysFromBirth: v.daysFromBirth,
+      ageLabel: v.ageLabel,
+      category: v.category,
+      isCustom: false,
+    }));
+    const staticIds = new Set(staticItems.map((v) => v.id));
+    const overrides = Object.fromEntries(
+      firestoreVaccines.filter((v) => staticIds.has(v.id)).map((v) => [v.id, v]),
+    );
+    const pureCustom = firestoreVaccines.filter((v) => !staticIds.has(v.id));
+    const mergedStatic = staticItems.map((v) =>
+      overrides[v.id] ? { ...overrides[v.id], isCustom: false, isOverridden: true } : v,
+    );
+    return [...mergedStatic, ...pureCustom.map((v) => ({ ...v, isCustom: true }))]
+      .sort((a, b) => a.daysFromBirth - b.daysFromBirth);
+  }, [firestoreVaccines]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return merged;
+    return merged.filter((v) =>
+      v.name.toLowerCase().includes(q) ||
+      v.shortName.toLowerCase().includes(q) ||
+      v.category.toLowerCase().includes(q) ||
+      v.ageLabel.toLowerCase().includes(q),
+    );
+  }, [merged, search]);
+
+  const counts = useMemo(() => {
+    const total = merged.length;
+    const overridden = merged.filter((v) => v.isOverridden).length;
+    const custom = merged.filter((v) => v.isCustom).length;
+    const iap = total - custom;
+    return { total, iap, overridden, custom };
+  }, [merged]);
+
+  async function handleSave(data: Omit<VaccineItem, 'id' | 'isCustom' | 'isOverridden'>) {
+    try {
+      if (editing) {
+        const isExistingFirestore = firestoreVaccines.some((v) => v.id === editing.id);
+        if (isExistingFirestore) {
+          await updateContent('vaccines', editing.id, data as any);
+        } else {
+          // Static vaccine being overridden for the first time
+          await setContentById('vaccines', editing.id, data as any);
+        }
+        setFirestoreVaccines((prev) =>
+          prev.some((v) => v.id === editing.id)
+            ? prev.map((v) => v.id === editing.id ? { ...v, ...data } : v)
+            : [...prev, { ...data, id: editing.id }],
+        );
+      } else {
+        const newId = await createContent('vaccines', data as any);
+        setFirestoreVaccines((prev) => [...prev, { ...data, id: newId ?? Date.now().toString(), isCustom: true }]);
+      }
+      setModalOpen(false);
+      setEditing(null);
+    } catch (e: any) {
+      setError(e?.message ?? String(e));
+    }
+  }
+
+  async function handleDelete(v: VaccineItem) {
+    try {
+      await deleteContent('vaccines', v.id);
+      setFirestoreVaccines((prev) => prev.filter((x) => x.id !== v.id));
+    } catch (e: any) {
+      setError(e?.message ?? String(e));
+    } finally {
+      setConfirmDel(null);
+    }
+  }
+
+  return (
+    <>
+      <Stack.Screen options={{ title: 'Vaccine schedule' }} />
+      <AdminPage
+        title="Vaccine schedule"
+        description="IAP-aligned schedule. Edits override the bundled defaults; new vaccines append to the end. Clinical safety: every change is audit-logged."
+        crumbs={[{ label: 'Admin', href: '/admin' }, { label: 'Vaccine schedule' }]}
+        headerActions={
+          <>
+            <ToolbarButton label="Refresh" icon="refresh" onPress={load} />
+            <ToolbarButton
+              label="Add custom"
+              icon="add"
+              variant="primary"
+              onPress={() => { setEditing(null); setModalOpen(true); }}
+            />
+          </>
+        }
+        toolbar={
+          <Toolbar
+            search={{
+              value: search,
+              onChange: setSearch,
+              placeholder: 'Search name, age, category…',
+            }}
+            leading={<Text style={styles.countText}>{filtered.length} of {merged.length}</Text>}
+          />
+        }
+        error={error}
+      >
+        <View style={styles.statsRow}>
+          <StatCard label="Total"      value={counts.total}      icon="medkit-outline" />
+          <StatCard label="IAP (base)" value={counts.iap}        icon="shield-checkmark-outline" />
+          <StatCard label="Edited"     value={counts.overridden} icon="create-outline" />
+          <StatCard label="Custom"     value={counts.custom}     icon="add-circle-outline" />
+        </View>
+
+        {loading && firestoreVaccines.length === 0 ? (
+          <EmptyState kind="loading" title="Loading schedule…" />
+        ) : filtered.length === 0 ? (
+          <EmptyState kind="empty" title="No vaccines match" body="Try a different search." />
+        ) : (
+          <View style={{ gap: Spacing.sm }}>
+            {filtered.map((v) => (
+              <View
+                key={`${v.id}-${v.isCustom ? 'c' : v.isOverridden ? 'o' : 's'}`}
+                style={[
+                  styles.card,
+                  v.isCustom && styles.cardCustom,
+                  v.isOverridden && styles.cardOverridden,
+                ]}
+              >
+                <View style={[styles.categoryDot, { backgroundColor: CATEGORY_COLORS[v.category] ?? Colors.textMuted }]} />
+                <View style={{ flex: 1 }}>
+                  <View style={styles.nameRow}>
+                    <Text style={styles.name}>{v.name}</Text>
+                    {v.isCustom ? <StatusBadge label="Custom" color={Colors.primary} /> : null}
+                    {v.isOverridden ? <StatusBadge label="Edited" color={Colors.warning} /> : null}
+                  </View>
+                  <Text style={styles.sub}>{v.ageLabel} · {v.category}</Text>
+                  {v.description ? <Text style={styles.desc} numberOfLines={2}>{v.description}</Text> : null}
+                </View>
+                <View style={styles.actions}>
+                  <Pressable
+                    onPress={() => { setEditing(v); setModalOpen(true); }}
+                    style={styles.actionBtn}
+                    accessibilityLabel="Edit"
+                  >
+                    <Ionicons name="pencil-outline" size={16} color={Colors.primary} />
+                  </Pressable>
+                  {v.isCustom ? (
+                    <Pressable
+                      onPress={() => setConfirmDel(v)}
+                      style={styles.actionBtn}
+                      accessibilityLabel="Delete"
+                    >
+                      <Ionicons name="trash-outline" size={16} color={Colors.error} />
+                    </Pressable>
+                  ) : null}
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+      </AdminPage>
+
+      <VaccineFormModal
+        visible={modalOpen}
+        vaccine={editing}
+        onClose={() => { setModalOpen(false); setEditing(null); }}
+        onSave={handleSave}
+      />
+
+      <ConfirmDialog
+        visible={!!confirmDel}
+        title="Delete vaccine?"
+        body={confirmDel ? `Remove "${confirmDel.name}" from the custom schedule?` : ''}
+        destructive
+        confirmLabel="Delete"
+        onCancel={() => setConfirmDel(null)}
+        onConfirm={async () => { if (confirmDel) await handleDelete(confirmDel); }}
+      />
+    </>
+  );
+}
+
+// ─── Form modal ───────────────────────────────────────────────────────────
+function VaccineFormModal({ visible, vaccine, onClose, onSave }: {
   visible: boolean;
   vaccine: VaccineItem | null;
   onClose: () => void;
-  onSave: (data: Omit<VaccineItem, 'id'>) => Promise<void>;
+  onSave: (data: Omit<VaccineItem, 'id' | 'isCustom' | 'isOverridden'>) => Promise<void>;
 }) {
-  const isEdit = !!vaccine; // any vaccine can be edited
+  const isEdit = !!vaccine;
   const [form, setForm] = useState({
     name: '', shortName: '', description: '',
     daysFromBirth: '', ageLabel: '', category: 'Primary Series',
@@ -74,263 +307,174 @@ function VaccineFormModal({
   async function handleSave() {
     if (!form.name.trim()) return;
     setSaving(true);
-    await onSave({
-      name: form.name.trim(),
-      shortName: form.shortName.trim(),
-      description: form.description.trim(),
-      daysFromBirth: parseInt(form.daysFromBirth) || 0,
-      ageLabel: form.ageLabel.trim(),
-      category: form.category,
-      isCustom: true,
-    });
-    setSaving(false);
+    try {
+      await onSave({
+        name: form.name.trim(),
+        shortName: form.shortName.trim(),
+        description: form.description.trim(),
+        daysFromBirth: parseInt(form.daysFromBirth) || 0,
+        ageLabel: form.ageLabel.trim(),
+        category: form.category,
+      });
+    } finally {
+      setSaving(false);
+    }
   }
 
   const isValid = form.name.trim().length > 0;
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={fs.header}>
-          <TouchableOpacity onPress={onClose} style={{ padding: 4 }}>
-            <Ionicons name="close" size={22} color="#6b7280" />
-          </TouchableOpacity>
-          <Text style={fs.title}>{isEdit ? 'Edit Vaccine' : 'Add Custom Vaccine'}</Text>
-          <TouchableOpacity
-            style={[fs.saveBtn, !isValid && { opacity: 0.4 }]}
-            onPress={handleSave} disabled={!isValid || saving} activeOpacity={0.85}
-          >
-            {saving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={fs.saveBtnText}>{isEdit ? 'Update' : 'Add'}</Text>}
-          </TouchableOpacity>
-        </View>
-        <ScrollView contentContainerStyle={fs.body} keyboardShouldPersistTaps="handled">
-          {[
-            { key: 'name', label: 'Vaccine Name *', hint: 'e.g. OPV1 + Pentavalent Dose 1' },
-            { key: 'shortName', label: 'Short Name', hint: 'e.g. OPV1+Penta1' },
-            { key: 'description', label: 'Description', multiline: true },
-            { key: 'daysFromBirth', label: 'Days From Birth', numeric: true, hint: '0 = birth, 42 = 6 weeks, 270 = 9 months' },
-            { key: 'ageLabel', label: 'Age Label', hint: 'e.g. 6 Weeks, 9 Months' },
-          ].map((f) => (
-            <View key={f.key} style={fs.field}>
-              <Text style={fs.label}>{f.label}</Text>
-              {f.hint && <Text style={fs.hint}>{f.hint}</Text>}
-              <TextInput
-                style={[fs.input, f.multiline && fs.textArea]}
-                value={String((form as any)[f.key])}
-                onChangeText={(v) => setForm((prev) => ({ ...prev, [f.key]: v }))}
-                multiline={f.multiline}
-                keyboardType={f.numeric ? 'number-pad' : 'default'}
-                placeholderTextColor="#9ca3af"
-                placeholder={f.label.replace(' *', '')}
-              />
-            </View>
-          ))}
+    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
+      <View style={styles.modalBackdrop}>
+        <View style={styles.modalCard}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>{isEdit ? 'Edit vaccine' : 'Add custom vaccine'}</Text>
+            <Pressable onPress={onClose} style={styles.modalClose} hitSlop={6}>
+              <Ionicons name="close" size={20} color={Colors.textDark} />
+            </Pressable>
+          </View>
+          <ScrollView contentContainerStyle={styles.modalBody} keyboardShouldPersistTaps="handled">
+            <Field label="Vaccine name *" hint="e.g. OPV1 + Pentavalent Dose 1"
+              value={form.name} onChange={(v) => setForm((p) => ({ ...p, name: v }))} />
+            <Field label="Short name" hint="e.g. OPV1+Penta1"
+              value={form.shortName} onChange={(v) => setForm((p) => ({ ...p, shortName: v }))} />
+            <Field label="Description" multiline
+              value={form.description} onChange={(v) => setForm((p) => ({ ...p, description: v }))} />
+            <Field label="Days from birth" numeric hint="0 = birth, 42 = 6 weeks, 270 = 9 months"
+              value={form.daysFromBirth} onChange={(v) => setForm((p) => ({ ...p, daysFromBirth: v }))} />
+            <Field label="Age label" hint="e.g. 6 Weeks, 9 Months"
+              value={form.ageLabel} onChange={(v) => setForm((p) => ({ ...p, ageLabel: v }))} />
 
-          <Text style={fs.label}>Category</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
-            {CATEGORIES.map((c) => (
-              <TouchableOpacity
-                key={c}
-                style={[fs.chip, c === form.category && fs.chipActive]}
-                onPress={() => setForm((p) => ({ ...p, category: c }))}
-              >
-                <Text style={[fs.chipText, c === form.category && fs.chipTextActive]}>{c}</Text>
-              </TouchableOpacity>
-            ))}
+            <Text style={styles.fieldLabel}>Category</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingVertical: 4 }}>
+              {CATEGORIES.map((c) => (
+                <Pressable
+                  key={c}
+                  onPress={() => setForm((p) => ({ ...p, category: c }))}
+                  style={[styles.catChip, c === form.category && { backgroundColor: CATEGORY_COLORS[c], borderColor: CATEGORY_COLORS[c] }]}
+                >
+                  <Text style={[styles.catChipText, c === form.category && { color: Colors.white }]}>{c}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
           </ScrollView>
-          <View style={{ height: 40 }} />
-        </ScrollView>
-      </KeyboardAvoidingView>
+          <View style={styles.modalFooter}>
+            <ToolbarButton label="Cancel" variant="ghost" onPress={onClose} disabled={saving} />
+            <ToolbarButton
+              label={saving ? 'Saving…' : (isEdit ? 'Update' : 'Add')}
+              variant="primary"
+              icon="save-outline"
+              onPress={handleSave}
+              disabled={!isValid || saving}
+            />
+          </View>
+        </View>
+      </View>
     </Modal>
   );
 }
 
-const fs = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14, borderBottomWidth: 1, borderBottomColor: '#f3f4f6', backgroundColor: '#fff' },
-  title: { fontSize: 16, fontWeight: '700', color: '#1a1a2e' },
-  saveBtn: { backgroundColor: '#10b981', borderRadius: 20, paddingHorizontal: 18, paddingVertical: 8 },
-  saveBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  body: { padding: 16, gap: 4 },
-  field: { marginBottom: 14 },
-  label: { fontSize: 12, fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6 },
-  hint: { fontSize: 11, color: '#9ca3af', marginBottom: 4 },
-  input: { backgroundColor: '#f9fafb', borderRadius: 10, padding: 12, fontSize: 14, color: '#1a1a2e', borderWidth: 1, borderColor: '#e5e7eb' },
-  textArea: { minHeight: 80, textAlignVertical: 'top' },
-  chip: { marginRight: 8, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f3f4f6' },
-  chipActive: { backgroundColor: '#dcfce7', borderWidth: 1, borderColor: '#10b981' },
-  chipText: { fontSize: 13, color: '#6b7280', fontWeight: '600' },
-  chipTextActive: { color: '#059669' },
-});
-
-// ─── Main ─────────────────────────────────────────────────────────────────────
-
-export default function VaccinesScreen() {
-  // firestoreVaccines = custom vaccines + static overrides from Firestore
-  const [firestoreVaccines, setFirestoreVaccines] = useState<VaccineItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [editingVaccine, setEditingVaccine] = useState<VaccineItem | null>(null);
-
-  // Static vaccine base list
-  const staticVaccines: VaccineItem[] = VACCINE_SCHEDULE.map((v) => ({
-    id: v.id,
-    name: v.name,
-    shortName: v.shortName,
-    description: v.description,
-    daysFromBirth: v.daysFromBirth,
-    ageLabel: v.ageLabel,
-    category: v.category,
-    isCustom: false,
-  }));
-
-  // Merge: Firestore docs override static vaccines with matching ids; new ids appended
-  const staticIds = new Set(staticVaccines.map((v) => v.id));
-  const overrideMap = Object.fromEntries(firestoreVaccines.filter((v) => staticIds.has(v.id)).map((v) => [v.id, v]));
-  const pureCustom = firestoreVaccines.filter((v) => !staticIds.has(v.id));
-  const mergedStatic = staticVaccines.map((v) => overrideMap[v.id] ? { ...overrideMap[v.id], isCustom: false, isOverridden: true } : v);
-  const allVaccines = [...mergedStatic, ...pureCustom].sort((a, b) => a.daysFromBirth - b.daysFromBirth);
-
-  const customCount = pureCustom.length;
-  const overrideCount = Object.keys(overrideMap).length;
-
-  useEffect(() => { load(); }, []);
-
-  async function load() {
-    setLoading(true);
-    const data = await getContent('vaccines');
-    setFirestoreVaccines(data as VaccineItem[]);
-    setLoading(false);
-  }
-
-  async function handleSave(data: Omit<VaccineItem, 'id'>) {
-    if (editingVaccine) {
-      const isExistingFirestore = firestoreVaccines.some((v) => v.id === editingVaccine.id);
-      if (isExistingFirestore) {
-        // Update existing Firestore doc (custom or override)
-        await updateContent('vaccines', editingVaccine.id, data);
-      } else {
-        // Static vaccine being overridden for the first time — upsert with its static id
-        await setContentById('vaccines', editingVaccine.id, data);
-      }
-      setFirestoreVaccines((prev) =>
-        prev.some((v) => v.id === editingVaccine.id)
-          ? prev.map((v) => v.id === editingVaccine.id ? { ...v, ...data } : v)
-          : [...prev, { ...data, id: editingVaccine.id }]
-      );
-    } else {
-      // New custom vaccine
-      const newId = await createContent('vaccines', data);
-      setFirestoreVaccines((prev) => [...prev, { ...data, id: newId ?? Date.now().toString(), isCustom: true }]);
-    }
-    setModalVisible(false);
-    setEditingVaccine(null);
-  }
-
-  function confirmDelete(vaccine: VaccineItem) {
-    Alert.alert('Delete Vaccine', `Remove "${vaccine.name}" from the custom schedule?`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete', style: 'destructive',
-        onPress: async () => {
-          await deleteContent('vaccines', vaccine.id);
-          setFirestoreVaccines((prev) => prev.filter((v: VaccineItem) => v.id !== vaccine.id));
-        },
-      },
-    ]);
-  }
-
-  const categoryColors: Record<string, string> = {
-    'Birth': Colors.primary,
-    'Primary Series': '#8b5cf6',
-    'Boosters': '#10b981',
-    'Seasonal': '#0ea5e9',
-    'Adolescent': '#ec4899',
-    'Nutrition': '#84cc16',
-    'Optional': '#f59e0b',
-    'Catch-up': '#06b6d4',
-  };
-
+function Field({ label, hint, value, onChange, multiline, numeric }: {
+  label: string;
+  hint?: string;
+  value: string;
+  onChange: (v: string) => void;
+  multiline?: boolean;
+  numeric?: boolean;
+}) {
   return (
-    <View style={styles.container}>
-      {/* Add button */}
-      <View style={styles.addRow}>
-        <Text style={styles.note}>
-          <Ionicons name="information-circle-outline" size={13} color="#8b5cf6" /> {staticVaccines.length} IAP · {overrideCount} edited · {customCount} custom
-        </Text>
-        <TouchableOpacity style={styles.addBtn} onPress={() => { setEditingVaccine(null); setModalVisible(true); }} activeOpacity={0.85}>
-          <LinearGradient colors={['#10b981', '#059669']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.addBtnGrad}>
-            <Ionicons name="add" size={18} color="#fff" />
-            <Text style={styles.addBtnText}>Add Custom</Text>
-          </LinearGradient>
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
-        {loading ? (
-          <ActivityIndicator color="#10b981" style={{ marginTop: 32 }} />
-        ) : (
-          allVaccines.map((v) => (
-            <View key={`${v.id}-${v.isCustom}`} style={[styles.card, pureCustom.some(c=>c.id===v.id) && styles.cardCustom, (v as any).isOverridden && styles.cardOverridden]}>
-              <View style={[styles.categoryDot, { backgroundColor: categoryColors[v.category] ?? '#9ca3af' }]} />
-              <View style={styles.info}>
-                <View style={styles.nameRow}>
-                  <Text style={styles.name}>{v.name}</Text>
-                  {pureCustom.some((c) => c.id === v.id) && <View style={styles.customBadge}><Text style={styles.customBadgeText}>Custom</Text></View>}
-                  {(v as any).isOverridden && <View style={[styles.customBadge, { backgroundColor: '#fef3c7' }]}><Text style={[styles.customBadgeText, { color: '#b45309' }]}>Edited</Text></View>}
-                </View>
-                <Text style={styles.sub}>{v.ageLabel} · {v.category}</Text>
-                {v.description ? <Text style={styles.desc} numberOfLines={2}>{v.description}</Text> : null}
-              </View>
-              <View style={styles.actions}>
-                <TouchableOpacity onPress={() => { setEditingVaccine(v); setModalVisible(true); }} style={styles.actionBtn}>
-                  <Ionicons name="pencil-outline" size={16} color="#8b5cf6" />
-                </TouchableOpacity>
-                {/* Only pure custom vaccines can be fully deleted; static overrides just keep the edit */}
-                {pureCustom.some((c) => c.id === v.id) && (
-                  <TouchableOpacity onPress={() => confirmDelete(v)} style={styles.actionBtn}>
-                    <Ionicons name="trash-outline" size={16} color="#ef4444" />
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-          ))
-        )}
-        <View style={{ height: 40 }} />
-      </ScrollView>
-
-      <VaccineFormModal
-        visible={modalVisible}
-        vaccine={editingVaccine}
-        onClose={() => { setModalVisible(false); setEditingVaccine(null); }}
-        onSave={handleSave}
+    <View style={{ marginBottom: Spacing.md }}>
+      <Text style={styles.fieldLabel}>{label}</Text>
+      {hint ? <Text style={styles.fieldHint}>{hint}</Text> : null}
+      <TextInput
+        style={[styles.fieldInput, multiline && { minHeight: 80, textAlignVertical: 'top' }]}
+        value={value}
+        onChangeText={onChange}
+        multiline={multiline}
+        keyboardType={numeric ? 'number-pad' : 'default'}
+        placeholderTextColor={Colors.textMuted}
+        placeholder={label.replace(' *', '')}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fafafa' },
-  addRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 },
-  note: { fontSize: 12, color: '#6b7280', flex: 1 },
-  addBtn: { borderRadius: 10, overflow: 'hidden' },
-  addBtnGrad: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 14, paddingVertical: 10 },
-  addBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  list: { paddingHorizontal: 16 },
+  statsRow: { flexDirection: 'row', gap: Spacing.md, flexWrap: 'wrap' },
+  countText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textLight, letterSpacing: 0.4 },
+
   card: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 12,
-    backgroundColor: '#fff', borderRadius: 14, padding: 14, marginBottom: 8,
-    borderWidth: 1, borderColor: '#f3f4f6',
+    flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md,
+    backgroundColor: Colors.cardBg,
+    borderRadius: Radius.lg,
+    padding: Spacing.lg,
+    borderWidth: 1, borderColor: Colors.borderSoft,
+    ...Shadow.sm,
   },
-  cardCustom: { borderColor: 'rgba(139,92,246,0.2)', backgroundColor: '#fdf6ff' },
-  cardOverridden: { borderColor: 'rgba(245,158,11,0.3)', backgroundColor: '#fffbeb' },
-  categoryDot: { width: 8, height: 8, borderRadius: 4, marginTop: 5 },
-  info: { flex: 1 },
-  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  name: { fontSize: 14, fontWeight: '700', color: '#1a1a2e', flex: 1 },
-  customBadge: { backgroundColor: '#ede9fe', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 },
-  customBadgeText: { fontSize: 10, color: Colors.primary, fontWeight: '700' },
-  sub: { fontSize: 12, color: '#9ca3af', marginTop: 3 },
-  desc: { fontSize: 12, color: '#6b7280', marginTop: 4, lineHeight: 17 },
-  actions: { flexDirection: 'row', gap: 4 },
-  actionBtn: { padding: 8 },
+  cardCustom: { borderColor: Colors.primary, backgroundColor: Colors.primarySoft },
+  cardOverridden: { borderColor: Colors.warning, backgroundColor: '#FFFBEB' },
+  categoryDot: { width: 10, height: 10, borderRadius: 5, marginTop: 6 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+  name: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textDark },
+  sub: { fontSize: FontSize.xs, color: Colors.textLight, marginTop: 4 },
+  desc: { fontSize: FontSize.sm, color: Colors.textDark, marginTop: 6, lineHeight: 19 },
+  actions: { flexDirection: 'row', gap: Spacing.xs, alignItems: 'flex-start' },
+  actionBtn: {
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: Colors.bgLight,
+    borderWidth: 1, borderColor: Colors.borderSoft,
+    alignItems: 'center', justifyContent: 'center',
+  },
+
+  modalBackdrop: {
+    flex: 1, backgroundColor: 'rgba(28,16,51,0.55)',
+    alignItems: 'center', justifyContent: 'center', padding: Spacing.lg,
+  },
+  modalCard: {
+    width: '100%', maxWidth: 560,
+    maxHeight: '90%',
+    backgroundColor: Colors.cardBg,
+    borderRadius: Radius.xl,
+    overflow: 'hidden',
+    ...Shadow.lg,
+  },
+  modalHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: Spacing.xl, paddingVertical: Spacing.lg,
+    borderBottomWidth: 1, borderBottomColor: Colors.borderSoft,
+  },
+  modalTitle: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.textDark },
+  modalClose: {
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: Colors.bgLight,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  modalBody: { padding: Spacing.xl, gap: 4 },
+  modalFooter: {
+    flexDirection: 'row', justifyContent: 'flex-end', gap: Spacing.sm,
+    paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md,
+    borderTopWidth: 1, borderTopColor: Colors.borderSoft,
+  },
+
+  fieldLabel: {
+    fontSize: 11, fontWeight: '700', color: Colors.textLight,
+    letterSpacing: 0.6, textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  fieldHint: { fontSize: FontSize.xs, color: Colors.textMuted, marginBottom: 4 },
+  fieldInput: {
+    backgroundColor: Colors.bgLight,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md, paddingVertical: 10,
+    fontSize: FontSize.sm, color: Colors.textDark,
+    borderWidth: 1, borderColor: Colors.border,
+  },
+
+  catChip: {
+    paddingHorizontal: Spacing.md, paddingVertical: 7,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.bgLight,
+    borderWidth: 1, borderColor: Colors.borderSoft,
+  },
+  catChipText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textDark },
 });
