@@ -56,6 +56,30 @@ inbox — all without the admin ever logging into Meta.
   ie post-Phase 6).
 
 ### Last action
+**M2 content engine + approval queue shipped** (commits `847ed91` + `a169f76`).
+
+What's now live:
+- `/admin/marketing/drafts` — live snapshot queue with status filter
+  chips, thumbnail cards, slide-over editor (full preview, editable
+  caption, compliance flags box, Approve/Reject/Regenerate/Delete).
+- "Generate now" button on the queue + Pending-review tile on the
+  marketing overview clickable into the queue.
+- Approved drafts: Copy-caption + Download-image buttons (manual
+  publish mode while Meta App Review is pending).
+- 4 Cloud Functions deployed: renderMarketingTemplate (existing),
+  scoreMarketingDraft (M1), **generateMarketingDraft** (callable),
+  **dailyMarketingDraftCron** (pubsub @ 6am IST).
+- Cron is opt-in: set `marketing_brand/main.cronEnabled=true` to
+  enable. Default off so test deploys don't generate spam.
+- Generator uses OpenAI gpt-4o-mini (already in `functions/.env`)
+  for caption JSON, Imagen for image (with Pexels fallback), runs
+  M1 compliance scorer, auto-attaches matched disclaimers.
+- Full per-draft tagging: persona, pillar, cultural event, locale,
+  template, image source, INR cost. Visible in queue + slide-over.
+- Firestore index added for `marketing_drafts (status, generatedAt
+  DESC)`.
+
+### Earlier this session
 **M1 strategic foundation shipped** (commits `4baf769` + `79c2731`).
 
 Roadmap reorganised into milestones M1-M5 (see "Roadmap" section). M1
@@ -117,10 +141,8 @@ without `index.html` — the entire site was 404'ing. Cleaned + rebuilt
 The original 8-phase plan was reorganised into 5 milestones (M1-M5).
 Each milestone is shippable + end-to-end testable.
 
-- **M1 — Strategic foundation** ✅ Shipped this session.
-- **M2 — Content engine + approval queue.** Daily cron writes drafts;
-  admin approves in `/admin/marketing/drafts`. Manual-publish mode
-  (copy caption + download image). End-to-end testable in one go.
+- **M1 — Strategic foundation** ✅ Shipped earlier this session.
+- **M2 — Content engine + approval queue** ✅ Shipped this session.
 - **M3 — Multi-channel publishing.** IG + FB auto via Graph (post-Meta
   approval); + LinkedIn, X, YouTube Shorts, WhatsApp Business, email,
   push. A/B variant runner.
@@ -130,7 +152,14 @@ Each milestone is shippable + end-to-end testable.
   digest, feedback loop, UGC pipeline, attribution.
 
 ### Next step
-**M2 — Content engine + approval queue:**
+**M3 — Multi-channel publishing.** Once Meta App Review is approved,
+auto-publish IG + FB via Graph; add LinkedIn + X + YouTube Shorts +
+WhatsApp Business + email + push channel adapters. A/B variant runner.
+Until Meta approves, manual-publish mode (Copy caption + Download
+image) handles every approved draft.
+
+### Earlier next-step (now superseded by M2 ship)
+M2 was the next step at the start of this session.
 - Pubsub-triggered Function at 6am IST
 - Reads brand kit's theme calendar for today's weekday
 - Calls Claude Haiku 4.5 for caption + headline + body
@@ -260,6 +289,9 @@ Latest deploy: 2026-05-03.
   not for acting on behalf of users.
 
 ## Recent commits
+- `a169f76` chore(functions) — rebuild lib/ for M2 generator + cron
+- `847ed91` feat(marketing) — M2 content engine + approval queue
+- `2488234` docs(handoff) — record M1 shipped + new M1-M5 roadmap
 - `79c2731` chore(functions) — rebuild lib/ for M1 scoring + cost log
 - `4baf769` feat(marketing) — M1 strategic foundation
 - `4c0c35e` chore(functions) — rebuild lib/ for new providers
