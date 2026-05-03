@@ -56,6 +56,32 @@ inbox — all without the admin ever logging into Meta.
   ie post-Phase 6).
 
 ### Last action
+**M3 ship-today scope shipped** (commits `fa7300f` + `8943fef`).
+
+What's now live:
+- `/admin/marketing/calendar` — week-grid view of approved + scheduled
+  + posted drafts with prev/next/today arrows; click any card →
+  opens slide-over via `?open=<id>` deep link.
+- Schedule: approved drafts get a Schedule… button that opens a
+  datetime-local picker (treats input as IST → UTC ISO). Status
+  flips to 'scheduled'. Mark-posted manually publishes once admin
+  has pasted to the channels.
+- A/B mode: "Generate 2 (A/B)" button on /drafts fires two parallel
+  generations with same slot params. Admin picks one, rejects other.
+- Crisis pause: BrandKit gains cronEnabled + crisisPaused +
+  crisisPauseReason. Cron honours both. Overview shows two toggle
+  cards + a sticky red banner when paused.
+- Export package: collapsible per-channel ready-to-paste content
+  in slide-over (IG, FB, X≤280, LinkedIn, WhatsApp, Email subj+body,
+  Push title+body). Pure client-side string transforms — zero LLM
+  cost. Each block has Copy + char counter.
+- Filter chips on /drafts: now include "Scheduled".
+
+M3b deferred (needs external setup): Meta Graph auto-publish (App
+Review pending), LinkedIn / X / YouTube / WhatsApp Business
+adapters. Each one is ~50 LOC + an OAuth flow once creds are ready.
+
+### Earlier this session
 **M2 content engine + approval queue shipped** (commits `847ed91` + `a169f76`).
 
 What's now live:
@@ -142,24 +168,29 @@ The original 8-phase plan was reorganised into 5 milestones (M1-M5).
 Each milestone is shippable + end-to-end testable.
 
 - **M1 — Strategic foundation** ✅ Shipped earlier this session.
-- **M2 — Content engine + approval queue** ✅ Shipped this session.
-- **M3 — Multi-channel publishing.** IG + FB auto via Graph (post-Meta
-  approval); + LinkedIn, X, YouTube Shorts, WhatsApp Business, email,
-  push. A/B variant runner.
+- **M2 — Content engine + approval queue** ✅ Shipped earlier this session.
+- **M3a — Scheduling + calendar + A/B + crisis pause + export** ✅
+  Shipped this session.
+- **M3b — Auto-publish adapters.** Deferred until external creds ready.
+  Meta Graph (post-Review), LinkedIn API, X paid tier, YouTube Shorts,
+  WhatsApp Business. Each ~50 LOC + OAuth.
 - **M4 — Engagement.** Webhook receiver, unified inbox, AI replies,
-  sentiment routing, auto-reply for FAQ, crisis pause.
+  sentiment routing, auto-reply for FAQ.
 - **M5 — Performance + growth.** Per-post analytics, weekly insight
   digest, feedback loop, UGC pipeline, attribution.
 
 ### Next step
-**M3 — Multi-channel publishing.** Once Meta App Review is approved,
-auto-publish IG + FB via Graph; add LinkedIn + X + YouTube Shorts +
-WhatsApp Business + email + push channel adapters. A/B variant runner.
-Until Meta approves, manual-publish mode (Copy caption + Download
-image) handles every approved draft.
+**M3b — Auto-publish adapters** (when external creds ready) OR
+**M4 — Engagement (unified inbox + AI replies)** if you'd rather
+unblock that workflow first. M4 needs the Meta webhook URL (Phase 5
+of the original plan), so it's also gated on Meta App Review for the
+production webhook subscription. Could mock-build M4 against
+synthetic events to validate the UI/UX before Meta is ready.
 
-### Earlier next-step (now superseded by M2 ship)
-M2 was the next step at the start of this session.
+To enable the daily cron now that M3 is shipped:
+- /admin/marketing/ → "Daily 6am IST cron" toggle card → Enable.
+- Or write `marketing_brand/main.cronEnabled = true` directly in
+  Firestore.
 - Pubsub-triggered Function at 6am IST
 - Reads brand kit's theme calendar for today's weekday
 - Calls Claude Haiku 4.5 for caption + headline + body
@@ -289,6 +320,8 @@ Latest deploy: 2026-05-03.
   not for acting on behalf of users.
 
 ## Recent commits
+- `8943fef` chore(functions) — rebuild lib/ for M3 cron crisis check
+- `fa7300f` feat(marketing) — M3 scheduling/calendar/A/B/crisis/export
 - `a169f76` chore(functions) — rebuild lib/ for M2 generator + cron
 - `847ed91` feat(marketing) — M2 content engine + approval queue
 - `2488234` docs(handoff) — record M1 shipped + new M1-M5 roadmap
