@@ -184,8 +184,79 @@ function ComposeTab({ onSent }: { onSent: () => Promise<void> }) {
   const [customLookup, setCustomLookup] = useState<Map<string, AdminUser>>(new Map());
   const [pickerOpen, setPickerOpen] = useState(false);
 
-  const isValid = title.trim().length > 0 && body.trim().length > 0 &&
-    (audience !== 'custom' || customUids.size > 0);
+  // Audience preview state — when admin picks pregnant/newborn/toddler/all,
+  // we lazy-load every user matching that bucket and let them tick names
+  // off before sending. If anyone is deselected on send, we silently fall
+  // back to the custom-list dispatch path with the kept uids.
+  const [allUsers, setAllUsers] = useState<AdminUser[]>([]);
+  const [usersLoaded, setUsersLoaded] = useState(false);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [audiencePreviewOpen, setAudiencePreviewOpen] = useState(false);
+  const [deselectedAudienceUids, setDeselectedAudienceUids] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    // Wipe deselections any time the audience changes, so a tester
+    // ticked off in "Newborn Parents" doesn't ghost-hide them when the
+    // admin switches to "Toddler Parents".
+    setDeselectedAudienceUids(new Set());
+    setAudiencePreviewOpen(false);
+  }, [audience]);
+
+  async function ensureUsersLoaded() {
+    if (usersLoaded || usersLoading) return;
+    setUsersLoading(true);
+    try {
+      const data = await getUsers();
+      setAllUsers(data);
+      setUsersLoaded(true);
+    } catch (err) {
+      console.warn('audience preview load failed:', err);
+    } finally {
+      setUsersLoading(false);
+    }
+  }
+
+  function audienceMatches(user: AdminUser, aud: Audience): boolean {
+    if (aud === 'custom') return false;
+    if (aud === 'all') return user.hasPushToken;
+    return user.audienceBuckets.includes(aud);
+  }
+
+  const audienceMatchedUsers = useMemo(() => {
+    if (audience === 'custom') return [];
+    return allUsers
+      .filter((u) => audienceMatches(u, audience))
+      .sort((a, b) => (a.name || a.email).localeCompare(b.name || b.email));
+  }, [allUsers, audience]);
+
+  const effectiveAudienceCount = audienceMatchedUsers.length - deselectedAudienceUids.size;
+
+  function toggleAudienceDeselect(uid: string) {
+    setDeselectedAudienceUids((prev) => {
+      const next = new Set(prev);
+      if (next.has(uid)) next.delete(uid);
+      else next.add(uid);
+      return next;
+    });
+  }
+
+  function clearAudienceDeselects() {
+    setDeselectedAudienceUids(new Set());
+  }
+
+  const hasAudienceDeselections = audience !== 'custom' && deselectedAudienceUids.size > 0;
+  const audienceKeptUids = useMemo(() => {
+    if (audience === 'custom') return [];
+    return audienceMatchedUsers
+      .filter((u) => !deselectedAudienceUids.has(u.uid))
+      .map((u) => u.uid);
+  }, [audienceMatchedUsers, deselectedAudienceUids, audience]);
+
+  const isValid =
+    title.trim().length > 0 &&
+    body.trim().length > 0 &&
+    (audience !== 'custom' || customUids.size > 0) &&
+    (!hasAudienceDeselections || audienceKeptUids.length > 0);
   const parsedSchedule = scheduleEnabled ? parseScheduleInput(scheduleDate) : null;
 
   function applyTemplate(tpl: typeof QUICK_TEMPLATES[0]) {
@@ -210,9 +281,12 @@ function ComposeTab({ onSent }: { onSent: () => Promise<void> }) {
       infoAlert('Invalid time', 'Use format YYYY-MM-DD HH:MM and pick a time in the future.');
       return;
     }
-    const audLabel = audience === 'custom'
+    const baseAudLabel = audience === 'custom'
       ? `${customUids.size} hand-picked user${customUids.size === 1 ? '' : 's'}`
       : AUDIENCE_OPTIONS.find((a) => a.key === audience)?.label;
+    const audLabel = hasAudienceDeselections
+      ? `${baseAudLabel} (${audienceKeptUids.length} of ${audienceMatchedUsers.length} after deselects)`
+      : baseAudLabel;
     const ok = await confirmAction(
       scheduleEnabled ? 'Schedule push' : 'Send push',
       scheduleEnabled
@@ -224,7 +298,28 @@ function ComposeTab({ onSent }: { onSent: () => Promise<void> }) {
 
     setSending(true);
     try {
-      if (audience === 'custom') {
+      // Audience with deselections → fan out as a per-user list so we
+      // hit only the kept uids. Server-side broadcast doesn't accept an
+      // exclusion list, so the cleanest path is to reuse the
+      // custom-list dispatcher with the filtered uids.
+      if (hasAudienceDeselections) {
+        const uids = audienceKeptUids;
+        if (scheduleEnabled && parsedSchedule) {
+          await scheduleCustomListPush(actor, uids, {
+            title: title.trim(),
+            body: body.trim(),
+            pushType: type,
+            scheduledFor: parsedSchedule,
+          });
+          infoAlert('Scheduled', `Will fire to ${uids.length} user${uids.length === 1 ? '' : 's'} at ${parsedSchedule.toLocaleString('en-IN')}.`);
+        } else {
+          const { sent, failed } = await sendPushToUidList(actor, uids, {
+            title: title.trim(),
+            body: body.trim(),
+          });
+          infoAlert('Sent', `${sent} push${sent === 1 ? '' : 'es'} queued${failed ? `, ${failed} failed` : ''}.`);
+        }
+      } else if (audience === 'custom') {
         const uids = Array.from(customUids);
         if (scheduleEnabled && parsedSchedule) {
           await scheduleCustomListPush(actor, uids, {
@@ -264,6 +359,8 @@ function ComposeTab({ onSent }: { onSent: () => Promise<void> }) {
       setBody('');
       setScheduleDate('');
       setScheduleEnabled(false);
+      setDeselectedAudienceUids(new Set());
+      setAudiencePreviewOpen(false);
       // Keep the picker selection on send so the admin can compose a follow-up
       // to the same list quickly. Comment out the next two lines if you'd
       // rather clear it.
@@ -360,6 +457,93 @@ function ComposeTab({ onSent }: { onSent: () => Promise<void> }) {
           </View>
         ))}
       </View>
+
+      {/* Audience preview & deselect — only when an audience is targeted */}
+      {audience !== 'custom' ? (
+        <View style={styles.audiencePreviewBlock}>
+          <TouchableOpacity
+            style={styles.audiencePreviewHead}
+            onPress={() => {
+              const next = !audiencePreviewOpen;
+              setAudiencePreviewOpen(next);
+              if (next) void ensureUsersLoaded();
+            }}
+            activeOpacity={0.8}
+          >
+            <Ionicons
+              name={audiencePreviewOpen ? 'chevron-down' : 'chevron-forward'}
+              size={14}
+              color={Colors.primary}
+            />
+            <Text style={styles.audiencePreviewLabel}>
+              {usersLoaded
+                ? `Preview & deselect — ${effectiveAudienceCount} of ${audienceMatchedUsers.length} will receive`
+                : 'Preview & deselect recipients'}
+            </Text>
+            {hasAudienceDeselections ? (
+              <View style={styles.audiencePreviewBadge}>
+                <Text style={styles.audiencePreviewBadgeText}>
+                  -{deselectedAudienceUids.size}
+                </Text>
+              </View>
+            ) : null}
+          </TouchableOpacity>
+
+          {audiencePreviewOpen ? (
+            <View style={styles.audiencePreviewBody}>
+              {usersLoading ? (
+                <ActivityIndicator color={Colors.primary} style={{ marginVertical: 16 }} />
+              ) : !usersLoaded ? (
+                <Text style={styles.audiencePreviewEmpty}>Tap to load users.</Text>
+              ) : audienceMatchedUsers.length === 0 ? (
+                <Text style={styles.audiencePreviewEmpty}>
+                  No users match this audience yet.
+                </Text>
+              ) : (
+                <>
+                  {hasAudienceDeselections ? (
+                    <TouchableOpacity onPress={clearAudienceDeselects} style={styles.audiencePreviewClear}>
+                      <Ionicons name="refresh" size={11} color="#6B7280" />
+                      <Text style={styles.audiencePreviewClearText}>
+                        Reset deselections ({deselectedAudienceUids.size})
+                      </Text>
+                    </TouchableOpacity>
+                  ) : null}
+                  <ScrollView
+                    style={styles.audiencePreviewList}
+                    nestedScrollEnabled
+                    keyboardShouldPersistTaps="handled"
+                  >
+                    {audienceMatchedUsers.map((u) => {
+                      const isOff = deselectedAudienceUids.has(u.uid);
+                      return (
+                        <Pressable
+                          key={u.uid}
+                          style={[styles.audiencePreviewRow, isOff && { opacity: 0.45 }]}
+                          onPress={() => toggleAudienceDeselect(u.uid)}
+                        >
+                          <View style={[styles.pickerCheckbox, !isOff && styles.pickerCheckboxOn]}>
+                            {!isOff ? <Ionicons name="checkmark" size={12} color="#fff" /> : null}
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.pickerRowName} numberOfLines={1}>
+                              {u.name || 'Unnamed'}
+                            </Text>
+                            <Text style={styles.pickerRowMeta} numberOfLines={1}>
+                              {u.email || '—'}
+                              {u.state ? ` · ${u.state}` : ''}
+                            </Text>
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+                </>
+              )}
+            </View>
+          ) : null}
+        </View>
+      ) : null}
 
       {/* Custom recipient picker — only visible when audience='custom' */}
       {audience === 'custom' ? (
@@ -957,6 +1141,43 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8,
   },
   cancelBtnText: { fontSize: 11, fontWeight: '700', color: '#EF4444' },
+
+  // Audience preview & deselect block (compose tab, audience != 'custom')
+  audiencePreviewBlock: {
+    backgroundColor: '#fff', borderRadius: 12, marginTop: 4,
+    borderWidth: 1, borderColor: '#E9D5FF', overflow: 'hidden',
+  },
+  audiencePreviewHead: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 12, paddingVertical: 11,
+  },
+  audiencePreviewLabel: { flex: 1, fontSize: 12, fontWeight: '700', color: '#1a1a2e' },
+  audiencePreviewBadge: {
+    paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8,
+    backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FECACA',
+  },
+  audiencePreviewBadgeText: { fontSize: 10, fontWeight: '800', color: '#EF4444' },
+  audiencePreviewBody: {
+    borderTopWidth: 1, borderTopColor: '#F3F4F6',
+    paddingHorizontal: 12, paddingTop: 8, paddingBottom: 10,
+  },
+  audiencePreviewEmpty: {
+    fontSize: 12, color: '#9CA3AF', textAlign: 'center', paddingVertical: 14,
+  },
+  audiencePreviewClear: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8,
+    backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB',
+    marginBottom: 6,
+  },
+  audiencePreviewClearText: { fontSize: 10, fontWeight: '700', color: '#6B7280' },
+  audiencePreviewList: { maxHeight: 280 },
+  audiencePreviewRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingVertical: 7,
+    borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
+  },
 
   // Custom recipients block (compose tab, audience='custom')
   customRecipientsBlock: {

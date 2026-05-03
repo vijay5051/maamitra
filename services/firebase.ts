@@ -1385,6 +1385,16 @@ export interface AdminUser {
   state: string;
   photoUrl?: string;
   parentGender?: string;
+  /** Denormalised audience tags written by saveFullProfile — e.g.
+   *  ['pregnant'] or ['newborn', 'toddler']. Used by the admin
+   *  notifications screen to preview + deselect recipients per
+   *  audience bucket. Empty array if the user hasn't onboarded yet. */
+  audienceBuckets: string[];
+  /** True when this user has at least one FCM push token registered.
+   *  Skipped audiences for push are filtered against this client-side
+   *  so the admin doesn't waste a slot on someone who has never
+   *  enabled notifications. */
+  hasPushToken: boolean;
 }
 
 export async function getUsers(): Promise<AdminUser[]> {
@@ -1408,6 +1418,10 @@ export async function getUsers(): Promise<AdminUser[]> {
             : typeof rawCreated.seconds === 'number'
               ? new Date(rawCreated.seconds * 1000).toISOString()
               : '';
+      const buckets: string[] = Array.isArray(data.audienceBuckets)
+        ? data.audienceBuckets.filter((x: any) => typeof x === 'string')
+        : [];
+      const tokens = Array.isArray(data.fcmTokens) ? data.fcmTokens : [];
       return {
         uid: d.id,
         name: data.name ?? data.motherName ?? 'Unknown',
@@ -1418,6 +1432,8 @@ export async function getUsers(): Promise<AdminUser[]> {
         state: data.profile?.state ?? '',
         photoUrl: data.photoUrl ?? undefined,
         parentGender: data.parentGender ?? '',
+        audienceBuckets: buckets,
+        hasPushToken: tokens.length > 0,
       };
     });
   } catch (error) {
