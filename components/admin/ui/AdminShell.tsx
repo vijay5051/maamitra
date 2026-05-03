@@ -68,7 +68,9 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Engagement',
     items: [
       { href: '/admin/notifications', label: 'Notifications', icon: 'notifications-outline', cap: 'send_broadcast_push' },
+      { href: '/admin/segments',      label: 'Audience segments', icon: 'layers-outline', cap: 'send_broadcast_push', fresh: true },
       { href: '/admin/banner',        label: 'In-app banner', icon: 'megaphone-outline', cap: 'manage_banner' },
+      { href: '/admin/whatsnew',      label: "What's new",     icon: 'sparkles-outline', cap: 'manage_banner', fresh: true },
       { href: '/admin/support',       label: 'Support inbox', icon: 'help-buoy-outline', cap: 'view_support' },
       { href: '/admin/feedback',      label: 'Tester feedback', icon: 'star-outline', cap: 'view_dashboard' },
     ],

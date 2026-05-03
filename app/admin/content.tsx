@@ -33,7 +33,13 @@ import {
 import { createContent, deleteContent, getContent, updateContent } from '../../services/firebase';
 
 type ContentTab = 'books' | 'articles' | 'products' | 'schemes' | 'yoga';
-interface ContentItem { id?: string; [key: string]: any; }
+type ContentStatus = 'draft' | 'published';
+interface ContentItem { id?: string; status?: ContentStatus; [key: string]: any; }
+
+function getStatus(i: ContentItem): ContentStatus {
+  // Legacy docs created before Wave 6 have no status field — treat as published.
+  return i.status === 'draft' ? 'draft' : 'published';
+}
 
 interface FieldSpec {
   key: string;
@@ -188,6 +194,9 @@ export default function ContentScreen() {
         cleaned.tags = cleaned.tags.split(',').map((s: string) => s.trim()).filter(Boolean);
       }
     });
+    // Wave 6: default new items to draft. Existing items keep their current
+    // status (overrides come through `data.status`).
+    if (!cleaned.status) cleaned.status = editing?.id ? (editing.status ?? 'published') : 'draft';
 
     try {
       if (editing?.id) {
@@ -200,6 +209,17 @@ export default function ContentScreen() {
       setModalOpen(false);
       setEditing(null);
       void loadCounts();
+    } catch (e: any) {
+      setError(e?.message ?? String(e));
+    }
+  }
+
+  async function togglePublish(item: ContentItem) {
+    if (!item.id) return;
+    const next: ContentStatus = getStatus(item) === 'draft' ? 'published' : 'draft';
+    try {
+      await updateContent(TAB_META[tab].collection, item.id, { status: next });
+      setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, status: next } : i));
     } catch (e: any) {
       setError(e?.message ?? String(e));
     }
@@ -234,6 +254,15 @@ export default function ContentScreen() {
   }));
 
   const columns: Column<ContentItem>[] = [
+    {
+      key: 'status',
+      header: 'Status',
+      width: 100,
+      render: (i) => getStatus(i) === 'draft'
+        ? <StatusBadge label="Draft" color={Colors.warning} />
+        : <StatusBadge label="Live" color={Colors.success} />,
+      sort: (i) => getStatus(i),
+    },
     {
       key: 'item',
       header: TAB_META[tab].label,
@@ -321,6 +350,7 @@ export default function ContentScreen() {
         onClose={() => { setModalOpen(false); setEditing(null); }}
         onSave={handleSave}
         onDelete={editing?.id ? () => { setConfirmDel(editing); setModalOpen(false); } : undefined}
+        onTogglePublish={editing?.id ? () => togglePublish(editing) : undefined}
       />
 
       <ConfirmDialog
@@ -337,13 +367,14 @@ export default function ContentScreen() {
 }
 
 // ─── Form modal (full-screen on narrow, modal on wide) ─────────────────────
-function FormModal({ visible, tab, item, onClose, onSave, onDelete }: {
+function FormModal({ visible, tab, item, onClose, onSave, onDelete, onTogglePublish }: {
   visible: boolean;
   tab: ContentTab;
   item: ContentItem | null;
   onClose: () => void;
   onSave: (data: ContentItem) => Promise<void>;
   onDelete?: () => void;
+  onTogglePublish?: () => void;
 }) {
   const isEdit = !!(item?.id);
   const [form, setForm] = useState<ContentItem>(item ?? blankItem(tab));
@@ -354,6 +385,7 @@ function FormModal({ visible, tab, item, onClose, onSave, onDelete }: {
   const schema = SCHEMAS[tab];
   const primaryField = schema[0];
   const isValid = !!(form[primaryField.key]?.toString().trim());
+  const itemStatus: ContentStatus = isEdit ? getStatus(item!) : 'draft';
 
   async function handleSave() {
     if (!isValid) return;
@@ -399,10 +431,18 @@ function FormModal({ visible, tab, item, onClose, onSave, onDelete }: {
             {onDelete ? (
               <ToolbarButton label="Delete" icon="trash-outline" variant="danger" onPress={onDelete} />
             ) : null}
+            {isEdit && onTogglePublish ? (
+              <ToolbarButton
+                label={itemStatus === 'draft' ? 'Publish' : 'Unpublish'}
+                icon={itemStatus === 'draft' ? 'rocket-outline' : 'eye-off-outline'}
+                variant="secondary"
+                onPress={onTogglePublish}
+              />
+            ) : null}
             <View style={{ flex: 1 }} />
             <ToolbarButton label="Cancel" variant="ghost" onPress={onClose} disabled={saving} />
             <ToolbarButton
-              label={saving ? 'Saving…' : (isEdit ? 'Update' : 'Add')}
+              label={saving ? 'Saving…' : (isEdit ? 'Save' : 'Add as draft')}
               variant="primary"
               icon="save-outline"
               onPress={handleSave}

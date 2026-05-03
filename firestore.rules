@@ -389,6 +389,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // ── Audience segments (Wave 5: targeting) ────────────────────────────────
+    // Saved filter sets for pushes / lifecycle / banners. Admin-only end-to-end.
+    match /admin_segments/{docId} {
+      allow read, write: if isAdmin();
+    }
+
     // ── Crisis queue (Wave 4: safety) ────────────────────────────────────────
     // Auto-flagged content (PPD / self-harm / abuse / eating disorders).
     // - Authors create only docs flagging their OWN content; they cannot
@@ -408,11 +414,17 @@ service cloud.firestore {
     }
 
     // ── Content collections: books, articles, products, schemes, yoga ────────
-    match /books/{docId}    { allow read: if isSignedIn(); allow write: if isAdmin(); }
-    match /articles/{docId} { allow read: if isSignedIn(); allow write: if isAdmin(); }
-    match /products/{docId} { allow read: if isSignedIn(); allow write: if isAdmin(); }
-    match /schemes/{docId}  { allow read: if isSignedIn(); allow write: if isAdmin(); }
-    match /yoga/{docId}     { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    // Wave 6: draft/publish workflow. Non-admin reads only see status !=
+    // 'draft' (or no status field at all, for legacy docs published before
+    // this field existed). Admins see everything.
+    function isPublished() {
+      return !('status' in resource.data) || resource.data.status != 'draft';
+    }
+    match /books/{docId}    { allow read: if isSignedIn() && (isPublished() || isAdmin()); allow write: if isAdmin(); }
+    match /articles/{docId} { allow read: if isSignedIn() && (isPublished() || isAdmin()); allow write: if isAdmin(); }
+    match /products/{docId} { allow read: if isSignedIn() && (isPublished() || isAdmin()); allow write: if isAdmin(); }
+    match /schemes/{docId}  { allow read: if isSignedIn() && (isPublished() || isAdmin()); allow write: if isAdmin(); }
+    match /yoga/{docId}     { allow read: if isSignedIn() && (isPublished() || isAdmin()); allow write: if isAdmin(); }
     match /vaccines/{docId} { allow read: if isSignedIn(); allow write: if isAdmin(); }
 
     // ── Push jobs queue ──────────────────────────────────────────────────────
