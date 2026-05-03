@@ -152,21 +152,34 @@ export default function MarketingPreviewScreen() {
               </View>
             </Section>
 
-            <Section title="Background image">
-              <View style={styles.chipRow}>
-                {(['none', 'pexels', 'flux'] as ImageSource[]).map((s) => (
-                  <Pressable
-                    key={s}
-                    onPress={() => setImageSource(s)}
-                    style={[styles.tab, imageSource === s && styles.tabActive]}
-                  >
-                    <Text style={[styles.tabLabel, imageSource === s && styles.tabLabelActive]}>
-                      {s === 'none' ? 'No image' : s === 'pexels' ? 'Pexels stock' : 'AI (FLUX)'}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-              {imageSource === 'pexels' ? (
+            <Section
+              title="Background image"
+              description={
+                template === 'tipCard'
+                  ? 'Tip Card is solid-background by design (text legibility first). Photo sources only apply to Quote Card and Milestone Card.'
+                  : undefined
+              }
+            >
+              {template === 'tipCard' ? (
+                <Text style={styles.fieldHint}>
+                  No background image — Tip Card uses your brand palette as the canvas.
+                </Text>
+              ) : (
+                <View style={styles.chipRow}>
+                  {(['none', 'pexels', 'flux'] as ImageSource[]).map((s) => (
+                    <Pressable
+                      key={s}
+                      onPress={() => setImageSource(s)}
+                      style={[styles.tab, imageSource === s && styles.tabActive]}
+                    >
+                      <Text style={[styles.tabLabel, imageSource === s && styles.tabLabelActive]}>
+                        {s === 'none' ? 'No image' : s === 'pexels' ? 'Pexels stock' : 'AI (FLUX)'}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+              {template !== 'tipCard' && imageSource === 'pexels' ? (
                 <View style={{ marginTop: Spacing.sm }}>
                   <Text style={styles.fieldLabel}>Search query</Text>
                   <Text style={styles.fieldHint}>e.g. "indian mother newborn warm light".</Text>
@@ -180,7 +193,7 @@ export default function MarketingPreviewScreen() {
                   />
                 </View>
               ) : null}
-              {imageSource === 'flux' ? (
+              {template !== 'tipCard' && imageSource === 'flux' ? (
                 <View style={{ marginTop: Spacing.sm }}>
                   <Text style={styles.fieldLabel}>AI prompt</Text>
                   <Text style={styles.fieldHint}>Describe the image. ~₹0.25/render via Replicate FLUX Schnell.</Text>
