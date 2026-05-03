@@ -931,30 +931,29 @@ export interface AdminComment {
 
 export async function listRecentComments(limitN = 100): Promise<AdminComment[]> {
   if (!db) return [];
-  try {
-    const snap = await getDocs(query(collectionGroup(db, 'comments'), orderBy('createdAt', 'desc'), limit(limitN)));
-    return snap.docs.map((d) => {
-      const data = d.data() as any;
-      const ts = data.createdAt;
-      const iso = ts?.toDate ? ts.toDate().toISOString() : '';
-      // path: communityPosts/{postId}/comments/{commentId}
-      const segs = d.ref.path.split('/');
-      const postCollection = (segs[0] as any) ?? 'communityPosts';
-      const postId = segs[1] ?? '';
-      return {
-        id: d.id,
-        postId,
-        postCollection,
-        authorUid: data.authorUid ?? '',
-        author: data.author ?? data.authorName ?? 'Unknown',
-        text: data.text ?? '',
-        createdAt: iso,
-      };
-    });
-  } catch (err) {
-    console.warn('listRecentComments failed:', err);
-    return [];
-  }
+  // Re-throw so the caller's UI can surface the real error (typically a
+  // missing collection-group index for `comments.createdAt`). The previous
+  // version swallowed the error and silently returned [] — the admin saw
+  // "no comments to moderate" even when comments existed.
+  const snap = await getDocs(query(collectionGroup(db, 'comments'), orderBy('createdAt', 'desc'), limit(limitN)));
+  return snap.docs.map((d) => {
+    const data = d.data() as any;
+    const ts = data.createdAt;
+    const iso = ts?.toDate ? ts.toDate().toISOString() : '';
+    // path: communityPosts/{postId}/comments/{commentId}
+    const segs = d.ref.path.split('/');
+    const postCollection = (segs[0] as any) ?? 'communityPosts';
+    const postId = segs[1] ?? '';
+    return {
+      id: d.id,
+      postId,
+      postCollection,
+      authorUid: data.authorUid ?? '',
+      author: data.author ?? data.authorName ?? 'Unknown',
+      text: data.text ?? '',
+      createdAt: iso,
+    };
+  });
 }
 
 export async function deleteComment(
