@@ -52,7 +52,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.scoreMarketingDraft = exports.renderMarketingTemplate = exports.repairCommunityCounters = exports.onUserCreated = exports.onFollowDelete = exports.onFollowCreate = exports.onPostDelete = exports.onCommentDelete = exports.onCommentCreate = exports.synthesizeSpeech = exports.adminFactoryReset = exports.factoryReset = exports.processScheduledPushes = exports.adminCreateUser = exports.adminDeleteUser = exports.dispatchPush = void 0;
+exports.dailyMarketingDraftCron = exports.generateMarketingDraft = exports.scoreMarketingDraft = exports.renderMarketingTemplate = exports.repairCommunityCounters = exports.onUserCreated = exports.onFollowDelete = exports.onFollowCreate = exports.onPostDelete = exports.onCommentDelete = exports.onCommentCreate = exports.synthesizeSpeech = exports.adminFactoryReset = exports.factoryReset = exports.processScheduledPushes = exports.adminCreateUser = exports.adminDeleteUser = exports.dispatchPush = void 0;
 const functions = __importStar(require("firebase-functions/v1"));
 const admin = __importStar(require("firebase-admin"));
 const text_to_speech_1 = __importDefault(require("@google-cloud/text-to-speech"));
@@ -1145,3 +1145,11 @@ exports.renderMarketingTemplate = (0, marketing_1.buildRenderMarketingTemplate)(
 // marketing_brand/main; pure regex, no LLM. Pairs with the M1 strategy
 // editor at /admin/marketing/strategy.
 exports.scoreMarketingDraft = (0, marketing_1.buildScoreMarketingDraft)(ADMIN_EMAILS);
+// M2 — content engine. Manual "Generate now" trigger + daily cron.
+// generateMarketingDraft uses OpenAI gpt-4o-mini for caption JSON, picks an
+// AI image (default Imagen) with Pexels fallback, renders the matching
+// template, and writes a marketing_drafts row with status=pending_review.
+exports.generateMarketingDraft = (0, marketing_1.buildGenerateMarketingDraft)(ADMIN_EMAILS);
+// Daily 6am IST cron — opt-in via marketing_brand/main.cronEnabled=true.
+// Same generation flow, runs as service account.
+exports.dailyMarketingDraftCron = (0, marketing_1.buildDailyMarketingDraftCron)();

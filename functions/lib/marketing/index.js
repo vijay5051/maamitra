@@ -50,7 +50,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.buildScoreMarketingDraft = void 0;
+exports.buildDailyMarketingDraftCron = exports.buildGenerateMarketingDraft = exports.buildScoreMarketingDraft = void 0;
 exports.buildRenderMarketingTemplate = buildRenderMarketingTemplate;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions/v1"));
@@ -59,6 +59,9 @@ const renderer_1 = require("./renderer");
 const templates_1 = require("./templates");
 var scoring_1 = require("./scoring");
 Object.defineProperty(exports, "buildScoreMarketingDraft", { enumerable: true, get: function () { return scoring_1.buildScoreMarketingDraft; } });
+var generator_1 = require("./generator");
+Object.defineProperty(exports, "buildGenerateMarketingDraft", { enumerable: true, get: function () { return generator_1.buildGenerateMarketingDraft; } });
+Object.defineProperty(exports, "buildDailyMarketingDraftCron", { enumerable: true, get: function () { return generator_1.buildDailyMarketingDraftCron; } });
 // firebase-admin is initialized in functions/src/index.ts before this module
 // is imported; we just grab the existing instance.
 // Capability check — Marketing renders are gated on the same admin signal
