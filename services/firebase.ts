@@ -1393,11 +1393,26 @@ export async function getUsers(): Promise<AdminUser[]> {
     const snap = await getDocs(collection(db, 'users'));
     return snap.docs.map((d) => {
       const data = d.data();
+      // createdAt can be a Firestore Timestamp (server-assigned), a
+      // pre-existing ISO string, or undefined. The admin /users page
+      // sorts by .localeCompare on this field, so we MUST always hand
+      // it a string — a raw Timestamp object would throw and leave the
+      // page stuck on the loading spinner with empty counters.
+      const rawCreated: any = data.createdAt;
+      const createdAtStr = !rawCreated
+        ? ''
+        : typeof rawCreated === 'string'
+          ? rawCreated
+          : typeof rawCreated.toDate === 'function'
+            ? rawCreated.toDate().toISOString()
+            : typeof rawCreated.seconds === 'number'
+              ? new Date(rawCreated.seconds * 1000).toISOString()
+              : '';
       return {
         uid: d.id,
         name: data.name ?? data.motherName ?? 'Unknown',
         email: data.email ?? '',
-        createdAt: data.createdAt ?? '',
+        createdAt: createdAtStr,
         onboardingComplete: inferOnboardingComplete(data),
         kidsCount: Array.isArray(data.kids) ? data.kids.length : 0,
         state: data.profile?.state ?? '',

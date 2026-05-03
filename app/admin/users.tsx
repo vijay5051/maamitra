@@ -309,16 +309,29 @@ export default function UsersScreen() {
 
   async function load() {
     setLoading(true);
-    const data = await getUsers();
-    setUsers(data.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')));
-    setLoading(false);
+    try {
+      const data = await getUsers();
+      setUsers(data.sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? ''))));
+    } catch (err) {
+      console.error('admin/users load failed:', err);
+      setUsers([]);
+    } finally {
+      // Always release the spinner; otherwise a sort throw would leave
+      // the page stuck (recently observed with raw Firestore Timestamps).
+      setLoading(false);
+    }
   }
 
   async function refresh() {
     setRefreshing(true);
-    const data = await getUsers();
-    setUsers(data.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')));
-    setRefreshing(false);
+    try {
+      const data = await getUsers();
+      setUsers(data.sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? ''))));
+    } catch (err) {
+      console.error('admin/users refresh failed:', err);
+    } finally {
+      setRefreshing(false);
+    }
   }
 
   function toggleSelect(uid: string) {
