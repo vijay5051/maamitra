@@ -83,9 +83,9 @@ export default function MarketingOverviewScreen() {
     {
       key: 'templates',
       label: 'Template engine',
-      description: 'Satori-based renderer with branded templates (tip card, quote card, milestone, carousel). Text-perfect because real fonts. Coming in Phase 2.',
-      state: 'pending',
-      hint: 'Phase 2',
+      description: 'Satori renderer + 3 branded templates (Tip Card, Quote Card, Milestone Card) + Pexels stock + FLUX AI image sources. Text-perfect because real fonts. Open Template preview to try it.',
+      state: 'done',
+      href: '/admin/marketing/preview',
     },
     {
       key: 'generator',

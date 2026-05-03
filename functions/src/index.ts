@@ -19,6 +19,8 @@ import * as functions from 'firebase-functions/v1';
 import * as admin from 'firebase-admin';
 import textToSpeech from '@google-cloud/text-to-speech';
 
+import { buildRenderMarketingTemplate } from './marketing';
+
 admin.initializeApp();
 
 // Allow undefined fields in setDoc/update payloads to be silently dropped
@@ -1301,3 +1303,16 @@ export const repairCommunityCounters = functions.pubsub
       console.error('repairCommunityCounters fatal', err);
     }
   });
+
+// ── Marketing automation (Phase 2) ──────────────────────────────────────────
+// Renders branded post images via Satori. Reads brand kit from Firestore,
+// optionally fetches a stock photo from Pexels or generates an AI background
+// via FLUX, returns the public Storage URL.
+//
+// Deploy:
+//   firebase deploy --only functions:renderMarketingTemplate
+//
+// Required secrets:
+//   firebase functions:secrets:set PEXELS_API_KEY
+//   firebase functions:secrets:set REPLICATE_API_TOKEN
+export const renderMarketingTemplate = buildRenderMarketingTemplate(ADMIN_EMAILS);

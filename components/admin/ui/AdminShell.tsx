@@ -78,8 +78,9 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Marketing',
     items: [
-      { href: '/admin/marketing',             label: 'Overview',     icon: 'planet-outline',         cap: 'view_marketing', fresh: true },
-      { href: '/admin/marketing/brand-kit',   label: 'Brand kit',    icon: 'color-palette-outline',  cap: 'manage_marketing_brand', fresh: true },
+      { href: '/admin/marketing',             label: 'Overview',          icon: 'planet-outline',         cap: 'view_marketing', fresh: true },
+      { href: '/admin/marketing/brand-kit',   label: 'Brand kit',         icon: 'color-palette-outline',  cap: 'manage_marketing_brand', fresh: true },
+      { href: '/admin/marketing/preview',     label: 'Template preview',  icon: 'image-outline',          cap: 'manage_marketing_drafts', fresh: true },
     ],
   },
   {

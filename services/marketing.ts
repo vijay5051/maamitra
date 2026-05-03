@@ -1,8 +1,8 @@
 // Marketing automation service.
 //
-// Phase 1 covers the brand kit only. Future phases add draft CRUD, scheduled
-// publish, inbox threads, and analytics — each behind its own export from
-// this module. Single doc reads use getDoc; live UIs subscribe via onSnapshot.
+// Phase 1: brand kit CRUD.
+// Phase 2: client wrapper for the renderMarketingTemplate Cloud Function.
+// Future phases add draft CRUD, scheduled publish, inbox threads, analytics.
 //
 // All write paths log through services/audit.ts so admin actions are
 // traceable in the audit log.
@@ -20,7 +20,7 @@ import {
   WeekDay,
 } from '../lib/marketingTypes';
 import { logAdminAction } from './audit';
-import { db } from './firebase';
+import { app, db } from './firebase';
 
 const BRAND_PATH = 'marketing_brand/main';
 
@@ -139,6 +139,57 @@ function sanitiseHashtags(tags: string[]): string[] {
 
 function sanitiseTime(t: string): string {
   return /^[0-2]\d:[0-5]\d$/.test(t) ? t : '09:00';
+}
+
+// ── Template renderer (Phase 2) ─────────────────────────────────────────────
+// Calls the renderMarketingTemplate Cloud Function with template name +
+// props + optional image source (caller URL, Pexels query, or AI prompt).
+// Returns the public URL of the rendered PNG in Firebase Storage.
+
+export type RenderableTemplateName = 'tipCard' | 'quoteCard' | 'milestoneCard';
+
+export interface RenderTemplateInput {
+  template: RenderableTemplateName;
+  props: Record<string, any>;
+  /** Use this URL directly as the background. */
+  backgroundUrl?: string;
+  /** Search query for Pexels stock photos. */
+  stockQuery?: string;
+  /** Prompt for FLUX Schnell AI generation. Falls back to stockQuery on failure. */
+  aiPrompt?: string;
+  /** Override dimensions (default 1080×1080). */
+  width?: number;
+  height?: number;
+}
+
+export interface RenderTemplateResult {
+  ok: true;
+  url: string;
+  storagePath: string;
+  width: number;
+  height: number;
+  imageSource: 'pexels' | 'flux' | 'caller-supplied' | 'none';
+  imageAttribution: string | null;
+  bytes: number;
+}
+export interface RenderTemplateError {
+  ok: false;
+  code: string;
+  message: string;
+}
+
+export async function renderMarketingTemplate(
+  input: RenderTemplateInput,
+): Promise<RenderTemplateResult | RenderTemplateError> {
+  if (!app) throw new Error('Firebase app not configured');
+  const { getFunctions, httpsCallable } = await import('firebase/functions');
+  const functions = getFunctions(app);
+  const call = httpsCallable<RenderTemplateInput, RenderTemplateResult | RenderTemplateError>(
+    functions,
+    'renderMarketingTemplate',
+  );
+  const result = await call(input);
+  return result.data;
 }
 
 function normaliseBrandKit(data: any): BrandKit {
