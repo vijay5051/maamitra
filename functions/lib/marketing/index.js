@@ -101,29 +101,46 @@ function buildRenderMarketingTemplate(allowList) {
         }
         const props = (data?.props ?? {});
         // ── Resolve background image (if any) ─────────────────────────────
+        // Each provider returns a string (URL or data: URL) on success or null
+        // on any failure — no provider throws. Caller picks one provider per
+        // render; we don't auto-fallback because the cost/style profile
+        // differs significantly between FLUX, Imagen, and gpt-image-1.
         let imageSource = 'none';
         let imageAttribution = null;
-        let backgroundUrl = data?.backgroundUrl;
-        if (!backgroundUrl && data?.aiPrompt) {
-            const ai = await (0, imageSources_1.fluxSchnell)(data.aiPrompt, { aspectRatio: '1:1' });
-            if (ai) {
-                backgroundUrl = ai;
-                imageSource = 'flux';
-            }
+        let backgroundUrl;
+        const bg = data?.background;
+        if (bg?.type === 'url' && typeof bg.url === 'string' && bg.url) {
+            backgroundUrl = bg.url;
+            imageSource = 'caller-supplied';
         }
-        if (!backgroundUrl && data?.stockQuery) {
-            const stock = await (0, imageSources_1.pexelsSearch)(data.stockQuery);
+        else if (bg?.type === 'stock' && bg.provider === 'pexels' && typeof bg.query === 'string' && bg.query.trim()) {
+            const stock = await (0, imageSources_1.pexelsSearch)(bg.query.trim());
             if (stock) {
                 backgroundUrl = stock.url;
                 imageAttribution = stock.attribution;
                 imageSource = 'pexels';
             }
         }
-        if (!backgroundUrl && data?.backgroundUrl) {
-            imageSource = 'caller-supplied';
-        }
-        else if (data?.backgroundUrl) {
-            imageSource = 'caller-supplied';
+        else if (bg?.type === 'ai' && typeof bg.prompt === 'string' && bg.prompt.trim()) {
+            const prompt = bg.prompt.trim();
+            let url = null;
+            if (bg.model === 'imagen') {
+                url = await (0, imageSources_1.imagenGenerate)(prompt, { aspectRatio: '1:1' });
+                if (url)
+                    imageSource = 'imagen';
+            }
+            else if (bg.model === 'dalle') {
+                url = await (0, imageSources_1.openaiImage)(prompt, { quality: 'medium', size: '1024x1024' });
+                if (url)
+                    imageSource = 'dalle';
+            }
+            else {
+                url = await (0, imageSources_1.fluxSchnell)(prompt, { aspectRatio: '1:1' });
+                if (url)
+                    imageSource = 'flux';
+            }
+            if (url)
+                backgroundUrl = url;
         }
         // Templates that take a backgroundUrl key it explicitly.
         if (backgroundUrl && (templateName === 'quoteCard' || templateName === 'milestoneCard')) {

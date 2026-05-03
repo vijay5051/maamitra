@@ -1,26 +1,36 @@
 "use strict";
 // Image source adapters.
 //
-// Phase 2 ships two sources:
-//   - Pexels   — free unlimited stock photos. Best for real moms / babies /
-//                Indian families. ~70% of posts should pull from here.
-//   - Replicate FLUX.1 Schnell — paid AI generator (~₹0.25/image). Used for
-//                stylized illustrations, abstract backgrounds, theme graphics
-//                that stock can't fill.
+// Stock:
+//   - Pexels — free unlimited stock photos. Library skews Western, so for
+//     Indian content the query must be explicit ("indian", "saree", etc.).
 //
-// Both return a public URL the Satori `<img>` tag can fetch. We don't
-// re-host into Storage at this layer — the renderer fetches the image as an
-// ArrayBuffer and embeds it directly in the SVG, so the source URL only
-// needs to be alive for one render.
+// AI generators (ascending Indian-context fidelity, ascending cost):
+//   - Replicate FLUX.1 Schnell — ~₹0.25/img, fast, generic.
+//   - Google Imagen 3 (via Gemini API) — ~₹3.30/img, strong on Indian skin
+//     tones, traditional clothing, Indian environments. Default for our
+//     daily content; cost is negligible at ~30 posts/mo (~₹100/mo).
+//   - OpenAI gpt-image-1 — ~₹3.50/img medium quality. Strong prompt
+//     adherence for compositional detail. Requires verified OpenAI org.
 //
-// Secrets:
-//   PEXELS_API_KEY      — Pexels developer key (free signup)
-//   REPLICATE_API_TOKEN — Replicate token (paid, ~$5 to start)
+// All adapters return either an http(s) URL or a `data:` URL. The renderer's
+// Satori loader fetches both transparently. Adapters never throw — they
+// return null on any failure so the caller can fall back.
+//
+// Secrets (all in functions/.env):
+//   PEXELS_API_KEY      — Pexels developer key (free)
+//   REPLICATE_API_TOKEN — Replicate token (paid)
+//   GEMINI_API_KEY      — Google AI Studio key for Imagen (paid)
+//   OPENAI_API_KEY      — OpenAI key for gpt-image-1 (paid, org-verified)
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.pexelsSearch = pexelsSearch;
 exports.fluxSchnell = fluxSchnell;
+exports.imagenGenerate = imagenGenerate;
+exports.openaiImage = openaiImage;
 const PEXELS_API_KEY = process.env.PEXELS_API_KEY ?? '';
 const REPLICATE_API_TOKEN = process.env.REPLICATE_API_TOKEN ?? '';
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? '';
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY ?? '';
 /**
  * Search Pexels for a photo matching the query. Returns the URL of the
  * `large2x` variant (1880px wide max, plenty for a 1080×1080 IG post).
@@ -117,4 +127,70 @@ async function fluxSchnell(prompt, opts) {
         return null;
     }
     return Array.isArray(prediction.output) ? prediction.output[0] : prediction.output;
+}
+async function imagenGenerate(prompt, opts) {
+    if (!GEMINI_API_KEY) {
+        console.warn('[imageSources] GEMINI_API_KEY not set');
+        return null;
+    }
+    const aspectRatio = opts?.aspectRatio ?? '1:1';
+    try {
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${encodeURIComponent(GEMINI_API_KEY)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                instances: [{ prompt }],
+                parameters: { sampleCount: 1, aspectRatio, personGeneration: 'allow_adult' },
+            }),
+        });
+        if (!res.ok) {
+            console.warn(`[imageSources] Imagen ${res.status}: ${await res.text()}`);
+            return null;
+        }
+        const data = (await res.json());
+        const pred = data?.predictions?.[0];
+        if (!pred?.bytesBase64Encoded) {
+            console.warn('[imageSources] Imagen returned no image', data?.error?.message ?? '');
+            return null;
+        }
+        return `data:${pred.mimeType ?? 'image/png'};base64,${pred.bytesBase64Encoded}`;
+    }
+    catch (e) {
+        console.warn('[imageSources] Imagen request failed', e);
+        return null;
+    }
+}
+async function openaiImage(prompt, opts) {
+    if (!OPENAI_API_KEY) {
+        console.warn('[imageSources] OPENAI_API_KEY not set');
+        return null;
+    }
+    const quality = opts?.quality ?? 'medium';
+    const size = opts?.size ?? '1024x1024';
+    try {
+        const res = await fetch('https://api.openai.com/v1/images/generations', {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${OPENAI_API_KEY}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ model: 'gpt-image-1', prompt, n: 1, size, quality }),
+        });
+        if (!res.ok) {
+            console.warn(`[imageSources] OpenAI ${res.status}: ${await res.text()}`);
+            return null;
+        }
+        const data = (await res.json());
+        const item = data?.data?.[0];
+        if (item?.b64_json)
+            return `data:image/png;base64,${item.b64_json}`;
+        if (item?.url)
+            return item.url;
+        console.warn('[imageSources] OpenAI returned no image', data?.error?.message ?? '');
+        return null;
+    }
+    catch (e) {
+        console.warn('[imageSources] OpenAI request failed', e);
+        return null;
+    }
 }
