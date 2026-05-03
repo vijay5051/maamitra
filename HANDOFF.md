@@ -56,6 +56,31 @@ inbox — all without the admin ever logging into Meta.
   ie post-Phase 6).
 
 ### Last action
+**M3b + M4b — IG auto-publish + outbound replies shipped** (commits
+`174e116` + `e8f26eb`).
+
+End-to-end IG live integration:
+- `metaInboxReplyPublisher` (Firestore trigger) — outbound messages
+  with outboundStatus='pending_send' auto-send via Graph API. ig_dm
+  uses Send API; ig_comment looks up the most recent inbound message's
+  externalId and threads as a reply. Synthetic threads no-op to 'sent'.
+- `scheduledMarketingPublisher` (pubsub @ every 5 min) — finds
+  drafts with status='scheduled' AND scheduledAt<=now, runs the
+  IG container/publish flow, marks 'posted' with permalink.
+- `publishMarketingDraftNow` (admin callable) — same flow, fires
+  immediately. Wired to "Publish now" rocket button on slide-over.
+- All 3 functions respect crisisPaused; synthetic drafts skipped.
+- FB Page channels (fb_message + fb_comment + FB feed posting)
+  deferred to M4c — needs a Page access token, not yet generated.
+
+Webhook setup status:
+- `metaWebhookReceiver` deployed + verified ✅ (Section 3 green in
+  Meta dashboard for the Instagram use case).
+- IG account `maamitra.official` (id `17841418138572653`) connected.
+- All 4 META_* env vars in functions/.env: APP_SECRET,
+  WEBHOOK_VERIFY_TOKEN, IG_USER_ID, IG_ACCESS_TOKEN.
+
+### Earlier this session
 **M4a engagement layer shipped** (commits `875431d` + `ca2ef7b`).
 
 What's now live:
@@ -211,29 +236,28 @@ Each milestone is shippable + end-to-end testable.
 - **M1 — Strategic foundation** ✅ Shipped earlier this session.
 - **M2 — Content engine + approval queue** ✅ Shipped earlier this session.
 - **M3a — Scheduling + calendar + A/B + crisis pause + export** ✅
-  Shipped this session.
-- **M3b — Auto-publish adapters.** Deferred until external creds ready.
-  Meta Graph (post-Review), LinkedIn API, X paid tier, YouTube Shorts,
-  WhatsApp Business. Each ~50 LOC + OAuth.
-- **M4a — Engagement (UI + endpoint scaffolding)** ✅ Shipped this
-  session. Real Meta events flow once webhook URL registered + App
-  Review approves inbox permissions.
-- **M4b — Real Meta wiring** (~60 LOC + dashboard config). Set
-  META_APP_SECRET + META_WEBHOOK_VERIFY_TOKEN, register URL, add
-  outbound Graph publisher.
+  Shipped earlier this session.
+- **M3b — IG auto-publish (scheduled + manual)** ✅ Shipped this
+  session. LinkedIn / X / YouTube / WhatsApp adapters still deferred.
+- **M4a — Engagement (UI + endpoint scaffolding)** ✅ Shipped earlier.
+- **M4b — Real Meta wiring (IG)** ✅ Shipped this session. FB Page
+  (fb_message + fb_comment + FB feed posts) deferred to M4c —
+  needs Page Access Token + Page ID.
 - **M5 — Performance + growth.** Per-post analytics, weekly insight
   digest, feedback loop, UGC pipeline, attribution.
 
 ### Next step
-**M5 — Performance + growth** (analytics dashboards, weekly insight
-digest, feedback loop into content engine, UGC pipeline,
-attribution). All buildable today — no external setup gates this.
+**M5 — Performance + growth** (per-post analytics from IG Insights,
+weekly insight digest with LLM commentary, feedback loop into
+content engine, UGC pipeline, attribution). Most pieces buildable
+today — IG Insights API is gated on the same permissions we
+already have.
 
-OR — when Meta App Review lands, knock out M3b + M4b in one push:
-- M3b: outbound publisher cron that fires due `scheduled` drafts
-  via Graph API
-- M4b: outbound reply publisher (Firestore trigger on
-  outboundStatus=pending_send → Graph API → mark sent/failed)
+OR **M4c — FB Page wiring** if you want FB feed + Messenger working
+alongside IG. Needs you to generate a Page Access Token from the
+"Manage everything on your Page" use case section in Meta dashboard
+and add `META_FB_PAGE_ID` + `META_FB_PAGE_ACCESS_TOKEN` to
+functions/.env. ~80 LOC of glue.
 
 To enable the daily cron now that M3 is shipped:
 - /admin/marketing/ → "Daily 6am IST cron" toggle card → Enable.
@@ -368,6 +392,8 @@ Latest deploy: 2026-05-03.
   not for acting on behalf of users.
 
 ## Recent commits
+- `e8f26eb` chore(functions) — rebuild lib/ for M3b+M4b publisher
+- `174e116` feat(marketing) — M3b+M4b IG auto-publish + outbound replies
 - `ca2ef7b` chore(functions) — rebuild lib/ for M4 webhook + AI inbox
 - `875431d` feat(marketing) — M4a unified inbox + webhook + AI replies
 - `8943fef` chore(functions) — rebuild lib/ for M3 cron crisis check
