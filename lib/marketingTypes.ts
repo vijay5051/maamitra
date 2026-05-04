@@ -152,8 +152,41 @@ export interface BrandKit {
   crisisPaused: boolean;
   /** Human-readable note explaining the active pause (shown in admin UI). */
   crisisPauseReason: string | null;
+  /** Studio onboarding completion (Studio v2). null = forced wizard runs on
+   *  next /admin/marketing visit. ISO timestamp once admin finishes the
+   *  3-step setup. */
+  onboardedAt: string | null;
+  /** Studio v2 — codified visual DNA (palette HSL bounds, line-weight,
+   *  shape language, prohibited styles). Plain English; passed into AI
+   *  prompts as a "style preamble" so generations stay on-brand. */
+  styleProfile: StyleProfile | null;
+  /** Studio v2 — 6-12 illustrations from `illustrations[]` curated as the
+   *  canonical visual references. Image-gen calls pass these as style refs. */
+  styleReferences: string[];
   updatedAt: string | null;
   updatedBy: string | null;
+}
+
+/**
+ * Studio v2 — Brand Style Profile.
+ *
+ * Codifies what "MaaMitra style" actually means so AI image generation
+ * can produce on-brand output. The plain-English fields are concatenated
+ * into image-gen prompts as a style preamble. Once a custom LoRA is
+ * trained on the curated references, this profile becomes the prompt-
+ * engineering fallback layer.
+ */
+export interface StyleProfile {
+  /** One-line distillation: "flat 2D illustration, pastel palette,
+   *  rounded shapes, brown-skin Indian moms + babies, soft gradients". */
+  oneLiner: string;
+  /** Detailed style description fed to image-gen as a system-style prompt. */
+  description: string;
+  /** Things the AI must NOT produce. e.g. "no photorealism, no 3D renders,
+   *  no harsh shadows, no Western-only character traits". */
+  prohibited: string[];
+  /** Comma-separated preferred art keywords for prompt suffixing. */
+  artKeywords: string;
 }
 
 // Marketing identity is pink — deliberately distinct from the app's purple
@@ -300,10 +333,26 @@ export function defaultBrandKit(brandName = 'MaaMitra'): BrandKit {
     cronEnabled: false,
     crisisPaused: false,
     crisisPauseReason: null,
+    onboardedAt: null,
+    styleProfile: DEFAULT_STYLE_PROFILE,
+    styleReferences: [],
     updatedAt: null,
     updatedBy: null,
   };
 }
+
+export const DEFAULT_STYLE_PROFILE: StyleProfile = {
+  oneLiner: 'Flat 2D illustration, pastel palette, rounded shapes, brown-skin Indian moms and babies, soft gradients, no harsh shadows.',
+  description: 'A warm, hand-drawn 2D illustration style. Flat colours with subtle gradients, no photorealism. Characters are Indian (brown skin, dark hair, traditional or simple modern clothing). Soft pastels — peach, cream, sage, lavender, dusty pink. Rounded organic shapes; no geometric or angular harshness. Generous negative space. Single-scene compositions, never busy collages.',
+  prohibited: [
+    'photorealism', 'photographs', '3D renders', 'CGI',
+    'harsh shadows', 'high contrast',
+    'Western-only character traits', 'cartoon-network style',
+    'anime', 'manga', 'pixel art',
+    'cluttered backgrounds', 'busy compositions',
+  ],
+  artKeywords: 'flat illustration, pastel, Indian, motherhood, gentle, hand-drawn, soft gradient, organic shapes',
+};
 
 // ── Connections (Phase 4) ───────────────────────────────────────────────────
 // One doc at marketing_connections/main. OAuth tokens stored encrypted.

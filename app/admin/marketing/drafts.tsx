@@ -52,6 +52,7 @@ import {
 } from '../../../services/marketingDrafts';
 import { DraftStatus, MarketingDraft, MarketingPlatform } from '../../../lib/marketingTypes';
 import { useAuthStore } from '../../../store/useAuthStore';
+import { friendlyError, friendlyPublishError } from '../../../services/marketingErrors';
 
 const STATUS_FILTERS: { value: DraftStatus | 'all'; label: string }[] = [
   { value: 'all',            label: 'All' },
@@ -124,14 +125,13 @@ export default function MarketingDraftsScreen() {
       const results = await Promise.all(calls);
       const failures = results.filter((r) => !r.ok);
       if (failures.length === results.length) {
-        const f = failures[0] as any;
-        throw new Error(`${f.code}: ${f.message}`);
+        throw failures[0];
       }
       // Open the first successful one for review.
       const firstOk = results.find((r) => r.ok) as any;
       setOpenId(firstOk.draftId);
       if (failures.length > 0) {
-        setError(`${failures.length} of ${results.length} variants failed — first error: ${(failures[0] as any).message}`);
+        setError(`${failures.length} of ${results.length} variants didn't work — opening the ones that did.`);
       }
     } catch (e: any) {
       setError(e?.message ?? String(e));
@@ -315,8 +315,8 @@ function DraftSlideOver({
     try {
       await fn();
       await onChanged();
-    } catch (e: any) {
-      setActionError(`${label} failed: ${e?.message ?? String(e)}`);
+    } catch (e) {
+      setActionError(friendlyError(label, e));
     } finally {
       setSaving(false);
     }
@@ -358,9 +358,9 @@ function DraftSlideOver({
         pillarId: draft.pillarId ?? undefined,
         eventId: draft.eventId ?? undefined,
       });
-      if (!res.ok) throw new Error(`${res.code}: ${res.message}`);
-    } catch (e: any) {
-      setActionError(`Regenerate failed: ${e?.message ?? String(e)}`);
+      if (!res.ok) throw res;
+    } catch (e) {
+      setActionError(friendlyError('Regenerate', e));
     } finally {
       setRegenerating(false);
     }
@@ -423,18 +423,18 @@ function DraftSlideOver({
   async function handleBoost() {
     if (!draft || !actor) return;
     if (boostBudget < 100 || boostBudget > 5000 || boostDays < 1 || boostDays > 7) {
-      setActionError('Budget ₹100–₹5000/day; duration 1–7 days.');
+      setActionError('Budget should be ₹100–₹5000 a day, for 1–7 days.');
       return;
     }
     setActionError(null);
     setBoosting(true);
     try {
       const res = await boostMarketingDraft({ draftId: draft.id, dailyBudgetInr: boostBudget, durationDays: boostDays });
-      if (!res.ok) throw new Error(`${res.code}: ${res.message}`);
+      if (!res.ok) throw res;
       await onChanged();
       setShowBoost(false);
-    } catch (e: any) {
-      setActionError(`Boost failed: ${e?.message ?? String(e)}`);
+    } catch (e) {
+      setActionError(friendlyError('Boost', e));
     } finally {
       setBoosting(false);
     }
@@ -446,13 +446,13 @@ function DraftSlideOver({
     setSaving(true);
     try {
       const res = await publishDraftNow({ draftId: draft.id });
-      if (!res.ok) throw new Error(`${res.code}: ${res.message}`);
+      if (!res.ok) throw res;
       // Server already flipped status='posted' + saved permalink. Snapshot
       // refreshes on its own; close so admin can see the queue update.
       await onChanged();
       onClose();
-    } catch (e: any) {
-      setActionError(`Publish now failed: ${e?.message ?? String(e)}`);
+    } catch (e) {
+      setActionError(friendlyError('Publish', e));
     } finally {
       setSaving(false);
     }
@@ -649,8 +649,8 @@ function DraftSlideOver({
 
         {isFailed && draft.publishError ? (
           <View style={styles.publishErrorBox}>
-            <Text style={styles.publishErrorTitle}>Last publish error</Text>
-            <Text style={styles.publishErrorText}>{draft.publishError}</Text>
+            <Text style={styles.publishErrorTitle}>Couldn't publish</Text>
+            <Text style={styles.publishErrorText}>{friendlyPublishError(draft.publishError) ?? draft.publishError}</Text>
             <Text style={styles.flagHint}>
               Tap "Retry publish" below — IG processes images asynchronously,
               transient errors usually clear on retry.

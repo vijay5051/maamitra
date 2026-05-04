@@ -56,6 +56,108 @@ inbox — all without the admin ever logging into Meta.
   ie post-Phase 6).
 
 ### Last action
+**Studio v2 — UX restructure shipped (calm shell + onboarding + Posts hub
++ Settings hub + Style Profile foundation + plain-English errors).**
+
+Big rebuild of the marketing section's chrome and information architecture
+to match the design plan (Today / Posts / Replies / Insights / Settings
+pill nav, forced onboarding wizard, no jargon, single primary action per
+screen). All existing routes still work as deep links — the rebuild is
+additive. Studio Phase 2 (image-gen canvas) plugs into `/admin/marketing/create`
+in the next session.
+
+What shipped (this commit):
+- `components/marketing/MarketingShell.tsx` — chrome wrapping every
+  marketing screen. Greeting "Hi {firstName} 👋" left, health chip
+  "● IG ● FB Auto on/off" right (click → Settings), 4+1 pill tabs
+  (Today / Posts / Replies / Insights / ⚙). Active-tab detection via
+  pathname matching keeps existing `/admin/marketing/inbox` etc. URLs
+  working — they just appear as "Replies" / "Insights" in the nav.
+- `app/admin/marketing/_layout.tsx` — wraps Stack in MarketingShell.
+  Forces onboarding wizard when `marketing_brand/main.onboardedAt`
+  is null. Dev preview bypass (`__DEV__` + `previewAdmin=1`) so
+  Today/Posts/Settings can be reviewed without a real signed-in admin.
+- `app/admin/marketing/index.tsx` — Today screen replaces the v1
+  setup-checklist. Hero "Create post" CTA on top + 3 KPIs (this week's
+  posts, 7d reach, unread replies) + "Going out next" card + 7-day
+  recent-posts strip. Single primary action per CLAUDE.md.
+- `app/admin/marketing/onboarding.tsx` — forced 3-step wizard:
+  Welcome → Brand vibe (name + voice + accent picker, 6 swatches) →
+  Done summary + finish. Sets onboardedAt sentinel, drops admin into
+  Today.
+- `app/admin/marketing/posts.tsx` — Posts hub with 4 inner pill sub-tabs
+  (Calendar default, To-review for drafts pending, From-users for UGC,
+  Posted history). Calendar shows week-grid with "+" empties, drag
+  reschedule deferred to next session. Click any row → existing
+  slide-overs at /admin/marketing/drafts?open=<id> still own the rich
+  editing UI.
+- `app/admin/marketing/settings.tsx` — sectioned Settings page:
+  - Daily knobs: Auto-post toggle, Crisis pause toggle, Connected
+    accounts (IG ✓ + FB ✓ static — needs marketing_health/main doc
+    for live state in next pass).
+  - Setup: Brand kit nav card, Strategy nav card, **inline Style
+    Profile editor** (Studio v2 foundation — one-liner / detailed
+    description / art keywords / prohibited list, all flushed back
+    to `marketing_brand/main.styleProfile`).
+  - Advanced: Template preview, Cost log.
+- `app/admin/marketing/create.tsx` — Studio Phase 1 stub. Four-option
+  hub: Generate now (working) · Template preview (working) · Upload
+  your own (coming soon) · Custom AI (coming soon). Lands the
+  affordances in plain English.
+- `lib/marketingTypes.ts` — BrandKit gains `onboardedAt`, `styleProfile`,
+  `styleReferences[]`. New `StyleProfile` interface (oneLiner /
+  description / prohibited / artKeywords). Default profile codifies
+  "flat 2D, pastel, brown-skin Indian moms" as the brand visual DNA.
+- `services/marketing.ts` — sanitiser + writer honour the new fields.
+  `onboardedAt` write sentinel: any non-empty string converts to
+  serverTimestamp(); empty string / null clears it.
+- `services/marketingErrors.ts` — new `friendlyError(action, err)` +
+  `friendlyPublishError(raw)` helpers. Maps every Cloud Function
+  error code (no-credentials / no-page-token / publish-failed /
+  container-error / rate-limited / etc.) to plain-English copy with
+  inline action ("Reconnect Facebook in Settings"). Raw codes still
+  go to console.warn for dev observability. Applied across drafts,
+  inbox, ugc — all `${label} failed: ${e.message}` patterns gone.
+- `components/admin/ui/AdminShell.tsx` — sidebar collapsed to a single
+  Marketing entry "Studio" with the sparkles icon. Sub-navigation
+  lives inside the marketing area as pill tabs (matches existing
+  admin pattern: top-level sidebar, in-section pill nav).
+
+UX decisions locked in:
+- Greeting uses first-name only, derived from `useProfileStore.motherName`
+  with email fallback. (`profile.name` doesn't exist on the Profile
+  interface — that was a bug in v1 of the shell, fixed before commit.)
+- Studio open route (`/admin/marketing/create`) is a route, not a modal
+  — refresh-safe, deep-linkable, browser-back works.
+- Forced onboarding rather than dismissible banner — non-techies need
+  the guardrail.
+- Pill tab match for Posts also activates on `/drafts`, `/calendar`,
+  `/ugc`, `/create` URLs — so legacy deep links still highlight the
+  correct nav state.
+
+Bugs caught + fixed during browser verification:
+- `<Link asChild>` doesn't accept style arrays on its child Pressable
+  — refactored 5 callsites to `useRouter().push` directly.
+- `Profile.name` doesn't exist — switched to `useProfileStore.motherName`
+  with email fallback.
+- Horizontal `ScrollView` defaults to `flex: 1` and balloons vertically
+  on web. Fixed pill strip + recent-thumbs strip + Posts sub-tab strip
+  with `style={{ flexGrow: 0 }}`.
+- UgcStatus value `'pending'` doesn't exist — corrected to `'pending_review'`.
+
+Outstanding (next session):
+- Studio Phase 2: actual image-gen canvas at /admin/marketing/create
+  (gpt-image-1 + Imagen + style-ref binding). Phase 5 LoRA training
+  layered after.
+- `marketing_health/main` Firestore doc populated by a Cloud Function
+  so the IG/FB chip reflects live token validity, not optimistic state.
+- Style Profile → image-gen wiring: the profile is stored but not yet
+  consumed by the generator. Land in Phase 2 alongside the canvas.
+- Drag-to-reschedule on Posts → Calendar.
+- Webhook signature mystery still open — `META_WEBHOOK_PERMISSIVE=1`
+  active. (See "Earlier this session" notes below.)
+
+### Earlier this session
 **M4c — FB Page Insights polling shipped. M4c is now feature-complete.**
 
 Context: M4c was originally scoped as "FB feed posting + FB comments

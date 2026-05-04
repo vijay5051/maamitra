@@ -28,8 +28,10 @@ import {
   DEFAULT_PALETTE,
   DEFAULT_PERSONAS,
   DEFAULT_PILLARS,
+  DEFAULT_STYLE_PROFILE,
   DEFAULT_THEME_CALENDAR,
   DEFAULT_VOICE,
+  StyleProfile,
   WeekDay,
 } from '../lib/marketingTypes';
 import { logAdminAction } from './audit';
@@ -85,6 +87,21 @@ export async function saveBrandKit(
   if (patch.crisisPaused !== undefined) sanitised.crisisPaused = !!patch.crisisPaused;
   if (patch.crisisPauseReason !== undefined) {
     sanitised.crisisPauseReason = patch.crisisPauseReason ? String(patch.crisisPauseReason).slice(0, 200) : null;
+  }
+  if (patch.onboardedAt !== undefined) {
+    // Pass an empty string or null to clear it; pass anything else (an ISO
+    // string, or `'now' as any`) to stamp serverTimestamp.
+    sanitised.onboardedAt = patch.onboardedAt && patch.onboardedAt !== ''
+      ? serverTimestamp()
+      : null;
+  }
+  if (patch.styleProfile !== undefined) {
+    sanitised.styleProfile = patch.styleProfile ? sanitiseStyleProfile(patch.styleProfile) : null;
+  }
+  if (patch.styleReferences !== undefined) {
+    sanitised.styleReferences = Array.isArray(patch.styleReferences)
+      ? patch.styleReferences.filter((r): r is string => typeof r === 'string').slice(0, 12)
+      : [];
   }
 
   sanitised.updatedAt = serverTimestamp();
@@ -486,7 +503,32 @@ function normaliseBrandKit(data: any): BrandKit {
     cronEnabled: data?.cronEnabled === true,
     crisisPaused: data?.crisisPaused === true,
     crisisPauseReason: typeof data?.crisisPauseReason === 'string' ? data.crisisPauseReason : null,
+    onboardedAt: tsToIso(data?.onboardedAt),
+    styleProfile: data?.styleProfile ? sanitiseStyleProfile(data.styleProfile) : null,
+    styleReferences: Array.isArray(data?.styleReferences)
+      ? data.styleReferences.filter((r: any): r is string => typeof r === 'string').slice(0, 12)
+      : [],
     updatedAt: iso,
     updatedBy: typeof data?.updatedBy === 'string' ? data.updatedBy : null,
+  };
+}
+
+function tsToIso(ts: any): string | null {
+  if (!ts) return null;
+  if (typeof ts?.toDate === 'function') {
+    try { return ts.toDate().toISOString(); } catch { return null; }
+  }
+  if (typeof ts === 'string') return ts;
+  return null;
+}
+
+function sanitiseStyleProfile(raw: any): StyleProfile {
+  return {
+    oneLiner: typeof raw?.oneLiner === 'string' ? raw.oneLiner.slice(0, 240) : DEFAULT_STYLE_PROFILE.oneLiner,
+    description: typeof raw?.description === 'string' ? raw.description.slice(0, 1500) : DEFAULT_STYLE_PROFILE.description,
+    prohibited: Array.isArray(raw?.prohibited)
+      ? raw.prohibited.filter((s: any): s is string => typeof s === 'string').slice(0, 30)
+      : DEFAULT_STYLE_PROFILE.prohibited,
+    artKeywords: typeof raw?.artKeywords === 'string' ? raw.artKeywords.slice(0, 240) : DEFAULT_STYLE_PROFILE.artKeywords,
   };
 }

@@ -50,6 +50,7 @@ import {
   InboxThread,
 } from '../../../lib/marketingTypes';
 import { useAuthStore } from '../../../store/useAuthStore';
+import { friendlyError } from '../../../services/marketingErrors';
 
 const STATUS_FILTERS: { value: InboxStatus | 'all'; label: string }[] = [
   { value: 'all',      label: 'All' },
@@ -141,8 +142,8 @@ export default function MarketingInboxScreen() {
     try {
       const id = await injectTestThread({ uid: user.uid, email: user.email });
       setOpenId(id);
-    } catch (e: any) {
-      setError(e?.message ?? String(e));
+    } catch (e) {
+      setError(friendlyError('Inject test thread', e));
     } finally {
       setInjecting(false);
     }
@@ -318,10 +319,10 @@ function ConversationPane({
     setPaneError(null);
     try {
       const res = await suggestInboxReplies({ threadId: thread.id });
-      if (!res.ok) throw new Error(`${res.code}: ${res.message}`);
+      if (!res.ok) throw res;
       setSuggestions(res.suggestions);
-    } catch (e: any) {
-      setPaneError(e?.message ?? String(e));
+    } catch (e) {
+      setPaneError(friendlyError('Suggest', e));
     } finally {
       setSuggesting(false);
     }
@@ -333,9 +334,9 @@ function ConversationPane({
     setPaneError(null);
     try {
       const res = await classifyInboxThread({ threadId: thread.id });
-      if (!res.ok) throw new Error(`${res.code}: ${res.message}`);
-    } catch (e: any) {
-      setPaneError(e?.message ?? String(e));
+      if (!res.ok) throw res;
+    } catch (e) {
+      setPaneError(friendlyError('Classify', e));
     } finally {
       setClassifying(false);
     }
@@ -350,8 +351,8 @@ function ConversationPane({
       setReply('');
       setSuggestions([]);
       setUsedSuggestion(false);
-    } catch (e: any) {
-      setPaneError(e?.message ?? String(e));
+    } catch (e) {
+      setPaneError(friendlyError('Reply', e));
     } finally {
       setSending(false);
     }
@@ -363,8 +364,8 @@ function ConversationPane({
     try {
       await setThreadStatus(actor, thread.id, status);
       if (status === 'archived' || status === 'spam') onClose();
-    } catch (e: any) {
-      setPaneError(e?.message ?? String(e));
+    } catch (e) {
+      setPaneError(friendlyError('Update', e));
     }
   }
 
@@ -374,8 +375,8 @@ function ConversationPane({
     try {
       await deleteThread(actor, thread.id);
       onClose();
-    } catch (e: any) {
-      setPaneError(e?.message ?? String(e));
+    } catch (e) {
+      setPaneError(friendlyError('Delete', e));
     }
   }
 

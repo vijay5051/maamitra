@@ -22,6 +22,7 @@ import {
 } from '../../../services/marketingUgc';
 import { UgcStatus, UgcSubmission } from '../../../lib/marketingTypes';
 import { useAuthStore } from '../../../store/useAuthStore';
+import { friendlyError } from '../../../services/marketingErrors';
 
 const STATUS_FILTERS: { value: UgcStatus | 'all'; label: string }[] = [
   { value: 'all',            label: 'All' },
@@ -177,8 +178,8 @@ function UgcSlideOver({
     setPaneError(null);
     try {
       await approveUgc(actor, submission.id);
-    } catch (e: any) {
-      setPaneError(e?.message ?? String(e));
+    } catch (e) {
+      setPaneError(friendlyError('Approve', e));
     } finally {
       setBusy(null);
     }
@@ -193,8 +194,8 @@ function UgcSlideOver({
     try {
       await rejectUgc(actor, submission.id, reason.trim());
       onClose();
-    } catch (e: any) {
-      setPaneError(e?.message ?? String(e));
+    } catch (e) {
+      setPaneError(friendlyError('Reject', e));
     } finally {
       setBusy(null);
     }
@@ -206,10 +207,10 @@ function UgcSlideOver({
     setPaneError(null);
     try {
       const res = await renderUgcAsDraft({ submissionId: submission.id });
-      if (!res.ok) throw new Error(`${res.code}: ${res.message}`);
+      if (!res.ok) throw res;
       onJumpToDraft(res.draftId);
-    } catch (e: any) {
-      setPaneError(e?.message ?? String(e));
+    } catch (e) {
+      setPaneError(friendlyError('Render as draft', e));
     } finally {
       setBusy(null);
     }
@@ -223,8 +224,8 @@ function UgcSlideOver({
     try {
       await deleteUgcSubmission(actor, submission.id, submission.photoStoragePath);
       onClose();
-    } catch (e: any) {
-      setPaneError(e?.message ?? String(e));
+    } catch (e) {
+      setPaneError(friendlyError('Delete', e));
     } finally {
       setBusy(null);
     }
