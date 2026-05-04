@@ -52,10 +52,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildBoostMarketingDraft = buildBoostMarketingDraft;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions/v1"));
-const META_AD_ACCOUNT_ID = process.env.META_AD_ACCOUNT_ID ?? '';
-const META_IG_ACCESS_TOKEN = process.env.META_IG_ACCESS_TOKEN ?? '';
-const META_IG_USER_ID = process.env.META_IG_USER_ID ?? '';
-const META_FB_PAGE_ID = process.env.META_FB_PAGE_ID ?? '';
+const integrationConfig_1 = require("../lib/integrationConfig");
 const GRAPH_BASE = 'https://graph.facebook.com/v21.0';
 async function callerIsMarketingAdmin(token, allowList) {
     if (!token)
@@ -90,13 +87,19 @@ function buildBoostMarketingDraft(allowList) {
         if (!(await callerIsMarketingAdmin(context.auth?.token, allowList))) {
             throw new functions.https.HttpsError('permission-denied', 'Admin only.');
         }
+        const cfg = await (0, integrationConfig_1.getIntegrationConfig)();
+        const META_AD_ACCOUNT_ID = cfg.meta.adAccountId;
+        const META_IG_ACCESS_TOKEN = cfg.meta.igAccessToken;
+        const META_IG_USER_ID = cfg.meta.igUserId;
+        const META_FB_PAGE_ID = cfg.meta.fbPageId;
         if (!META_AD_ACCOUNT_ID || !META_IG_ACCESS_TOKEN || !META_FB_PAGE_ID) {
             return {
                 ok: false,
                 code: 'missing-creds',
-                message: 'Boost requires META_AD_ACCOUNT_ID + META_FB_PAGE_ID + META_IG_ACCESS_TOKEN (with ads_management scope) in functions/.env. Add and redeploy.',
+                message: 'Boost requires Meta Ad Account ID, Facebook Page ID, and Instagram Access Token. Configure them in the Integration Hub.',
             };
         }
+        void META_IG_USER_ID;
         const draftId = typeof data?.draftId === 'string' ? data.draftId : '';
         const dailyBudgetInr = typeof data?.dailyBudgetInr === 'number' ? Math.round(data.dailyBudgetInr) : 0;
         const durationDays = typeof data?.durationDays === 'number' ? Math.max(1, Math.min(7, Math.round(data.durationDays))) : 0;
@@ -216,5 +219,3 @@ function buildBoostMarketingDraft(allowList) {
         }
     });
 }
-// Suppress unused-warn until M6b uses META_IG_USER_ID for FB-side polling.
-void META_IG_USER_ID;

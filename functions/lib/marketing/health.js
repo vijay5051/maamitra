@@ -53,17 +53,19 @@ exports.buildProbeMarketingHealthNow = buildProbeMarketingHealthNow;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions/v1"));
 const publisher_1 = require("./publisher");
-const META_IG_USER_ID = process.env.META_IG_USER_ID ?? '';
-const META_IG_ACCESS_TOKEN = process.env.META_IG_ACCESS_TOKEN ?? '';
-const META_FB_PAGE_ID = process.env.META_FB_PAGE_ID ?? '';
-const META_FB_PAGE_ACCESS_TOKEN = process.env.META_FB_PAGE_ACCESS_TOKEN ?? '';
-// Same heuristic as insights.ts — Page tokens (EAA-prefixed) work for IG
-// nodes too; older IGAATY-style Instagram-Login tokens do not.
-const IG_GRAPH_TOKEN = (META_FB_PAGE_ACCESS_TOKEN && META_FB_PAGE_ACCESS_TOKEN.startsWith('EAA'))
-    ? META_FB_PAGE_ACCESS_TOKEN
-    : META_IG_ACCESS_TOKEN;
-const FB_CONFIGURED = !!META_FB_PAGE_ID && !!META_FB_PAGE_ACCESS_TOKEN;
+const integrationConfig_1 = require("../lib/integrationConfig");
 const GRAPH_BASE = 'https://graph.facebook.com/v21.0';
+async function getHealthVars() {
+    const cfg = await (0, integrationConfig_1.getIntegrationConfig)();
+    const fbPAT = cfg.meta.fbPageAccessToken;
+    return {
+        META_IG_USER_ID: cfg.meta.igUserId,
+        META_FB_PAGE_ID: cfg.meta.fbPageId,
+        META_FB_PAGE_ACCESS_TOKEN: fbPAT,
+        IG_GRAPH_TOKEN: (fbPAT && fbPAT.startsWith('EAA')) ? fbPAT : cfg.meta.igAccessToken,
+        FB_CONFIGURED: !!cfg.meta.fbPageId && !!fbPAT,
+    };
+}
 async function callerIsMarketingAdmin(token, allowList) {
     if (!token)
         return false;
@@ -93,6 +95,7 @@ function noTokenResult() {
     };
 }
 async function probeIg() {
+    const { IG_GRAPH_TOKEN, META_IG_USER_ID } = await getHealthVars();
     if (!IG_GRAPH_TOKEN || !META_IG_USER_ID)
         return noTokenResult();
     try {
@@ -133,6 +136,7 @@ async function probeIg() {
     }
 }
 async function probeFb() {
+    const { FB_CONFIGURED, META_FB_PAGE_ID } = await getHealthVars();
     if (!FB_CONFIGURED)
         return noTokenResult();
     let pat;

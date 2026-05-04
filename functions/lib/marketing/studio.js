@@ -70,7 +70,7 @@ const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const satori_1 = __importDefault(require("satori"));
 const h_1 = require("./templates/h");
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY ?? '';
+const integrationConfig_1 = require("../lib/integrationConfig");
 // ── Caller auth ─────────────────────────────────────────────────────────────
 async function callerIsMarketingAdmin(token, allowList) {
     if (!token)
@@ -300,8 +300,8 @@ function buildGenerateStudioVariants(allowList) {
     });
 }
 async function generateStudioCaption(prompt, brand) {
-    if (!OPENAI_API_KEY) {
-        // Fallback: a clean default. Better than failing the whole flow.
+    const cfg = await (0, integrationConfig_1.getIntegrationConfig)();
+    if (!cfg.openai.apiKey) {
         return `${prompt}\n\n${brand.hashtags.slice(0, 5).join(' ')}`;
     }
     const voiceLine = brand.voice.attributes.length ? brand.voice.attributes.join(', ') : 'warm, gentle';
@@ -317,7 +317,7 @@ Write a single Instagram + Facebook caption (≤ 2200 chars) for the post descri
     try {
         const res = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
-            headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+            headers: { Authorization: `Bearer ${cfg.openai.apiKey}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 model: 'gpt-4o-mini',
                 messages: [

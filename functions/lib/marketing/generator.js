@@ -57,7 +57,7 @@ const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions/v1"));
 const imageSources_1 = require("./imageSources");
 const renderer_1 = require("./renderer");
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY ?? '';
+const integrationConfig_1 = require("../lib/integrationConfig");
 // ── Caller auth ────────────────────────────────────────────────────────────
 async function callerIsMarketingAdmin(token, allowList) {
     if (!token)
@@ -279,8 +279,9 @@ function pickSlot(brand, override, today, stats) {
     };
 }
 async function generateCaption(brand, slot, stats) {
-    if (!OPENAI_API_KEY)
-        throw new Error('OPENAI_API_KEY not set in functions/.env');
+    const cfg = await (0, integrationConfig_1.getIntegrationConfig)();
+    if (!cfg.openai.apiKey)
+        throw new Error('openai.apiKey not set — configure it in the Integration Hub');
     const localeInstruction = brand.voice.bilingual === 'english_only'
         ? 'Write in English only.'
         : brand.voice.bilingual === 'hinglish'
@@ -358,7 +359,7 @@ async function generateCaption(brand, slot, stats) {
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
-            Authorization: `Bearer ${OPENAI_API_KEY}`,
+            Authorization: `Bearer ${cfg.openai.apiKey}`,
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({

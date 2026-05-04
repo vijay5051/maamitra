@@ -61,9 +61,15 @@ exports.buildClassifyInboxThread = buildClassifyInboxThread;
 const crypto = __importStar(require("crypto"));
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions/v1"));
-const META_APP_SECRET = process.env.META_APP_SECRET ?? '';
-const META_WEBHOOK_VERIFY_TOKEN = process.env.META_WEBHOOK_VERIFY_TOKEN ?? '';
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY ?? '';
+const integrationConfig_1 = require("../lib/integrationConfig");
+async function getInboxVars() {
+    const cfg = await (0, integrationConfig_1.getIntegrationConfig)();
+    return {
+        META_APP_SECRET: cfg.meta.appSecret,
+        META_WEBHOOK_VERIFY_TOKEN: cfg.meta.webhookVerifyToken,
+        OPENAI_API_KEY: cfg.openai.apiKey,
+    };
+}
 // ── Caller auth (callable functions only) ─────────────────────────────────
 async function callerIsMarketingAdmin(token, allowList) {
     if (!token)
@@ -88,6 +94,7 @@ function buildMetaWebhookReceiver() {
     return functions
         .runWith({ memory: '256MB', timeoutSeconds: 30 })
         .https.onRequest(async (req, res) => {
+        const { META_WEBHOOK_VERIFY_TOKEN, META_APP_SECRET } = await getInboxVars();
         // GET = subscription handshake. Meta sends ?hub.mode=subscribe&
         // hub.verify_token=...&hub.challenge=... — we echo the challenge
         // only if the token matches what we configured.
@@ -116,7 +123,7 @@ function buildMetaWebhookReceiver() {
         if (!META_APP_SECRET) {
             // Webhook isn't fully configured — accept but log. Returning 200
             // matters because Meta retries on non-200.
-            console.warn('[metaWebhookReceiver] META_APP_SECRET not set, skipping signature check');
+            console.warn('[metaWebhookReceiver] meta.appSecret not set, skipping signature check');
         }
         else {
             const rb = req.rawBody;
@@ -127,6 +134,17 @@ function buildMetaWebhookReceiver() {
                 // value or encoding is suspect.
                 const bodyHash = rb ? crypto.createHash('sha256').update(rb).digest('hex') : null;
                 const bodyB64 = rb && rb.length <= 4096 ? rb.toString('base64') : null; // small bodies only
+                // Capture every Meta-related and HTTP-layer header so we can rule out
+                // content-encoding (gzip), proxy stripping, app-id mismatch, etc.
+                const interestingHeaders = [
+                    'content-type', 'content-length', 'content-encoding',
+                    'x-hub-signature', 'x-hub-signature-256',
+                    'x-fb-source-ip', 'x-meta-app-id', 'x-fb-app-id',
+                    'user-agent',
+                ];
+                const headerDump = {};
+                for (const h of interestingHeaders)
+                    headerDump[h] = req.headers[h] ?? null;
                 console.warn('[metaWebhookReceiver] signature verification failed:', JSON.stringify({
                     reason: verify.reason,
                     headerSig256Full: sig,
@@ -143,6 +161,7 @@ function buildMetaWebhookReceiver() {
                     secretLen: META_APP_SECRET.length,
                     secretFirst2: META_APP_SECRET.slice(0, 2),
                     secretLast2: META_APP_SECRET.slice(-2),
+                    metaHeaders: headerDump,
                 }));
                 // Permissive mode: META_WEBHOOK_PERMISSIVE=1 in env makes us still
                 // ingest the events (so the inbox keeps flowing) while we debug
@@ -289,8 +308,9 @@ function buildGenerateInboxReplies(allowList) {
         if (!(await callerIsMarketingAdmin(context.auth?.token, allowList))) {
             throw new functions.https.HttpsError('permission-denied', 'Admin only.');
         }
+        const { OPENAI_API_KEY } = await getInboxVars();
         if (!OPENAI_API_KEY)
-            return { ok: false, code: 'missing-key', message: 'OPENAI_API_KEY not set in functions/.env.' };
+            return { ok: false, code: 'missing-key', message: 'OpenAI API key not configured — set it in the Integration Hub.' };
         const threadId = typeof data?.threadId === 'string' ? data.threadId : '';
         if (!threadId)
             return { ok: false, code: 'missing-thread', message: 'threadId required.' };
@@ -384,8 +404,9 @@ function buildClassifyInboxThread(allowList) {
         if (!(await callerIsMarketingAdmin(context.auth?.token, allowList))) {
             throw new functions.https.HttpsError('permission-denied', 'Admin only.');
         }
+        const { OPENAI_API_KEY } = await getInboxVars();
         if (!OPENAI_API_KEY)
-            return { ok: false, code: 'missing-key', message: 'OPENAI_API_KEY not set in functions/.env.' };
+            return { ok: false, code: 'missing-key', message: 'OpenAI API key not configured — set it in the Integration Hub.' };
         const threadId = typeof data?.threadId === 'string' ? data.threadId : '';
         if (!threadId)
             return { ok: false, code: 'missing-thread', message: 'threadId required.' };

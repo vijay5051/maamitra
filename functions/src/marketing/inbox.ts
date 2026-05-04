@@ -102,6 +102,16 @@ export function buildMetaWebhookReceiver() {
           // value or encoding is suspect.
           const bodyHash = rb ? crypto.createHash('sha256').update(rb).digest('hex') : null;
           const bodyB64 = rb && rb.length <= 4096 ? rb.toString('base64') : null; // small bodies only
+          // Capture every Meta-related and HTTP-layer header so we can rule out
+          // content-encoding (gzip), proxy stripping, app-id mismatch, etc.
+          const interestingHeaders = [
+            'content-type', 'content-length', 'content-encoding',
+            'x-hub-signature', 'x-hub-signature-256',
+            'x-fb-source-ip', 'x-meta-app-id', 'x-fb-app-id',
+            'user-agent',
+          ];
+          const headerDump: Record<string, unknown> = {};
+          for (const h of interestingHeaders) headerDump[h] = req.headers[h] ?? null;
           console.warn(
             '[metaWebhookReceiver] signature verification failed:',
             JSON.stringify({
@@ -120,6 +130,7 @@ export function buildMetaWebhookReceiver() {
               secretLen: META_APP_SECRET.length,
               secretFirst2: META_APP_SECRET.slice(0, 2),
               secretLast2: META_APP_SECRET.slice(-2),
+              metaHeaders: headerDump,
             }),
           );
           // Permissive mode: META_WEBHOOK_PERMISSIVE=1 in env makes us still

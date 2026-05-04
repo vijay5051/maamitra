@@ -61,27 +61,15 @@ exports.buildScheduledMarketingPublisher = buildScheduledMarketingPublisher;
 exports.buildPublishMarketingDraftNow = buildPublishMarketingDraftNow;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions/v1"));
-const META_IG_USER_ID = process.env.META_IG_USER_ID ?? '';
-const META_IG_ACCESS_TOKEN = process.env.META_IG_ACCESS_TOKEN ?? '';
-const META_FB_PAGE_ID = process.env.META_FB_PAGE_ID ?? '';
-const META_FB_PAGE_ACCESS_TOKEN = process.env.META_FB_PAGE_ACCESS_TOKEN ?? '';
+const integrationConfig_1 = require("../lib/integrationConfig");
 const GRAPH_BASE = 'https://graph.facebook.com/v21.0';
-const FB_CONFIGURED = !!META_FB_PAGE_ID && !!META_FB_PAGE_ACCESS_TOKEN;
-// Choose which token to use for IG Graph API calls.
-//
-// graph.facebook.com IG endpoints (/{ig-user-id}/media, comment replies)
-// need an EAA-style token. The IG use case "Generate token" mints an
-// IGAA-style "Login with Instagram" token that ONLY works on
-// graph.instagram.com — calling graph.facebook.com with it returns
-// "Cannot parse access token". Page tokens, however, have IG content +
-// engagement scopes baked in when the IG account is linked to the Page.
-//
-// So: if the user gave us a Page token (EAA), prefer it for IG Graph
-// calls. Otherwise fall back to META_IG_ACCESS_TOKEN (the user might
-// have minted a proper EAA user token via Graph Explorer).
-const IG_GRAPH_TOKEN = (META_FB_PAGE_ACCESS_TOKEN && META_FB_PAGE_ACCESS_TOKEN.startsWith('EAA'))
-    ? META_FB_PAGE_ACCESS_TOKEN
-    : META_IG_ACCESS_TOKEN;
+// Derives IG Graph token: prefer EAA-style Page token (works on
+// graph.facebook.com IG endpoints); fall back to IG access token.
+function igGraphToken(fbPageAccessToken, igAccessToken) {
+    return (fbPageAccessToken && fbPageAccessToken.startsWith('EAA'))
+        ? fbPageAccessToken
+        : igAccessToken;
+}
 // ── Caller auth (callable functions only) ─────────────────────────────────
 async function callerIsMarketingAdmin(token, allowList) {
     if (!token)
@@ -128,8 +116,9 @@ function buildMetaInboxReplyPublisher() {
             await snap.ref.update({ outboundStatus: 'sent', outboundError: null });
             return null;
         }
-        if (!META_IG_USER_ID || !IG_GRAPH_TOKEN) {
-            await snap.ref.update({ outboundStatus: 'failed', outboundError: 'IG credentials missing in functions/.env (need META_IG_USER_ID + an EAA-style token, either META_FB_PAGE_ACCESS_TOKEN or a user token in META_IG_ACCESS_TOKEN)' });
+        const publisherCfg = await (0, integrationConfig_1.getIntegrationConfig)();
+        if (!publisherCfg.meta.igUserId || !igGraphToken(publisherCfg.meta.fbPageAccessToken, publisherCfg.meta.igAccessToken)) {
+            await snap.ref.update({ outboundStatus: 'failed', outboundError: 'IG credentials missing — configure them in the Integration Hub (Instagram User ID + access token)' });
             return null;
         }
         try {
@@ -149,8 +138,8 @@ function buildMetaInboxReplyPublisher() {
                 await replyToIgComment(String(externalId), text);
             }
             else if (thread.channel === 'fb_comment') {
-                if (!FB_CONFIGURED)
-                    throw new Error('FB Page credentials not in functions/.env');
+                if (!publisherCfg.meta.fbPageId || !publisherCfg.meta.fbPageAccessToken)
+                    throw new Error('FB Page credentials not configured — set them in the Integration Hub');
                 const recent = await db.collection(`marketing_inbox/${threadId}/messages`)
                     .where('direction', '==', 'inbound')
                     .orderBy('sentAt', 'desc')
@@ -180,7 +169,9 @@ function buildMetaInboxReplyPublisher() {
 async function sendIgDirectMessage(recipientId, text) {
     if (!recipientId)
         throw new Error('empty recipient id');
-    const url = `${GRAPH_BASE}/${META_IG_USER_ID}/messages?access_token=${encodeURIComponent(IG_GRAPH_TOKEN)}`;
+    const cfg = await (0, integrationConfig_1.getIntegrationConfig)();
+    const token = igGraphToken(cfg.meta.fbPageAccessToken, cfg.meta.igAccessToken);
+    const url = `${GRAPH_BASE}/${cfg.meta.igUserId}/messages?access_token=${encodeURIComponent(token)}`;
     const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -197,7 +188,9 @@ async function sendIgDirectMessage(recipientId, text) {
 async function replyToIgComment(commentId, text) {
     if (!commentId)
         throw new Error('empty comment id');
-    const url = `${GRAPH_BASE}/${commentId}/replies?access_token=${encodeURIComponent(IG_GRAPH_TOKEN)}`;
+    const cfg = await (0, integrationConfig_1.getIntegrationConfig)();
+    const token = igGraphToken(cfg.meta.fbPageAccessToken, cfg.meta.igAccessToken);
+    const url = `${GRAPH_BASE}/${commentId}/replies?access_token=${encodeURIComponent(token)}`;
     const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -218,27 +211,27 @@ async function replyToIgComment(commentId, text) {
 // The derived PAT is permanent (System User tokens never expire and the
 // derivation has no TTL), so a cold-start memo is fine. Single in-flight
 // promise prevents duplicate /me/accounts calls under concurrent invokes.
-let pageTokenPromise = null;
+// Cache keyed by fbPageId:last8ofToken — auto-invalidated when credentials change.
+let _patCache = null;
 async function getFbPagePat() {
-    if (pageTokenPromise)
-        return pageTokenPromise;
-    pageTokenPromise = (async () => {
-        const url = `${GRAPH_BASE}/me/accounts?fields=id,access_token&access_token=${encodeURIComponent(META_FB_PAGE_ACCESS_TOKEN)}`;
-        const r = await fetch(url);
-        if (!r.ok) {
-            const body = (await r.json().catch(() => ({})));
-            throw new Error(`derive-page-token-failed: Graph ${r.status}: ${body?.error?.message ?? 'unknown'}`);
-        }
-        const json = await r.json();
-        const match = (json.data ?? []).find((p) => p.id === META_FB_PAGE_ID);
-        if (!match?.access_token) {
-            // Reset so a later call can retry rather than poison the cache.
-            pageTokenPromise = null;
-            throw new Error(`Page ${META_FB_PAGE_ID} not in /me/accounts response. Confirm the System User has Page asset access with MANAGE / CREATE_CONTENT tasks in Business Manager.`);
-        }
-        return match.access_token;
-    })();
-    return pageTokenPromise;
+    const cfg = await (0, integrationConfig_1.getIntegrationConfig)();
+    const cacheKey = `${cfg.meta.fbPageId}:${cfg.meta.fbPageAccessToken.slice(-8)}`;
+    if (_patCache?.key === cacheKey)
+        return _patCache.pat;
+    _patCache = null;
+    const url = `${GRAPH_BASE}/me/accounts?fields=id,access_token&access_token=${encodeURIComponent(cfg.meta.fbPageAccessToken)}`;
+    const r = await fetch(url);
+    if (!r.ok) {
+        const body = (await r.json().catch(() => ({})));
+        throw new Error(`derive-page-token-failed: Graph ${r.status}: ${body?.error?.message ?? 'unknown'}`);
+    }
+    const json = await r.json();
+    const match = (json.data ?? []).find((p) => p.id === cfg.meta.fbPageId);
+    if (!match?.access_token) {
+        throw new Error(`Page ${cfg.meta.fbPageId} not in /me/accounts response. Confirm the System User has Page asset access with MANAGE / CREATE_CONTENT tasks in Business Manager.`);
+    }
+    _patCache = { key: cacheKey, pat: match.access_token };
+    return _patCache.pat;
 }
 // FB comment reply — the Graph endpoint is /{comment-id}/comments (creates
 // a child comment under the parent). Requires a Page Access Token (not the
@@ -262,8 +255,9 @@ async function replyToFbComment(commentId, text) {
 // + caption. Requires a Page Access Token (the System User token in
 // META_FB_PAGE_ACCESS_TOKEN can't publish on its own under new Pages).
 async function publishDraftToFacebook(draftData) {
-    if (!FB_CONFIGURED) {
-        return { ok: false, code: 'no-fb-credentials', message: 'META_FB_PAGE_ID / META_FB_PAGE_ACCESS_TOKEN not set in functions/.env.' };
+    const cfg = await (0, integrationConfig_1.getIntegrationConfig)();
+    if (!cfg.meta.fbPageId || !cfg.meta.fbPageAccessToken) {
+        return { ok: false, code: 'no-fb-credentials', message: 'FB Page ID / Access Token not configured — set them in the Integration Hub.' };
     }
     const imageUrl = draftData?.assets?.[0]?.url;
     const caption = String(draftData?.caption ?? '');
@@ -283,7 +277,7 @@ async function publishDraftToFacebook(draftData) {
         caption,
         access_token: pat,
     });
-    const res = await fetch(`${GRAPH_BASE}/${META_FB_PAGE_ID}/photos`, {
+    const res = await fetch(`${GRAPH_BASE}/${cfg.meta.fbPageId}/photos`, {
         method: 'POST',
         body: params,
     });
@@ -299,7 +293,7 @@ async function publishDraftToFacebook(draftData) {
     // Permalink: simplest reliable form is /{page-id}/posts/{numeric-suffix}.
     // post_id format is "{pageId}_{numericId}" — we use the page-numeric form.
     const numericSuffix = postId.includes('_') ? postId.split('_').pop() : postId;
-    const permalink = `https://www.facebook.com/${META_FB_PAGE_ID}/posts/${numericSuffix}`;
+    const permalink = `https://www.facebook.com/${cfg.meta.fbPageId}/posts/${numericSuffix}`;
     return { ok: true, postId, permalink };
 }
 async function publishDraftToInstagram(draftId, draftData) {
@@ -310,9 +304,12 @@ async function publishDraftToInstagram(draftId, draftData) {
         return { ok: false, code: 'no-asset', message: 'Draft has no image asset.' };
     if (!caption)
         return { ok: false, code: 'no-caption', message: 'Draft has no caption.' };
-    if (!META_IG_USER_ID || !IG_GRAPH_TOKEN) {
-        return { ok: false, code: 'no-credentials', message: 'IG Graph credentials missing — need META_IG_USER_ID + an EAA-style token (META_FB_PAGE_ACCESS_TOKEN works since the IG account is linked to the Page).' };
+    const cfg = await (0, integrationConfig_1.getIntegrationConfig)();
+    const igToken = igGraphToken(cfg.meta.fbPageAccessToken, cfg.meta.igAccessToken);
+    if (!cfg.meta.igUserId || !igToken) {
+        return { ok: false, code: 'no-credentials', message: 'Instagram credentials not configured — set them in the Integration Hub.' };
     }
+    void draftId;
     if (isCarousel) {
         return publishCarouselToInstagram(assets.map((a) => String(a?.url ?? '')).filter(Boolean), caption);
     }
@@ -321,9 +318,9 @@ async function publishDraftToInstagram(draftId, draftData) {
     const params = new URLSearchParams({
         image_url: imageUrl,
         caption,
-        access_token: IG_GRAPH_TOKEN,
+        access_token: igToken,
     });
-    const createRes = await fetch(`${GRAPH_BASE}/${META_IG_USER_ID}/media`, {
+    const createRes = await fetch(`${GRAPH_BASE}/${cfg.meta.igUserId}/media`, {
         method: 'POST',
         body: params,
     });
@@ -339,7 +336,7 @@ async function publishDraftToInstagram(draftId, draftData) {
     // Calling /media_publish before status_code === 'FINISHED' returns
     // "Media ID is not available" (code 9007). Per Meta's recommendation
     // we poll up to 60s with ~3s gaps.
-    const statusUrl = `${GRAPH_BASE}/${mediaId}?fields=status_code,status&access_token=${encodeURIComponent(IG_GRAPH_TOKEN)}`;
+    const statusUrl = `${GRAPH_BASE}/${mediaId}?fields=status_code,status&access_token=${encodeURIComponent(igToken)}`;
     const deadline = Date.now() + 60000;
     let lastStatus = null;
     while (Date.now() < deadline) {
@@ -362,8 +359,8 @@ async function publishDraftToInstagram(draftId, draftData) {
         return { ok: false, code: 'container-timeout', message: `Container still ${lastStatus ?? 'unknown'} after 60s — try Publish again.` };
     }
     // Step 2 — publish.
-    const publishParams = new URLSearchParams({ creation_id: mediaId, access_token: IG_GRAPH_TOKEN });
-    const pubRes = await fetch(`${GRAPH_BASE}/${META_IG_USER_ID}/media_publish`, {
+    const publishParams = new URLSearchParams({ creation_id: mediaId, access_token: igToken });
+    const pubRes = await fetch(`${GRAPH_BASE}/${cfg.meta.igUserId}/media_publish`, {
         method: 'POST',
         body: publishParams,
     });
@@ -378,7 +375,7 @@ async function publishDraftToInstagram(draftId, draftData) {
     // Step 3 — best-effort permalink fetch.
     let permalink = null;
     try {
-        const linkRes = await fetch(`${GRAPH_BASE}/${postId}?fields=permalink&access_token=${encodeURIComponent(IG_GRAPH_TOKEN)}`);
+        const linkRes = await fetch(`${GRAPH_BASE}/${postId}?fields=permalink&access_token=${encodeURIComponent(igToken)}`);
         if (linkRes.ok) {
             const link = await linkRes.json();
             permalink = typeof link?.permalink === 'string' ? link.permalink : null;
@@ -400,6 +397,12 @@ async function publishDraftToInstagram(draftId, draftData) {
 async function publishCarouselToInstagram(slideUrls, caption) {
     if (slideUrls.length < 2 || slideUrls.length > 10) {
         return { ok: false, code: 'bad-carousel-count', message: `Carousel needs 2–10 slides, got ${slideUrls.length}.` };
+    }
+    const carouselCfg = await (0, integrationConfig_1.getIntegrationConfig)();
+    const IG_GRAPH_TOKEN = igGraphToken(carouselCfg.meta.fbPageAccessToken, carouselCfg.meta.igAccessToken);
+    const META_IG_USER_ID = carouselCfg.meta.igUserId;
+    if (!META_IG_USER_ID || !IG_GRAPH_TOKEN) {
+        return { ok: false, code: 'missing-credentials', message: 'Instagram credentials not configured.' };
     }
     // Step 1 — create one child container per slide (parallel).
     const childResults = await Promise.all(slideUrls.map(async (url, idx) => {
@@ -522,7 +525,8 @@ async function processDueDraft(draftId, draftData, actorEmail) {
     const permalinks = { instagram: igResult.permalink ?? '' };
     let fbWarning = null;
     let postFbPostId = null;
-    if (FB_CONFIGURED) {
+    const _fbCfg = await (0, integrationConfig_1.getIntegrationConfig)();
+    if (_fbCfg.meta.fbPageId && _fbCfg.meta.fbPageAccessToken) {
         const fbResult = await publishDraftToFacebook(draftData);
         if (fbResult.ok) {
             permalinks.facebook = fbResult.permalink ?? '';

@@ -52,10 +52,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.probeMarketingHealthNow = exports.probeMarketingHealth = exports.composeStudioLogo = exports.uploadStudioImage = exports.editStudioImage = exports.createStudioDraft = exports.generateStudioVariants = exports.boostMarketingDraft = exports.renderUgcAsDraft = exports.generateWeeklyInsightDigest = exports.pollMarketingAccountInsights = exports.pollMarketingInsights = exports.publishMarketingDraftNow = exports.scheduledMarketingPublisher = exports.metaInboxReplyPublisher = exports.classifyInboxThread = exports.generateInboxReplies = exports.metaWebhookReceiver = exports.dailyMarketingDraftCron = exports.generateMarketingDraft = exports.scoreMarketingDraft = exports.renderMarketingTemplate = exports.repairCommunityCounters = exports.onUserCreated = exports.onFollowDelete = exports.onFollowCreate = exports.onPostDelete = exports.onCommentDelete = exports.onCommentCreate = exports.synthesizeSpeech = exports.adminFactoryReset = exports.factoryReset = exports.processScheduledPushes = exports.adminCreateUser = exports.adminDeleteUser = exports.dispatchPush = void 0;
+exports.updateIntegrationConfig = exports.checkIntegrationHealth = exports.probeMarketingHealthNow = exports.probeMarketingHealth = exports.composeStudioLogo = exports.uploadStudioImage = exports.editStudioImage = exports.createStudioDraft = exports.generateStudioVariants = exports.boostMarketingDraft = exports.renderUgcAsDraft = exports.generateWeeklyInsightDigest = exports.pollMarketingAccountInsights = exports.pollMarketingInsights = exports.publishMarketingDraftNow = exports.scheduledMarketingPublisher = exports.metaInboxReplyPublisher = exports.classifyInboxThread = exports.generateInboxReplies = exports.metaWebhookReceiver = exports.dailyMarketingDraftCron = exports.generateMarketingDraft = exports.scoreMarketingDraft = exports.renderMarketingTemplate = exports.repairCommunityCounters = exports.onUserCreated = exports.onFollowDelete = exports.onFollowCreate = exports.onPostDelete = exports.onCommentDelete = exports.onCommentCreate = exports.synthesizeSpeech = exports.adminFactoryReset = exports.factoryReset = exports.processScheduledPushes = exports.adminCreateUser = exports.adminDeleteUser = exports.dispatchPush = void 0;
 const functions = __importStar(require("firebase-functions/v1"));
 const admin = __importStar(require("firebase-admin"));
 const text_to_speech_1 = __importDefault(require("@google-cloud/text-to-speech"));
+const integrations_1 = require("./integrations");
 const marketing_1 = require("./marketing");
 admin.initializeApp();
 // Allow undefined fields in setDoc/update payloads to be silently dropped
@@ -1226,3 +1227,11 @@ exports.composeStudioLogo = (0, marketing_1.buildComposeStudioLogo)(ADMIN_EMAILS
 // the callable backs the "Re-check now" button in Settings.
 exports.probeMarketingHealth = (0, marketing_1.buildProbeMarketingHealth)();
 exports.probeMarketingHealthNow = (0, marketing_1.buildProbeMarketingHealthNow)(ADMIN_EMAILS);
+// Integration Hub — admin-callable health check + config updater.
+// checkIntegrationHealth probes every external API (OpenAI, Gemini,
+// Replicate, Pexels, Meta IG, Meta FB, Anthropic Worker) and returns
+// live per-service status. updateIntegrationConfig merges a patch object
+// into app_settings/integrations and invalidates the in-process cache so
+// functions pick up new keys within 5 minutes.
+exports.checkIntegrationHealth = (0, integrations_1.buildCheckIntegrationHealth)(ADMIN_EMAILS);
+exports.updateIntegrationConfig = (0, integrations_1.buildUpdateIntegrationConfig)(ADMIN_EMAILS);
