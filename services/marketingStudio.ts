@@ -70,3 +70,29 @@ export async function createStudioDraft(
     return { ok: false, code: e?.code ?? 'callable-failed', message: e?.message ?? String(e) };
   }
 }
+
+export interface EditStudioImageInput {
+  imageStoragePath: string;
+  prompt: string;
+  quality?: 'medium' | 'high';
+}
+
+export type EditStudioImageResult =
+  | { ok: true; variantId: string; url: string; storagePath: string; costInr: number }
+  | { ok: false; code: string; message: string };
+
+export async function editStudioImage(
+  input: EditStudioImageInput,
+): Promise<EditStudioImageResult> {
+  if (!app) return { ok: false, code: 'no-firebase', message: 'Not connected.' };
+  const fn = httpsCallable<EditStudioImageInput, EditStudioImageResult>(
+    getFunctions(app),
+    'editStudioImage',
+  );
+  try {
+    const r = await fn(input);
+    return r.data;
+  } catch (e: any) {
+    return { ok: false, code: e?.code ?? 'callable-failed', message: e?.message ?? String(e) };
+  }
+}

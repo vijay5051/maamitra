@@ -56,6 +56,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildGenerateStudioVariants = buildGenerateStudioVariants;
 exports.buildCreateStudioDraft = buildCreateStudioDraft;
+exports.buildEditStudioImage = buildEditStudioImage;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions/v1"));
 const imageSources_1 = require("./imageSources");
@@ -388,5 +389,93 @@ function buildCreateStudioDraft(allowList) {
             return { ok: false, code: 'write-failed', message: "Couldn't save the draft. Try again." };
         }
         return { ok: true, draftId: draftRef.id, caption };
+    });
+}
+const EDIT_COST_INR = {
+    medium: 3.50,
+    high: 14.50,
+};
+function buildEditStudioImage(allowList) {
+    return functions
+        .runWith({ memory: '1GB', timeoutSeconds: 120 })
+        .https.onCall(async (data, context) => {
+        if (!(await callerIsMarketingAdmin(context.auth?.token, allowList))) {
+            throw new functions.https.HttpsError('permission-denied', 'Admin only.');
+        }
+        const imageStoragePath = typeof data?.imageStoragePath === 'string' ? data.imageStoragePath : '';
+        const prompt = typeof data?.prompt === 'string' ? data.prompt.trim() : '';
+        const quality = data?.quality === 'high' ? 'high' : 'medium';
+        if (!imageStoragePath)
+            return { ok: false, code: 'no-image', message: 'No image to edit.' };
+        if (!prompt)
+            return { ok: false, code: 'no-prompt', message: 'Tell me what to change.' };
+        if (prompt.length > 500)
+            return { ok: false, code: 'prompt-too-long', message: 'Keep your edit under 500 characters.' };
+        if (!imageStoragePath.startsWith('marketing/studio/')) {
+            return { ok: false, code: 'bad-image-path', message: "Can only edit images you generated in the studio." };
+        }
+        let brand;
+        try {
+            brand = await loadStudioBrand();
+        }
+        catch {
+            return { ok: false, code: 'brand-load-failed', message: "Couldn't load your brand. Try again." };
+        }
+        // Server-side daily cost cap pre-check.
+        const cost = EDIT_COST_INR[quality];
+        const capCheck = await checkDailyCostCap(brand, cost);
+        if (!capCheck.ok) {
+            return {
+                ok: false,
+                code: 'cost-cap-reached',
+                message: `Daily cost cap reached (₹${capCheck.spent.toFixed(0)} of ₹${capCheck.cap}). Bump it in Settings.`,
+            };
+        }
+        // Download the existing image from Storage.
+        let inputBuf;
+        try {
+            const bucket = admin.storage().bucket();
+            const [buf] = await bucket.file(imageStoragePath).download();
+            inputBuf = buf;
+        }
+        catch (e) {
+            console.warn('[studio:edit] download failed', e);
+            return { ok: false, code: 'download-failed', message: "Couldn't read the image. Try again." };
+        }
+        // Build the edit instruction with brand-style guard so the edit
+        // doesn't drift away from the locked style.
+        const profile = brand.styleProfile;
+        const styleGuard = profile?.oneLiner ?? DEFAULT_STYLE_DESCRIPTION;
+        const negative = profile?.prohibited?.length ? `Do NOT introduce: ${profile.prohibited.join(', ')}.` : '';
+        const editPrompt = `Edit instruction: ${prompt}\n\nKeep this visual style intact: ${styleGuard}\n${negative}\nNo text, no logos, no watermarks.`;
+        // Call OpenAI Images edit.
+        const result = await (0, imageSources_1.openaiImageEdit)(inputBuf, editPrompt, { quality, size: '1024x1024' });
+        if (!result) {
+            return { ok: false, code: 'edit-failed', message: "Image edit didn't work. Try a different instruction or wait a moment." };
+        }
+        // Upload as a new Storage object.
+        const ts = new Date().toISOString().replace(/[:.]/g, '-');
+        const variantId = `${ts}-edit`;
+        const storagePath = `marketing/studio/${variantId}.png`;
+        let url;
+        let bytes;
+        try {
+            const up = await uploadToStorage(result, storagePath);
+            url = up.url;
+            bytes = up.bytes;
+        }
+        catch (e) {
+            console.warn('[studio:edit] upload failed', e);
+            return { ok: false, code: 'upload-failed', message: "Couldn't save the edited image. Try again." };
+        }
+        const actor = context.auth?.token?.email ?? context.auth?.uid ?? null;
+        await logCost({
+            source: 'openai-edit',
+            costInr: cost,
+            bytes,
+            actor: actor,
+            meta: { variantId, parent: imageStoragePath, prompt: prompt.slice(0, 120) },
+        });
+        return { ok: true, variantId, url, storagePath, costInr: cost };
     });
 }

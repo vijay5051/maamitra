@@ -27,6 +27,7 @@ exports.pexelsSearch = pexelsSearch;
 exports.fluxSchnell = fluxSchnell;
 exports.imagenGenerate = imagenGenerate;
 exports.openaiImage = openaiImage;
+exports.openaiImageEdit = openaiImageEdit;
 const PEXELS_API_KEY = process.env.PEXELS_API_KEY ?? '';
 const REPLICATE_API_TOKEN = process.env.REPLICATE_API_TOKEN ?? '';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? '';
@@ -191,6 +192,60 @@ async function openaiImage(prompt, opts) {
     }
     catch (e) {
         console.warn('[imageSources] OpenAI request failed', e);
+        return null;
+    }
+}
+// ── OpenAI gpt-image-1 — edits ──────────────────────────────────────────────
+//
+// Endpoint: POST https://api.openai.com/v1/images/edits (multipart/form-data)
+// Takes one or more input PNGs + a text prompt. Returns a re-imagined image.
+// Same b64_json shape as /generations. Optional `mask` for inpainting.
+//
+// Cost (May 2026): ~$0.042 medium / 1024x1024.
+//
+// Multipart in Node 22 native fetch — use built-in FormData + Blob.
+async function openaiImageEdit(imageBuf, prompt, opts) {
+    if (!OPENAI_API_KEY) {
+        console.warn('[imageSources] OPENAI_API_KEY not set');
+        return null;
+    }
+    const quality = opts?.quality ?? 'medium';
+    const size = opts?.size ?? '1024x1024';
+    try {
+        const form = new FormData();
+        form.append('model', 'gpt-image-1');
+        form.append('prompt', prompt);
+        form.append('n', '1');
+        form.append('size', size);
+        form.append('quality', quality);
+        // Cast Buffer → Blob via Uint8Array conversion (Node Buffer is a
+        // Uint8Array subclass but TS Blob ctor needs the explicit type).
+        const blob = new Blob([new Uint8Array(imageBuf)], { type: 'image/png' });
+        form.append('image', blob, 'input.png');
+        if (opts?.maskBuf) {
+            const maskBlob = new Blob([new Uint8Array(opts.maskBuf)], { type: 'image/png' });
+            form.append('mask', maskBlob, 'mask.png');
+        }
+        const res = await fetch('https://api.openai.com/v1/images/edits', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
+            body: form,
+        });
+        if (!res.ok) {
+            console.warn(`[imageSources] OpenAI edit ${res.status}: ${await res.text()}`);
+            return null;
+        }
+        const data = (await res.json());
+        const item = data?.data?.[0];
+        if (item?.b64_json)
+            return `data:image/png;base64,${item.b64_json}`;
+        if (item?.url)
+            return item.url;
+        console.warn('[imageSources] OpenAI edit returned no image', data?.error?.message ?? '');
+        return null;
+    }
+    catch (e) {
+        console.warn('[imageSources] OpenAI edit request failed', e);
         return null;
     }
 }

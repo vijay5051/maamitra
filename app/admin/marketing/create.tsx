@@ -34,6 +34,7 @@ import { Colors, FontSize, Radius, Shadow, Spacing } from '../../../constants/th
 import { friendlyError } from '../../../services/marketingErrors';
 import {
   createStudioDraft,
+  editStudioImage,
   generateStudioVariants,
 } from '../../../services/marketingStudio';
 
@@ -74,6 +75,11 @@ export default function StudioCanvasScreen() {
   const [error, setError] = useState<string | null>(null);
   const [okBanner, setOkBanner] = useState<string | null>(null);
 
+  // Edit mode (Phase 3) — applies a text-edit to the currently picked variant.
+  const [editing, setEditing] = useState(false);
+  const [editPrompt, setEditPrompt] = useState('');
+  const [editApplying, setEditApplying] = useState(false);
+
   const picked = useMemo(() => variants.find((v) => v.variantId === pickedId) ?? null, [variants, pickedId]);
   const estCost = QUALITY_INFO[quality].perVariantInr * variantCount;
 
@@ -113,6 +119,50 @@ export default function StudioCanvasScreen() {
 
   function handlePick(v: Variant) {
     setPickedId(v.variantId);
+  }
+
+  function handleEnterEdit() {
+    if (!picked) return;
+    setEditPrompt('');
+    setEditing(true);
+  }
+
+  function handleCancelEdit() {
+    setEditing(false);
+    setEditPrompt('');
+  }
+
+  async function handleApplyEdit() {
+    if (!picked) return;
+    if (!editPrompt.trim()) {
+      setError('Tell me what to change.');
+      return;
+    }
+    setError(null);
+    setEditApplying(true);
+    try {
+      const r = await editStudioImage({
+        imageStoragePath: picked.storagePath,
+        prompt: editPrompt.trim(),
+      });
+      if (!r.ok) {
+        setError(friendlyError('Edit', r));
+        return;
+      }
+      // Replace the picked variant in-place with the edited one. Keeps
+      // the position in the grid + auto-keeps it picked.
+      const newVariant: Variant = { variantId: r.variantId, url: r.url, storagePath: r.storagePath };
+      setVariants((prev) => prev.map((v) => (v.variantId === picked.variantId ? newVariant : v)));
+      setPickedId(newVariant.variantId);
+      setEditing(false);
+      setEditPrompt('');
+      setOkBanner('Edited! ✨ Pick again or continue when you\'re happy.');
+      setTimeout(() => setOkBanner(null), 3500);
+    } catch (e) {
+      setError(friendlyError('Edit', e));
+    } finally {
+      setEditApplying(false);
+    }
   }
 
   async function handleAdvanceToCaption() {
@@ -213,6 +263,14 @@ export default function StudioCanvasScreen() {
             onEdit={() => setStep(1)}
             onRetry={handleGenerate}
             onContinue={handleAdvanceToCaption}
+            picked={picked}
+            editing={editing}
+            editPrompt={editPrompt}
+            setEditPrompt={setEditPrompt}
+            editApplying={editApplying}
+            onEnterEdit={handleEnterEdit}
+            onApplyEdit={handleApplyEdit}
+            onCancelEdit={handleCancelEdit}
           />
         ) : (
           <Step3Save
@@ -311,6 +369,7 @@ function Step1Prompt({
 
 function Step2Pick({
   prompt, variants, variantCount, generating, pickedId, onPick, onEdit, onRetry, onContinue,
+  picked, editing, editPrompt, setEditPrompt, editApplying, onEnterEdit, onApplyEdit, onCancelEdit,
 }: {
   prompt: string;
   variants: Variant[];
@@ -321,6 +380,14 @@ function Step2Pick({
   onEdit: () => void;
   onRetry: () => void;
   onContinue: () => void;
+  picked: Variant | null;
+  editing: boolean;
+  editPrompt: string;
+  setEditPrompt: (v: string) => void;
+  editApplying: boolean;
+  onEnterEdit: () => void;
+  onApplyEdit: () => void;
+  onCancelEdit: () => void;
 }) {
   const slots = Array.from({ length: variantCount });
   return (
@@ -343,15 +410,25 @@ function Step2Pick({
           const v = variants[i];
           const ready = !!v;
           const selected = v && pickedId === v.variantId;
+          const isPickedAndEditing = selected && editing;
           return (
             <Pressable
               key={i}
-              onPress={ready ? () => onPick(v) : undefined}
-              disabled={!ready}
+              onPress={ready && !editing ? () => onPick(v) : undefined}
+              disabled={!ready || editing}
               style={[styles.variantCard, selected && styles.variantCardSelected]}
             >
               {ready ? (
-                <Image source={{ uri: v.url }} style={styles.variantImage} resizeMode="cover" />
+                <>
+                  <Image source={{ uri: v.url }} style={styles.variantImage} resizeMode="cover" />
+                  {/* Show a "re-rendering" overlay on the picked variant while edit is in flight */}
+                  {isPickedAndEditing && editApplying ? (
+                    <View style={styles.variantOverlay}>
+                      <ActivityIndicator size="small" color={Colors.white} />
+                      <Text style={styles.variantOverlayText}>Editing…</Text>
+                    </View>
+                  ) : null}
+                </>
               ) : generating ? (
                 <View style={[styles.variantImage, styles.variantSkeleton]}>
                   <ActivityIndicator size="small" color={Colors.primary} />
@@ -376,22 +453,78 @@ function Step2Pick({
         })}
       </View>
 
+      {/* Edit panel (Phase 3) — slides in when admin clicks "Edit it first" */}
+      {editing && picked ? (
+        <View style={styles.editPanel}>
+          <View style={styles.editHead}>
+            <Ionicons name="brush-outline" size={16} color={Colors.primary} />
+            <Text style={styles.editTitle}>Edit variant {String.fromCharCode(65 + variants.findIndex((v) => v.variantId === picked.variantId))}</Text>
+            <Text style={styles.editCost}>≈ ₹3.50</Text>
+          </View>
+          <Text style={styles.editHint}>
+            Describe what should change. We'll keep your brand style intact.
+          </Text>
+          <TextInput
+            value={editPrompt}
+            onChangeText={setEditPrompt}
+            placeholder="e.g. Change the background to soft pastel pink"
+            placeholderTextColor={Colors.textMuted}
+            style={styles.editInput}
+            multiline
+            maxLength={500}
+            editable={!editApplying}
+            autoFocus
+          />
+          <View style={styles.editActions}>
+            <Pressable onPress={onCancelEdit} disabled={editApplying} style={styles.ghostBtn}>
+              <Text style={styles.ghostBtnLabel}>Cancel</Text>
+            </Pressable>
+            <View style={{ flex: 1 }} />
+            <Pressable
+              onPress={editApplying ? undefined : onApplyEdit}
+              disabled={editApplying || !editPrompt.trim()}
+              style={[styles.primaryBtn, (editApplying || !editPrompt.trim()) && styles.primaryBtnDisabled]}
+            >
+              {editApplying ? (
+                <>
+                  <ActivityIndicator size="small" color={Colors.white} />
+                  <Text style={styles.primaryBtnLabel}>Applying…</Text>
+                </>
+              ) : (
+                <>
+                  <Ionicons name="sparkles" size={14} color={Colors.white} />
+                  <Text style={styles.primaryBtnLabel}>Apply edit</Text>
+                </>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
+
       {/* Actions */}
-      <View style={styles.actionsRow}>
-        <Pressable onPress={onRetry} disabled={generating} style={styles.ghostBtn}>
-          <Ionicons name="refresh" size={16} color={Colors.textDark} />
-          <Text style={styles.ghostBtnLabel}>Try again</Text>
-        </Pressable>
-        <View style={{ flex: 1 }} />
-        <Pressable
-          onPress={pickedId ? onContinue : undefined}
-          disabled={!pickedId}
-          style={[styles.primaryBtn, !pickedId && styles.primaryBtnDisabled]}
-        >
-          <Text style={styles.primaryBtnLabel}>Use this image</Text>
-          <Ionicons name="arrow-forward" size={16} color={Colors.white} />
-        </Pressable>
-      </View>
+      {!editing ? (
+        <View style={styles.actionsRow}>
+          <Pressable onPress={onRetry} disabled={generating} style={styles.ghostBtn}>
+            <Ionicons name="refresh" size={16} color={Colors.textDark} />
+            <Text style={styles.ghostBtnLabel}>Try again</Text>
+          </Pressable>
+          {pickedId ? (
+            <Pressable onPress={onEnterEdit} style={styles.ghostBtn}>
+              <Ionicons name="brush-outline" size={16} color={Colors.textDark} />
+              <Text style={styles.ghostBtnLabel}>Edit it first</Text>
+            </Pressable>
+          ) : null}
+          <View style={{ flex: 1 }} />
+          <Pressable
+            onPress={pickedId ? onContinue : undefined}
+            disabled={!pickedId}
+            style={[styles.primaryBtn, !pickedId && styles.primaryBtnDisabled]}
+          >
+            <Text style={styles.primaryBtnLabel}>Use this image</Text>
+            <Ionicons name="arrow-forward" size={16} color={Colors.white} />
+          </Pressable>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -681,6 +814,37 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 8, right: 8,
     backgroundColor: Colors.white, borderRadius: 12,
   },
+  variantOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(28, 16, 51, 0.55)',
+    alignItems: 'center', justifyContent: 'center',
+    gap: 6,
+  },
+  variantOverlayText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.white },
+
+  // Edit panel (Phase 3)
+  editPanel: {
+    backgroundColor: Colors.cardBg,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    borderWidth: 1.5, borderColor: Colors.primary,
+    gap: 8,
+    ...Shadow.sm,
+  },
+  editHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  editTitle: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textDark, flex: 1 },
+  editCost: { fontSize: 11, fontWeight: '700', color: Colors.textMuted },
+  editHint: { fontSize: FontSize.xs, color: Colors.textLight, lineHeight: 16 },
+  editInput: {
+    backgroundColor: Colors.bgLight,
+    borderWidth: 1, borderColor: Colors.borderSoft,
+    borderRadius: Radius.md,
+    padding: Spacing.sm,
+    fontSize: FontSize.sm, color: Colors.textDark,
+    minHeight: 64, textAlignVertical: 'top',
+    outlineStyle: 'none' as any,
+  },
+  editActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: 4 },
 
   actionsRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: 4 },
 

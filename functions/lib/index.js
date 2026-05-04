@@ -52,7 +52,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createStudioDraft = exports.generateStudioVariants = exports.boostMarketingDraft = exports.renderUgcAsDraft = exports.generateWeeklyInsightDigest = exports.pollMarketingAccountInsights = exports.pollMarketingInsights = exports.publishMarketingDraftNow = exports.scheduledMarketingPublisher = exports.metaInboxReplyPublisher = exports.classifyInboxThread = exports.generateInboxReplies = exports.metaWebhookReceiver = exports.dailyMarketingDraftCron = exports.generateMarketingDraft = exports.scoreMarketingDraft = exports.renderMarketingTemplate = exports.repairCommunityCounters = exports.onUserCreated = exports.onFollowDelete = exports.onFollowCreate = exports.onPostDelete = exports.onCommentDelete = exports.onCommentCreate = exports.synthesizeSpeech = exports.adminFactoryReset = exports.factoryReset = exports.processScheduledPushes = exports.adminCreateUser = exports.adminDeleteUser = exports.dispatchPush = void 0;
+exports.editStudioImage = exports.createStudioDraft = exports.generateStudioVariants = exports.boostMarketingDraft = exports.renderUgcAsDraft = exports.generateWeeklyInsightDigest = exports.pollMarketingAccountInsights = exports.pollMarketingInsights = exports.publishMarketingDraftNow = exports.scheduledMarketingPublisher = exports.metaInboxReplyPublisher = exports.classifyInboxThread = exports.generateInboxReplies = exports.metaWebhookReceiver = exports.dailyMarketingDraftCron = exports.generateMarketingDraft = exports.scoreMarketingDraft = exports.renderMarketingTemplate = exports.repairCommunityCounters = exports.onUserCreated = exports.onFollowDelete = exports.onFollowCreate = exports.onPostDelete = exports.onCommentDelete = exports.onCommentCreate = exports.synthesizeSpeech = exports.adminFactoryReset = exports.factoryReset = exports.processScheduledPushes = exports.adminCreateUser = exports.adminDeleteUser = exports.dispatchPush = void 0;
 const functions = __importStar(require("firebase-functions/v1"));
 const admin = __importStar(require("firebase-admin"));
 const text_to_speech_1 = __importDefault(require("@google-cloud/text-to-speech"));
@@ -1207,3 +1207,8 @@ exports.boostMarketingDraft = (0, marketing_1.buildBoostMarketingDraft)(ADMIN_EM
 // caption via gpt-4o-mini if admin didn't write one.
 exports.generateStudioVariants = (0, marketing_1.buildGenerateStudioVariants)(ADMIN_EMAILS);
 exports.createStudioDraft = (0, marketing_1.buildCreateStudioDraft)(ADMIN_EMAILS);
+// Studio v2 Phase 3 — text-edit a picked variant via gpt-image-1 edits API.
+// Downloads from Storage, sends to OpenAI with brand-style guard, uploads
+// the new image, returns the new URL. Caller (the canvas) replaces the
+// picked variant with this one.
+exports.editStudioImage = (0, marketing_1.buildEditStudioImage)(ADMIN_EMAILS);

@@ -24,6 +24,7 @@ import {
   buildClassifyInboxThread,
   buildCreateStudioDraft,
   buildDailyMarketingDraftCron,
+  buildEditStudioImage,
   buildGenerateInboxReplies,
   buildGenerateMarketingDraft,
   buildGenerateStudioVariants,
@@ -1409,3 +1410,9 @@ export const boostMarketingDraft = buildBoostMarketingDraft(ADMIN_EMAILS);
 // caption via gpt-4o-mini if admin didn't write one.
 export const generateStudioVariants = buildGenerateStudioVariants(ADMIN_EMAILS);
 export const createStudioDraft = buildCreateStudioDraft(ADMIN_EMAILS);
+
+// Studio v2 Phase 3 — text-edit a picked variant via gpt-image-1 edits API.
+// Downloads from Storage, sends to OpenAI with brand-style guard, uploads
+// the new image, returns the new URL. Caller (the canvas) replaces the
+// picked variant with this one.
+export const editStudioImage = buildEditStudioImage(ADMIN_EMAILS);

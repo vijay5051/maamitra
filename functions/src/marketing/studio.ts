@@ -23,7 +23,7 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions/v1';
 
-import { fluxSchnell, imagenGenerate } from './imageSources';
+import { fluxSchnell, imagenGenerate, openaiImageEdit } from './imageSources';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY ?? '';
 
@@ -440,5 +440,129 @@ export function buildCreateStudioDraft(allowList: ReadonlySet<string>) {
       }
 
       return { ok: true, draftId: draftRef.id, caption };
+    });
+}
+
+// ── 3. editStudioImage ──────────────────────────────────────────────────────
+// gpt-image-1 edits API: download the picked variant from Storage, post to
+// /v1/images/edits with the admin's text instruction, upload the result as
+// a new Storage object, return the new URL. Caller (the canvas) replaces
+// the picked variant with this new one.
+//
+// Cost ~₹3.50 per edit (medium quality 1024x1024). Same daily-cap check.
+
+interface EditImageInput {
+  imageStoragePath?: unknown;
+  prompt?: unknown;
+  quality?: unknown;
+}
+
+interface EditImageOk {
+  ok: true;
+  variantId: string;
+  url: string;
+  storagePath: string;
+  costInr: number;
+}
+
+interface EditImageErr {
+  ok: false;
+  code: string;
+  message: string;
+}
+
+type EditImageResult = EditImageOk | EditImageErr;
+
+const EDIT_COST_INR: Record<'medium' | 'high', number> = {
+  medium: 3.50,
+  high:   14.50,
+};
+
+export function buildEditStudioImage(allowList: ReadonlySet<string>) {
+  return functions
+    .runWith({ memory: '1GB', timeoutSeconds: 120 })
+    .https.onCall(async (data: EditImageInput, context): Promise<EditImageResult> => {
+      if (!(await callerIsMarketingAdmin(context.auth?.token, allowList))) {
+        throw new functions.https.HttpsError('permission-denied', 'Admin only.');
+      }
+
+      const imageStoragePath = typeof data?.imageStoragePath === 'string' ? data.imageStoragePath : '';
+      const prompt = typeof data?.prompt === 'string' ? data.prompt.trim() : '';
+      const quality: 'medium' | 'high' = data?.quality === 'high' ? 'high' : 'medium';
+
+      if (!imageStoragePath) return { ok: false, code: 'no-image', message: 'No image to edit.' };
+      if (!prompt) return { ok: false, code: 'no-prompt', message: 'Tell me what to change.' };
+      if (prompt.length > 500) return { ok: false, code: 'prompt-too-long', message: 'Keep your edit under 500 characters.' };
+      if (!imageStoragePath.startsWith('marketing/studio/')) {
+        return { ok: false, code: 'bad-image-path', message: "Can only edit images you generated in the studio." };
+      }
+
+      let brand: StudioBrand;
+      try {
+        brand = await loadStudioBrand();
+      } catch {
+        return { ok: false, code: 'brand-load-failed', message: "Couldn't load your brand. Try again." };
+      }
+
+      // Server-side daily cost cap pre-check.
+      const cost = EDIT_COST_INR[quality];
+      const capCheck = await checkDailyCostCap(brand, cost);
+      if (!capCheck.ok) {
+        return {
+          ok: false,
+          code: 'cost-cap-reached',
+          message: `Daily cost cap reached (₹${capCheck.spent.toFixed(0)} of ₹${capCheck.cap}). Bump it in Settings.`,
+        };
+      }
+
+      // Download the existing image from Storage.
+      let inputBuf: Buffer;
+      try {
+        const bucket = admin.storage().bucket();
+        const [buf] = await bucket.file(imageStoragePath).download();
+        inputBuf = buf;
+      } catch (e) {
+        console.warn('[studio:edit] download failed', e);
+        return { ok: false, code: 'download-failed', message: "Couldn't read the image. Try again." };
+      }
+
+      // Build the edit instruction with brand-style guard so the edit
+      // doesn't drift away from the locked style.
+      const profile = brand.styleProfile;
+      const styleGuard = profile?.oneLiner ?? DEFAULT_STYLE_DESCRIPTION;
+      const negative = profile?.prohibited?.length ? `Do NOT introduce: ${profile.prohibited.join(', ')}.` : '';
+      const editPrompt = `Edit instruction: ${prompt}\n\nKeep this visual style intact: ${styleGuard}\n${negative}\nNo text, no logos, no watermarks.`;
+
+      // Call OpenAI Images edit.
+      const result = await openaiImageEdit(inputBuf, editPrompt, { quality, size: '1024x1024' });
+      if (!result) {
+        return { ok: false, code: 'edit-failed', message: "Image edit didn't work. Try a different instruction or wait a moment." };
+      }
+
+      // Upload as a new Storage object.
+      const ts = new Date().toISOString().replace(/[:.]/g, '-');
+      const variantId = `${ts}-edit`;
+      const storagePath = `marketing/studio/${variantId}.png`;
+      let url: string;
+      let bytes: number;
+      try {
+        const up = await uploadToStorage(result, storagePath);
+        url = up.url;
+        bytes = up.bytes;
+      } catch (e) {
+        console.warn('[studio:edit] upload failed', e);
+        return { ok: false, code: 'upload-failed', message: "Couldn't save the edited image. Try again." };
+      }
+
+      const actor = context.auth?.token?.email ?? context.auth?.uid ?? null;
+      await logCost({
+        source: 'openai-edit',
+        costInr: cost,
+        bytes,
+        actor: actor as string | null,
+        meta: { variantId, parent: imageStoragePath, prompt: prompt.slice(0, 120) },
+      });
+
+      return { ok: true, variantId, url, storagePath, costInr: cost };
     });
 }

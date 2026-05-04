@@ -50,7 +50,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.buildCreateStudioDraft = exports.buildGenerateStudioVariants = exports.buildBoostMarketingDraft = exports.buildRenderUgcAsDraft = exports.buildGenerateWeeklyInsightDigest = exports.buildPollMarketingAccountInsights = exports.buildPollMarketingInsights = exports.buildPublishMarketingDraftNow = exports.buildScheduledMarketingPublisher = exports.buildMetaInboxReplyPublisher = exports.buildClassifyInboxThread = exports.buildGenerateInboxReplies = exports.buildMetaWebhookReceiver = exports.buildDailyMarketingDraftCron = exports.buildGenerateMarketingDraft = exports.buildScoreMarketingDraft = void 0;
+exports.buildEditStudioImage = exports.buildCreateStudioDraft = exports.buildGenerateStudioVariants = exports.buildBoostMarketingDraft = exports.buildRenderUgcAsDraft = exports.buildGenerateWeeklyInsightDigest = exports.buildPollMarketingAccountInsights = exports.buildPollMarketingInsights = exports.buildPublishMarketingDraftNow = exports.buildScheduledMarketingPublisher = exports.buildMetaInboxReplyPublisher = exports.buildClassifyInboxThread = exports.buildGenerateInboxReplies = exports.buildMetaWebhookReceiver = exports.buildDailyMarketingDraftCron = exports.buildGenerateMarketingDraft = exports.buildScoreMarketingDraft = void 0;
 exports.buildRenderMarketingTemplate = buildRenderMarketingTemplate;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions/v1"));
@@ -81,6 +81,7 @@ Object.defineProperty(exports, "buildBoostMarketingDraft", { enumerable: true, g
 var studio_1 = require("./studio");
 Object.defineProperty(exports, "buildGenerateStudioVariants", { enumerable: true, get: function () { return studio_1.buildGenerateStudioVariants; } });
 Object.defineProperty(exports, "buildCreateStudioDraft", { enumerable: true, get: function () { return studio_1.buildCreateStudioDraft; } });
+Object.defineProperty(exports, "buildEditStudioImage", { enumerable: true, get: function () { return studio_1.buildEditStudioImage; } });
 // firebase-admin is initialized in functions/src/index.ts before this module
 // is imported; we just grab the existing instance.
 // Capability check — Marketing renders are gated on the same admin signal

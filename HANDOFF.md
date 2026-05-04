@@ -56,6 +56,70 @@ inbox — all without the admin ever logging into Meta.
   ie post-Phase 6).
 
 ### Last action
+**Studio v2 Phase 3 — text-edit shipped. Admin can refine a picked
+variant ("change bg to pastel pink") without re-rolling all 4.**
+
+What shipped:
+- `functions/src/marketing/imageSources.ts` — new `openaiImageEdit(buf,
+  prompt, opts)` helper using OpenAI `/v1/images/edits` (multipart).
+  Mirrors `openaiImage()` but takes an input PNG buffer + optional mask.
+  Returns the edited image as data: URL.
+- `functions/src/marketing/studio.ts` — new `buildEditStudioImage`
+  callable:
+  - Input `{ imageStoragePath, prompt, quality? }`. Path must start
+    with `marketing/studio/` (anti-tamper guard — admin can only edit
+    images they generated in the studio).
+  - Server-side daily cost-cap pre-check (~₹3.50 per medium edit, ₹14.50
+    high).
+  - Downloads input from Storage via admin SDK, builds an edit prompt
+    with brand-style guard ("Keep this visual style intact: …"), posts
+    to gpt-image-1, uploads result to `marketing/studio/{ts}-edit.png`,
+    logs cost.
+  - Returns `{ ok, variantId, url, storagePath, costInr }`.
+- `services/marketingStudio.ts` — `editStudioImage()` typed wrapper.
+- `app/admin/marketing/create.tsx` — Edit Mode wired into Step 2:
+  - When a variant is picked, a new "Edit it first" ghost button
+    appears next to "Try again".
+  - Clicking it slides in an Edit Panel: brush icon + "Edit variant
+    {A/B/C/D}" + ₹3.50 cost chip + textarea ("Change the background
+    to soft pastel pink") + Apply / Cancel.
+  - While applying, the picked variant card gets a dark overlay with
+    "Editing…" + spinner so admin sees what's being changed.
+  - On success: replaces the picked variant in-place (preserves grid
+    position, auto-keeps it picked), shows "Edited! ✨ Pick again or
+    continue when you're happy." banner.
+  - On failure: friendlyError message inline; variant grid intact.
+
+How style stays locked through edits:
+- Edit prompt always prefixed: "Edit instruction: {user prompt}\n\nKeep
+  this visual style intact: {styleProfile.oneLiner}" + the prohibited
+  list as a "Do NOT introduce" guard. So admin can ask for "soft pastel
+  pink background" without breaking into photorealism.
+
+Cost + safety guardrails preserved from Phase 2:
+- ✅ Server-side daily cost cap pre-check
+- ✅ Per-call `marketing_cost_log` row with parent + edit prompt snippet
+- ✅ Permanent Storage upload of edited image
+- ✅ Admin-only callable
+- ✅ Anti-tamper: editStudioImage refuses paths outside marketing/studio/
+
+Browser-verified in dev preview:
+- Step 1 renders cleanly, fresh bundle confirmed
+- Live bundle contains "Edit it first" string (production verified)
+- Step 2 Edit Mode panel — needs real auth + variants to fully test;
+  trusting type-checked code for now. End-to-end on prod when admin
+  generates first real variant set.
+
+Outstanding (Phase 4+):
+- Carousels (3–5 images sharing seed + style for IG carousel)
+- Mask inpainting (rectangular brush over a region for surgical edits)
+- LoRA training (one-time ~$2 + 30 min on Replicate, then $0.003/inference;
+  next big consistency leap)
+- Background swap from a curated set
+- Logo overlay (Skia compose, no API cost)
+- "Reuse winners" — pre-fill prompt from analytics top performer
+
+### Earlier this session
 **Studio v2 Phase 2 — image-gen canvas shipped at /admin/marketing/create.**
 
 Studio Phase 2 wires the actual create flow. Admin types a prompt, picks
