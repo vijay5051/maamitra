@@ -1,24 +1,34 @@
-// Insights polling + weekly digest (M5).
+// Insights polling + weekly digest (M5 + M4c).
 //
 // pollMarketingInsights        — pubsub every 6h. For each posted draft
 //                                in the last 30d, hits IG Insights API and
 //                                stores a snapshot in marketing_drafts/{id}/
 //                                insights/{ts}, denormalising the latest
 //                                values to the parent draft for fast queries.
+//                                When the draft was also published to FB
+//                                (postFbPostId set), pulls FB Page Insights
+//                                in the same loop and stores under
+//                                latestFbInsights + insights_fb/{ts}.
 //
 // pollMarketingAccountInsights — daily at 03:00 IST (= 21:30 UTC). Pulls
-//                                follower count + reach for the IG account.
+//                                follower count + reach for the IG account
+//                                AND fan_count + page reach/impressions
+//                                for the linked FB Page.
 //
 // generateWeeklyInsightDigest  — pubsub every Monday 08:00 IST (= 02:30
 //                                UTC). LLM commentary on the past week +
 //                                3 actionable recommendations stored at
-//                                marketing_insights/{weekId}.
+//                                marketing_insights/{weekId}. Sums IG+FB
+//                                reach for the totals.
 
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions/v1';
 
+import { getFbPagePat } from './publisher';
+
 const META_IG_USER_ID = process.env.META_IG_USER_ID ?? '';
 const META_IG_ACCESS_TOKEN = process.env.META_IG_ACCESS_TOKEN ?? '';
+const META_FB_PAGE_ID = process.env.META_FB_PAGE_ID ?? '';
 const META_FB_PAGE_ACCESS_TOKEN = process.env.META_FB_PAGE_ACCESS_TOKEN ?? '';
 
 // graph.facebook.com IG Insights endpoints need EAA-style tokens — see
@@ -27,6 +37,7 @@ const IG_GRAPH_TOKEN =
   (META_FB_PAGE_ACCESS_TOKEN && META_FB_PAGE_ACCESS_TOKEN.startsWith('EAA'))
     ? META_FB_PAGE_ACCESS_TOKEN
     : META_IG_ACCESS_TOKEN;
+const FB_CONFIGURED = !!META_FB_PAGE_ID && !!META_FB_PAGE_ACCESS_TOKEN;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY ?? '';
 const GRAPH_BASE = 'https://graph.facebook.com/v21.0';
 
@@ -47,6 +58,75 @@ const ZERO_METRICS: PostInsightMetrics = {
 // ── Per-post Insights polling ──────────────────────────────────────────────
 
 interface MetricBucket { name: string; values?: { value?: number }[] }
+
+// FB Page post insights — two calls because the /insights endpoint gives
+// reach + impressions + clicks but not likes/comments/shares. The post
+// node with .summary(true) gives those engagement counts directly. Map
+// both into the same PostInsightMetrics shape so the analytics service
+// can sum across IG + FB without per-platform branches.
+async function fetchFbPostMetrics(fbPostId: string): Promise<PostInsightMetrics | null> {
+  if (!FB_CONFIGURED) return null;
+  let pat: string;
+  try {
+    pat = await getFbPagePat();
+  } catch (e) {
+    console.warn(`[pollMarketingInsights] FB PAT derive failed for ${fbPostId}:`, e);
+    return null;
+  }
+  try {
+    // Engagement counts via the post node — likes, comments, shares.
+    const summaryUrl = `${GRAPH_BASE}/${fbPostId}?fields=likes.summary(true).limit(0),comments.summary(true).limit(0),shares,reactions.summary(true).limit(0)&access_token=${encodeURIComponent(pat)}`;
+    const sumRes = await fetch(summaryUrl);
+    if (!sumRes.ok) {
+      const body = await sumRes.text();
+      console.warn(`[pollMarketingInsights] FB summary ${fbPostId} ${sumRes.status}:`, body.slice(0, 200));
+      return null;
+    }
+    const sum = (await sumRes.json()) as {
+      likes?: { summary?: { total_count?: number } };
+      comments?: { summary?: { total_count?: number } };
+      shares?: { count?: number };
+      reactions?: { summary?: { total_count?: number } };
+    };
+
+    // Reach + impressions via /insights. Some FB Pages return permission
+    // errors on certain metrics — request what's available and zero-fill.
+    const metrics = ['post_impressions', 'post_impressions_unique'];
+    const insUrl = `${GRAPH_BASE}/${fbPostId}/insights?metric=${metrics.join(',')}&access_token=${encodeURIComponent(pat)}`;
+    const insRes = await fetch(insUrl);
+    let reach = 0;
+    let impressions = 0;
+    if (insRes.ok) {
+      const ins = (await insRes.json()) as { data?: MetricBucket[] };
+      for (const m of ins.data ?? []) {
+        const v = m.values?.[0]?.value ?? 0;
+        if (m.name === 'post_impressions') impressions = v;
+        if (m.name === 'post_impressions_unique') reach = v;
+      }
+    } else {
+      // Insights perm denied is common on small Pages — fall back silently.
+      const body = await insRes.text();
+      console.warn(`[pollMarketingInsights] FB insights ${fbPostId} ${insRes.status} (using engagement-only):`, body.slice(0, 200));
+    }
+
+    // FB reactions.summary covers likes + love + wow + haha + sad + angry,
+    // which is the closer analogue to IG "likes" (which also includes
+    // hearts + saves on Reels). Falls back to likes-only if reactions missing.
+    const likesTotal = sum.reactions?.summary?.total_count ?? sum.likes?.summary?.total_count ?? 0;
+    return {
+      reach,
+      impressions,
+      likes: likesTotal,
+      comments: sum.comments?.summary?.total_count ?? 0,
+      saved: 0,                              // FB has no equivalent of IG saves
+      shares: sum.shares?.count ?? 0,
+      profileVisits: 0,                      // Page-level, not per-post
+    };
+  } catch (e) {
+    console.warn(`[pollMarketingInsights] FB ${fbPostId} fetch threw`, e);
+    return null;
+  }
+}
 
 async function fetchPostMetrics(igMediaId: string): Promise<PostInsightMetrics | null> {
   if (!IG_GRAPH_TOKEN) return null;
@@ -106,30 +186,45 @@ export function buildPollMarketingInsights() {
       for (const docSnap of due.docs) {
         const data = docSnap.data() as Record<string, any>;
         if (data?.isSynthetic === true) continue;
-        // We need the IG media id. After M3b's publish, postPermalinks contains
-        // the permalink, but we need the underlying media id. We store it in
-        // postIgMediaId after publish; if missing, parse from permalink.
-        const mediaId = typeof data?.postIgMediaId === 'string'
-          ? data.postIgMediaId
-          : extractMediaIdFromPermalink(data?.postPermalinks?.instagram);
-        if (!mediaId) continue;
-
-        const metrics = await fetchPostMetrics(mediaId);
-        if (!metrics) continue;
 
         const postedIso = tsAsIso(data?.postedAt) ?? new Date().toISOString();
         const hoursSincePost = Math.max(0, (Date.now() - new Date(postedIso).getTime()) / 3_600_000);
+        const fetchedAt = admin.firestore.FieldValue.serverTimestamp();
+        const update: Record<string, any> = {};
 
-        const snapshotRef = docSnap.ref.collection('insights').doc();
-        await snapshotRef.set({
-          ...metrics,
-          fetchedAt: admin.firestore.FieldValue.serverTimestamp(),
-          hoursSincePost: Math.round(hoursSincePost * 10) / 10,
-        });
-        await docSnap.ref.update({
-          latestInsights: metrics,
-          latestInsightsAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
+        // ── IG ────────────────────────────────────────────────────────────
+        const mediaId = typeof data?.postIgMediaId === 'string'
+          ? data.postIgMediaId
+          : extractMediaIdFromPermalink(data?.postPermalinks?.instagram);
+        if (mediaId) {
+          const metrics = await fetchPostMetrics(mediaId);
+          if (metrics) {
+            await docSnap.ref.collection('insights').doc().set({
+              ...metrics,
+              fetchedAt,
+              hoursSincePost: Math.round(hoursSincePost * 10) / 10,
+            });
+            update.latestInsights = metrics;
+            update.latestInsightsAt = fetchedAt;
+          }
+        }
+
+        // ── FB Page (M4c) ────────────────────────────────────────────────
+        const fbPostId = typeof data?.postFbPostId === 'string' ? data.postFbPostId : null;
+        if (fbPostId) {
+          const fbMetrics = await fetchFbPostMetrics(fbPostId);
+          if (fbMetrics) {
+            await docSnap.ref.collection('insights_fb').doc().set({
+              ...fbMetrics,
+              fetchedAt,
+              hoursSincePost: Math.round(hoursSincePost * 10) / 10,
+            });
+            update.latestFbInsights = fbMetrics;
+            update.latestFbInsightsAt = fetchedAt;
+          }
+        }
+
+        if (Object.keys(update).length > 0) await docSnap.ref.update(update);
       }
       return null;
     });
@@ -160,6 +255,64 @@ interface AccountMetrics {
   followerCount: number;
   reach: number;
   impressions: number;
+}
+
+interface FbAccountMetrics {
+  fanCount: number;
+  reach: number;
+  impressions: number;
+}
+
+// FB Page snapshot — fan count is on the page node; daily reach +
+// impressions come from /insights with period=day. We pull yesterday's
+// values to match the IG snapshot semantics.
+async function fetchFbAccountSnapshot(): Promise<FbAccountMetrics | null> {
+  if (!FB_CONFIGURED) return null;
+  let pat: string;
+  try {
+    pat = await getFbPagePat();
+  } catch (e) {
+    console.warn('[pollMarketingAccountInsights] FB PAT derive failed:', e);
+    return null;
+  }
+  try {
+    // fan_count via the page node. (followers_count is the newer field
+    // but fan_count is more reliably populated for older pages.)
+    const pageRes = await fetch(
+      `${GRAPH_BASE}/${META_FB_PAGE_ID}?fields=fan_count,followers_count&access_token=${encodeURIComponent(pat)}`,
+    );
+    if (!pageRes.ok) {
+      console.warn('[pollMarketingAccountInsights] FB page node failed', await pageRes.text());
+      return null;
+    }
+    const page = (await pageRes.json()) as { fan_count?: number; followers_count?: number };
+
+    const yesterday = new Date(Date.now() - 24 * 3600 * 1000).toISOString().slice(0, 10);
+    const insRes = await fetch(
+      `${GRAPH_BASE}/${META_FB_PAGE_ID}/insights?metric=page_impressions,page_impressions_unique&period=day&since=${yesterday}&until=${yesterday}&access_token=${encodeURIComponent(pat)}`,
+    );
+    let reach = 0;
+    let impressions = 0;
+    if (insRes.ok) {
+      const ins = (await insRes.json()) as { data?: MetricBucket[] };
+      for (const m of ins.data ?? []) {
+        const v = m.values?.[0]?.value ?? 0;
+        if (m.name === 'page_impressions') impressions = v;
+        if (m.name === 'page_impressions_unique') reach = v;
+      }
+    } else {
+      // Insights perms can be flaky on small Pages — keep the fan count.
+      console.warn('[pollMarketingAccountInsights] FB insights failed', await insRes.text());
+    }
+    return {
+      fanCount: page.followers_count ?? page.fan_count ?? 0,
+      reach,
+      impressions,
+    };
+  } catch (e) {
+    console.warn('[pollMarketingAccountInsights] FB threw', e);
+    return null;
+  }
 }
 
 async function fetchAccountSnapshot(): Promise<AccountMetrics | null> {
@@ -207,8 +360,11 @@ export function buildPollMarketingAccountInsights() {
     .pubsub.schedule('30 21 * * *')
     .timeZone('UTC')
     .onRun(async () => {
-      const snap = await fetchAccountSnapshot();
-      if (!snap) {
+      const [igSnap, fbSnap] = await Promise.all([
+        fetchAccountSnapshot(),
+        fetchFbAccountSnapshot(),
+      ]);
+      if (!igSnap && !fbSnap) {
         console.log('[pollMarketingAccountInsights] no snapshot');
         return null;
       }
@@ -216,21 +372,35 @@ export function buildPollMarketingAccountInsights() {
       const today = new Date().toISOString().slice(0, 10);
       const docRef = db.doc(`marketing_account_insights/${today}`);
 
-      // Compute daily delta vs yesterday.
+      // Compute daily delta vs yesterday for both IG followers + FB fans.
       const yesterdayId = new Date(Date.now() - 24 * 3600 * 1000).toISOString().slice(0, 10);
       const yesterdayDoc = await db.doc(`marketing_account_insights/${yesterdayId}`).get();
-      const yesterdayFollowers = yesterdayDoc.exists ? (yesterdayDoc.data() as any)?.followerCount ?? 0 : snap.followerCount;
-      const followersDelta = snap.followerCount - yesterdayFollowers;
+      const yesterdayData = (yesterdayDoc.exists ? yesterdayDoc.data() : {}) as any;
+
+      const followerCount = igSnap?.followerCount ?? 0;
+      const yesterdayFollowers = yesterdayData?.followerCount ?? followerCount;
+      const followersDelta = followerCount - yesterdayFollowers;
+
+      const fbFanCount = fbSnap?.fanCount ?? 0;
+      const yesterdayFbFans = yesterdayData?.fbFanCount ?? fbFanCount;
+      const fbFansDelta = fbFanCount - yesterdayFbFans;
 
       await docRef.set({
         date: today,
-        followerCount: snap.followerCount,
-        reach: snap.reach,
-        impressions: snap.impressions,
+        followerCount,
+        reach: igSnap?.reach ?? 0,
+        impressions: igSnap?.impressions ?? 0,
         followersDelta,
+        // FB Page (M4c) — only written when FB_CONFIGURED + snapshot succeeded.
+        ...(fbSnap ? {
+          fbFanCount,
+          fbReach: fbSnap.reach,
+          fbImpressions: fbSnap.impressions,
+          fbFansDelta,
+        } : {}),
         fetchedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
-      console.log(`[pollMarketingAccountInsights] ${today} followers=${snap.followerCount} reach=${snap.reach}`);
+      console.log(`[pollMarketingAccountInsights] ${today} ig_followers=${followerCount} ig_reach=${igSnap?.reach ?? 0} fb_fans=${fbFanCount} fb_reach=${fbSnap?.reach ?? 0}`);
       return null;
     });
 }
@@ -279,9 +449,12 @@ export function buildGenerateWeeklyInsightDigest() {
       for (const d of snap.docs) {
         const data = d.data() as any;
         if (data?.isSynthetic === true) continue;
-        const m = data?.latestInsights ?? {};
-        const reach = m?.reach ?? 0;
-        const engagement = (m?.likes ?? 0) + (m?.comments ?? 0) + (m?.shares ?? 0) + (m?.saved ?? 0);
+        const ig = data?.latestInsights ?? {};
+        const fb = data?.latestFbInsights ?? {};
+        const reach = (ig?.reach ?? 0) + (fb?.reach ?? 0);
+        const engagement =
+          (ig?.likes ?? 0) + (ig?.comments ?? 0) + (ig?.shares ?? 0) + (ig?.saved ?? 0) +
+          (fb?.likes ?? 0) + (fb?.comments ?? 0) + (fb?.shares ?? 0);
         rows.push({
           draftId: d.id,
           headline: typeof data?.headline === 'string' ? data.headline : '',

@@ -70,7 +70,7 @@ export default function MarketingAnalyticsScreen() {
       <Stack.Screen options={{ title: 'Analytics' }} />
       <AdminPage
         title="Analytics"
-        description="Per-post + account-level Insights from Instagram. Auto-refreshes every 6 hours via the polling cron."
+        description="Per-post + account-level Insights from Instagram and Facebook Page. Auto-refreshes every 6 hours via the polling cron."
         crumbs={[
           { label: 'Admin', href: '/admin' },
           { label: 'Marketing', href: '/admin/marketing' },
@@ -84,7 +84,7 @@ export default function MarketingAnalyticsScreen() {
           <EmptyState
             kind="empty"
             title="No posted drafts yet"
-            body="Once you publish a draft to Instagram (via Publish now or the scheduled cron), Insights will start flowing here within ~6 hours."
+            body="Once you publish a draft (via Publish now or the scheduled cron), Insights from Instagram and Facebook will start flowing here within ~6 hours."
           />
         ) : (
           <View style={{ gap: Spacing.lg }}>
@@ -146,7 +146,7 @@ function ToplineRow({ topline, hasInsights }: { topline: AnalyticsTopline; hasIn
   return (
     <View style={styles.tilesRow}>
       <Tile
-        label="Reach (7d)"
+        label="Reach (7d) · IG+FB"
         value={hasInsights ? formatInt(topline.totalReach7d) : '—'}
         sub={`${topline.postsPublished7d} post${topline.postsPublished7d === 1 ? '' : 's'}`}
       />
@@ -156,10 +156,16 @@ function ToplineRow({ topline, hasInsights }: { topline: AnalyticsTopline; hasIn
         sub="vs reach"
       />
       <Tile
-        label="Followers"
+        label="IG followers"
         value={topline.followerCount !== null ? formatInt(topline.followerCount) : '—'}
         sub={topline.followerDelta7d !== null ? `${topline.followerDelta7d >= 0 ? '+' : ''}${topline.followerDelta7d} (7d)` : 'no daily snapshot yet'}
         deltaTone={topline.followerDelta7d === null ? 'muted' : topline.followerDelta7d >= 0 ? 'up' : 'down'}
+      />
+      <Tile
+        label="FB Page fans"
+        value={topline.fbFanCount !== null ? formatInt(topline.fbFanCount) : '—'}
+        sub={topline.fbFanDelta7d !== null ? `${topline.fbFanDelta7d >= 0 ? '+' : ''}${topline.fbFanDelta7d} (7d)` : 'awaiting first FB snapshot'}
+        deltaTone={topline.fbFanDelta7d === null ? 'muted' : topline.fbFanDelta7d >= 0 ? 'up' : 'down'}
       />
       <Tile
         label="Cost per engagement"
@@ -204,6 +210,7 @@ function BucketBars({ buckets }: { buckets: AggregateBucket[] }) {
 // ── Top/bottom post row ─────────────────────────────────────────────────────
 
 function PostRow({ post, onOpen }: { post: PostWithMetrics; onOpen: () => void }) {
+  const platforms = [post.igMetrics ? 'IG' : null, post.fbMetrics ? 'FB' : null].filter(Boolean) as string[];
   return (
     <Pressable onPress={onOpen} style={styles.postRow}>
       {post.thumbnail ? (
@@ -215,6 +222,7 @@ function PostRow({ post, onOpen }: { post: PostWithMetrics; onOpen: () => void }
         <Text style={styles.postHeadline} numberOfLines={2}>{post.headline ?? '(untitled)'}</Text>
         <Text style={styles.postMeta} numberOfLines={1}>
           {[post.pillarLabel, post.personaLabel].filter(Boolean).join(' · ')}
+          {platforms.length > 0 ? ` · ${platforms.join('+')}` : ''}
         </Text>
         <View style={styles.postStats}>
           <Text style={styles.postStat}>👁 {formatInt(post.metrics?.reach ?? 0)}</Text>

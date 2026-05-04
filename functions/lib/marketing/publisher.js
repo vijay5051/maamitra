@@ -16,9 +16,11 @@
 // All paths skip synthetic threads/drafts (isSynthetic=true) — those
 // are admin-injected test data.
 //
-// FB Page (channels fb_message + fb_comment, plus FB feed posts) is
-// deferred to M4c — needs a separate Page access token + Page ID.
-// IG-only path covers ~95% of the use case.
+// FB Page support (M4c): fb_comment threads + outbound replies + feed
+// posting all work via the System User token in META_FB_PAGE_ACCESS_TOKEN
+// (derived to a real Page Access Token at runtime by getFbPagePat).
+// fb_message (Messenger DMs) still deferred — needs pages_messaging
+// scope which requires a separate App Review pass.
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -54,6 +56,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildMetaInboxReplyPublisher = buildMetaInboxReplyPublisher;
+exports.getFbPagePat = getFbPagePat;
 exports.buildScheduledMarketingPublisher = buildScheduledMarketingPublisher;
 exports.buildPublishMarketingDraftNow = buildPublishMarketingDraftNow;
 const admin = __importStar(require("firebase-admin"));

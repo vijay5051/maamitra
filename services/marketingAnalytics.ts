@@ -37,7 +37,11 @@ export interface PostWithMetrics {
   personaLabel: string | null;
   postedAt: string | null;
   permalink: string | null;
+  /** Combined IG + FB metrics (sum). Null if neither platform has data yet. */
   metrics: PostInsightMetrics | null;
+  /** Per-platform breakdown. Either may be null if that platform wasn't published or hasn't polled yet. */
+  igMetrics: PostInsightMetrics | null;
+  fbMetrics: PostInsightMetrics | null;
   /** likes + comments + shares + saved, divided by reach. 0 if no metrics yet. */
   engagementRate: number;
   costInr: number;
@@ -60,9 +64,11 @@ export async function fetchPostsWithMetrics(opts: { withinDays?: number; limitN?
       const data = d.data() as any;
       const postedIso = tsToIso(data?.postedAt);
       if (postedIso && postedIso < cutoff) continue;
-      const m = data?.latestInsights as PostInsightMetrics | undefined;
-      const reach = m?.reach ?? 0;
-      const engagement = (m?.likes ?? 0) + (m?.comments ?? 0) + (m?.shares ?? 0) + (m?.saved ?? 0);
+      const ig = normaliseMetrics(data?.latestInsights);
+      const fb = normaliseMetrics(data?.latestFbInsights);
+      const combined = combineMetrics(ig, fb);
+      const reach = combined?.reach ?? 0;
+      const engagement = combined ? (combined.likes + combined.comments + combined.shares + combined.saved) : 0;
       const engagementRate = reach > 0 ? engagement / reach : 0;
       rows.push({
         draftId: d.id,
@@ -73,16 +79,10 @@ export async function fetchPostsWithMetrics(opts: { withinDays?: number; limitN?
         personaId: typeof data?.personaId === 'string' ? data.personaId : null,
         personaLabel: typeof data?.personaLabel === 'string' ? data.personaLabel : null,
         postedAt: postedIso,
-        permalink: data?.postPermalinks?.instagram ?? null,
-        metrics: m ? {
-          reach: m.reach ?? 0,
-          impressions: m.impressions ?? 0,
-          likes: m.likes ?? 0,
-          comments: m.comments ?? 0,
-          saved: m.saved ?? 0,
-          shares: m.shares ?? 0,
-          profileVisits: m.profileVisits ?? 0,
-        } : null,
+        permalink: data?.postPermalinks?.instagram ?? data?.postPermalinks?.facebook ?? null,
+        metrics: combined,
+        igMetrics: ig,
+        fbMetrics: fb,
         engagementRate,
         costInr: typeof data?.costInr === 'number' ? data.costInr : 0,
       });
@@ -142,6 +142,12 @@ export async function fetchAccountInsights(daysBack = 30): Promise<AccountInsigh
         reach: x?.reach ?? 0,
         impressions: x?.impressions ?? 0,
         followersDelta: x?.followersDelta ?? 0,
+        // M4c — present when FB Page configured. Spread so older docs without
+        // these fields stay undefined (the dashboard renders "—" for undefined).
+        ...(typeof x?.fbFanCount === 'number' ? { fbFanCount: x.fbFanCount } : {}),
+        ...(typeof x?.fbReach === 'number' ? { fbReach: x.fbReach } : {}),
+        ...(typeof x?.fbImpressions === 'number' ? { fbImpressions: x.fbImpressions } : {}),
+        ...(typeof x?.fbFansDelta === 'number' ? { fbFansDelta: x.fbFansDelta } : {}),
       };
     }).reverse(); // oldest first for charting
   } catch {
@@ -243,14 +249,19 @@ function aggregateBy(
 export interface AnalyticsTopline {
   postsPublished7d: number;
   postsPublished30d: number;
+  /** Combined IG + FB reach. */
   totalReach7d: number;
   totalReach30d: number;
   avgEngagementRate7d: number;
   avgEngagementRate30d: number;
   totalCostInr30d: number;
   costPerEngagement: number;
+  /** IG followers. */
   followerCount: number | null;
   followerDelta7d: number | null;
+  /** FB Page fans (M4c). null when FB unconfigured / no snapshot yet. */
+  fbFanCount: number | null;
+  fbFanDelta7d: number | null;
 }
 
 export function buildTopline(posts: PostWithMetrics[], account: AccountInsightDay[]): AnalyticsTopline {
@@ -267,6 +278,8 @@ export function buildTopline(posts: PostWithMetrics[], account: AccountInsightDa
   const avgRate7 = recent.length ? recent.reduce((a, p) => a + p.engagementRate, 0) / recent.length : 0;
   const latest = account[account.length - 1] ?? null;
   const oneWeekAgo = account[Math.max(0, account.length - 8)] ?? null;
+  const fbLatest = latest?.fbFanCount;
+  const fbWeekAgo = oneWeekAgo?.fbFanCount;
   return {
     postsPublished7d: recent.length,
     postsPublished30d: posts.length,
@@ -278,6 +291,44 @@ export function buildTopline(posts: PostWithMetrics[], account: AccountInsightDa
     costPerEngagement: totalEngagements30d > 0 ? totalCost30d / totalEngagements30d : 0,
     followerCount: latest?.followerCount ?? null,
     followerDelta7d: latest && oneWeekAgo ? latest.followerCount - oneWeekAgo.followerCount : null,
+    fbFanCount: typeof fbLatest === 'number' ? fbLatest : null,
+    fbFanDelta7d: typeof fbLatest === 'number' && typeof fbWeekAgo === 'number' ? fbLatest - fbWeekAgo : null,
+  };
+}
+
+// ── Per-platform metric helpers (M4c) ──────────────────────────────────────
+
+function normaliseMetrics(raw: any): PostInsightMetrics | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const present =
+    typeof raw.reach === 'number' ||
+    typeof raw.impressions === 'number' ||
+    typeof raw.likes === 'number' ||
+    typeof raw.comments === 'number';
+  if (!present) return null;
+  return {
+    reach: raw.reach ?? 0,
+    impressions: raw.impressions ?? 0,
+    likes: raw.likes ?? 0,
+    comments: raw.comments ?? 0,
+    saved: raw.saved ?? 0,
+    shares: raw.shares ?? 0,
+    profileVisits: raw.profileVisits ?? 0,
+  };
+}
+
+function combineMetrics(a: PostInsightMetrics | null, b: PostInsightMetrics | null): PostInsightMetrics | null {
+  if (!a && !b) return null;
+  if (!a) return b;
+  if (!b) return a;
+  return {
+    reach: a.reach + b.reach,
+    impressions: a.impressions + b.impressions,
+    likes: a.likes + b.likes,
+    comments: a.comments + b.comments,
+    saved: a.saved + b.saved,
+    shares: a.shares + b.shares,
+    profileVisits: a.profileVisits + b.profileVisits,
   };
 }
 

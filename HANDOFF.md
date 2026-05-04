@@ -56,6 +56,70 @@ inbox — all without the admin ever logging into Meta.
   ie post-Phase 6).
 
 ### Last action
+**M4c — FB Page Insights polling shipped. M4c is now feature-complete.**
+
+Context: M4c was originally scoped as "FB feed posting + FB comments
+inbox + FB Page Insights." The feed posting + comments inbox pieces
+landed earlier this session via the SU→PAT derivation fix (commit
+`4bfb349`) and the webhook-subscription work (commit `2a1cced`). The
+remaining gap was Insights polling, which this commit closes.
+
+What shipped:
+- `functions/src/marketing/insights.ts`:
+  - New `fetchFbPostMetrics(fbPostId)` — two parallel calls per post:
+    `/{post-id}?fields=likes.summary,comments.summary,shares,reactions.summary`
+    for engagement counts + `/{post-id}/insights?metric=post_impressions,
+    post_impressions_unique` for reach. Maps both into the existing
+    `PostInsightMetrics` shape so the analytics service can sum without
+    per-platform branches. FB has no equivalent of IG saves or per-post
+    profile-visits — those zero-fill.
+  - New `fetchFbAccountSnapshot()` — reads `fan_count` + `followers_count`
+    from the page node, plus daily `page_impressions` + `page_impressions_unique`.
+    Insights perms can be flaky on small Pages; falls back to fan-count-only
+    when /insights returns 4xx.
+  - `pollMarketingInsights` (every 6h cron) now also polls FB when
+    the draft has `postFbPostId`. FB metrics stored at
+    `marketing_drafts/{id}/insights_fb/{ts}` + denormalised onto
+    `latestFbInsights` / `latestFbInsightsAt`. IG path unchanged.
+  - `pollMarketingAccountInsights` (daily 03:00 IST) now writes
+    `fbFanCount`, `fbReach`, `fbImpressions`, `fbFansDelta` alongside
+    the existing IG fields on the same `marketing_account_insights/{date}`
+    doc. Only written when FB_CONFIGURED + snapshot succeeded — older
+    docs stay backward-compat.
+  - `generateWeeklyInsightDigest` (Mondays 08:00 IST) sums IG + FB reach
+    + engagement when computing the per-post engagement rate, so the
+    LLM commentary reflects total cross-platform performance.
+- `functions/src/marketing/publisher.ts` — exported `getFbPagePat()`
+  so insights.ts can reuse the same memoised SU→PAT derivation. No
+  behavioural change.
+- `lib/marketingTypes.ts` — `AccountInsightDay` gains optional
+  `fbFanCount` / `fbReach` / `fbImpressions` / `fbFansDelta` fields.
+  All optional → existing pre-M4c docs deserialize unchanged.
+- `services/marketingAnalytics.ts`:
+  - `PostWithMetrics` gains `igMetrics` + `fbMetrics` per-platform
+    breakdown alongside the combined `metrics` field.
+  - New helpers `normaliseMetrics()` + `combineMetrics()` — sum across
+    platforms when both are present, else return whichever exists.
+  - `AnalyticsTopline` gains `fbFanCount` + `fbFanDelta7d` for the
+    new dashboard tile.
+- `app/admin/marketing/analytics.tsx`:
+  - Topline tiles now show "Reach (7d) · IG+FB", "IG followers",
+    and a new "FB Page fans" tile with 7d delta. Layout unchanged
+    otherwise (5 tiles instead of 4 — flex-wraps on narrow widths).
+  - PostRow shows a "IG", "FB", or "IG+FB" suffix in the meta line
+    indicating which platforms contributed metrics.
+  - Page description + empty-state body updated to mention FB.
+
+Open follow-ups (not blocking; pick when ready):
+- The /admin/marketing/inbox webhook signature mystery from the
+  previous session is still open — `META_WEBHOOK_PERMISSIVE=1` is
+  active. Per-post FB Insights work independently of the webhook;
+  they hit Graph directly with the derived PAT.
+- `fb_message` (FB Messenger DMs) still deferred — needs
+  `pages_messaging` scope which requires its own App Review pass.
+  IG DMs cover most engagement; per-channel split visible in inbox UI.
+
+### Earlier this session
 **Unified inbox — webhook subscriptions wired + diagnostic + refresh
 button. Awaiting user to re-copy current App Secret to fix strict-mode
 signature verification.**
@@ -511,16 +575,16 @@ Each milestone is shippable + end-to-end testable.
 - **M3b — IG auto-publish (scheduled + manual)** ✅ Shipped earlier.
   LinkedIn / X / YouTube / WhatsApp adapters still deferred.
 - **M4a — Engagement (UI + endpoint scaffolding)** ✅ Shipped earlier.
-- **M4b — Real Meta wiring (IG)** ✅ Shipped earlier. FB Page
-  (fb_message + fb_comment + FB feed posts) deferred to M4c —
-  needs Page Access Token + Page ID.
+- **M4b — Real Meta wiring (IG)** ✅ Shipped earlier.
 - **M5 — Analytics + feedback loop (IG-only)** ✅ Shipped earlier.
-- **M6 — UGC + Boost-this-post** ✅ Shipped this session. UTM
+- **M6 — UGC + Boost-this-post** ✅ Shipped earlier. UTM
   attribution deferred to M6b.
-- **M4c / M5-FB** — FB Page wiring + FB Insights (deferred until
-  user generates META_FB_PAGE_ID + META_FB_PAGE_ACCESS_TOKEN; the
-  Manage Pages use case has the perms granted but the token UI
-  was hard to locate in the new dashboard layout).
+- **M4c — FB Page parity** ✅ Shipped this session.
+  Feed posting + comments inbox + outbound replies came in via the
+  SU→PAT derivation fix (`4bfb349`) and webhook subscriptions
+  (`2a1cced`); FB Page Insights polling closes the milestone.
+  fb_message (Messenger DMs) still deferred — needs `pages_messaging`
+  scope which requires its own App Review.
 - **M6b — UTM attribution + Boost env config** — small follow-up:
   add UTM params to outbound IG bio URLs, capture on web app
   first-visit, store as users/{uid}.attribution. Plus user adds
@@ -530,19 +594,25 @@ Each milestone is shippable + end-to-end testable.
 
 ### Next step
 
-Marketing system is feature-complete for IG including UGC + Boost.
-Three doors:
+Marketing system is feature-complete for IG **and FB Page**, including
+UGC + Boost. Two doors:
 
-1. **Stress-test it** — generate / approve / publish / inbox /
+1. **Stress-test it** — generate / approve / publish (IG+FB) / inbox /
    reply / inject UGC / boost — for 1-2 weeks. Watch analytics +
    feedback loop improve content quality. No more code; just usage.
+   Note: per-post FB Insights take ~6h to populate after publish (the
+   poll cron interval); FB account-level snapshot is daily at 03:00 IST.
 2. **M6b — UTM attribution + Boost env config** — small (~150 LOC):
    user adds META_AD_ACCOUNT_ID + META_FB_PAGE_ID to .env so
    boost actually fires. UTM params on outbound bio URLs + web-app
    first-visit capture → install attribution per post.
-3. **M4c — FB Page parity** — when user has Page Access Token,
-   ~120 LOC adds FB feed posting + FB comments inbox + FB Page
-   Insights to M3b/M4b/M5 paths.
+
+Resolve before next session if you want strict webhook signing back on:
+- App Secret mismatch — Meta is signing webhook payloads with a secret
+  that doesn't match `META_APP_SECRET` in functions/.env (currently
+  permissive mode is on). User to copy current App Secret from Meta
+  Dashboard → Settings → Basic, paste into env, flip
+  `META_WEBHOOK_PERMISSIVE=0`, redeploy `metaWebhookReceiver`.
 
 After those three small follow-ups, the marketing system is
 genuinely complete. Anything beyond is product feature work

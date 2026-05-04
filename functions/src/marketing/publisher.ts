@@ -15,9 +15,11 @@
 // All paths skip synthetic threads/drafts (isSynthetic=true) — those
 // are admin-injected test data.
 //
-// FB Page (channels fb_message + fb_comment, plus FB feed posts) is
-// deferred to M4c — needs a separate Page access token + Page ID.
-// IG-only path covers ~95% of the use case.
+// FB Page support (M4c): fb_comment threads + outbound replies + feed
+// posting all work via the System User token in META_FB_PAGE_ACCESS_TOKEN
+// (derived to a real Page Access Token at runtime by getFbPagePat).
+// fb_message (Messenger DMs) still deferred — needs pages_messaging
+// scope which requires a separate App Review pass.
 
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions/v1';
@@ -185,7 +187,7 @@ async function replyToIgComment(commentId: string, text: string): Promise<void> 
 // derivation has no TTL), so a cold-start memo is fine. Single in-flight
 // promise prevents duplicate /me/accounts calls under concurrent invokes.
 let pageTokenPromise: Promise<string> | null = null;
-async function getFbPagePat(): Promise<string> {
+export async function getFbPagePat(): Promise<string> {
   if (pageTokenPromise) return pageTokenPromise;
   pageTokenPromise = (async () => {
     const url = `${GRAPH_BASE}/me/accounts?fields=id,access_token&access_token=${encodeURIComponent(META_FB_PAGE_ACCESS_TOKEN)}`;

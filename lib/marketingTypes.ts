@@ -513,11 +513,23 @@ export interface PostInsightSnapshot extends PostInsightMetrics {
 export interface AccountInsightDay {
   /** Calendar day in IST, YYYY-MM-DD. Doc id of marketing_account_insights. */
   date: string;
+  /** IG follower count. */
   followerCount: number;
+  /** IG daily reach. */
   reach: number;
+  /** IG daily impressions. */
   impressions: number;
-  /** Net follower change vs the previous stored day. Computed on write. */
+  /** Net IG follower change vs the previous stored day. Computed on write. */
   followersDelta: number;
+  // ── FB Page (M4c) — undefined on days before M4c shipped or when FB unconfigured.
+  /** FB Page fan / followers count. */
+  fbFanCount?: number;
+  /** FB Page daily reach. */
+  fbReach?: number;
+  /** FB Page daily impressions. */
+  fbImpressions?: number;
+  /** Net FB Page fan change vs the previous stored day. */
+  fbFansDelta?: number;
 }
 
 export interface WeeklyDigest {
