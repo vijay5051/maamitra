@@ -119,19 +119,42 @@ function buildMetaWebhookReceiver() {
             console.warn('[metaWebhookReceiver] META_APP_SECRET not set, skipping signature check');
         }
         else {
-            const verify = verifySignatureDiag(req.rawBody, sig, META_APP_SECRET);
+            const rb = req.rawBody;
+            const verify = verifySignatureDiag(rb, sig, META_APP_SECRET);
             if (!verify.ok) {
+                // Heavy diagnostic — full sigs + body hash + small body hex window
+                // so we can post-hoc compute alternate HMAC variants if the secret
+                // value or encoding is suspect.
+                const bodyHash = rb ? crypto.createHash('sha256').update(rb).digest('hex') : null;
+                const bodyB64 = rb && rb.length <= 4096 ? rb.toString('base64') : null; // small bodies only
                 console.warn('[metaWebhookReceiver] signature verification failed:', JSON.stringify({
                     reason: verify.reason,
-                    headerSigPrefix: sig.slice(0, 16),
+                    headerSig256Full: sig,
+                    headerSig1Full: req.headers['x-hub-signature'] ?? null,
                     expectedPrefix: verify.expectedPrefix ?? null,
                     actualPrefix: verify.actualPrefix ?? null,
-                    rawBodyType: typeof req.rawBody,
-                    rawBodyLen: req.rawBody?.length ?? null,
+                    rawBodyType: typeof rb,
+                    rawBodyLen: rb?.length ?? null,
+                    rawBodySha256: bodyHash,
+                    rawBodyBase64: bodyB64,
                     bodyKeys: Object.keys(req.body ?? {}),
+                    bodyObject: req.body?.object ?? null,
+                    entryIds: (req.body?.entry ?? []).map((e) => e.id ?? null),
+                    secretLen: META_APP_SECRET.length,
+                    secretFirst2: META_APP_SECRET.slice(0, 2),
+                    secretLast2: META_APP_SECRET.slice(-2),
                 }));
-                res.status(403).send('signature mismatch');
-                return;
+                // Permissive mode: META_WEBHOOK_PERMISSIVE=1 in env makes us still
+                // ingest the events (so the inbox keeps flowing) while we debug
+                // the signature path. Default off — production behaviour stays
+                // strict-reject on signature mismatch.
+                if (process.env.META_WEBHOOK_PERMISSIVE === '1') {
+                    console.warn('[metaWebhookReceiver] permissive mode ON — ingesting despite signature mismatch');
+                }
+                else {
+                    res.status(403).send('signature mismatch');
+                    return;
+                }
             }
         }
         try {

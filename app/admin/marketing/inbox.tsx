@@ -87,16 +87,24 @@ export default function MarketingInboxScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [injecting, setInjecting] = useState(false);
+  const [refreshTick, setRefreshTick] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastSyncedAt, setLastSyncedAt] = useState<number | null>(null);
 
-  // Subscribe to threads.
+  // Subscribe to threads. refreshTick lets the user force a re-subscribe in
+  // case the underlying snapshot listener silently drops or webhooks have
+  // just been re-wired and we want a clean reconnect.
   useEffect(() => {
     setLoading(true);
     const unsub = subscribeThreads({ limitN: 200 }, (rows) => {
       setThreads(rows);
       setLoading(false);
+      setLastSyncedAt(Date.now());
+      if (refreshing) setRefreshing(false);
     });
     return () => unsub();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshTick]);
 
   // Subscribe to messages of selected thread.
   useEffect(() => {
@@ -140,6 +148,12 @@ export default function MarketingInboxScreen() {
     }
   }
 
+  function handleRefresh() {
+    setRefreshing(true);
+    setError(null);
+    setRefreshTick((n) => n + 1);
+  }
+
   return (
     <>
       <Stack.Screen options={{ title: 'Inbox' }} />
@@ -152,12 +166,20 @@ export default function MarketingInboxScreen() {
           { label: 'Inbox' },
         ]}
         headerActions={
-          <ToolbarButton
-            label={injecting ? 'Injecting…' : 'Inject test thread'}
-            icon="flask"
-            onPress={handleInjectTest}
-            disabled={injecting}
-          />
+          <View style={{ flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' }}>
+            <ToolbarButton
+              label={refreshing ? 'Refreshing…' : 'Refresh'}
+              icon="refresh"
+              onPress={handleRefresh}
+              disabled={refreshing}
+            />
+            <ToolbarButton
+              label={injecting ? 'Injecting…' : 'Inject test thread'}
+              icon="flask"
+              onPress={handleInjectTest}
+              disabled={injecting}
+            />
+          </View>
         }
         loading={loading && threads.length === 0}
         error={error}
@@ -165,7 +187,8 @@ export default function MarketingInboxScreen() {
         <View style={styles.gatedNote}>
           <Ionicons name="information-circle-outline" size={16} color={Colors.textMuted} />
           <Text style={styles.gatedNoteText}>
-            M4a — endpoint + UI shipped. Real Meta events flow once the webhook URL is registered + App Review approves the inbox permissions. Until then, "Inject test thread" lets you exercise the UX with synthetic data.
+            Webhooks live: IG (comments + DMs + mentions) and FB Page (feed + mentions). FB Messenger DMs deferred until App Review approves pages_messaging.
+            {lastSyncedAt ? `  ·  Last synced: ${new Date(lastSyncedAt).toLocaleTimeString()}` : ''}
           </Text>
         </View>
 
