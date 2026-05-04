@@ -1,18 +1,19 @@
-// Admin panel shell: persistent sidebar on wide-web, hamburger drawer on
+// Admin panel shell: persistent sidebar on wide-web, slide-in drawer on
 // everything else. Wraps the expo-router Stack so existing screens keep
 // working unchanged — they just gain a nav frame around them.
 //
 // Visibility:
 //   - Wide web (>= 1100px): sidebar always visible.
-//   - Narrow web / native: sidebar hidden; floating hamburger opens it as
-//     a slide-in panel. Existing Stack header still shows the screen title.
+//   - Narrow web / native: sidebar hidden; AdminPage renders the hamburger
+//     in its own header. The drawer is opened via the AdminDrawerContext
+//     below — no bottom-left FAB to overlap with content.
 //
 // Each nav item is gated by an admin capability so the support role doesn't
 // see "Visibility" or "Roles" they can't use.
 
 import { Ionicons } from '@expo/vector-icons';
 import { usePathname, useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import {
   Modal,
   Platform,
@@ -26,6 +27,22 @@ import {
 
 import { Colors, FontSize, Radius, Shadow, Spacing } from '../../../constants/theme';
 import { AdminCapability, AdminRole, ADMIN_ROLE_LABELS, can } from '../../../lib/admin';
+
+/**
+ * Lets AdminPage (or any descendant) render the hamburger button itself.
+ * `available` is true only when the shell is in narrow/drawer mode — wide
+ * web has the persistent sidebar, so no hamburger is needed.
+ */
+interface AdminDrawerCtx {
+  available: boolean;
+  open: () => void;
+}
+
+const AdminDrawerContext = createContext<AdminDrawerCtx>({ available: false, open: () => {} });
+
+export function useAdminDrawer(): AdminDrawerCtx {
+  return useContext(AdminDrawerContext);
+}
 
 export interface NavItem {
   href: string;
@@ -137,45 +154,49 @@ export default function AdminShell({ role, email, children }: Props) {
       .filter((g) => g.items.length > 0);
   }, [role]);
 
+  const openDrawer = useCallback(() => setDrawerOpen(true), []);
+  const closeDrawer = useCallback(() => setDrawerOpen(false), []);
+
+  // Wide-web sidebar is always visible — children render to its right.
   if (isWide) {
     return (
-      <View style={styles.wideRoot}>
-        <Sidebar groups={visibleGroups} role={role} email={email} />
-        <View style={styles.contentWrap}>
-          {children}
+      <AdminDrawerContext.Provider value={{ available: false, open: openDrawer }}>
+        <View style={styles.wideRoot}>
+          <Sidebar groups={visibleGroups} role={role} email={email} />
+          <View style={styles.contentWrap}>
+            {children}
+          </View>
         </View>
-      </View>
+      </AdminDrawerContext.Provider>
     );
   }
 
+  // Narrow/native: AdminPage hosts the hamburger via the context. No FAB
+  // anymore — it overlapped content and made the bottom of every list
+  // unreachable on small phones.
   return (
-    <View style={{ flex: 1 }}>
-      {children}
-      <Pressable
-        onPress={() => setDrawerOpen(true)}
-        style={styles.fab}
-        accessibilityLabel="Open admin menu"
-      >
-        <Ionicons name="menu" size={22} color={Colors.white} />
-      </Pressable>
-      <Modal
-        visible={drawerOpen}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setDrawerOpen(false)}
-      >
-        <Pressable style={styles.drawerBackdrop} onPress={() => setDrawerOpen(false)}>
-          <Pressable style={styles.drawer} onPress={(e) => e.stopPropagation()}>
-            <Sidebar
-              groups={visibleGroups}
-              role={role}
-              email={email}
-              onNavigate={() => setDrawerOpen(false)}
-            />
+    <AdminDrawerContext.Provider value={{ available: true, open: openDrawer }}>
+      <View style={{ flex: 1 }}>
+        {children}
+        <Modal
+          visible={drawerOpen}
+          transparent
+          animationType="slide"
+          onRequestClose={closeDrawer}
+        >
+          <Pressable style={styles.drawerBackdrop} onPress={closeDrawer}>
+            <Pressable style={styles.drawer} onPress={(e) => e.stopPropagation()}>
+              <Sidebar
+                groups={visibleGroups}
+                role={role}
+                email={email}
+                onNavigate={closeDrawer}
+              />
+            </Pressable>
           </Pressable>
-        </Pressable>
-      </Modal>
-    </View>
+        </Modal>
+      </View>
+    </AdminDrawerContext.Provider>
   );
 }
 
@@ -325,13 +346,6 @@ const styles = StyleSheet.create({
   identityEmail: { fontSize: 12, fontWeight: '700', color: Colors.textDark },
   identityRole: { fontSize: 10, color: Colors.textLight, marginTop: 1 },
 
-  fab: {
-    position: 'absolute', left: 16, bottom: 24,
-    width: 48, height: 48, borderRadius: 24,
-    backgroundColor: Colors.primary,
-    alignItems: 'center', justifyContent: 'center',
-    ...Shadow.md,
-  },
   drawerBackdrop: {
     flex: 1, backgroundColor: 'rgba(28,16,51,0.55)',
   },

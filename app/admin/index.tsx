@@ -164,7 +164,7 @@ export default function AdminDashboard() {
         error={error}
       >
         {/* ─── KPI grid ────────────────────────────────────────── */}
-        <View style={styles.kpiGrid}>
+        <View style={[styles.kpiGrid, !wide && styles.kpiGridNarrow]}>
           <StatCard
             label="Total users"
             value={snap?.totalUsers ?? 0}
@@ -479,6 +479,7 @@ function AdoptionRow({ item }: { item: FeatureAdoption }) {
 
 const styles = StyleSheet.create({
   kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md },
+  kpiGridNarrow: { gap: Spacing.sm },
 
   cols: { flexDirection: 'column', gap: Spacing.lg },
   colsWide: { flexDirection: 'row', flexWrap: 'wrap' },

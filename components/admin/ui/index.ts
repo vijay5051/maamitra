@@ -3,7 +3,7 @@
 // without breaking screens.
 export { default as AdminPage } from './AdminPage';
 export type { Crumb } from './AdminPage';
-export { default as AdminShell } from './AdminShell';
+export { default as AdminShell, useAdminDrawer } from './AdminShell';
 export { default as ConfirmDialog } from './ConfirmDialog';
 export { default as DataTable } from './DataTable';
 export type { Column } from './DataTable';

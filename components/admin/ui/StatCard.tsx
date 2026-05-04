@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View, ViewStyle } from 'react-native';
 
 import { Colors, FontSize, Radius, Shadow, Spacing } from '../../../constants/theme';
 
@@ -32,22 +32,26 @@ export default function StatCard({
   const deltaColor = hasDelta ? (isGood ? Colors.success : Colors.error) : Colors.textMuted;
 
   const Wrapper: any = onPress ? Pressable : View;
+  // On phone-sized viewports, drop the minWidth so two cards reliably
+  // fit per row even on a 360px screen, and tighten interior padding.
+  const { width } = useWindowDimensions();
+  const isNarrow = width < 700;
 
   return (
     <Wrapper
       onPress={onPress}
-      style={[styles.card, style]}
+      style={[styles.card, isNarrow && styles.cardNarrow, style]}
       accessibilityRole={onPress ? 'button' : undefined}
     >
       <View style={styles.headerRow}>
-        <Text style={styles.label}>{label}</Text>
+        <Text style={styles.label} numberOfLines={1}>{label}</Text>
         {icon ? (
           <View style={styles.iconRing}>
             <Ionicons name={icon} size={14} color={Colors.primary} />
           </View>
         ) : null}
       </View>
-      <Text style={styles.value} numberOfLines={1}>
+      <Text style={[styles.value, isNarrow && styles.valueNarrow]} numberOfLines={1}>
         {typeof value === 'number' ? formatNumber(value) : value}
       </Text>
       <View style={styles.footerRow}>
@@ -63,7 +67,7 @@ export default function StatCard({
             </Text>
           </View>
         ) : null}
-        {hint ? <Text style={styles.hint}>{hint}</Text> : null}
+        {hint ? <Text style={styles.hint} numberOfLines={1}>{hint}</Text> : null}
       </View>
     </Wrapper>
   );
@@ -87,6 +91,14 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     ...Shadow.sm,
   },
+  cardNarrow: {
+    // Two-up grid even on 360px screens (16 padding × 2 + 12 gap = 44 chrome
+    // → ~158px per card on a 360 viewport, so 140 leaves headroom).
+    minWidth: 140,
+    padding: Spacing.md,
+    gap: Spacing.xs,
+  },
+  valueNarrow: { fontSize: FontSize.xl },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   label: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.textLight, letterSpacing: 0.4, textTransform: 'uppercase' },
   iconRing: {

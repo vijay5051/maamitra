@@ -1,7 +1,6 @@
 import { Stack, useRouter } from 'expo-router';
 import { useEffect } from 'react';
-import { Platform, TouchableOpacity, View, useWindowDimensions } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { View } from 'react-native';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Colors } from '../../constants/theme';
 import { isAdminEmail, AdminRole } from '../../lib/admin';
@@ -17,8 +16,6 @@ export default function AdminLayout() {
   const { user } = useAuthStore();
   const router = useRouter();
   const role = useAdminRole();
-  const { width } = useWindowDimensions();
-  const isWide = Platform.OS === 'web' && width >= 1100;
 
   useEffect(() => {
     function bounce() {
@@ -44,28 +41,13 @@ export default function AdminLayout() {
     <View style={{ flex: 1, backgroundColor: Colors.bgLight }}>
       <AdminShell role={effectiveRole} email={user?.email}>
         <Stack
-          screenOptions={({ navigation }: any) => ({
-            // On wide-web with sidebar, kill the redundant Stack header — the
-            // AdminPage component renders its own. On native/narrow, keep the
-            // header so screens that haven't migrated yet still have one.
-            headerShown: !isWide,
-            headerStyle: { backgroundColor: Colors.cardBg },
-            headerTintColor: Colors.primary,
-            headerTitleStyle: { fontWeight: '700', color: Colors.textDark },
-            headerShadowVisible: false,
+          screenOptions={{
+            // AdminPage renders its own header (with back, hamburger, and
+            // actions) on every screen, so kill the Stack header globally.
+            // Avoids the double-header that made mobile feel cramped.
+            headerShown: false,
             contentStyle: { backgroundColor: Colors.bgLight },
-            headerLeft: navigation.canGoBack()
-              ? () => (
-                  <TouchableOpacity
-                    onPress={() => navigation.goBack()}
-                    style={{ paddingHorizontal: 8, paddingVertical: 6 }}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  >
-                    <Ionicons name="chevron-back" size={26} color={Colors.primary} />
-                  </TouchableOpacity>
-                )
-              : undefined,
-          })}
+          }}
         />
       </AdminShell>
       {/* Floating command palette — Cmd/Ctrl-K on web, FAB everywhere else. */}

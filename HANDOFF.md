@@ -56,6 +56,30 @@ inbox — all without the admin ever logging into Meta.
   ie post-Phase 6).
 
 ### Last action
+**Admin panel mobile polish shipped** (worktree `claude/eager-grothendieck-0d6818`).
+
+What changed:
+- `app/admin/_layout.tsx` — `headerShown: false` for the Stack on every
+  width. Previously mobile got both a Stack header AND the AdminPage
+  header (double chrome). Now AdminPage owns the title on every screen.
+- `components/admin/ui/AdminShell.tsx` — added `AdminDrawerContext`
+  exposing `{ available, open }` so descendants can host the hamburger.
+  Removed the bottom-left FAB (it overlapped content + chat bubble on
+  mobile). The slide-in drawer modal is unchanged.
+- `components/admin/ui/AdminPage.tsx` — narrow widths (<900px) get a
+  two-row header: top bar with hamburger + back + horizontally-scrolling
+  actions; title block full-width below. Tightened body padding from
+  Spacing.lg → Spacing.md on narrow.
+- `components/admin/ui/StatCard.tsx` — at <700px, drops minWidth 160→140,
+  shrinks padding + value font (xxl→xl). Two cards reliably fit per row
+  on a 360px screen.
+- `app/admin/index.tsx` — KPI grid uses tighter gap on narrow.
+
+Visual verification skipped (Expo cold-start bundler stalled in this
+worktree). TypeScript clean. Live verification at
+https://maamitra.co.in/admin after deploy.
+
+### Earlier this session
 **M6 — UGC pipeline + Boost-this-post shipped** (commits `95a89ec` + `67a6591`).
 
 What's now live:
