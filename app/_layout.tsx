@@ -26,6 +26,7 @@ import ImpersonationBanner from '../components/ImpersonationBanner';
 import RootErrorBoundary from '../components/ui/RootErrorBoundary';
 import { SplashAnimation } from '../components/ui/SplashAnimation';
 import { hasSubmittedTesterFeedback } from '../services/firebase';
+import { captureFirstVisitAttribution, writeAttributionToUser } from '../services/attribution';
 // Importing useThemeStore at the root runs its rehydration (via zustand
 // persist's onRehydrateStorage) which calls setPrimaryAtRuntime() before
 // any screen renders. That's how the user's picked accent colour is
@@ -112,6 +113,10 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (__DEV__) maybeEnablePreviewAdmin();
+    // First-touch attribution capture — must run before initAuth so the
+    // localStorage record exists by the time the user-uid effect tries to
+    // flush it onto users/{uid}.
+    captureFirstVisitAttribution();
     initAuth();
     fetchSettings();
     markInstalledIfNeeded();
@@ -127,6 +132,9 @@ export default function RootLayout() {
   useEffect(() => {
     if (!user?.uid) return;
     const detach = attachForegroundMessaging(user.uid);
+    // First-touch attribution writeback — server-side guard inside
+    // writeAttributionToUser ensures we never overwrite a prior capture.
+    void writeAttributionToUser(user.uid);
     return detach;
   }, [user?.uid]);
 

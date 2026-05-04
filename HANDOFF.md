@@ -56,6 +56,94 @@ inbox — all without the admin ever logging into Meta.
   ie post-Phase 6).
 
 ### Last action
+**Triple-feature drop — daily-cron style lock + drag-to-reschedule on the
+Calendar + first-touch attribution capture & bio-link UTM builder.**
+
+What shipped:
+- **Style Profile → daily-cron generator (`functions/src/marketing/generator.ts`).**
+  Brand kit's styleProfile (description / artKeywords / prohibited) now
+  reads through `loadBrandKit()` and prefixes every Imagen / FLUX / dalle
+  call in `renderDraftImage` via the new `buildStyleLockedImagePrompt`
+  helper — same structure as `studio.ts buildStudioPrompt`, kept in sync
+  by convention. Cron-generated drafts now share the Studio "flat 2D,
+  pastel, brown-skin Indian moms" look. Pexels fallback intentionally
+  uses the un-styled subject prompt (it's keyword-search; the style
+  preamble would just narrow the photo set unhelpfully). Defaults
+  (`STYLE_DEFAULT_DESCRIPTION` / `STYLE_DEFAULT_KEYWORDS`) match
+  studio.ts so brand kits without an explicit profile still produce
+  on-brand images.
+
+- **Drag-to-reschedule on `/admin/marketing/calendar`.** Web-only
+  HTML5 drag/drop (RN Web forwards `onDragStart` / `onDragOver` /
+  `onDrop` to the underlying DOM element):
+  - Each non-posted compact card is `draggable={true}` with the draft
+    id in the `application/x-maamitra-draft-id` MIME (text/plain
+    fallback). Posted drafts can't be moved — their date is the
+    publication truth.
+  - Day columns + the Unscheduled bucket are drop targets with hover
+    styling (purple border + soft fill).
+  - Drop calls `scheduleDraft(actor, id, composeIstIso(targetDay,
+    existingTime))` — preserves time-of-day or defaults to 09:00 IST.
+    Dropping into Unscheduled calls `unscheduleDraft`. Optimistic
+    local update + Firestore write; rollback + plain-English banner on
+    failure.
+  - Native iOS / Android falls through cleanly: no draggable, no drop
+    targets, tap-to-open behaviour unchanged.
+
+- **First-touch attribution capture (M6b code half).**
+  - New `services/attribution.ts`:
+    - `captureFirstVisitAttribution()` — reads UTM params + referrer
+      + landing path on first web visit; persists to localStorage.
+      First-touch wins (subsequent visits no-op). Skips when no
+      signal is present (direct visit with no UTM and same-origin
+      referrer) so we don't bloat docs.
+    - `writeAttributionToUser(uid)` — flushes the localStorage
+      capture to `users/{uid}.attribution` with merge:true; server-
+      side first-touch guard prevents later-touch overwrite.
+    - `buildBioLink({ draftId, headline, channel })` — pure function
+      that constructs `https://maamitra.co.in/?utm_source=…&
+      utm_medium=social&utm_campaign={draftId}&utm_content={slug}`.
+  - `app/_layout.tsx` — capture on root mount, write to user when
+    auth-state-changed lands a uid.
+  - `app/admin/marketing/drafts.tsx` — new BioLinkBlock on posted
+    drafts: per-channel (IG / FB) UTM-tagged URL with Copy button +
+    "Copied" feedback. Admin pastes into the IG/FB bio for
+    post-of-the-day rotation.
+
+Why this matters:
+- **Style lock** closes the visual-coherence gap: every auto-draft now
+  matches Studio output. The next big leap is LoRA training (one-time
+  ~$2 + 30 min on Replicate), which will replace the prompt preamble
+  with a custom Replicate endpoint via the same `model` discriminator
+  in `studio.ts`.
+- **Drag-to-reschedule** removes the slide-over → datetime-picker
+  ceremony for the common "shift this draft a day later" action.
+- **Attribution** finally answers "which IG post earned this user?" —
+  the data was being thrown on the floor before; now it lands on
+  `users/{uid}.attribution` and is queryable in admin / BigQuery.
+
+Browser-verified in dev preview:
+- UTM capture: navigated to `/?utm_source=facebook&utm_medium=social&
+  utm_campaign=draft_abc123&utm_content=tip-tuesday` → localStorage
+  contains a clean attribution capture JSON with all five fields +
+  referrer + landingPath. ✓
+- Calendar renders the new "Tip — drag any card…" hint, day columns
+  are wired with drop handlers, type-checked clean. Real drag
+  exercise needs deployed Firestore data.
+- Drafts page loads clean, no console errors with the new BioLinkBlock
+  + buildBioLink import. Bio link string built correctly via in-page
+  `URLSearchParams` smoke test.
+
+Outstanding:
+- Boost env config — user adds `META_AD_ACCOUNT_ID` + `META_FB_PAGE_ID`
+  to `functions/.env` so `boostMarketingDraft` actually fires (it
+  currently returns "missing-creds"). Code half is fully shipped.
+- Webhook signature mystery — `META_WEBHOOK_PERMISSIVE=1` still active.
+  User to copy current App Secret from Meta Dashboard → Settings →
+  Basic, paste into `functions/.env`, flip permissive=0, redeploy
+  metaWebhookReceiver.
+
+### Earlier this session
 **Connection-health probe shipped — IG/FB dots in the marketing shell +
 Settings Connected accounts card now reflect live token validity instead
 of optimistic "always green".**
@@ -367,9 +455,6 @@ Outstanding (next session):
 - Studio Phase 2: actual image-gen canvas at /admin/marketing/create
   (gpt-image-1 + Imagen + style-ref binding). Phase 5 LoRA training
   layered after.
-- Style Profile → image-gen wiring: the profile is stored but not yet
-  consumed by the generator. Land in Phase 2 alongside the canvas.
-- Drag-to-reschedule on Posts → Calendar.
 - Webhook signature mystery still open — `META_WEBHOOK_PERMISSIVE=1`
   active. (See "Earlier this session" notes below.)
 

@@ -12,23 +12,35 @@
  */
 
 import { Stack, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Colors, FontSize, Radius, Shadow, Spacing } from '../../../constants/theme';
 import { AdminPage, EmptyState, StatusBadge, ToolbarButton } from '../../../components/admin/ui';
-import { listDrafts } from '../../../services/marketingDrafts';
+import { listDrafts, scheduleDraft, unscheduleDraft } from '../../../services/marketingDrafts';
+import { friendlyError } from '../../../services/marketingErrors';
 import { MarketingDraft } from '../../../lib/marketingTypes';
+import { useAuthStore } from '../../../store/useAuthStore';
+
+// Drag-and-drop is web-only (RN Web forwards HTML drag events to the DOM
+// element backing each View). On native the cards stay tap-to-open — drop
+// targets and draggable={true} props are simply not rendered.
+const DND = Platform.OS === 'web';
 
 const WEEKDAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export default function MarketingCalendarScreen() {
   const router = useRouter();
+  const user = useAuthStore((s) => s.user);
   const [weekOffset, setWeekOffset] = useState(0);
   const [drafts, setDrafts] = useState<MarketingDraft[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /** Banner tone after a drop succeeds/fails — auto-clears in 2.4s. */
+  const [banner, setBanner] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null);
+  /** Day-iso key currently under the cursor while dragging — drives hover styling. */
+  const [hoverDay, setHoverDay] = useState<string | null>(null);
 
   useEffect(() => { void load(); }, []);
 
@@ -44,6 +56,54 @@ export default function MarketingCalendarScreen() {
       setLoading(false);
     }
   }
+
+  const showBanner = useCallback((tone: 'ok' | 'err', text: string) => {
+    setBanner({ tone, text });
+    setTimeout(() => setBanner(null), 2400);
+  }, []);
+
+  /** Drop handler — moves a draft to a new day (preserving time-of-day) or
+   *  to the unscheduled bucket. Optimistic update + Firestore write; rollback
+   *  on failure. */
+  const handleDrop = useCallback(async (draftId: string, targetDay: string | 'unscheduled') => {
+    if (!user) return;
+    const idx = drafts.findIndex((d) => d.id === draftId);
+    if (idx < 0) return;
+    const draft = drafts[idx];
+
+    // Skip no-op: dropping a draft on its own current day.
+    const currentDay = draft.scheduledAt ? istDayKey(draft.scheduledAt) : null;
+    if (targetDay === currentDay) return;
+    if (targetDay === 'unscheduled' && draft.status === 'approved' && !draft.scheduledAt) return;
+
+    // Posted drafts can't be moved — their date is the truth.
+    if (draft.status === 'posted') {
+      showBanner('err', "Already posted — can't reschedule.");
+      return;
+    }
+
+    // Optimistic local update so the card jumps immediately.
+    const prev = drafts;
+    const optimisticPatch: Partial<MarketingDraft> =
+      targetDay === 'unscheduled'
+        ? { status: 'approved', scheduledAt: null }
+        : { status: 'scheduled', scheduledAt: composeIstIso(targetDay, draft.scheduledAt) };
+    setDrafts(drafts.map((d, i) => i === idx ? { ...d, ...optimisticPatch } as MarketingDraft : d));
+
+    try {
+      const actor = { uid: user.uid, email: user.email };
+      if (targetDay === 'unscheduled') {
+        await unscheduleDraft(actor, draftId);
+        showBanner('ok', 'Moved to Unscheduled.');
+      } else {
+        await scheduleDraft(actor, draftId, optimisticPatch.scheduledAt as string);
+        showBanner('ok', `Rescheduled to ${formatDayLabel(targetDay)}.`);
+      }
+    } catch (e: any) {
+      setDrafts(prev);
+      showBanner('err', friendlyError('Reschedule', e));
+    }
+  }, [drafts, user, showBanner]);
 
   const week = useMemo(() => weekFromOffset(weekOffset), [weekOffset]);
 
@@ -102,21 +162,52 @@ export default function MarketingCalendarScreen() {
           </Pressable>
         </View>
 
+        {banner ? (
+          <View style={[styles.banner, banner.tone === 'err' && styles.bannerErr]}>
+            <Ionicons
+              name={banner.tone === 'ok' ? 'checkmark-circle' : 'alert-circle'}
+              size={14}
+              color={banner.tone === 'ok' ? Colors.success : Colors.error}
+            />
+            <Text style={[styles.bannerText, banner.tone === 'err' && { color: Colors.error }]}>{banner.text}</Text>
+          </View>
+        ) : null}
+
+        {DND ? (
+          <Text style={styles.dndHint}>Tip — drag any card to another day to reschedule.</Text>
+        ) : null}
+
         <View style={styles.grid}>
           {week.days.map((d, idx) => {
             const dayDrafts = byDay[d.iso] ?? [];
             const isToday = d.iso === istToday();
+            const isHover = hoverDay === d.iso;
+            const dropProps = DND ? buildDropTargetProps({
+              onEnter: () => setHoverDay(d.iso),
+              onLeave: () => setHoverDay((h) => (h === d.iso ? null : h)),
+              onDrop: (id) => { setHoverDay(null); void handleDrop(id, d.iso); },
+            }) : {};
             return (
-              <View key={d.iso} style={styles.col}>
+              <View
+                key={d.iso}
+                style={[styles.col, isHover && styles.colHover]}
+                {...dropProps}
+              >
                 <View style={[styles.colHead, isToday && styles.colHeadToday]}>
                   <Text style={[styles.dayLabel, isToday && styles.dayLabelToday]}>{WEEKDAY_LABELS[idx]}</Text>
                   <Text style={[styles.dayDate, isToday && styles.dayDateToday]}>{d.dayOfMonth}</Text>
                 </View>
                 <View style={styles.colBody}>
                   {dayDrafts.length === 0 ? (
-                    <View style={styles.dayEmpty}><Text style={styles.dayEmptyText}>—</Text></View>
+                    <View style={styles.dayEmpty}><Text style={styles.dayEmptyText}>{isHover ? 'Drop here' : '—'}</Text></View>
                   ) : (
-                    dayDrafts.map((draft) => <DraftCardCompact key={draft.id} draft={draft} onOpen={() => goToDraft(router, draft.id)} />)
+                    dayDrafts.map((draft) => (
+                      <DraftCardCompact
+                        key={draft.id}
+                        draft={draft}
+                        onOpen={() => goToDraft(router, draft.id)}
+                      />
+                    ))
                   )}
                 </View>
               </View>
@@ -124,8 +215,15 @@ export default function MarketingCalendarScreen() {
           })}
         </View>
 
-        {byDay.unscheduled.length > 0 ? (
-          <View style={styles.unscheduledBlock}>
+        {byDay.unscheduled.length > 0 || (DND && hoverDay === 'unscheduled') ? (
+          <View
+            style={[styles.unscheduledBlock, hoverDay === 'unscheduled' && styles.unscheduledHover]}
+            {...(DND ? buildDropTargetProps({
+              onEnter: () => setHoverDay('unscheduled'),
+              onLeave: () => setHoverDay((h) => (h === 'unscheduled' ? null : h)),
+              onDrop: (id) => { setHoverDay(null); void handleDrop(id, 'unscheduled'); },
+            }) : {})}
+          >
             <Text style={styles.sectionLabel}>Unscheduled · {byDay.unscheduled.length}</Text>
             <View style={styles.unscheduledRow}>
               {byDay.unscheduled.map((d) => (
@@ -152,8 +250,16 @@ export default function MarketingCalendarScreen() {
 function DraftCardCompact({ draft, onOpen }: { draft: MarketingDraft; onOpen: () => void }) {
   const tone = draft.status === 'posted' ? Colors.success : draft.status === 'scheduled' ? Colors.primary : Colors.textMuted;
   const time = draft.scheduledAt ? istHHmm(draft.scheduledAt) : null;
+  // Posted drafts can't be moved — their date is the publication truth, not
+  // a plan. Disable drag for them so the cursor doesn't suggest otherwise.
+  const draggable = DND && draft.status !== 'posted';
+  const dragProps = draggable ? buildDraggableProps(draft.id) : {};
   return (
-    <Pressable onPress={onOpen} style={styles.compactCard}>
+    <Pressable
+      onPress={onOpen}
+      style={[styles.compactCard, draggable && styles.compactCardDraggable]}
+      {...dragProps}
+    >
       {draft.assets[0]?.url ? (
         <Image source={{ uri: draft.assets[0].url }} style={styles.compactThumb} resizeMode="cover" />
       ) : (
@@ -173,6 +279,46 @@ function DraftCardCompact({ draft, onOpen }: { draft: MarketingDraft; onOpen: ()
       </View>
     </Pressable>
   );
+}
+
+// ── Web drag-and-drop helpers ──────────────────────────────────────────────
+// HTML5 drag events. RN Web silently forwards these as DOM event handlers,
+// but they're not in the React Native type defs — hence the unknown casts.
+
+const DND_MIME = 'application/x-maamitra-draft-id';
+
+function buildDraggableProps(draftId: string): Record<string, unknown> {
+  return {
+    draggable: true,
+    onDragStart: (e: any) => {
+      try {
+        e.dataTransfer.setData(DND_MIME, draftId);
+        e.dataTransfer.setData('text/plain', draftId);
+        e.dataTransfer.effectAllowed = 'move';
+      } catch {/* noop */}
+    },
+  };
+}
+
+function buildDropTargetProps(handlers: {
+  onEnter: () => void;
+  onLeave: () => void;
+  onDrop: (draftId: string) => void;
+}): Record<string, unknown> {
+  return {
+    onDragEnter: (e: any) => { try { e.preventDefault(); } catch {/* noop */} handlers.onEnter(); },
+    onDragOver: (e: any) => {
+      // Calling preventDefault here is what tells the browser this is a
+      // valid drop target — without it onDrop never fires.
+      try { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; } catch {/* noop */}
+    },
+    onDragLeave: () => handlers.onLeave(),
+    onDrop: (e: any) => {
+      try { e.preventDefault(); } catch {/* noop */}
+      const id = (e?.dataTransfer?.getData?.(DND_MIME) || e?.dataTransfer?.getData?.('text/plain') || '').toString();
+      if (id) handlers.onDrop(id);
+    },
+  };
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -220,6 +366,32 @@ function istHHmm(iso: string): string {
   const h = String(d.getUTCHours()).padStart(2, '0');
   const m = String(d.getUTCMinutes()).padStart(2, '0');
   return `${h}:${m}`;
+}
+
+/** Build an ISO scheduledAt for a target IST day, preserving the existing
+ *  time-of-day if one was set. Default to 09:00 IST when re-scheduling a
+ *  draft that had no schedule. */
+function composeIstIso(targetDayIso: string, existingScheduledAt: string | null | undefined): string {
+  let hh = 9;
+  let mm = 0;
+  if (existingScheduledAt) {
+    const istShifted = new Date(new Date(existingScheduledAt).getTime() + 5.5 * 3600 * 1000);
+    hh = istShifted.getUTCHours();
+    mm = istShifted.getUTCMinutes();
+  }
+  // Convert {targetDay IST hh:mm} → UTC ISO. IST is UTC+5:30 with no DST.
+  const [y, mo, d] = targetDayIso.split('-').map(Number);
+  // Build the IST instant by treating it as UTC, then subtracting 5h30m.
+  const istAsUtc = Date.UTC(y, (mo ?? 1) - 1, d ?? 1, hh, mm, 0);
+  const utcMs = istAsUtc - 5.5 * 3600 * 1000;
+  return new Date(utcMs).toISOString();
+}
+
+function formatDayLabel(targetDayIso: string): string {
+  const [y, mo, d] = targetDayIso.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, (mo ?? 1) - 1, d ?? 1));
+  const month = dt.toLocaleString('en', { month: 'short' });
+  return `${month} ${d}`;
 }
 
 const styles = StyleSheet.create({
@@ -279,11 +451,35 @@ const styles = StyleSheet.create({
   compactTitle: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textDark, lineHeight: 16 },
   compactMeta: { fontSize: 10, color: Colors.textMuted },
 
-  unscheduledBlock: { marginTop: Spacing.lg },
+  unscheduledBlock: {
+    marginTop: Spacing.lg,
+    padding: Spacing.sm,
+    borderRadius: Radius.md,
+    borderWidth: 1, borderColor: 'transparent',
+  },
+  unscheduledHover: { borderColor: Colors.primary, backgroundColor: Colors.primarySoft },
   unscheduledRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   sectionLabel: {
     fontSize: 11, fontWeight: '700', color: Colors.textLight,
     letterSpacing: 1.2, textTransform: 'uppercase',
     marginBottom: Spacing.sm,
   },
+
+  // Drag-and-drop affordances
+  colHover: { borderColor: Colors.primary, backgroundColor: Colors.primarySoft },
+  compactCardDraggable: { cursor: 'grab' as any },
+  dndHint: {
+    fontSize: 11, color: Colors.textMuted, fontStyle: 'italic',
+    marginBottom: Spacing.sm,
+  },
+  banner: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: Spacing.md, paddingVertical: 6,
+    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+    borderRadius: Radius.sm,
+    borderWidth: 1, borderColor: Colors.success,
+    marginBottom: Spacing.sm,
+  },
+  bannerErr: { backgroundColor: 'rgba(239, 68, 68, 0.08)', borderColor: Colors.error },
+  bannerText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.success },
 });

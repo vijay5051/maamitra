@@ -53,6 +53,7 @@ import {
 import { DraftStatus, MarketingDraft, MarketingPlatform } from '../../../lib/marketingTypes';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { friendlyError, friendlyPublishError } from '../../../services/marketingErrors';
+import { buildBioLink } from '../../../services/attribution';
 
 const STATUS_FILTERS: { value: DraftStatus | 'all'; label: string }[] = [
   { value: 'all',            label: 'All' },
@@ -811,6 +812,8 @@ function DraftSlideOver({
           </View>
         ) : null}
 
+        {isPosted ? <BioLinkBlock draft={draft} /> : null}
+
         {draft.rejectReason ? (
           <View style={styles.flagBox}>
             <Text style={styles.flagTitle}>Reject reason</Text>
@@ -823,6 +826,46 @@ function DraftSlideOver({
 }
 
 // ── Date-time input (web datetime-local; native plain text) ────────────────
+
+function BioLinkBlock({ draft }: { draft: MarketingDraft }) {
+  const igUrl = useMemo(() => buildBioLink({ draftId: draft.id, headline: draft.headline, channel: 'instagram' }), [draft.id, draft.headline]);
+  const fbUrl = useMemo(() => buildBioLink({ draftId: draft.id, headline: draft.headline, channel: 'facebook' }), [draft.id, draft.headline]);
+  const [copied, setCopied] = useState<string | null>(null);
+
+  async function copy(label: string, url: string) {
+    if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
+      await navigator.clipboard.writeText(url);
+      setCopied(label);
+      setTimeout(() => setCopied(null), 1800);
+    }
+  }
+
+  return (
+    <View>
+      <Text style={styles.captionLabel}>Bio link with attribution</Text>
+      <Text style={styles.fieldHint}>
+        Paste in the IG/FB bio for this post — UTM tags let analytics attribute new signups back to this draft.
+      </Text>
+      <View style={{ gap: 6, marginTop: 6 }}>
+        <BioLinkRow label="Instagram" url={igUrl} active={copied === 'Instagram'} onCopy={() => copy('Instagram', igUrl)} />
+        <BioLinkRow label="Facebook" url={fbUrl} active={copied === 'Facebook'} onCopy={() => copy('Facebook', fbUrl)} />
+      </View>
+    </View>
+  );
+}
+
+function BioLinkRow({ label, url, active, onCopy }: { label: string; url: string; active: boolean; onCopy: () => void }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+      <Text style={{ fontSize: 11, fontWeight: '700', color: Colors.textMuted, width: 70 }}>{label}</Text>
+      <Text style={[styles.metaText, { flex: 1, fontFamily: Platform.OS === 'web' ? 'monospace' : undefined }]} numberOfLines={1} selectable>{url}</Text>
+      <Pressable onPress={onCopy} style={[styles.btn, styles.btnGhost, { paddingHorizontal: 10, paddingVertical: 4 }]}>
+        <Ionicons name={active ? 'checkmark' : 'copy'} size={14} color={active ? Colors.success : Colors.primary} />
+        <Text style={[styles.btnLabel, { color: active ? Colors.success : Colors.primary }]}>{active ? 'Copied' : 'Copy'}</Text>
+      </Pressable>
+    </View>
+  );
+}
 
 function DateTimeInput({ value, onChange }: { value: string; onChange: (next: string) => void }) {
   if (Platform.OS === 'web') {

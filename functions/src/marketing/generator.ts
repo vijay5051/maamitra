@@ -97,7 +97,21 @@ interface BrandKitData {
   costCaps: { dailyInr: number; monthlyInr: number; alertAtPct: number };
   palette: { primary: string; background: string; text: string; accent: string };
   logoUrl: string | null;
+  /** Visual DNA codified during onboarding. Same shape as studio.ts uses
+   *  for image-gen so daily-cron drafts share the brand-locked look of
+   *  any Studio variant. */
+  styleProfile: {
+    description: string;
+    artKeywords: string;
+    prohibited: string[];
+  } | null;
 }
+
+// Studio v2 defaults — kept identical to functions/src/marketing/studio.ts so
+// the cron generator and the Studio canvas produce visually consistent
+// drafts. Update both when tweaking the brand visual DNA.
+const STYLE_DEFAULT_DESCRIPTION = 'A warm hand-drawn 2D illustration. Flat colours with subtle gradients, no photorealism. Indian characters (brown skin, dark hair). Soft pastels. Rounded organic shapes. Generous negative space. Single-scene composition.';
+const STYLE_DEFAULT_KEYWORDS = 'flat illustration, pastel, Indian, motherhood, gentle, hand-drawn, soft gradient, organic shapes';
 
 async function loadBrandKit(): Promise<BrandKitData> {
   const snap = await admin.firestore().doc('marketing_brand/main').get();
@@ -132,7 +146,30 @@ async function loadBrandKit(): Promise<BrandKitData> {
       accent:     typeof d?.palette?.accent     === 'string' ? d.palette.accent     : '#F8C8DC',
     },
     logoUrl: typeof d?.logoUrl === 'string' ? d.logoUrl : null,
+    styleProfile: d?.styleProfile ? {
+      description: typeof d.styleProfile.description === 'string' ? d.styleProfile.description : STYLE_DEFAULT_DESCRIPTION,
+      artKeywords: typeof d.styleProfile.artKeywords === 'string' ? d.styleProfile.artKeywords : STYLE_DEFAULT_KEYWORDS,
+      prohibited: arr(d.styleProfile.prohibited).filter((s: any): s is string => typeof s === 'string'),
+    } : null,
   };
+}
+
+/** Wrap the LLM-supplied imagePrompt with the brand's visual DNA so daily
+ *  cron drafts match Studio variants. Mirrors buildStudioPrompt in studio.ts;
+ *  keep the structure aligned when tweaking either. */
+function buildStyleLockedImagePrompt(subject: string, brand: BrandKitData): string {
+  const profile = brand.styleProfile;
+  const desc = profile?.description ?? STYLE_DEFAULT_DESCRIPTION;
+  const keywords = profile?.artKeywords ?? STYLE_DEFAULT_KEYWORDS;
+  const negative = profile?.prohibited?.length ? profile.prohibited.join(', ') : '';
+  const parts: string[] = [
+    `Visual style: ${desc}`,
+    `Art direction keywords: ${keywords}.`,
+    `Subject: ${subject.trim()}`,
+  ];
+  if (negative) parts.push(`Do NOT include: ${negative}.`);
+  parts.push('Single coherent illustration. No text, no logos, no watermarks.');
+  return parts.join('\n');
 }
 
 // ── Slot picker ────────────────────────────────────────────────────────────
@@ -491,16 +528,21 @@ async function renderDraftImage(
   brand: BrandKitData,
 ): Promise<{ url: string; storagePath: string; bytes: number; source: string; costInr: number }> {
   // Tip Card never takes a background; Quote / Milestone do.
+  // For AI providers, wrap the LLM-supplied subject prompt in the brand's
+  // style preamble so cron-generated images share the Studio look. Pexels
+  // is keyword-search, so it gets the raw subject prompt only.
+  const styleLockedPrompt = buildStyleLockedImagePrompt(imagePrompt, brand);
   const bgUrl: string | null = template === 'tipCard'
     ? null
     : imageModel === 'imagen'
-      ? await imagenGenerate(imagePrompt, { aspectRatio: '1:1' })
+      ? await imagenGenerate(styleLockedPrompt, { aspectRatio: '1:1' })
       : imageModel === 'dalle'
-        ? await openaiImage(imagePrompt, { quality: 'medium', size: '1024x1024' })
-        : await fluxSchnell(imagePrompt, { aspectRatio: '1:1' });
+        ? await openaiImage(styleLockedPrompt, { quality: 'medium', size: '1024x1024' })
+        : await fluxSchnell(styleLockedPrompt, { aspectRatio: '1:1' });
 
-  // If AI failed, fall back to Pexels with the imagePrompt as a query.
-  // This keeps the generator robust when a paid API hits a quota.
+  // If AI failed, fall back to Pexels with the (un-styled) subject prompt as
+  // a query. Pexels is keyword-search; the styling preamble would just
+  // narrow the photo set unhelpfully.
   let imageSource: string = template === 'tipCard' ? 'none' : imageModel;
   let imageAttribution: string | null = null;
   let resolvedBg = bgUrl;
