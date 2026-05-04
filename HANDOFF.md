@@ -56,6 +56,47 @@ inbox — all without the admin ever logging into Meta.
   ie post-Phase 6).
 
 ### Last action
+**FB Page publish FIXED — System User token vs Page Access Token.**
+
+Root cause (deep audit traced this empirically across every Meta endpoint):
+The token in `META_FB_PAGE_ACCESS_TOKEN` is a **System User token**
+(debug_token reports type=SYSTEM_USER and `/me` returns
+`id=122099819877297791, name=Maaitrasystem` — the System User
+identity, not the Page identity). Despite SU tokens looking like Page
+tokens (EAA-prefixed, 21 scopes including `pages_manage_posts`), the
+**New Pages Experience** rejects them on publish/comment endpoints
+with `(#190) error_subcode=2069032 — User access token is not
+supported. A Page access token is required for this call for the
+new Pages experience.` On `/photos` and `/feed` POSTs Meta returns
+the misleading catchall `(#200) publish_actions deprecated`.
+
+The fix: derive a real Page Access Token by calling
+`GET /me/accounts?fields=id,access_token` *with* the SU token —
+that returns Pages with their proper Page-scoped tokens (tasks
+include `MANAGE` + `CREATE_CONTENT`). With the derived PAT,
+`POST /{page-id}/photos` returns 200 + a real post_id (verified by
+two test posts which were then deleted).
+
+Implementation in `functions/src/marketing/publisher.ts`:
+- New `getFbPagePat()` helper — single in-flight Promise memoised
+  in module scope. First call exchanges SU→PAT via /me/accounts;
+  subsequent calls reuse. PAT derived this way doesn't expire as
+  long as the System User keeps Page asset access.
+- `publishDraftToFacebook` and `replyToFbComment` both now `await`
+  the PAT before hitting Graph; surface `no-page-token` error code
+  if /me/accounts can't return a Page (means System User lost
+  asset access).
+- IG paths unchanged — IG endpoints accept the SU token directly.
+- env var `META_FB_PAGE_ACCESS_TOKEN` keeps its name (it's still
+  the SU token); the PAT lives only in memory at runtime.
+
+Redeployed: publishMarketingDraftNow, scheduledMarketingPublisher,
+metaInboxReplyPublisher (the 3 callers of FB Graph publish/reply).
+
+User-visible: Retry publish on a failed draft should now succeed
+on both IG and FB.
+
+### Earlier this session
 **Retry-publish button + persistent publish-error card on failed
 drafts.**
 
