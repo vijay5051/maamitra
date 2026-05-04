@@ -97,3 +97,18 @@ change when possible, so a single push captures both. Push frequently
 ## 6. Live demo URL
 Production: https://maamitra.co.in (fallback: https://maa-mitra-7kird8.web.app)
 Test in that URL after every deploy when possible.
+
+## 7. Worktree .env rule — auth must be reachable in every test run
+The `.env` file at the repo root holds all `EXPO_PUBLIC_*` Firebase config vars.
+Git worktrees do NOT inherit this file — a new worktree starts without it, so
+every auth call throws "Authentication is not configured." before anything works.
+
+**Rule: whenever a worktree is created or resumed, immediately check for `.env`:**
+```bash
+ls .env 2>/dev/null || ln -sf $(git rev-parse --show-toplevel)/../../../.env .env
+```
+This symlinks the root `.env` into the worktree so Firebase/Google auth works.
+Verify with: `grep EXPO_PUBLIC_FIREBASE_API_KEY .env`.
+
+Do NOT commit the `.env` symlink. Do NOT copy secrets into a new file — always
+symlink back to the canonical root `.env`.
