@@ -374,6 +374,13 @@ async function publishCarouselToInstagram(slideUrls: string[], caption: string):
     return { ok: false, code: 'bad-carousel-count', message: `Carousel needs 2–10 slides, got ${slideUrls.length}.` };
   }
 
+  const carouselCfg = await getIntegrationConfig();
+  const IG_GRAPH_TOKEN = igGraphToken(carouselCfg.meta.fbPageAccessToken, carouselCfg.meta.igAccessToken);
+  const META_IG_USER_ID = carouselCfg.meta.igUserId;
+  if (!META_IG_USER_ID || !IG_GRAPH_TOKEN) {
+    return { ok: false, code: 'missing-credentials', message: 'Instagram credentials not configured.' };
+  }
+
   // Step 1 — create one child container per slide (parallel).
   const childResults = await Promise.all(slideUrls.map(async (url, idx) => {
     const params = new URLSearchParams({
