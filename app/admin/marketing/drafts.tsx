@@ -21,6 +21,7 @@ import {
   Linking,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -620,7 +621,25 @@ function DraftSlideOver({
     >
       <View style={{ gap: Spacing.md }}>
         <View style={styles.previewWrap}>
-          {thumb ? (
+          {draft.assets.length > 1 ? (
+            // Carousel — horizontal scroller with slide-of-N badges so admin
+            // can review every slide before approving / publishing.
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 8 }}
+              style={{ flexGrow: 0 }}
+            >
+              {draft.assets.map((a, i) => (
+                <View key={i} style={styles.carouselThumbWrap}>
+                  <Image source={{ uri: a.url }} style={styles.carouselThumb} resizeMode="cover" />
+                  <View style={styles.carouselThumbBadge}>
+                    <Text style={styles.carouselThumbBadgeLabel}>{i + 1}/{draft.assets.length}</Text>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+          ) : thumb ? (
             <Image source={{ uri: thumb }} style={styles.preview} resizeMode="cover" />
           ) : (
             <View style={[styles.preview, styles.thumbPlaceholder]}>
@@ -1111,8 +1130,23 @@ const styles = StyleSheet.create({
   metaTag: { fontSize: 11, color: Colors.textMuted, fontWeight: '600' },
   metaSub: { fontSize: FontSize.xs, color: Colors.textMuted, fontWeight: '600' },
 
-  previewWrap: { aspectRatio: 1, borderRadius: Radius.lg, overflow: 'hidden', backgroundColor: Colors.bgLight },
-  preview: { width: '100%', height: '100%' },
+  previewWrap: { borderRadius: Radius.lg, overflow: 'hidden', backgroundColor: Colors.bgLight },
+  preview: { width: '100%', aspectRatio: 1 },
+
+  // Carousel thumbnails (Phase 4 item 1)
+  carouselThumbWrap: {
+    width: 220, aspectRatio: 1, borderRadius: Radius.md,
+    overflow: 'hidden', backgroundColor: Colors.bgTint,
+    position: 'relative',
+  },
+  carouselThumb: { width: '100%', height: '100%' },
+  carouselThumbBadge: {
+    position: 'absolute', top: 8, left: 8,
+    paddingHorizontal: 8, paddingVertical: 3,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 999,
+  },
+  carouselThumbBadgeLabel: { fontSize: 10, fontWeight: '800', color: Colors.white, letterSpacing: 0.4 },
   metaCard: { padding: Spacing.sm, backgroundColor: Colors.bgLight, borderRadius: Radius.md },
   metaInline: { fontSize: FontSize.xs, color: Colors.textMuted, fontWeight: '600' },
   metaText: { fontSize: FontSize.xs, color: Colors.textMuted, lineHeight: 18, marginTop: 4 },

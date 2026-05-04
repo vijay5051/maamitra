@@ -303,15 +303,20 @@ async function publishDraftToFacebook(draftData) {
     return { ok: true, postId, permalink };
 }
 async function publishDraftToInstagram(draftId, draftData) {
-    const imageUrl = draftData?.assets?.[0]?.url;
+    const assets = Array.isArray(draftData?.assets) ? draftData.assets : [];
     const caption = String(draftData?.caption ?? '');
-    if (!imageUrl)
+    const isCarousel = draftData?.kind === 'carousel' || assets.length > 1;
+    if (assets.length === 0 || !assets[0]?.url)
         return { ok: false, code: 'no-asset', message: 'Draft has no image asset.' };
     if (!caption)
         return { ok: false, code: 'no-caption', message: 'Draft has no caption.' };
     if (!META_IG_USER_ID || !IG_GRAPH_TOKEN) {
         return { ok: false, code: 'no-credentials', message: 'IG Graph credentials missing — need META_IG_USER_ID + an EAA-style token (META_FB_PAGE_ACCESS_TOKEN works since the IG account is linked to the Page).' };
     }
+    if (isCarousel) {
+        return publishCarouselToInstagram(assets.map((a) => String(a?.url ?? '')).filter(Boolean), caption);
+    }
+    const imageUrl = assets[0].url;
     // Step 1 — create the media container.
     const params = new URLSearchParams({
         image_url: imageUrl,
@@ -383,6 +388,122 @@ async function publishDraftToInstagram(draftId, draftData) {
         // Not fatal — we have the post; permalink is just nice-to-have.
     }
     return { ok: true, mediaId, postId, permalink };
+}
+// ── IG Carousel publish (Phase 4 item 1) ──────────────────────────────────
+// Three-stage flow per Meta:
+//   1. For each slide URL, POST /{ig-user-id}/media with image_url +
+//      is_carousel_item=true → child container id.
+//   2. Wait for every child to reach FINISHED status.
+//   3. POST /{ig-user-id}/media with media_type=CAROUSEL +
+//      children=child_ids + caption → parent container id, wait for it
+//      to reach FINISHED, then POST /media_publish with creation_id=parent.
+async function publishCarouselToInstagram(slideUrls, caption) {
+    if (slideUrls.length < 2 || slideUrls.length > 10) {
+        return { ok: false, code: 'bad-carousel-count', message: `Carousel needs 2–10 slides, got ${slideUrls.length}.` };
+    }
+    // Step 1 — create one child container per slide (parallel).
+    const childResults = await Promise.all(slideUrls.map(async (url, idx) => {
+        const params = new URLSearchParams({
+            image_url: url,
+            is_carousel_item: 'true',
+            access_token: IG_GRAPH_TOKEN,
+        });
+        const res = await fetch(`${GRAPH_BASE}/${META_IG_USER_ID}/media`, { method: 'POST', body: params });
+        if (!res.ok) {
+            const body = (await res.json().catch(() => ({})));
+            return { ok: false, idx, message: body?.error?.message ?? `Graph ${res.status}` };
+        }
+        const j = await res.json();
+        if (!j?.id)
+            return { ok: false, idx, message: 'Container creation returned no id.' };
+        return { ok: true, idx, id: j.id };
+    }));
+    const failed = childResults.find((r) => !r.ok);
+    if (failed && failed.ok === false) {
+        return { ok: false, code: 'carousel-child-create-failed', message: `Slide ${failed.idx + 1}: ${failed.message}` };
+    }
+    const childIds = childResults.map((r) => (r.ok ? r.id : '')).filter(Boolean);
+    // Step 2 — wait for every child to finish processing.
+    const deadline = Date.now() + 60000;
+    for (const cid of childIds) {
+        const statusUrl = `${GRAPH_BASE}/${cid}?fields=status_code,status&access_token=${encodeURIComponent(IG_GRAPH_TOKEN)}`;
+        let lastStatus = null;
+        while (Date.now() < deadline) {
+            await new Promise((r) => setTimeout(r, 3000));
+            const sRes = await fetch(statusUrl);
+            if (!sRes.ok) {
+                const body = (await sRes.json().catch(() => ({})));
+                return { ok: false, code: 'carousel-child-status-failed', message: body?.error?.message ?? `Graph ${sRes.status}` };
+            }
+            const sJson = await sRes.json();
+            lastStatus = sJson?.status_code ?? null;
+            if (lastStatus === 'FINISHED')
+                break;
+            if (lastStatus === 'ERROR' || lastStatus === 'EXPIRED') {
+                return { ok: false, code: 'carousel-child-error', message: `Child ${cid} ${lastStatus}: ${sJson?.status ?? 'no detail'}` };
+            }
+        }
+        if (lastStatus !== 'FINISHED') {
+            return { ok: false, code: 'carousel-child-timeout', message: `Child ${cid} still ${lastStatus ?? 'unknown'} after 60s.` };
+        }
+    }
+    // Step 3 — create parent CAROUSEL container.
+    const parentParams = new URLSearchParams({
+        media_type: 'CAROUSEL',
+        children: childIds.join(','),
+        caption,
+        access_token: IG_GRAPH_TOKEN,
+    });
+    const parentRes = await fetch(`${GRAPH_BASE}/${META_IG_USER_ID}/media`, { method: 'POST', body: parentParams });
+    if (!parentRes.ok) {
+        const body = (await parentRes.json().catch(() => ({})));
+        return { ok: false, code: 'carousel-parent-create-failed', message: body?.error?.message ?? `Graph ${parentRes.status}` };
+    }
+    const parentJson = await parentRes.json();
+    const parentId = parentJson?.id;
+    if (!parentId)
+        return { ok: false, code: 'no-parent-id', message: 'Parent container returned no id.' };
+    // Wait for parent FINISHED then publish.
+    const parentStatusUrl = `${GRAPH_BASE}/${parentId}?fields=status_code,status&access_token=${encodeURIComponent(IG_GRAPH_TOKEN)}`;
+    let parentStatus = null;
+    const parentDeadline = Date.now() + 60000;
+    while (Date.now() < parentDeadline) {
+        await new Promise((r) => setTimeout(r, 3000));
+        const sRes = await fetch(parentStatusUrl);
+        if (!sRes.ok)
+            break;
+        const sJson = await sRes.json();
+        parentStatus = sJson?.status_code ?? null;
+        if (parentStatus === 'FINISHED')
+            break;
+        if (parentStatus === 'ERROR' || parentStatus === 'EXPIRED') {
+            return { ok: false, code: 'carousel-parent-error', message: `Parent ${parentStatus}` };
+        }
+    }
+    if (parentStatus !== 'FINISHED') {
+        return { ok: false, code: 'carousel-parent-timeout', message: `Parent still ${parentStatus ?? 'unknown'} after 60s.` };
+    }
+    const pubParams = new URLSearchParams({ creation_id: parentId, access_token: IG_GRAPH_TOKEN });
+    const pubRes = await fetch(`${GRAPH_BASE}/${META_IG_USER_ID}/media_publish`, { method: 'POST', body: pubParams });
+    if (!pubRes.ok) {
+        const body = (await pubRes.json().catch(() => ({})));
+        return { ok: false, code: 'publish-failed', message: body?.error?.message ?? `Graph ${pubRes.status}` };
+    }
+    const pub = await pubRes.json();
+    const postId = pub?.id;
+    if (!postId)
+        return { ok: false, code: 'no-post-id', message: 'Publish returned no id.' };
+    // Best-effort permalink fetch.
+    let permalink = null;
+    try {
+        const linkRes = await fetch(`${GRAPH_BASE}/${postId}?fields=permalink&access_token=${encodeURIComponent(IG_GRAPH_TOKEN)}`);
+        if (linkRes.ok) {
+            const link = await linkRes.json();
+            permalink = typeof link?.permalink === 'string' ? link.permalink : null;
+        }
+    }
+    catch { /* noop */ }
+    return { ok: true, mediaId: parentId, postId, permalink };
 }
 async function processDueDraft(draftId, draftData, actorEmail) {
     const draftRef = admin.firestore().doc(`marketing_drafts/${draftId}`);

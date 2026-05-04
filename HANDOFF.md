@@ -56,6 +56,88 @@ inbox — all without the admin ever logging into Meta.
   ie post-Phase 6).
 
 ### Last action
+**Studio Phase 4 — five-feature drop: carousels, mask inpainting,
+upload-your-own, logo overlay, and reuse-winners.**
+
+What shipped:
+- **Carousels (item 1)** — `studio.ts:generateStudioVariants` accepts
+  `mode: 'carousel'` + `variantCount` 3–5; each slide gets a
+  position-aware prompt prefix ("slide N of M (cover/supporting/
+  closing)") so the model varies composition while the shared style
+  preamble keeps visual coherence. `createStudioDraft` accepts an
+  `assets[]` array; `kind: 'carousel'` flips when length > 1.
+  `publisher.ts` adds `publishCarouselToInstagram` — three-stage Meta
+  flow (per-slide child containers → wait FINISHED → CAROUSEL parent →
+  publish). FB falls through to single-image (FB Page carousels need
+  the unpublished-photo + attached_media pattern, deferred). UI: new
+  Format toggle on Step 1 (Single image / Carousel), 3/5 slide picker,
+  carousel-aware Step 2 ("Use these N slides" instead of picking),
+  horizontal slide preview on Step 3 + drafts slide-over.
+
+- **Mask inpainting (item 5)** — `editStudioImage` callable accepts an
+  optional `maskDataUrl`; passes through to `openaiImageEdit` (which
+  already supported `maskBuf`). Web-only `MaskBrush` component in
+  `create.tsx`: dual-canvas brush (visible purple feedback overlay +
+  off-screen opaque-where-kept mask), pointer events, 4 brush sizes,
+  Clear/Use buttons. Admin clicks "🖌 Brush a region" in the edit
+  panel → paints → "Use this mask" → next "Apply masked edit" only
+  repaints the brushed region. Native gracefully no-ops the toggle.
+
+- **Upload your own (item 4)** — new `uploadStudioImage` callable
+  accepts a base64 data URL (PNG/JPG/WEBP, ≤8 MB), validates MIME,
+  stores under `marketing/studio/uploads/`. Web-only file input on
+  Studio Step 1 ("OR Use your own photo"), bypasses AI entirely (no
+  cost). Native gracefully hides.
+
+- **Logo overlay (item 3)** — new `composeStudioLogo` callable.
+  Satori + Resvg compose: full-bleed picked image + brand logo at the
+  chosen corner (top-left / top-right / bottom-left / bottom-right),
+  140 px @ 56 px padding. Single-image only (carousel per-slide logo
+  is a future enhancement). Step 3 has a 4-corner picker card; click
+  swaps the picked variant in-place with the composed PNG. No API cost.
+
+- **Reuse winners (item 2)** — new `fetchTopPerformingDraft()` reads
+  marketing_drafts where status=posted in last 30d, ranks by
+  computed engagement-rate (IG + FB combined, ≥30 reach floor),
+  returns the winner. Studio Step 1 surfaces a green "♻ Reuse a
+  winning prompt" chip with the winning headline + ER%; click to
+  populate the textarea. Silent when no draft has cleared the noise
+  floor — honest empty state.
+
+Why this matters:
+- Carousels triple-to-quadruple IG engagement vs single posts; this
+  closes the biggest content-format gap.
+- Mask brush gives surgical control over edits ("repaint just this
+  background") without re-rolling the whole frame, dropping wasted
+  generations.
+- Upload + logo overlay cover the "non-AI workflow" admin reach for
+  product shots and real photos with brand watermark — without paying
+  AI costs.
+- Reuse winners visually closes the M5 feedback loop the analytics
+  layer set up — admin sees what worked + can riff.
+
+Browser-verified in dev preview:
+- Studio Step 1 renders cleanly with all new affordances visible:
+  Format toggle, Quality picker, cost estimate, Generate CTA, OR
+  divider, Upload-image button. ✓
+- Health chip top-right correctly shows "checking…" pre-probe state.
+- TypeScript clean across root + functions.
+- Carousel + mask brush full functional verification needs a real
+  Firebase session + image gen — not exercised in dev preview.
+
+Outstanding:
+- FB Page carousel publish — deferred (uses unpublished-photo +
+  attached_media pattern, ~80 LOC).
+- Per-slide logo overlay on carousels — deferred (single-image only
+  for now).
+- LoRA training pipeline (Phase 5+) — biggest visual-consistency leap
+  but operational (Replicate training run + ~30 min wait + endpoint
+  swap).
+- Webhook signature mystery still open — `META_WEBHOOK_PERMISSIVE=1`
+  active. User to copy current App Secret from Meta Dashboard, paste
+  into `functions/.env`, flip permissive=0, redeploy.
+
+### Earlier this session
 **Triple-feature drop — daily-cron style lock + drag-to-reschedule on the
 Calendar + first-touch attribution capture & bio-link UTM builder.**
 

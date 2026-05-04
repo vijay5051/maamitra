@@ -18,9 +18,14 @@ interface StudioVariant {
 
 export interface GenerateStudioVariantsInput {
   prompt: string;
-  variantCount?: 1 | 2 | 3 | 4;
+  /** Single mode: 1–4 picker variants. Carousel mode: 3–5 slides. */
+  variantCount?: 1 | 2 | 3 | 4 | 5;
   model?: 'imagen' | 'flux';
   aspectRatio?: '1:1' | '9:16' | '16:9';
+  /** When 'carousel', each slide gets a position-aware prompt prefix
+   *  ("slide 1 of N (cover)", etc.) and the result becomes the carousel
+   *  slides directly — no picking. */
+  mode?: 'single' | 'carousel';
 }
 
 export type GenerateStudioVariantsResult =
@@ -45,8 +50,11 @@ export async function generateStudioVariants(
 
 export interface CreateStudioDraftInput {
   prompt: string;
-  imageUrl: string;
-  imageStoragePath: string;
+  /** Single-image flow — pass these. */
+  imageUrl?: string;
+  imageStoragePath?: string;
+  /** Carousel flow — pass these instead. Length 2–10. */
+  assets?: { url: string; storagePath: string }[];
   caption?: string;
   scheduledAt?: string | null;
 }
@@ -75,6 +83,9 @@ export interface EditStudioImageInput {
   imageStoragePath: string;
   prompt: string;
   quality?: 'medium' | 'high';
+  /** Phase 4 item 5 — optional brush mask. Transparent pixels mark the
+   *  region to repaint. data:image/png;base64,... */
+  maskDataUrl?: string;
 }
 
 export type EditStudioImageResult =
@@ -88,6 +99,59 @@ export async function editStudioImage(
   const fn = httpsCallable<EditStudioImageInput, EditStudioImageResult>(
     getFunctions(app),
     'editStudioImage',
+  );
+  try {
+    const r = await fn(input);
+    return r.data;
+  } catch (e: any) {
+    return { ok: false, code: e?.code ?? 'callable-failed', message: e?.message ?? String(e) };
+  }
+}
+
+export interface UploadStudioImageInput {
+  /** data:<mime>;base64,<…> URL — built by FileReader.readAsDataURL on web. */
+  dataUrl: string;
+}
+
+export type UploadStudioImageResult =
+  | { ok: true; variantId: string; url: string; storagePath: string }
+  | { ok: false; code: string; message: string };
+
+export async function uploadStudioImage(
+  input: UploadStudioImageInput,
+): Promise<UploadStudioImageResult> {
+  if (!app) return { ok: false, code: 'no-firebase', message: 'Not connected.' };
+  const fn = httpsCallable<UploadStudioImageInput, UploadStudioImageResult>(
+    getFunctions(app),
+    'uploadStudioImage',
+  );
+  try {
+    const r = await fn(input);
+    return r.data;
+  } catch (e: any) {
+    return { ok: false, code: e?.code ?? 'callable-failed', message: e?.message ?? String(e) };
+  }
+}
+
+export type LogoPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+
+export interface ComposeStudioLogoInput {
+  imageStoragePath: string;
+  position?: LogoPosition;
+  logoSize?: number;
+}
+
+export type ComposeStudioLogoResult =
+  | { ok: true; variantId: string; url: string; storagePath: string }
+  | { ok: false; code: string; message: string };
+
+export async function composeStudioLogo(
+  input: ComposeStudioLogoInput,
+): Promise<ComposeStudioLogoResult> {
+  if (!app) return { ok: false, code: 'no-firebase', message: 'Not connected.' };
+  const fn = httpsCallable<ComposeStudioLogoInput, ComposeStudioLogoResult>(
+    getFunctions(app),
+    'composeStudioLogo',
   );
   try {
     const r = await fn(input);

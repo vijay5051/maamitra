@@ -154,6 +154,73 @@ export async function deleteDraft(
   await logAdminAction(actor, 'marketing.draft.delete', { docId: id });
 }
 
+// ── Top-performer lookup (Studio Phase 4 "Reuse winners") ─────────────────
+// Returns the highest-engagement-rate posted draft from the last 30 days
+// alongside computed engagement-rate so the Studio canvas can surface it as
+// a "♻ Reuse winning prompt" affordance. Closes the M5 feedback loop
+// visually: admin sees what worked + can riff on it.
+
+export interface TopPerformingDraft {
+  draftId: string;
+  headline: string | null;
+  imagePrompt: string | null;
+  caption: string;
+  engagementRate: number;
+  reach: number;
+  postedAt: string | null;
+  /** Combined IG + FB engagement count (likes + comments + shares + saves). */
+  engagement: number;
+}
+
+export async function fetchTopPerformingDraft(): Promise<TopPerformingDraft | null> {
+  if (!db) return null;
+  try {
+    const { collection, getDocs, limit, orderBy, query, where, Timestamp } = await import('firebase/firestore');
+    const cutoff = new Date(Date.now() - 30 * 24 * 3600 * 1000);
+    // Take a window of recent posted drafts (50) and rank in JS — Firestore
+    // can't rank by computed engagementRate without a precomputed field.
+    const q = query(
+      collection(db, 'marketing_drafts'),
+      where('status', '==', 'posted'),
+      where('postedAt', '>=', cutoff.toISOString()),
+      orderBy('postedAt', 'desc'),
+      limit(50),
+    );
+    const snap = await getDocs(q);
+    let best: TopPerformingDraft | null = null;
+    snap.forEach((d) => {
+      const data = d.data() as any;
+      if (data?.isSynthetic === true) return;
+      const ig = data?.latestInsights ?? {};
+      const fb = data?.latestFbInsights ?? {};
+      const reach = (Number(ig?.reach) || 0) + (Number(fb?.reach) || 0);
+      if (reach < 30) return; // need real signal — single-digit reach is noise.
+      const eng =
+        (Number(ig?.likes) || 0) + (Number(ig?.comments) || 0) + (Number(ig?.shares) || 0) + (Number(ig?.saved) || 0) +
+        (Number(fb?.likes) || 0) + (Number(fb?.comments) || 0) + (Number(fb?.shares) || 0);
+      const rate = reach > 0 ? eng / reach : 0;
+      if (!best || rate > best.engagementRate) {
+        const ts = data?.postedAt;
+        best = {
+          draftId: d.id,
+          headline: typeof data?.headline === 'string' ? data.headline : null,
+          imagePrompt: typeof data?.imagePrompt === 'string' ? data.imagePrompt : null,
+          caption: typeof data?.caption === 'string' ? data.caption : '',
+          engagementRate: rate,
+          reach,
+          engagement: eng,
+          postedAt: ts?.toDate ? ts.toDate().toISOString() : (typeof ts === 'string' ? ts : null),
+        };
+      }
+    });
+    void Timestamp; // silence unused
+    return best;
+  } catch (e) {
+    console.warn('[fetchTopPerformingDraft] failed', e);
+    return null;
+  }
+}
+
 /** Schedule a draft for a specific time. ISO string in any TZ; admin enters
  *  IST via the picker, the input arrives normalised. Sets status='scheduled'
  *  so the calendar view renders it on its day. */

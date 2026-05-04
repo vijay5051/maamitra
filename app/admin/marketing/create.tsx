@@ -16,7 +16,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -33,10 +33,14 @@ import {
 import { Colors, FontSize, Radius, Shadow, Spacing } from '../../../constants/theme';
 import { friendlyError } from '../../../services/marketingErrors';
 import {
+  composeStudioLogo,
   createStudioDraft,
   editStudioImage,
   generateStudioVariants,
+  LogoPosition,
+  uploadStudioImage,
 } from '../../../services/marketingStudio';
+import { fetchTopPerformingDraft, TopPerformingDraft } from '../../../services/marketingDrafts';
 
 interface Variant {
   variantId: string;
@@ -61,7 +65,11 @@ export default function StudioCanvasScreen() {
   const [step, setStep] = useState<Step>(1);
   const [prompt, setPrompt] = useState(typeof params.prompt === 'string' ? params.prompt : '');
   const [quality, setQuality] = useState<Quality>('best');
-  const [variantCount] = useState<1 | 2 | 3 | 4>(4);
+  // Carousel mode (Phase 4 item 1) — when true, generate N slides instead
+  // of picker variants; no picking step, all slides go into the draft.
+  const [carouselMode, setCarouselMode] = useState(false);
+  const [slideCount, setSlideCount] = useState<3 | 5>(3);
+  const variantCount: 1 | 2 | 3 | 4 | 5 = carouselMode ? slideCount : 4;
 
   const [variants, setVariants] = useState<Variant[]>([]);
   const [generating, setGenerating] = useState(false);
@@ -79,6 +87,49 @@ export default function StudioCanvasScreen() {
   const [editing, setEditing] = useState(false);
   const [editPrompt, setEditPrompt] = useState('');
   const [editApplying, setEditApplying] = useState(false);
+  // Mask brush (Phase 4 item 5) — when set, the next "Apply edit" sends a
+  // mask alongside the prompt so OpenAI only repaints the brushed region.
+  const [maskDataUrl, setMaskDataUrl] = useState<string | null>(null);
+  const [brushOpen, setBrushOpen] = useState(false);
+
+  // Reuse-winners (Phase 4 item 2) — fetched once on mount when the
+  // Studio canvas opens; null = no winner yet (need a posted draft with
+  // ≥30 reach in the last 30d).
+  const [winner, setWinner] = useState<TopPerformingDraft | null>(null);
+  const [winnerLoaded, setWinnerLoaded] = useState(false);
+
+  // Logo overlay (Phase 4 item 3). When the admin toggles "Add brand logo"
+  // on Step 3, we replace the picked variant in-place with a server-composed
+  // image that has the brand logo in the chosen corner.
+  const [logoApplying, setLogoApplying] = useState(false);
+  const [logoApplied, setLogoApplied] = useState<LogoPosition | null>(null);
+
+  async function handleApplyLogo(position: LogoPosition) {
+    if (!picked || logoApplying) return;
+    setError(null);
+    setLogoApplying(true);
+    try {
+      const r = await composeStudioLogo({ imageStoragePath: picked.storagePath, position });
+      if (!r.ok) {
+        setError(friendlyError('Add logo', r));
+        return;
+      }
+      const newVariant: Variant = { variantId: r.variantId, url: r.url, storagePath: r.storagePath };
+      setVariants((prev) => prev.map((v) => (v.variantId === picked.variantId ? newVariant : v)));
+      setPickedId(newVariant.variantId);
+      setLogoApplied(position);
+      setOkBanner('Logo added.');
+      setTimeout(() => setOkBanner(null), 2000);
+    } catch (e) {
+      setError(friendlyError('Add logo', e));
+    } finally {
+      setLogoApplying(false);
+    }
+  }
+
+  useEffect(() => {
+    void fetchTopPerformingDraft().then((w) => { setWinner(w); setWinnerLoaded(true); });
+  }, []);
 
   const picked = useMemo(() => variants.find((v) => v.variantId === pickedId) ?? null, [variants, pickedId]);
   const estCost = QUALITY_INFO[quality].perVariantInr * variantCount;
@@ -99,6 +150,7 @@ export default function StudioCanvasScreen() {
         variantCount,
         model: QUALITY_INFO[quality].provider,
         aspectRatio: '1:1',
+        mode: carouselMode ? 'carousel' : 'single',
       });
       if (!r.ok) {
         setError(friendlyError('Generate', r));
@@ -106,7 +158,14 @@ export default function StudioCanvasScreen() {
       } else {
         setVariants(r.variants);
         if (r.failedCount > 0) {
-          setOkBanner(`${r.variants.length} of ${variantCount} variants made it. ${r.failedCount} skipped — try Generate again to fill in.`);
+          const noun = carouselMode ? 'slides' : 'variants';
+          setOkBanner(`${r.variants.length} of ${variantCount} ${noun} made it. ${r.failedCount} skipped — try Generate again to fill in.`);
+        }
+        // In carousel mode there's no picking — all slides go into the draft.
+        // Auto-select the first to satisfy the picked-required guards in
+        // Step 3, but the save path uses the full variants array.
+        if (carouselMode && r.variants.length > 0) {
+          setPickedId(r.variants[0].variantId);
         }
       }
     } catch (e) {
@@ -124,12 +183,16 @@ export default function StudioCanvasScreen() {
   function handleEnterEdit() {
     if (!picked) return;
     setEditPrompt('');
+    setMaskDataUrl(null);
+    setBrushOpen(false);
     setEditing(true);
   }
 
   function handleCancelEdit() {
     setEditing(false);
     setEditPrompt('');
+    setMaskDataUrl(null);
+    setBrushOpen(false);
   }
 
   async function handleApplyEdit() {
@@ -144,6 +207,7 @@ export default function StudioCanvasScreen() {
       const r = await editStudioImage({
         imageStoragePath: picked.storagePath,
         prompt: editPrompt.trim(),
+        maskDataUrl: maskDataUrl ?? undefined,
       });
       if (!r.ok) {
         setError(friendlyError('Edit', r));
@@ -156,12 +220,59 @@ export default function StudioCanvasScreen() {
       setPickedId(newVariant.variantId);
       setEditing(false);
       setEditPrompt('');
-      setOkBanner('Edited! ✨ Pick again or continue when you\'re happy.');
+      setMaskDataUrl(null);
+      setBrushOpen(false);
+      setOkBanner(maskDataUrl ? 'Brushed area edited! ✨' : 'Edited! ✨ Pick again or continue when you\'re happy.');
       setTimeout(() => setOkBanner(null), 3500);
     } catch (e) {
       setError(friendlyError('Edit', e));
     } finally {
       setEditApplying(false);
+    }
+  }
+
+  /** Upload-your-own (Phase 4 item 4). Web-only path: read the file as a
+   *  base64 data URL and POST through the studio callable. On success,
+   *  treat the uploaded image as the picked variant and skip Step 2's
+   *  AI-generation flow entirely (no AI cost, no prompt requirement). */
+  async function handleUpload(file: File) {
+    if (Platform.OS !== 'web') return;
+    if (file.size > 8 * 1024 * 1024) {
+      setError('File is larger than 8 MB. Compress or resize and try again.');
+      return;
+    }
+    setError(null);
+    setGenerating(true);
+    setStep(2);
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+        reader.onerror = () => reject(reader.error ?? new Error('file-read-failed'));
+        reader.readAsDataURL(file);
+      });
+      const r = await uploadStudioImage({ dataUrl });
+      if (!r.ok) {
+        setError(friendlyError('Upload', r));
+        setStep(1);
+        return;
+      }
+      const v: Variant = { variantId: r.variantId, url: r.url, storagePath: r.storagePath };
+      setVariants([v]);
+      setPickedId(v.variantId);
+      // Default the prompt from filename so caption gen has something to
+      // riff on if the admin didn't write anything.
+      if (!prompt.trim()) {
+        const niceName = file.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').slice(0, 200);
+        setPrompt(niceName || 'Uploaded image');
+      }
+      setOkBanner('Image uploaded! Pick "Use this image" to continue.');
+      setTimeout(() => setOkBanner(null), 3500);
+    } catch (e) {
+      setError(friendlyError('Upload', e));
+      setStep(1);
+    } finally {
+      setGenerating(false);
     }
   }
 
@@ -187,8 +298,10 @@ export default function StudioCanvasScreen() {
     try {
       const r = await createStudioDraft({
         prompt: prompt.trim(),
-        imageUrl: picked.url,
-        imageStoragePath: picked.storagePath,
+        // Carousel: send all slides as assets[]. Single: use the picked one.
+        ...(carouselMode && variants.length > 1
+          ? { assets: variants.map((v) => ({ url: v.url, storagePath: v.storagePath })) }
+          : { imageUrl: picked.url, imageStoragePath: picked.storagePath }),
         caption: caption.trim() || undefined,
         scheduledAt: asScheduled ? scheduleInputToIso(scheduleAt) : null,
       });
@@ -251,6 +364,18 @@ export default function StudioCanvasScreen() {
             estCost={estCost}
             onGenerate={handleGenerate}
             generating={generating}
+            winner={winner}
+            winnerLoaded={winnerLoaded}
+            onReuseWinner={() => {
+              if (!winner) return;
+              const next = winner.imagePrompt?.trim() || winner.headline?.trim() || '';
+              if (next) setPrompt(next);
+            }}
+            onUploadFile={handleUpload}
+            carouselMode={carouselMode}
+            setCarouselMode={setCarouselMode}
+            slideCount={slideCount}
+            setSlideCount={setSlideCount}
           />
         ) : step === 2 ? (
           <Step2Pick
@@ -271,6 +396,11 @@ export default function StudioCanvasScreen() {
             onEnterEdit={handleEnterEdit}
             onApplyEdit={handleApplyEdit}
             onCancelEdit={handleCancelEdit}
+            carouselMode={carouselMode}
+            maskDataUrl={maskDataUrl}
+            setMaskDataUrl={setMaskDataUrl}
+            brushOpen={brushOpen}
+            setBrushOpen={setBrushOpen}
           />
         ) : (
           <Step3Save
@@ -285,6 +415,11 @@ export default function StudioCanvasScreen() {
             onBack={() => setStep(2)}
             onSaveDraft={() => handleSave(false)}
             onSchedule={() => handleSave(true)}
+            logoApplying={logoApplying}
+            logoApplied={logoApplied}
+            onApplyLogo={handleApplyLogo}
+            carouselMode={carouselMode}
+            slides={variants}
           />
         )}
       </ScrollView>
@@ -296,17 +431,40 @@ export default function StudioCanvasScreen() {
 
 function Step1Prompt({
   prompt, setPrompt, quality, setQuality, estCost, onGenerate, generating,
+  winner, winnerLoaded, onReuseWinner, onUploadFile,
+  carouselMode, setCarouselMode, slideCount, setSlideCount,
 }: {
   prompt: string; setPrompt: (v: string) => void;
   quality: Quality; setQuality: (q: Quality) => void;
   estCost: number;
   onGenerate: () => void; generating: boolean;
+  winner: TopPerformingDraft | null;
+  winnerLoaded: boolean;
+  onReuseWinner: () => void;
+  /** Web-only — invoked when admin picks a file via the Upload button. */
+  onUploadFile: (file: File) => void;
+  carouselMode: boolean;
+  setCarouselMode: (v: boolean) => void;
+  slideCount: 3 | 5;
+  setSlideCount: (n: 3 | 5) => void;
 }) {
   const valid = prompt.trim().length >= 3;
+  // Only surface the chip when there's a real winner with a usable prompt
+  // — silence is honest when no posted draft has cleared the noise floor.
+  const showWinner = winnerLoaded && winner && (winner.imagePrompt || winner.headline);
   return (
     <View style={styles.card}>
       <Text style={styles.cardTitle}>What's this post about?</Text>
       <Text style={styles.cardHint}>Describe the scene or topic in 1-2 sentences. We'll keep it on-brand for you.</Text>
+      {showWinner ? (
+        <Pressable onPress={onReuseWinner} style={styles.winnerChip}>
+          <Ionicons name="trophy-outline" size={14} color={Colors.success} />
+          <Text style={styles.winnerLabel}>Reuse a winning prompt</Text>
+          <Text style={styles.winnerSub} numberOfLines={1}>
+            "{(winner!.headline || winner!.imagePrompt || '').slice(0, 50)}…" — {(winner!.engagementRate * 100).toFixed(1)}% ER
+          </Text>
+        </Pressable>
+      ) : null}
       <TextInput
         value={prompt}
         onChangeText={setPrompt}
@@ -318,6 +476,47 @@ function Step1Prompt({
         autoFocus
       />
       <Text style={styles.charCount}>{prompt.length} / 500</Text>
+
+      <Text style={[styles.cardTitle, { marginTop: Spacing.lg }]}>Format</Text>
+      <View style={styles.qualityRow}>
+        <Pressable
+          onPress={() => setCarouselMode(false)}
+          style={[styles.qualityCard, !carouselMode && styles.qualityCardSelected]}
+        >
+          <View style={styles.qualityHead}>
+            <Text style={[styles.qualityLabel, !carouselMode && { color: Colors.primary }]}>Single image</Text>
+            {!carouselMode ? <Ionicons name="checkmark-circle" size={16} color={Colors.primary} /> : null}
+          </View>
+          <Text style={styles.qualitySub}>4 variants — pick the best one.</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => setCarouselMode(true)}
+          style={[styles.qualityCard, carouselMode && styles.qualityCardSelected]}
+        >
+          <View style={styles.qualityHead}>
+            <Text style={[styles.qualityLabel, carouselMode && { color: Colors.primary }]}>Carousel</Text>
+            {carouselMode ? <Ionicons name="checkmark-circle" size={16} color={Colors.primary} /> : null}
+          </View>
+          <Text style={styles.qualitySub}>3–5 slides, on-brand. IG carousel post.</Text>
+        </Pressable>
+      </View>
+
+      {carouselMode ? (
+        <View style={[styles.qualityRow, { marginTop: Spacing.sm }]}>
+          {([3, 5] as const).map((n) => (
+            <Pressable
+              key={n}
+              onPress={() => setSlideCount(n)}
+              style={[styles.qualityCard, slideCount === n && styles.qualityCardSelected]}
+            >
+              <View style={styles.qualityHead}>
+                <Text style={[styles.qualityLabel, slideCount === n && { color: Colors.primary }]}>{n} slides</Text>
+                {slideCount === n ? <Ionicons name="checkmark-circle" size={16} color={Colors.primary} /> : null}
+              </View>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
 
       <Text style={[styles.cardTitle, { marginTop: Spacing.lg }]}>Quality</Text>
       <View style={styles.qualityRow}>
@@ -341,7 +540,9 @@ function Step1Prompt({
       </View>
 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.md, marginTop: Spacing.lg }}>
-        <Text style={styles.estCost}>≈ ₹{estCost.toFixed(2)} for 4 variants</Text>
+        <Text style={styles.estCost}>
+          ≈ ₹{estCost.toFixed(2)} for {carouselMode ? `${slideCount} slides` : '4 variants'}
+        </Text>
         <View style={{ flex: 1 }} />
         <Pressable
           onPress={valid && !generating ? onGenerate : undefined}
@@ -356,11 +557,60 @@ function Step1Prompt({
           ) : (
             <>
               <Ionicons name="sparkles" size={16} color={Colors.white} />
-              <Text style={styles.primaryBtnLabel}>Generate 4 variants</Text>
+              <Text style={styles.primaryBtnLabel}>
+                {carouselMode ? `Generate ${slideCount} slides` : 'Generate 4 variants'}
+              </Text>
             </>
           )}
         </Pressable>
       </View>
+
+      {Platform.OS === 'web' ? (
+        <View style={styles.uploadDivider}>
+          <View style={styles.uploadDividerLine} />
+          <Text style={styles.uploadDividerLabel}>OR</Text>
+          <View style={styles.uploadDividerLine} />
+        </View>
+      ) : null}
+
+      {Platform.OS === 'web' ? (
+        <View style={styles.uploadRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.cardTitle}>Use your own photo</Text>
+            <Text style={styles.cardHint}>PNG, JPG, or WEBP up to 8 MB. Skips AI generation — no cost.</Text>
+          </View>
+          {/* Hidden native file input + visible label that triggers it. */}
+          <label
+            htmlFor="studio-upload-input"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '10px 14px',
+              borderRadius: 10,
+              backgroundColor: Colors.cardBg,
+              border: `1px solid ${Colors.borderSoft}`,
+              color: Colors.textDark,
+              fontSize: FontSize.sm, fontWeight: 700,
+              cursor: generating ? 'not-allowed' : 'pointer',
+              opacity: generating ? 0.6 : 1,
+            }}
+          >
+            <Ionicons name="cloud-upload-outline" size={16} color={Colors.textDark} />
+            <span>Upload image</span>
+          </label>
+          <input
+            id="studio-upload-input"
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            disabled={generating}
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              const f = e.currentTarget.files?.[0];
+              if (f) onUploadFile(f);
+              e.currentTarget.value = '';
+            }}
+          />
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -370,6 +620,8 @@ function Step1Prompt({
 function Step2Pick({
   prompt, variants, variantCount, generating, pickedId, onPick, onEdit, onRetry, onContinue,
   picked, editing, editPrompt, setEditPrompt, editApplying, onEnterEdit, onApplyEdit, onCancelEdit,
+  carouselMode,
+  maskDataUrl, setMaskDataUrl, brushOpen, setBrushOpen,
 }: {
   prompt: string;
   variants: Variant[];
@@ -388,6 +640,14 @@ function Step2Pick({
   onEnterEdit: () => void;
   onApplyEdit: () => void;
   onCancelEdit: () => void;
+  /** When true, the variants ARE the carousel slides — no picking, no edit
+   *  panel, "Use these slides" advances. */
+  carouselMode: boolean;
+  /** Mask brush (Phase 4 item 5) — null = no mask (whole-frame edit). */
+  maskDataUrl: string | null;
+  setMaskDataUrl: (v: string | null) => void;
+  brushOpen: boolean;
+  setBrushOpen: (v: boolean) => void;
 }) {
   const slots = Array.from({ length: variantCount });
   return (
@@ -463,11 +723,12 @@ function Step2Pick({
           </View>
           <Text style={styles.editHint}>
             Describe what should change. We'll keep your brand style intact.
+            {maskDataUrl ? ' Brush mask is set — only the highlighted region will change.' : ''}
           </Text>
           <TextInput
             value={editPrompt}
             onChangeText={setEditPrompt}
-            placeholder="e.g. Change the background to soft pastel pink"
+            placeholder={maskDataUrl ? 'e.g. Replace this with a flowering plant' : 'e.g. Change the background to soft pastel pink'}
             placeholderTextColor={Colors.textMuted}
             style={styles.editInput}
             multiline
@@ -475,6 +736,40 @@ function Step2Pick({
             editable={!editApplying}
             autoFocus
           />
+
+          {/* Mask brush (Phase 4 item 5) — web-only canvas overlay. Native
+              admins still get the regular text-edit. */}
+          {Platform.OS === 'web' ? (
+            <View style={styles.maskRow}>
+              <Pressable
+                onPress={editApplying ? undefined : () => setBrushOpen(!brushOpen)}
+                disabled={editApplying}
+                style={[styles.ghostBtn, brushOpen && { borderColor: Colors.primary, backgroundColor: Colors.primarySoft }]}
+              >
+                <Ionicons name={maskDataUrl ? 'checkmark-circle' : 'cut-outline'} size={14} color={maskDataUrl ? Colors.success : Colors.textDark} />
+                <Text style={[styles.ghostBtnLabel, brushOpen && { color: Colors.primary }]}>{maskDataUrl ? 'Mask set — re-brush' : brushOpen ? 'Hide brush' : 'Brush a region'}</Text>
+              </Pressable>
+              {maskDataUrl ? (
+                <Pressable onPress={() => setMaskDataUrl(null)} style={styles.ghostBtn}>
+                  <Ionicons name="close" size={14} color={Colors.error} />
+                  <Text style={[styles.ghostBtnLabel, { color: Colors.error }]}>Clear mask</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ) : null}
+
+          {brushOpen && Platform.OS === 'web' && picked ? (
+            <MaskBrush
+              imageUrl={picked.url}
+              disabled={editApplying}
+              onMaskReady={(dataUrl) => {
+                setMaskDataUrl(dataUrl);
+                setBrushOpen(false);
+              }}
+              onCancel={() => setBrushOpen(false)}
+            />
+          ) : null}
+
           <View style={styles.editActions}>
             <Pressable onPress={onCancelEdit} disabled={editApplying} style={styles.ghostBtn}>
               <Text style={styles.ghostBtnLabel}>Cancel</Text>
@@ -493,7 +788,7 @@ function Step2Pick({
               ) : (
                 <>
                   <Ionicons name="sparkles" size={14} color={Colors.white} />
-                  <Text style={styles.primaryBtnLabel}>Apply edit</Text>
+                  <Text style={styles.primaryBtnLabel}>{maskDataUrl ? 'Apply masked edit' : 'Apply edit'}</Text>
                 </>
               )}
             </Pressable>
@@ -508,7 +803,7 @@ function Step2Pick({
             <Ionicons name="refresh" size={16} color={Colors.textDark} />
             <Text style={styles.ghostBtnLabel}>Try again</Text>
           </Pressable>
-          {pickedId ? (
+          {pickedId && !carouselMode ? (
             <Pressable onPress={onEnterEdit} style={styles.ghostBtn}>
               <Ionicons name="brush-outline" size={16} color={Colors.textDark} />
               <Text style={styles.ghostBtnLabel}>Edit it first</Text>
@@ -516,11 +811,15 @@ function Step2Pick({
           ) : null}
           <View style={{ flex: 1 }} />
           <Pressable
-            onPress={pickedId ? onContinue : undefined}
-            disabled={!pickedId}
-            style={[styles.primaryBtn, !pickedId && styles.primaryBtnDisabled]}
+            onPress={
+              carouselMode
+                ? (variants.length >= 2 ? onContinue : undefined)
+                : (pickedId ? onContinue : undefined)
+            }
+            disabled={carouselMode ? variants.length < 2 : !pickedId}
+            style={[styles.primaryBtn, (carouselMode ? variants.length < 2 : !pickedId) && styles.primaryBtnDisabled]}
           >
-            <Text style={styles.primaryBtnLabel}>Use this image</Text>
+            <Text style={styles.primaryBtnLabel}>{carouselMode ? `Use these ${variants.length} slides` : 'Use this image'}</Text>
             <Ionicons name="arrow-forward" size={16} color={Colors.white} />
           </Pressable>
         </View>
@@ -534,6 +833,8 @@ function Step2Pick({
 function Step3Save({
   prompt, picked, caption, setCaption, captionGenerating, scheduleAt, setScheduleAt,
   saving, onBack, onSaveDraft, onSchedule,
+  logoApplying, logoApplied, onApplyLogo,
+  carouselMode, slides,
 }: {
   prompt: string;
   picked: Variant | null;
@@ -544,6 +845,11 @@ function Step3Save({
   onBack: () => void;
   onSaveDraft: () => void;
   onSchedule: () => void;
+  logoApplying: boolean;
+  logoApplied: LogoPosition | null;
+  onApplyLogo: (position: LogoPosition) => void;
+  carouselMode: boolean;
+  slides: Variant[];
 }) {
   if (!picked) {
     return (
@@ -555,12 +861,73 @@ function Step3Save({
   return (
     <View style={[styles.savePane, { flexDirection: 'column' }]}>
       <View style={styles.savePreview}>
-        <Image source={{ uri: picked.url }} style={styles.savePreviewImage} resizeMode="cover" />
+        {carouselMode && slides.length > 1 ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 8 }}
+            style={{ flexGrow: 0, alignSelf: 'stretch' }}
+          >
+            {slides.map((s, i) => (
+              <View key={s.variantId} style={styles.carouselSlideWrap}>
+                <Image source={{ uri: s.url }} style={styles.carouselSlide} resizeMode="cover" />
+                <View style={styles.carouselSlideBadge}>
+                  <Text style={styles.carouselSlideBadgeLabel}>{i + 1}/{slides.length}</Text>
+                </View>
+              </View>
+            ))}
+          </ScrollView>
+        ) : (
+          <View style={{ position: 'relative' }}>
+            <Image source={{ uri: picked.url }} style={styles.savePreviewImage} resizeMode="cover" />
+            {logoApplying ? (
+              <View style={[StyleSheet.absoluteFillObject, styles.logoOverlay]}>
+                <ActivityIndicator size="small" color={Colors.white} />
+                <Text style={styles.logoOverlayText}>Adding logo…</Text>
+              </View>
+            ) : null}
+          </View>
+        )}
         <Pressable onPress={onBack} style={styles.changePickBtn}>
           <Ionicons name="swap-horizontal" size={14} color={Colors.primary} />
-          <Text style={styles.changePickLabel}>Change image</Text>
+          <Text style={styles.changePickLabel}>{carouselMode ? 'Change slides' : 'Change image'}</Text>
         </Pressable>
       </View>
+
+      {/* Logo overlay only available for single-image drafts. Carousel
+          mode produces all slides at once; per-slide logo placement is a
+          larger feature — defer to a future Phase. */}
+      {!carouselMode ? (
+      <View style={[styles.card, { gap: 8 }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Ionicons name="ribbon-outline" size={16} color={Colors.primary} />
+          <Text style={styles.cardTitle}>Add brand logo</Text>
+          {logoApplied ? (
+            <View style={styles.logoAppliedChip}>
+              <Ionicons name="checkmark" size={11} color={Colors.success} />
+              <Text style={styles.logoAppliedLabel}>{logoLabel(logoApplied)}</Text>
+            </View>
+          ) : null}
+        </View>
+        <Text style={styles.cardHint}>Optional — composites your brand logo into a corner. No AI cost.</Text>
+        <View style={styles.logoCornerRow}>
+          {(['top-left', 'top-right', 'bottom-left', 'bottom-right'] as LogoPosition[]).map((p) => {
+            const active = logoApplied === p;
+            return (
+              <Pressable
+                key={p}
+                onPress={logoApplying ? undefined : () => onApplyLogo(p)}
+                disabled={logoApplying}
+                style={[styles.logoCornerBtn, active && styles.logoCornerBtnActive, logoApplying && { opacity: 0.5 }]}
+              >
+                <View style={[styles.logoCornerCell, p === 'top-left' && styles.logoCellTL, p === 'top-right' && styles.logoCellTR, p === 'bottom-left' && styles.logoCellBL, p === 'bottom-right' && styles.logoCellBR]} />
+                <Text style={[styles.logoCornerLabel, active && { color: Colors.primary }]}>{logoLabel(p)}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+      ) : null}
 
       <View style={[styles.card, { gap: Spacing.md }]}>
         <View>
@@ -660,6 +1027,193 @@ function StepLine({ active }: { active: boolean }) {
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
+// ── Mask brush (Phase 4 item 5) ────────────────────────────────────────────
+// Web-only HTML canvas overlay that lets admin paint a region to repaint.
+// Two canvases: a visible overlay showing the brush trail in semi-transparent
+// purple, and an off-screen mask canvas accumulating an opaque-where-kept /
+// transparent-where-edit shape — exactly the format OpenAI's
+// /v1/images/edits expects.
+//
+// Native (iOS/Android) renders nothing — feature-gated above.
+const MASK_SIZE = 1024;
+
+function MaskBrush({
+  imageUrl, disabled, onMaskReady, onCancel,
+}: {
+  imageUrl: string;
+  disabled: boolean;
+  onMaskReady: (dataUrl: string) => void;
+  onCancel: () => void;
+}) {
+  const overlayRef = useRef<HTMLCanvasElement | null>(null);
+  const maskRef = useRef<HTMLCanvasElement | null>(null);
+  const drawingRef = useRef(false);
+  const lastPoint = useRef<{ x: number; y: number } | null>(null);
+  const [brushSize, setBrushSize] = useState(80);
+  const [hasStrokes, setHasStrokes] = useState(false);
+
+  // Initialise both canvases on mount: overlay starts transparent (no
+  // brushstrokes yet), mask starts fully opaque black (= keep everything).
+  useEffect(() => {
+    const overlay = overlayRef.current;
+    const mask = maskRef.current;
+    if (!overlay || !mask) return;
+    overlay.width = MASK_SIZE; overlay.height = MASK_SIZE;
+    mask.width = MASK_SIZE; mask.height = MASK_SIZE;
+    const mctx = mask.getContext('2d');
+    if (mctx) {
+      mctx.fillStyle = '#000';
+      mctx.fillRect(0, 0, MASK_SIZE, MASK_SIZE);
+    }
+    const octx = overlay.getContext('2d');
+    if (octx) octx.clearRect(0, 0, MASK_SIZE, MASK_SIZE);
+  }, []);
+
+  // Translate a CSS-pixel pointer event into canvas-pixel coords.
+  function toCanvas(e: React.PointerEvent<HTMLCanvasElement>): { x: number; y: number } {
+    const c = e.currentTarget;
+    const rect = c.getBoundingClientRect();
+    const sx = MASK_SIZE / rect.width;
+    const sy = MASK_SIZE / rect.height;
+    return { x: (e.clientX - rect.left) * sx, y: (e.clientY - rect.top) * sy };
+  }
+
+  function strokeBetween(a: { x: number; y: number }, b: { x: number; y: number }) {
+    const overlay = overlayRef.current;
+    const mask = maskRef.current;
+    if (!overlay || !mask) return;
+    const octx = overlay.getContext('2d');
+    const mctx = mask.getContext('2d');
+    if (!octx || !mctx) return;
+    // Overlay paint: semi-transparent purple to show what's brushed.
+    octx.globalCompositeOperation = 'source-over';
+    octx.strokeStyle = 'rgba(124, 58, 237, 0.55)';
+    octx.lineWidth = brushSize;
+    octx.lineCap = 'round';
+    octx.lineJoin = 'round';
+    octx.beginPath(); octx.moveTo(a.x, a.y); octx.lineTo(b.x, b.y); octx.stroke();
+    // Mask: same stroke, but composite mode 'destination-out' erases the
+    // opaque black so the region becomes transparent (= edit here).
+    mctx.globalCompositeOperation = 'destination-out';
+    mctx.strokeStyle = '#000';
+    mctx.lineWidth = brushSize;
+    mctx.lineCap = 'round';
+    mctx.lineJoin = 'round';
+    mctx.beginPath(); mctx.moveTo(a.x, a.y); mctx.lineTo(b.x, b.y); mctx.stroke();
+  }
+
+  function onPointerDown(e: React.PointerEvent<HTMLCanvasElement>) {
+    if (disabled) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    drawingRef.current = true;
+    const p = toCanvas(e);
+    lastPoint.current = p;
+    strokeBetween(p, p); // single-tap dot
+    setHasStrokes(true);
+  }
+  function onPointerMove(e: React.PointerEvent<HTMLCanvasElement>) {
+    if (!drawingRef.current || disabled) return;
+    const p = toCanvas(e);
+    const last = lastPoint.current ?? p;
+    strokeBetween(last, p);
+    lastPoint.current = p;
+  }
+  function onPointerUp(e: React.PointerEvent<HTMLCanvasElement>) {
+    drawingRef.current = false;
+    lastPoint.current = null;
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {/* noop */}
+  }
+
+  function clearStrokes() {
+    const overlay = overlayRef.current;
+    const mask = maskRef.current;
+    if (overlay) overlay.getContext('2d')?.clearRect(0, 0, MASK_SIZE, MASK_SIZE);
+    if (mask) {
+      const mctx = mask.getContext('2d');
+      if (mctx) {
+        mctx.globalCompositeOperation = 'source-over';
+        mctx.fillStyle = '#000';
+        mctx.fillRect(0, 0, MASK_SIZE, MASK_SIZE);
+      }
+    }
+    setHasStrokes(false);
+  }
+
+  function applyMask() {
+    if (!hasStrokes || !maskRef.current) return;
+    const url = maskRef.current.toDataURL('image/png');
+    if (typeof url === 'string' && url.startsWith('data:image/png')) {
+      onMaskReady(url);
+    }
+  }
+
+  return (
+    <View style={styles.brushPanel}>
+      <Text style={styles.editHint}>
+        Drag to paint the area you want repainted. Anything outside your strokes stays unchanged.
+      </Text>
+      <View style={styles.brushCanvasWrap}>
+        <img
+          src={imageUrl}
+          alt="Source"
+          style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', borderRadius: Radius.md, pointerEvents: 'none' }}
+          draggable={false}
+        />
+        <canvas
+          ref={overlayRef}
+          style={{
+            position: 'absolute', top: 0, left: 0, width: '100%', height: '100%',
+            borderRadius: Radius.md, touchAction: 'none', cursor: disabled ? 'not-allowed' : 'crosshair',
+          }}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerLeave={onPointerUp}
+        />
+        {/* Off-screen mask — never displayed; only used to export the PNG. */}
+        <canvas ref={maskRef} style={{ display: 'none' }} />
+      </View>
+      <View style={styles.brushControls}>
+        <Text style={styles.editHint}>Brush size:</Text>
+        {[40, 80, 140, 220].map((sz) => (
+          <Pressable
+            key={sz}
+            onPress={() => setBrushSize(sz)}
+            style={[styles.brushSizeBtn, brushSize === sz && styles.brushSizeBtnActive]}
+          >
+            <Text style={[styles.brushSizeLabel, brushSize === sz && { color: Colors.primary }]}>{sz}</Text>
+          </Pressable>
+        ))}
+        <View style={{ flex: 1 }} />
+        <Pressable onPress={clearStrokes} style={styles.ghostBtn} disabled={!hasStrokes || disabled}>
+          <Ionicons name="trash-outline" size={14} color={Colors.textDark} />
+          <Text style={styles.ghostBtnLabel}>Clear</Text>
+        </Pressable>
+        <Pressable onPress={onCancel} style={styles.ghostBtn} disabled={disabled}>
+          <Text style={styles.ghostBtnLabel}>Close</Text>
+        </Pressable>
+        <Pressable
+          onPress={applyMask}
+          disabled={!hasStrokes || disabled}
+          style={[styles.primaryBtn, (!hasStrokes || disabled) && styles.primaryBtnDisabled]}
+        >
+          <Ionicons name="checkmark" size={14} color={Colors.white} />
+          <Text style={styles.primaryBtnLabel}>Use this mask</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+function logoLabel(p: LogoPosition): string {
+  switch (p) {
+    case 'top-left':     return 'Top-left';
+    case 'top-right':    return 'Top-right';
+    case 'bottom-left':  return 'Bottom-left';
+    case 'bottom-right': return 'Bottom-right';
+  }
+}
+
 function scheduleInputToIso(input: string): string {
   // Treat the input string as IST (no timezone) → convert to UTC ISO.
   if (!input) return '';
@@ -730,6 +1284,103 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   charCount: { fontSize: 11, color: Colors.textMuted, textAlign: 'right' },
+
+  // Reuse-winners chip (Phase 4 item 2)
+  winnerChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 10, paddingVertical: 8,
+    backgroundColor: 'rgba(34,197,94,0.1)',
+    borderRadius: Radius.md,
+    borderWidth: 1, borderColor: Colors.success,
+    marginTop: 6,
+  },
+  winnerLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.success },
+  winnerSub: { flex: 1, fontSize: 11, color: Colors.textLight, fontStyle: 'italic' },
+
+  // Upload-your-own (Phase 4 item 4)
+  uploadDivider: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: Spacing.md },
+  uploadDividerLine: { flex: 1, height: 1, backgroundColor: Colors.borderSoft },
+  uploadDividerLabel: { fontSize: 10, fontWeight: '700', color: Colors.textMuted, letterSpacing: 1.2 },
+  uploadRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, marginTop: 4 },
+
+  // Logo overlay (Phase 4 item 3)
+  logoOverlay: {
+    backgroundColor: 'rgba(28, 16, 51, 0.55)',
+    alignItems: 'center', justifyContent: 'center',
+    gap: 6, borderRadius: Radius.lg,
+  },
+  logoOverlayText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.white },
+  logoAppliedChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999,
+    backgroundColor: 'rgba(34,197,94,0.12)',
+  },
+  logoAppliedLabel: { fontSize: 10, fontWeight: '700', color: Colors.success },
+  logoCornerRow: { flexDirection: 'row', gap: Spacing.sm, flexWrap: 'wrap' },
+  logoCornerBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 10, paddingVertical: 8,
+    borderWidth: 1, borderColor: Colors.borderSoft, borderRadius: Radius.md,
+    backgroundColor: Colors.cardBg,
+    minWidth: 130,
+  },
+  logoCornerBtnActive: { borderColor: Colors.primary, backgroundColor: Colors.primarySoft },
+  logoCornerCell: {
+    width: 22, height: 22, borderRadius: 4,
+    backgroundColor: Colors.bgLight,
+    borderWidth: 1, borderColor: Colors.borderSoft,
+    position: 'relative',
+  },
+  logoCellTL: { backgroundColor: Colors.primary },
+  logoCellTR: { backgroundColor: Colors.primary },
+  logoCellBL: { backgroundColor: Colors.primary },
+  logoCellBR: { backgroundColor: Colors.primary },
+  logoCornerLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textDark },
+
+  // Carousel preview (Phase 4 item 1)
+  carouselSlideWrap: {
+    width: 220,
+    aspectRatio: 1,
+    borderRadius: Radius.md,
+    overflow: 'hidden',
+    backgroundColor: Colors.bgTint,
+    position: 'relative',
+  },
+  carouselSlide: { width: '100%', height: '100%' },
+  carouselSlideBadge: {
+    position: 'absolute', top: 8, left: 8,
+    paddingHorizontal: 8, paddingVertical: 3,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 999,
+  },
+  carouselSlideBadgeLabel: { fontSize: 10, fontWeight: '800', color: Colors.white, letterSpacing: 0.4 },
+
+  // Mask brush (Phase 4 item 5)
+  maskRow: { flexDirection: 'row', gap: Spacing.sm, marginTop: 4, alignItems: 'center', flexWrap: 'wrap' },
+  brushPanel: {
+    backgroundColor: Colors.bgLight,
+    borderRadius: Radius.md,
+    padding: Spacing.sm,
+    gap: Spacing.sm,
+    borderWidth: 1, borderColor: Colors.borderSoft,
+  },
+  brushCanvasWrap: {
+    position: 'relative' as any,
+    aspectRatio: 1,
+    width: '100%',
+    backgroundColor: Colors.bgTint,
+    borderRadius: Radius.md,
+    overflow: 'hidden',
+  },
+  brushControls: { flexDirection: 'row', gap: 6, alignItems: 'center', flexWrap: 'wrap' },
+  brushSizeBtn: {
+    paddingHorizontal: 8, paddingVertical: 4,
+    borderRadius: Radius.sm,
+    borderWidth: 1, borderColor: Colors.borderSoft,
+    backgroundColor: Colors.cardBg,
+  },
+  brushSizeBtnActive: { borderColor: Colors.primary, backgroundColor: Colors.primarySoft },
+  brushSizeLabel: { fontSize: 11, fontWeight: '700', color: Colors.textDark },
 
   qualityRow: { flexDirection: 'row', gap: Spacing.sm, marginTop: 8 },
   qualityCard: {

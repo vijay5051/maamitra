@@ -25,6 +25,8 @@ import {
   buildCreateStudioDraft,
   buildDailyMarketingDraftCron,
   buildEditStudioImage,
+  buildUploadStudioImage,
+  buildComposeStudioLogo,
   buildGenerateInboxReplies,
   buildGenerateMarketingDraft,
   buildGenerateStudioVariants,
@@ -1418,6 +1420,17 @@ export const createStudioDraft = buildCreateStudioDraft(ADMIN_EMAILS);
 // the new image, returns the new URL. Caller (the canvas) replaces the
 // picked variant with this one.
 export const editStudioImage = buildEditStudioImage(ADMIN_EMAILS);
+
+// Studio v2 Phase 4 — upload-your-own (no AI cost). Admin sends a base64
+// data URL; we decode + validate + store under marketing/studio/uploads/
+// and return the public URL so the rest of the Studio flow treats it like
+// any AI-generated variant.
+export const uploadStudioImage = buildUploadStudioImage(ADMIN_EMAILS);
+
+// Studio v2 Phase 4 — logo overlay (no API cost). Composites the brand
+// logo onto a picked Studio image via Satori + Resvg at one of the four
+// corners. Returns a new Storage URL/path for the composed PNG.
+export const composeStudioLogo = buildComposeStudioLogo(ADMIN_EMAILS);
 
 // Connection health probe — refreshes marketing_health/main with live IG +
 // FB token validity. Hourly cron keeps the admin shell's IG/FB dots honest;

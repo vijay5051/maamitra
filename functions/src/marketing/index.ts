@@ -38,7 +38,13 @@ export {
 } from './insights';
 export { buildRenderUgcAsDraft } from './ugc';
 export { buildBoostMarketingDraft } from './boost';
-export { buildGenerateStudioVariants, buildCreateStudioDraft, buildEditStudioImage } from './studio';
+export {
+  buildGenerateStudioVariants,
+  buildCreateStudioDraft,
+  buildEditStudioImage,
+  buildUploadStudioImage,
+  buildComposeStudioLogo,
+} from './studio';
 export { buildProbeMarketingHealth, buildProbeMarketingHealthNow } from './health';
 
 // firebase-admin is initialized in functions/src/index.ts before this module
