@@ -1077,27 +1077,55 @@ Each milestone is shippable + end-to-end testable.
 - **M5 — Performance + growth.** Per-post analytics, weekly insight
   digest, feedback loop, UGC pipeline, attribution.
 
+### Last action (2026-05-04) — Integration Hub deployed
+
+**Integration Hub** (`/admin/integrations`) is now live in production.
+
+What shipped:
+- `app/admin/integrations.tsx` — world-class admin page with 13 integration
+  definitions (AI, Social, Infra, Build), health summary banner, per-card
+  live credential fields with reveal/copy/edit, numbered setup playbooks,
+  architecture accordion (7 sections explaining how every part connects).
+- `functions/src/integrations.ts` — two new Cloud Functions:
+  - `checkIntegrationHealth` — probes OpenAI, Gemini, Replicate, Pexels,
+    IG Graph, FB Graph, Anthropic Worker in parallel and returns latency +
+    status for each.
+  - `updateIntegrationConfig` — admin-only callable to persist credentials
+    to `app_settings/integrations` Firestore doc.
+- `functions/src/lib/integrationConfig.ts` — Firestore-first config reader
+  with 5-min in-process cache + process.env fallback; all 7 marketing
+  functions now read API keys through this instead of bare module-level
+  `process.env` reads (key baking at cold-start eliminated).
+- `services/integrations.ts` — client wrappers for read/write/health.
+- `firestore.rules` — `app_settings/integrations` locked to admin-only read.
+- `components/admin/ui/AdminShell.tsx` — "Integrations" nav entry under
+  Settings group (icon: `link-outline`, cap: `edit_settings`, fresh badge).
+- `.claude/CLAUDE.md` — Rule 7: worktree .env symlink must be verified on
+  every session start.
+
+All Cloud Functions deployed + web hosting deployed + OTA published
+(update group `938f2097-eb08-4886-af46-3ca616a331a3`, runtime 1.0.5).
+
 ### Next step
 
-Marketing system is feature-complete for IG **and FB Page**, including
-UGC + Boost. Two doors:
+No active coding task. Two options:
 
-1. **Stress-test it** — generate / approve / publish (IG+FB) / inbox /
-   reply / inject UGC / boost — for 1-2 weeks. Watch analytics +
-   feedback loop improve content quality. No more code; just usage.
-   Note: per-post FB Insights take ~6h to populate after publish (the
-   poll cron interval); FB account-level snapshot is daily at 03:00 IST.
-2. **M6b — UTM attribution + Boost env config** — small (~150 LOC):
-   user adds META_AD_ACCOUNT_ID + META_FB_PAGE_ID to .env so
-   boost actually fires. UTM params on outbound bio URLs + web-app
-   first-visit capture → install attribution per post.
+1. **Stress-test the marketing system** — generate / approve / publish
+   (IG+FB) / inbox / reply / inject UGC / boost — for 1-2 weeks. Watch
+   analytics + feedback loop improve content quality.
+2. **M6b — UTM attribution + Boost env config** — user adds
+   META_AD_ACCOUNT_ID + META_FB_PAGE_ID to .env so boost fires. UTM
+   params on outbound bio URLs + web-app first-visit capture.
 
-Resolve before next session if you want strict webhook signing back on:
-- App Secret mismatch — Meta is signing webhook payloads with a secret
-  that doesn't match `META_APP_SECRET` in functions/.env (currently
-  permissive mode is on). User to copy current App Secret from Meta
-  Dashboard → Settings → Basic, paste into env, flip
-  `META_WEBHOOK_PERMISSIVE=0`, redeploy `metaWebhookReceiver`.
+Integration Hub: visit `/admin/integrations`, click "Test" on any card
+to run a live health probe. Set credentials via the "Edit" field
+on each card — they save to Firestore immediately; no redeploy needed.
+
+Resolve if you want strict webhook signing:
+- App Secret mismatch — `META_WEBHOOK_PERMISSIVE=1` still active.
+  User to copy current App Secret from Meta Dashboard → Settings → Basic,
+  paste into `functions/.env`, flip `META_WEBHOOK_PERMISSIVE=0`,
+  redeploy `metaWebhookReceiver`.
 
 After those three small follow-ups, the marketing system is
 genuinely complete. Anything beyond is product feature work
@@ -1176,15 +1204,17 @@ Publish/Unpublish toggle in form footer. `services/whatsNew.ts` +
 - `app/admin/support.tsx`: "AI draft" button proposes a reply.
 
 ## Deployed to prod
-Latest deploy: 2026-05-03.
+Latest deploy: 2026-05-04.
 - **Firestore rules**: includes /app_config, /crisis_queue,
   /admin_segments, /admin_roles, /consent_ledger, content
-  draft-gate.
+  draft-gate, /app_settings/integrations (admin-only read).
+- **Cloud Functions**: `checkIntegrationHealth` + `updateIntegrationConfig`
+  created; all 7 marketing functions updated to use Firestore-first config.
 - **Web hosting**: https://maa-mitra-7kird8.web.app +
   https://maamitra.co.in
 - **Android/iOS OTA**: latest update group
-  `5323e6ff-c70a-44ac-85c2-758e8fbbe282`, runtime 1.0.5, message
-  "waves 7+8".
+  `938f2097-eb08-4886-af46-3ca616a331a3`, runtime 1.0.5, message
+  "Integration Hub compiled outputs".
 
 ## Open follow-ups (not blocking; pick when ready)
 
