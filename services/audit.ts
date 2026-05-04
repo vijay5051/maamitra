@@ -74,7 +74,9 @@ export type AdminAction =
   | 'marketing.connection.connect'
   | 'marketing.connection.disconnect'
   | 'marketing.inbox.reply'
-  | 'marketing.inbox.archive';
+  | 'marketing.inbox.archive'
+  // Integration Hub — API key rotation
+  | 'integration.update';
 
 export interface AuditTarget {
   /** Most actions target a user (uid). May be empty for global actions. */

@@ -19,6 +19,7 @@ import * as functions from 'firebase-functions/v1';
 import * as admin from 'firebase-admin';
 import textToSpeech from '@google-cloud/text-to-speech';
 
+import { buildCheckIntegrationHealth, buildUpdateIntegrationConfig } from './integrations';
 import {
   buildBoostMarketingDraft,
   buildClassifyInboxThread,
@@ -1437,3 +1438,12 @@ export const composeStudioLogo = buildComposeStudioLogo(ADMIN_EMAILS);
 // the callable backs the "Re-check now" button in Settings.
 export const probeMarketingHealth = buildProbeMarketingHealth();
 export const probeMarketingHealthNow = buildProbeMarketingHealthNow(ADMIN_EMAILS);
+
+// Integration Hub — admin-callable health check + config updater.
+// checkIntegrationHealth probes every external API (OpenAI, Gemini,
+// Replicate, Pexels, Meta IG, Meta FB, Anthropic Worker) and returns
+// live per-service status. updateIntegrationConfig merges a patch object
+// into app_settings/integrations and invalidates the in-process cache so
+// functions pick up new keys within 5 minutes.
+export const checkIntegrationHealth = buildCheckIntegrationHealth(ADMIN_EMAILS);
+export const updateIntegrationConfig = buildUpdateIntegrationConfig(ADMIN_EMAILS);

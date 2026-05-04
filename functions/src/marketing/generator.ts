@@ -22,8 +22,7 @@ import * as functions from 'firebase-functions/v1';
 import { fluxSchnell, imagenGenerate, openaiImage, pexelsSearch } from './imageSources';
 import { renderTemplate } from './renderer';
 import { BrandSnapshot } from './templates';
-
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY ?? '';
+import { getIntegrationConfig } from '../lib/integrationConfig';
 
 interface GenerateInput {
   personaId?: unknown;
@@ -340,7 +339,8 @@ interface CaptionOutput {
 }
 
 async function generateCaption(brand: BrandKitData, slot: PickedSlot, stats: PerfStats): Promise<CaptionOutput> {
-  if (!OPENAI_API_KEY) throw new Error('OPENAI_API_KEY not set in functions/.env');
+  const cfg = await getIntegrationConfig();
+  if (!cfg.openai.apiKey) throw new Error('openai.apiKey not set — configure it in the Integration Hub');
 
   const localeInstruction =
     brand.voice.bilingual === 'english_only'
@@ -430,7 +430,7 @@ async function generateCaption(brand: BrandKitData, slot: PickedSlot, stats: Per
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${OPENAI_API_KEY}`,
+      Authorization: `Bearer ${cfg.openai.apiKey}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({

@@ -374,6 +374,13 @@ service cloud.firestore {
     // Read open to all signed-in users so the banner + feature flags + theme
     // hydrate on app open. Write is admin-gated; manage_banner role gets in
     // through the same rule because content-editor needs banner access.
+    //
+    // Exception: app_settings/integrations contains live API keys and is
+    // restricted to admin-only read so keys never leak to regular users.
+    match /app_settings/integrations {
+      allow read:  if isAdmin();
+      allow write: if isAdmin();
+    }
     match /app_settings/{docId} {
       allow read:  if isSignedIn();
       allow write: if isAdmin();

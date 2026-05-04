@@ -18,20 +18,21 @@ import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions/v1';
 
 import { getFbPagePat } from './publisher';
+import { getIntegrationConfig } from '../lib/integrationConfig';
 
-const META_IG_USER_ID = process.env.META_IG_USER_ID ?? '';
-const META_IG_ACCESS_TOKEN = process.env.META_IG_ACCESS_TOKEN ?? '';
-const META_FB_PAGE_ID = process.env.META_FB_PAGE_ID ?? '';
-const META_FB_PAGE_ACCESS_TOKEN = process.env.META_FB_PAGE_ACCESS_TOKEN ?? '';
-
-// Same heuristic as insights.ts — Page tokens (EAA-prefixed) work for IG
-// nodes too; older IGAATY-style Instagram-Login tokens do not.
-const IG_GRAPH_TOKEN =
-  (META_FB_PAGE_ACCESS_TOKEN && META_FB_PAGE_ACCESS_TOKEN.startsWith('EAA'))
-    ? META_FB_PAGE_ACCESS_TOKEN
-    : META_IG_ACCESS_TOKEN;
-const FB_CONFIGURED = !!META_FB_PAGE_ID && !!META_FB_PAGE_ACCESS_TOKEN;
 const GRAPH_BASE = 'https://graph.facebook.com/v21.0';
+
+async function getHealthVars() {
+  const cfg = await getIntegrationConfig();
+  const fbPAT = cfg.meta.fbPageAccessToken;
+  return {
+    META_IG_USER_ID: cfg.meta.igUserId,
+    META_FB_PAGE_ID: cfg.meta.fbPageId,
+    META_FB_PAGE_ACCESS_TOKEN: fbPAT,
+    IG_GRAPH_TOKEN: (fbPAT && fbPAT.startsWith('EAA')) ? fbPAT : cfg.meta.igAccessToken,
+    FB_CONFIGURED: !!cfg.meta.fbPageId && !!fbPAT,
+  };
+}
 
 interface ChannelProbeResult {
   ok: boolean;
@@ -72,6 +73,7 @@ function noTokenResult(): ChannelProbeResult {
 }
 
 async function probeIg(): Promise<ChannelProbeResult> {
+  const { IG_GRAPH_TOKEN, META_IG_USER_ID } = await getHealthVars();
   if (!IG_GRAPH_TOKEN || !META_IG_USER_ID) return noTokenResult();
   try {
     const url = `${GRAPH_BASE}/${META_IG_USER_ID}?fields=id,username&access_token=${encodeURIComponent(IG_GRAPH_TOKEN)}`;
@@ -111,6 +113,7 @@ async function probeIg(): Promise<ChannelProbeResult> {
 }
 
 async function probeFb(): Promise<ChannelProbeResult> {
+  const { FB_CONFIGURED, META_FB_PAGE_ID } = await getHealthVars();
   if (!FB_CONFIGURED) return noTokenResult();
   let pat: string;
   try {

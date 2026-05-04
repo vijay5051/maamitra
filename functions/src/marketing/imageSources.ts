@@ -16,16 +16,11 @@
 // Satori loader fetches both transparently. Adapters never throw — they
 // return null on any failure so the caller can fall back.
 //
-// Secrets (all in functions/.env):
-//   PEXELS_API_KEY      — Pexels developer key (free)
-//   REPLICATE_API_TOKEN — Replicate token (paid)
-//   GEMINI_API_KEY      — Google AI Studio key for Imagen (paid)
-//   OPENAI_API_KEY      — OpenAI key for gpt-image-1 (paid, org-verified)
+// Secrets: read at request time via getIntegrationConfig() (Firestore-first,
+// env fallback). Keys set in the admin Integration Hub take effect within
+// 5 minutes (cache TTL); no functions redeploy required.
 
-const PEXELS_API_KEY = process.env.PEXELS_API_KEY ?? '';
-const REPLICATE_API_TOKEN = process.env.REPLICATE_API_TOKEN ?? '';
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? '';
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY ?? '';
+import { getIntegrationConfig } from '../lib/integrationConfig';
 
 // ── Pexels ──────────────────────────────────────────────────────────────────
 
@@ -51,8 +46,9 @@ interface PexelsResponse {
  * theme don't reuse the same image.
  */
 export async function pexelsSearch(query: string, opts?: { orientation?: 'square' | 'landscape' | 'portrait' }): Promise<{ url: string; attribution: string } | null> {
-  if (!PEXELS_API_KEY) {
-    console.warn('[imageSources] PEXELS_API_KEY not set');
+  const cfg = await getIntegrationConfig();
+  if (!cfg.pexels.apiKey) {
+    console.warn('[imageSources] pexels.apiKey not set');
     return null;
   }
   const params = new URLSearchParams({
@@ -61,7 +57,7 @@ export async function pexelsSearch(query: string, opts?: { orientation?: 'square
     orientation: opts?.orientation ?? 'square',
   });
   const res = await fetch(`https://api.pexels.com/v1/search?${params}`, {
-    headers: { Authorization: PEXELS_API_KEY },
+    headers: { Authorization: cfg.pexels.apiKey },
   });
   if (!res.ok) {
     console.warn(`[imageSources] Pexels ${res.status}: ${await res.text()}`);
@@ -96,8 +92,9 @@ interface ReplicatePrediction {
  * photo — never throws.
  */
 export async function fluxSchnell(prompt: string, opts?: { aspectRatio?: '1:1' | '16:9' | '9:16'; timeoutMs?: number }): Promise<string | null> {
-  if (!REPLICATE_API_TOKEN) {
-    console.warn('[imageSources] REPLICATE_API_TOKEN not set');
+  const cfg = await getIntegrationConfig();
+  if (!cfg.replicate.apiToken) {
+    console.warn('[imageSources] replicate.apiToken not set');
     return null;
   }
   const aspect = opts?.aspectRatio ?? '1:1';
@@ -108,7 +105,7 @@ export async function fluxSchnell(prompt: string, opts?: { aspectRatio?: '1:1' |
     const res = await fetch('https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${REPLICATE_API_TOKEN}`,
+        Authorization: `Bearer ${cfg.replicate.apiToken}`,
         'Content-Type': 'application/json',
         Prefer: 'wait',
       },
@@ -136,7 +133,7 @@ export async function fluxSchnell(prompt: string, opts?: { aspectRatio?: '1:1' |
     }
     await new Promise((r) => setTimeout(r, 1500));
     try {
-      const poll = await fetch(prediction.urls.get, { headers: { Authorization: `Bearer ${REPLICATE_API_TOKEN}` } });
+      const poll = await fetch(prediction.urls.get, { headers: { Authorization: `Bearer ${cfg.replicate.apiToken}` } });
       if (!poll.ok) return null;
       prediction = (await poll.json()) as ReplicatePrediction;
     } catch {
@@ -169,14 +166,15 @@ export async function imagenGenerate(
   prompt: string,
   opts?: { aspectRatio?: '1:1' | '16:9' | '9:16' | '3:4' | '4:3' },
 ): Promise<string | null> {
-  if (!GEMINI_API_KEY) {
-    console.warn('[imageSources] GEMINI_API_KEY not set');
+  const cfg = await getIntegrationConfig();
+  if (!cfg.gemini.apiKey) {
+    console.warn('[imageSources] gemini.apiKey not set');
     return null;
   }
   const aspectRatio = opts?.aspectRatio ?? '1:1';
   try {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${encodeURIComponent(GEMINI_API_KEY)}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${encodeURIComponent(cfg.gemini.apiKey)}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -221,8 +219,9 @@ export async function openaiImage(
   prompt: string,
   opts?: { quality?: 'low' | 'medium' | 'high'; size?: '1024x1024' | '1024x1536' | '1536x1024' },
 ): Promise<string | null> {
-  if (!OPENAI_API_KEY) {
-    console.warn('[imageSources] OPENAI_API_KEY not set');
+  const cfg = await getIntegrationConfig();
+  if (!cfg.openai.apiKey) {
+    console.warn('[imageSources] openai.apiKey not set');
     return null;
   }
   const quality = opts?.quality ?? 'medium';
@@ -231,7 +230,7 @@ export async function openaiImage(
     const res = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        Authorization: `Bearer ${cfg.openai.apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ model: 'gpt-image-1', prompt, n: 1, size, quality }),
@@ -270,8 +269,9 @@ export async function openaiImageEdit(
     maskBuf?: Buffer;
   },
 ): Promise<string | null> {
-  if (!OPENAI_API_KEY) {
-    console.warn('[imageSources] OPENAI_API_KEY not set');
+  const cfg = await getIntegrationConfig();
+  if (!cfg.openai.apiKey) {
+    console.warn('[imageSources] openai.apiKey not set');
     return null;
   }
   const quality = opts?.quality ?? 'medium';
@@ -293,7 +293,7 @@ export async function openaiImageEdit(
     }
     const res = await fetch('https://api.openai.com/v1/images/edits', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
+      headers: { Authorization: `Bearer ${cfg.openai.apiKey}` },
       body: form,
     });
     if (!res.ok) {

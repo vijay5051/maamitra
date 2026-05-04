@@ -25,21 +25,22 @@ import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions/v1';
 
 import { getFbPagePat } from './publisher';
+import { getIntegrationConfig } from '../lib/integrationConfig';
 
-const META_IG_USER_ID = process.env.META_IG_USER_ID ?? '';
-const META_IG_ACCESS_TOKEN = process.env.META_IG_ACCESS_TOKEN ?? '';
-const META_FB_PAGE_ID = process.env.META_FB_PAGE_ID ?? '';
-const META_FB_PAGE_ACCESS_TOKEN = process.env.META_FB_PAGE_ACCESS_TOKEN ?? '';
-
-// graph.facebook.com IG Insights endpoints need EAA-style tokens — see
-// publisher.ts comment for context. Prefer Page token, fall back to IG.
-const IG_GRAPH_TOKEN =
-  (META_FB_PAGE_ACCESS_TOKEN && META_FB_PAGE_ACCESS_TOKEN.startsWith('EAA'))
-    ? META_FB_PAGE_ACCESS_TOKEN
-    : META_IG_ACCESS_TOKEN;
-const FB_CONFIGURED = !!META_FB_PAGE_ID && !!META_FB_PAGE_ACCESS_TOKEN;
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY ?? '';
 const GRAPH_BASE = 'https://graph.facebook.com/v21.0';
+
+async function getInsightsVars() {
+  const cfg = await getIntegrationConfig();
+  const fbPAT = cfg.meta.fbPageAccessToken;
+  const igToken = cfg.meta.igAccessToken;
+  return {
+    META_IG_USER_ID: cfg.meta.igUserId,
+    META_FB_PAGE_ID: cfg.meta.fbPageId,
+    IG_GRAPH_TOKEN: (fbPAT && fbPAT.startsWith('EAA')) ? fbPAT : igToken,
+    FB_CONFIGURED: !!cfg.meta.fbPageId && !!fbPAT,
+    OPENAI_API_KEY: cfg.openai.apiKey,
+  };
+}
 
 interface PostInsightMetrics {
   reach: number;
@@ -65,6 +66,7 @@ interface MetricBucket { name: string; values?: { value?: number }[] }
 // both into the same PostInsightMetrics shape so the analytics service
 // can sum across IG + FB without per-platform branches.
 async function fetchFbPostMetrics(fbPostId: string): Promise<PostInsightMetrics | null> {
+  const { FB_CONFIGURED } = await getInsightsVars();
   if (!FB_CONFIGURED) return null;
   let pat: string;
   try {
@@ -129,6 +131,7 @@ async function fetchFbPostMetrics(fbPostId: string): Promise<PostInsightMetrics 
 }
 
 async function fetchPostMetrics(igMediaId: string): Promise<PostInsightMetrics | null> {
+  const { IG_GRAPH_TOKEN } = await getInsightsVars();
   if (!IG_GRAPH_TOKEN) return null;
   const metrics = ['reach', 'impressions', 'likes', 'comments', 'saved', 'shares', 'profile_visits'];
   const url = `${GRAPH_BASE}/${igMediaId}/insights?metric=${metrics.join(',')}&access_token=${encodeURIComponent(IG_GRAPH_TOKEN)}`;
@@ -165,6 +168,7 @@ export function buildPollMarketingInsights() {
     .runWith({ memory: '512MB', timeoutSeconds: 540 })
     .pubsub.schedule('every 6 hours')
     .onRun(async () => {
+      const { META_IG_USER_ID, IG_GRAPH_TOKEN } = await getInsightsVars();
       if (!META_IG_USER_ID || !IG_GRAPH_TOKEN) {
         console.log('[pollMarketingInsights] IG creds missing — skipping cycle');
         return null;
@@ -267,6 +271,7 @@ interface FbAccountMetrics {
 // impressions come from /insights with period=day. We pull yesterday's
 // values to match the IG snapshot semantics.
 async function fetchFbAccountSnapshot(): Promise<FbAccountMetrics | null> {
+  const { FB_CONFIGURED, META_FB_PAGE_ID } = await getInsightsVars();
   if (!FB_CONFIGURED) return null;
   let pat: string;
   try {
@@ -316,6 +321,7 @@ async function fetchFbAccountSnapshot(): Promise<FbAccountMetrics | null> {
 }
 
 async function fetchAccountSnapshot(): Promise<AccountMetrics | null> {
+  const { META_IG_USER_ID, IG_GRAPH_TOKEN } = await getInsightsVars();
   if (!META_IG_USER_ID || !IG_GRAPH_TOKEN) return null;
   try {
     // Follower count is on the user node directly.
@@ -423,8 +429,9 @@ export function buildGenerateWeeklyInsightDigest() {
     .pubsub.schedule('30 2 * * 1')   // Mondays 02:30 UTC = 08:00 IST
     .timeZone('UTC')
     .onRun(async () => {
+      const { OPENAI_API_KEY } = await getInsightsVars();
       if (!OPENAI_API_KEY) {
-        console.warn('[generateWeeklyInsightDigest] OPENAI_API_KEY not set');
+        console.warn('[generateWeeklyInsightDigest] openai.apiKey not configured — skipping digest');
         return null;
       }
       const db = admin.firestore();

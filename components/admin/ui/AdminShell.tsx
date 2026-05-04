@@ -129,7 +129,8 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Settings',
     items: [
-      { href: '/admin/settings', label: 'App settings', icon: 'settings-outline', cap: 'edit_settings' },
+      { href: '/admin/settings',      label: 'App settings',  icon: 'settings-outline', cap: 'edit_settings' },
+      { href: '/admin/integrations',  label: 'Integrations',  icon: 'link-outline',     cap: 'edit_settings', fresh: true },
     ],
   },
 ];
