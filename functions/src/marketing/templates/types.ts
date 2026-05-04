@@ -18,7 +18,7 @@ export interface BrandSnapshot {
   palette: BrandPalette;
 }
 
-export type TemplateName = 'tipCard' | 'quoteCard' | 'milestoneCard';
+export type TemplateName = 'tipCard' | 'quoteCard' | 'milestoneCard' | 'realStoryCard';
 
 // ── Per-template prop shapes ────────────────────────────────────────────────
 // Sanitised + length-capped server-side before rendering. Captions / hashtags
@@ -56,4 +56,15 @@ export interface MilestoneCardProps {
   photoUrl?: string;
 }
 
-export type AnyTemplateProps = TipCardProps | QuoteCardProps | MilestoneCardProps;
+export interface RealStoryCardProps {
+  /** Bottom-of-image short heading, e.g. "Real Story · Anaya, 8 months". */
+  eyebrow: string;
+  /** The mom's words — 1-3 sentences, ≤ 240 chars after sanitisation. */
+  story: string;
+  /** Display name of the contributor. */
+  attribution: string;
+  /** URL of the submitted photo (will be cropped to fill the upper canvas). */
+  photoUrl?: string;
+}
+
+export type AnyTemplateProps = TipCardProps | QuoteCardProps | MilestoneCardProps | RealStoryCardProps;

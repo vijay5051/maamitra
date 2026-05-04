@@ -38,6 +38,7 @@ import {
 } from '../../../components/admin/ui';
 import {
   approveDraft,
+  boostMarketingDraft,
   deleteDraft,
   fetchDraft,
   generateMarketingDraft,
@@ -286,6 +287,10 @@ function DraftSlideOver({
   const [showSchedule, setShowSchedule] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [showMarkPosted, setShowMarkPosted] = useState(false);
+  const [showBoost, setShowBoost] = useState(false);
+  const [boostBudget, setBoostBudget] = useState(500);
+  const [boostDays, setBoostDays] = useState(3);
+  const [boosting, setBoosting] = useState(false);
 
   useEffect(() => {
     setEditingCaption(false);
@@ -295,6 +300,7 @@ function DraftSlideOver({
     setShowSchedule(false);
     setShowExport(false);
     setShowMarkPosted(false);
+    setShowBoost(false);
     // Default schedule input to tomorrow 9am IST in local datetime-local format.
     setScheduleDraftAt(defaultScheduleAt());
   }, [draft?.id]);
@@ -414,6 +420,26 @@ function DraftSlideOver({
     });
   }
 
+  async function handleBoost() {
+    if (!draft || !actor) return;
+    if (boostBudget < 100 || boostBudget > 5000 || boostDays < 1 || boostDays > 7) {
+      setActionError('Budget ₹100–₹5000/day; duration 1–7 days.');
+      return;
+    }
+    setActionError(null);
+    setBoosting(true);
+    try {
+      const res = await boostMarketingDraft({ draftId: draft.id, dailyBudgetInr: boostBudget, durationDays: boostDays });
+      if (!res.ok) throw new Error(`${res.code}: ${res.message}`);
+      await onChanged();
+      setShowBoost(false);
+    } catch (e: any) {
+      setActionError(`Boost failed: ${e?.message ?? String(e)}`);
+    } finally {
+      setBoosting(false);
+    }
+  }
+
   async function handlePublishNow() {
     if (!draft || !actor) return;
     setActionError(null);
@@ -454,6 +480,7 @@ function DraftSlideOver({
   const isPending = draft.status === 'pending_review';
   const isApproved = draft.status === 'approved';
   const isScheduled = draft.status === 'scheduled';
+  const isPosted = draft.status === 'posted';
 
   return (
     <SlideOver
@@ -544,6 +571,26 @@ function DraftSlideOver({
                   </Pressable>
                 </>
               ) : null}
+              {isPosted && !draft.boost ? (
+                <Pressable onPress={() => setShowBoost(true)} style={[styles.btn, styles.btnPrimary]}>
+                  <Ionicons name="trending-up" size={16} color="#fff" />
+                  <Text style={styles.btnLabel}>Boost this post</Text>
+                </Pressable>
+              ) : null}
+              {isPosted && draft.boost?.status === 'active' ? (
+                <View style={[styles.btn, { backgroundColor: Colors.primarySoft, borderWidth: 1, borderColor: Colors.primary }]}>
+                  <Ionicons name="trending-up" size={14} color={Colors.primary} />
+                  <Text style={[styles.btnLabel, { color: Colors.primary }]}>
+                    Boost active · ₹{draft.boost.dailyBudgetInr}/day
+                  </Text>
+                </View>
+              ) : null}
+              {isPosted && draft.boost?.status === 'failed' ? (
+                <View style={[styles.btn, styles.btnGhost]}>
+                  <Ionicons name="warning" size={14} color={Colors.error} />
+                  <Text style={[styles.btnLabel, { color: Colors.error }]}>Boost failed — see details</Text>
+                </View>
+              ) : null}
               <Pressable
                 onPress={handleRegenerate}
                 disabled={regenerating}
@@ -629,6 +676,72 @@ function DraftSlideOver({
               <Pressable onPress={() => setShowMarkPosted(false)} style={[styles.btn, styles.btnGhost]}>
                 <Text style={[styles.btnLabel, { color: Colors.textMuted }]}>Cancel</Text>
               </Pressable>
+            </View>
+          </View>
+        ) : null}
+
+        {showBoost ? (
+          <View style={styles.schedBox}>
+            <Text style={styles.captionLabel}>Boost this post</Text>
+            <Text style={styles.fieldHint}>
+              Promotes this IG post via the Marketing API. Requires META_AD_ACCOUNT_ID + META_FB_PAGE_ID + ads_management scope on your token. Spend tracked in analytics.
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.fieldLabel}>Daily budget (₹)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={String(boostBudget)}
+                  onChangeText={(t) => {
+                    const n = parseInt(t.replace(/[^0-9]/g, ''), 10);
+                    setBoostBudget(Number.isFinite(n) ? n : 0);
+                  }}
+                  keyboardType="numeric"
+                />
+                <Text style={styles.fieldHint}>₹100 – ₹5,000/day</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.fieldLabel}>Duration (days)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={String(boostDays)}
+                  onChangeText={(t) => {
+                    const n = parseInt(t.replace(/[^0-9]/g, ''), 10);
+                    setBoostDays(Number.isFinite(n) ? Math.max(1, Math.min(7, n)) : 1);
+                  }}
+                  keyboardType="numeric"
+                />
+                <Text style={styles.fieldHint}>1 – 7 days</Text>
+              </View>
+            </View>
+            <Text style={styles.fieldHint}>
+              Total spend: up to ₹{(boostBudget * boostDays).toLocaleString('en-IN')}
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+              <Pressable onPress={handleBoost} disabled={boosting} style={[styles.btn, styles.btnPrimary]}>
+                <Ionicons name="trending-up" size={14} color="#fff" />
+                <Text style={styles.btnLabel}>{boosting ? 'Creating boost…' : 'Confirm boost'}</Text>
+              </Pressable>
+              <Pressable onPress={() => setShowBoost(false)} style={[styles.btn, styles.btnGhost]}>
+                <Text style={[styles.btnLabel, { color: Colors.textMuted }]}>Cancel</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
+
+        {draft.boost ? (
+          <View style={styles.boostInfo}>
+            <Ionicons name="trending-up" size={16} color={Colors.primary} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.boostTitle}>
+                Boost · {draft.boost.status} · ₹{draft.boost.dailyBudgetInr}/day × {draft.boost.durationDays} days
+              </Text>
+              {draft.boost.status === 'active' || draft.boost.status === 'completed' ? (
+                <Text style={styles.boostMeta}>Spent ₹{draft.boost.spendInr.toFixed(0)} · reach {draft.boost.reach.toLocaleString('en-IN')}</Text>
+              ) : null}
+              {draft.boost.error ? (
+                <Text style={[styles.boostMeta, { color: Colors.error }]}>{draft.boost.error}</Text>
+              ) : null}
             </View>
           </View>
         ) : null}
@@ -985,6 +1098,7 @@ const styles = StyleSheet.create({
   schedBox: { backgroundColor: Colors.bgLight, borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: Colors.border, gap: 4 },
   schedShown: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, paddingHorizontal: 10, backgroundColor: Colors.primarySoft, borderRadius: Radius.sm, alignSelf: 'flex-start' },
   schedShownLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.primary },
+  fieldLabel: { fontSize: 11, fontWeight: '700', color: Colors.textLight, letterSpacing: 0.6, textTransform: 'uppercase' },
   fieldHint: { fontSize: FontSize.xs, color: Colors.textMuted, lineHeight: 18 },
 
   exportBlock: { backgroundColor: Colors.bgLight, borderRadius: Radius.md, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
@@ -1011,4 +1125,12 @@ const styles = StyleSheet.create({
     borderRadius: Radius.sm, backgroundColor: Colors.primarySoft,
   },
   copyBtnLabel: { fontSize: 11, fontWeight: '700', color: Colors.primary },
+
+  boostInfo: {
+    flexDirection: 'row', gap: 8, alignItems: 'flex-start',
+    backgroundColor: Colors.primarySoft, borderRadius: Radius.md,
+    padding: Spacing.md, borderWidth: 1, borderColor: Colors.primary,
+  },
+  boostTitle: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.primary, textTransform: 'capitalize' },
+  boostMeta: { fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 2 },
 });

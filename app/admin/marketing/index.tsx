@@ -205,6 +205,13 @@ export default function MarketingOverviewScreen() {
       href: '/admin/marketing/analytics',
     },
     {
+      key: 'ugc',
+      label: 'UGC pipeline (real-mom stories)',
+      description: 'Moms share their story + photo via the in-app Share Your Story flow; admin reviews here; one click renders a Real Story IG post with attribution + DPDP-compliant consent.',
+      state: 'done',
+      href: '/admin/marketing/ugc',
+    },
+    {
       key: 'app-review',
       label: 'Meta App Review',
       description: 'Submit screencast + permission justifications for instagram_content_publish, pages_manage_posts, etc. 3–7 day turnaround. Submit after Phase 6 ships so the screencast shows the real flow.',

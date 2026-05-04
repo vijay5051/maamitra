@@ -36,6 +36,8 @@ export {
   buildPollMarketingAccountInsights,
   buildGenerateWeeklyInsightDigest,
 } from './insights';
+export { buildRenderUgcAsDraft } from './ugc';
+export { buildBoostMarketingDraft } from './boost';
 
 // firebase-admin is initialized in functions/src/index.ts before this module
 // is imported; we just grab the existing instance.

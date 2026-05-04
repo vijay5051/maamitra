@@ -450,6 +450,17 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow write: if false;
     }
+    // UGC submissions (M6). Authenticated users may CREATE their own
+    // submissions (so the in-app "share your story" flow works) but may
+    // not read/update/delete — the queue is admin-only. Admin has full
+    // CRUD. The renderUgcAsDraft Cloud Function uses a service account
+    // and bypasses these rules.
+    match /ugc_submissions/{id} {
+      allow create: if request.auth != null
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.status == 'pending_review';
+      allow read, update, delete: if isAdmin();
+    }
 
     // ── Consent ledger (Wave 7: DPDP compliance) ─────────────────────────────
     // Append-only. Users may write THEIR OWN consent rows during onboarding;

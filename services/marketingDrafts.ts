@@ -252,6 +252,33 @@ export interface PublishNowError {
   message: string;
 }
 
+// ── Boost (M6) ─────────────────────────────────────────────────────────────
+
+export interface BoostInput {
+  draftId: string;
+  dailyBudgetInr: number;
+  durationDays: number;
+}
+export interface BoostResult {
+  ok: true;
+  adSetId: string;
+  status: string;
+}
+export interface BoostError {
+  ok: false;
+  code: string;
+  message: string;
+}
+
+export async function boostMarketingDraft(input: BoostInput): Promise<BoostResult | BoostError> {
+  if (!app) throw new Error('Firebase app not configured');
+  const { getFunctions, httpsCallable } = await import('firebase/functions');
+  const functions = getFunctions(app);
+  const call = httpsCallable<BoostInput, BoostResult | BoostError>(functions, 'boostMarketingDraft');
+  const result = await call(input);
+  return result.data;
+}
+
 /** Manual "Publish now" — admin button on the slide-over. Calls the same
  *  publish path as the 5-min cron, but fires immediately so testing isn't
  *  gated on the cron tick. */
@@ -339,5 +366,17 @@ function rowToDraft(snap: { id: string; data: () => DocumentData }): MarketingDr
     rejectedAt: tsToIso(d.rejectedAt),
     rejectedBy: typeof d.rejectedBy === 'string' ? d.rejectedBy : null,
     rejectReason: typeof d.rejectReason === 'string' ? d.rejectReason : null,
+    boost: d.boost && typeof d.boost === 'object' ? {
+      adSetId: typeof d.boost.adSetId === 'string' ? d.boost.adSetId : '',
+      status: ['creating', 'active', 'paused', 'completed', 'failed'].includes(d.boost.status) ? d.boost.status : 'creating',
+      dailyBudgetInr: typeof d.boost.dailyBudgetInr === 'number' ? d.boost.dailyBudgetInr : 0,
+      durationDays: typeof d.boost.durationDays === 'number' ? d.boost.durationDays : 0,
+      spendInr: typeof d.boost.spendInr === 'number' ? d.boost.spendInr : 0,
+      reach: typeof d.boost.reach === 'number' ? d.boost.reach : 0,
+      startedAt: typeof d.boost.startedAt === 'string' ? d.boost.startedAt : '',
+      endsAt: typeof d.boost.endsAt === 'string' ? d.boost.endsAt : '',
+      error: typeof d.boost.error === 'string' ? d.boost.error : null,
+    } : null,
+    ugcSubmissionId: typeof d.ugcSubmissionId === 'string' ? d.ugcSubmissionId : null,
   };
 }

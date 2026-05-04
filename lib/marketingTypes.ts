@@ -390,6 +390,67 @@ export interface MarketingDraft {
   rejectedAt: string | null;
   rejectedBy: string | null;
   rejectReason: string | null;
+  /** M6 — set when admin clicked "Boost this post" on a posted draft. */
+  boost: BoostInfo | null;
+  /** M6 — set when this draft was rendered from a UGC submission. */
+  ugcSubmissionId: string | null;
+}
+
+// ── UGC (M6) ────────────────────────────────────────────────────────────────
+// User-generated content: real moms submit a photo + story from inside the
+// app. Admin reviews + approves → renders as a Real Story draft. Consent is
+// captured at submission and recorded in consent_ledger (DPDP).
+
+export type UgcStatus = 'pending_review' | 'approved' | 'rejected' | 'rendered' | 'deleted';
+
+export interface UgcSubmission {
+  id: string;
+  /** Submitter's Firebase uid. */
+  uid: string;
+  /** Display name as it should appear in the rendered post (caller can
+   *  pass a nickname if they want anonymity). */
+  displayName: string;
+  /** Story text from the mom — 50-500 chars. */
+  story: string;
+  /** Storage URL of the submitted photo. Square; ideally >=1080×1080. */
+  photoUrl: string | null;
+  /** Storage path so admin can delete the asset on reject. */
+  photoStoragePath: string | null;
+  /** Optional age of the child mentioned in the story — drives template
+   *  side-tag and analytics joins. */
+  childAge: string | null;
+  /** Pillar admin tagged this with at approval. Defaults to 'real_stories'. */
+  pillarId: string | null;
+  status: UgcStatus;
+  rejectReason: string | null;
+  /** When approved, points to the marketing_draft id we created. */
+  renderedDraftId: string | null;
+  /** Audit trail. */
+  createdAt: string;
+  reviewedAt: string | null;
+  reviewedBy: string | null;
+}
+
+// ── Boost (M6) ──────────────────────────────────────────────────────────────
+// "Boost this post" via the Ads API. Stored on the parent draft.
+
+export interface BoostInfo {
+  /** Ads API ad set id. */
+  adSetId: string;
+  /** Status of the boost. */
+  status: 'creating' | 'active' | 'paused' | 'completed' | 'failed';
+  /** Daily INR budget the admin set. */
+  dailyBudgetInr: number;
+  /** Duration in days (1–7). */
+  durationDays: number;
+  /** Total spend so far (₹). Updated by polling. */
+  spendInr: number;
+  /** Reach attributable to the boost. Polled. */
+  reach: number;
+  startedAt: string;
+  endsAt: string;
+  /** Error from the Ads API if status='failed'. */
+  error: string | null;
 }
 
 // ── Inbox (M4) ──────────────────────────────────────────────────────────────

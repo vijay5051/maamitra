@@ -20,6 +20,7 @@ import * as admin from 'firebase-admin';
 import textToSpeech from '@google-cloud/text-to-speech';
 
 import {
+  buildBoostMarketingDraft,
   buildClassifyInboxThread,
   buildDailyMarketingDraftCron,
   buildGenerateInboxReplies,
@@ -31,6 +32,7 @@ import {
   buildPollMarketingInsights,
   buildPublishMarketingDraftNow,
   buildRenderMarketingTemplate,
+  buildRenderUgcAsDraft,
   buildScheduledMarketingPublisher,
   buildScoreMarketingDraft,
 } from './marketing';
@@ -1384,3 +1386,15 @@ export const publishMarketingDraftNow = buildPublishMarketingDraftNow(ADMIN_EMAI
 export const pollMarketingInsights = buildPollMarketingInsights();
 export const pollMarketingAccountInsights = buildPollMarketingAccountInsights();
 export const generateWeeklyInsightDigest = buildGenerateWeeklyInsightDigest();
+
+// M6 — UGC + boost.
+//
+// renderUgcAsDraft: admin callable. Approved UGC submission → realStoryCard
+// render → marketing_drafts/{id} with status='approved' so admin can
+// publish through the existing M3 path.
+// boostMarketingDraft: admin callable. Posted draft + budget + duration
+// → Marketing API Campaign + AdSet + Creative + Ad. Records boost on
+// the draft for ROI tracking. Requires META_AD_ACCOUNT_ID +
+// META_FB_PAGE_ID + ads_management scope on the IG access token.
+export const renderUgcAsDraft = buildRenderUgcAsDraft(ADMIN_EMAILS);
+export const boostMarketingDraft = buildBoostMarketingDraft(ADMIN_EMAILS);
