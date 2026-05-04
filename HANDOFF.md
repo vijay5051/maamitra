@@ -56,6 +56,43 @@ inbox — all without the admin ever logging into Meta.
   ie post-Phase 6).
 
 ### Last action
+**Retry-publish button + persistent publish-error card on failed
+drafts.**
+
+Symptom: when "Publish now" hit a transient IG/FB error, draft went
+to status='failed' and the slide-over only offered Regenerate/Delete
+— no way to retry without re-running the LLM generator.
+
+Changes:
+- `functions/src/marketing/publisher.ts` `publishMarketingDraftNow`
+  now accepts `status='failed'` (in addition to approved/scheduled).
+  Same publish path; on success, status flips to 'posted' as usual.
+- `app/admin/marketing/drafts.tsx` slide-over:
+  - new `Retry publish` primary button visible only on failed drafts
+    (reuses the existing `handlePublishNow` handler).
+  - persistent "Last publish error" red card in body shows
+    `draft.publishError` so a returning admin sees why it failed
+    without having to click anything (was only shown ephemerally
+    after a click).
+
+Deployed: publishMarketingDraftNow function + web hosting + OTA
+(group `7c42d58a-2069-40f5-9e86-26f8c293896f`, runtime 1.0.5).
+
+### Open follow-up — FB Page publish failing
+IG publishes successfully now, but FB Page side returns:
+`(#200) The permission(s) publish_actions are not available.
+It has been deprecated.`
+That's Meta's misleading catchall — not actually a deprecated-perm
+issue (we have `pages_manage_posts`). Likely the SYSTEM_USER token
+(profile_id `122099819877297791`) doesn't have explicit Page asset
+access in the Business Portfolio, OR the `/{page-id}/photos` endpoint
+needs different params. Next session should:
+1. Check Business Portfolio → Users → System Users → assigned assets:
+   confirm the System User has Page asset access with `MANAGE` task.
+2. If that's set, swap `/{page-id}/photos` to use `source` (multipart
+   binary) instead of `url=`, OR try `/{page-id}/feed` with `link=`.
+
+### Earlier this session
 **IG publish container-status polling fix.**
 
 Symptom: clicking "Publish now" on /admin/marketing/drafts returned
