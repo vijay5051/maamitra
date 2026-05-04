@@ -60,7 +60,10 @@ const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions/v1"));
 const META_IG_USER_ID = process.env.META_IG_USER_ID ?? '';
 const META_IG_ACCESS_TOKEN = process.env.META_IG_ACCESS_TOKEN ?? '';
+const META_FB_PAGE_ID = process.env.META_FB_PAGE_ID ?? '';
+const META_FB_PAGE_ACCESS_TOKEN = process.env.META_FB_PAGE_ACCESS_TOKEN ?? '';
 const GRAPH_BASE = 'https://graph.facebook.com/v21.0';
+const FB_CONFIGURED = !!META_FB_PAGE_ID && !!META_FB_PAGE_ACCESS_TOKEN;
 // ── Caller auth (callable functions only) ─────────────────────────────────
 async function callerIsMarketingAdmin(token, allowList) {
     if (!token)
@@ -127,8 +130,21 @@ function buildMetaInboxReplyPublisher() {
                     throw new Error('no inbound comment found to reply to');
                 await replyToIgComment(String(externalId), text);
             }
-            else if (thread.channel === 'fb_message' || thread.channel === 'fb_comment') {
-                throw new Error('FB Page channel deferred to M4c — needs Page access token');
+            else if (thread.channel === 'fb_comment') {
+                if (!FB_CONFIGURED)
+                    throw new Error('FB Page credentials not in functions/.env');
+                const recent = await db.collection(`marketing_inbox/${threadId}/messages`)
+                    .where('direction', '==', 'inbound')
+                    .orderBy('sentAt', 'desc')
+                    .limit(1)
+                    .get();
+                const externalId = recent.docs[0]?.data()?.externalId;
+                if (!externalId)
+                    throw new Error('no inbound FB comment found to reply to');
+                await replyToFbComment(String(externalId), text);
+            }
+            else if (thread.channel === 'fb_message') {
+                throw new Error('FB Messenger DMs need pages_messaging scope (deferred — IG DMs cover most engagement)');
             }
             else {
                 throw new Error(`unsupported channel: ${thread.channel}`);
@@ -173,6 +189,60 @@ async function replyToIgComment(commentId, text) {
         const body = (await res.json().catch(() => ({})));
         throw new Error(`Graph ${res.status}: ${body?.error?.message ?? 'unknown'}`);
     }
+}
+// FB comment reply — the Graph endpoint is /{comment-id}/comments (creates
+// a child comment under the parent). The Page Access Token must have
+// pages_manage_engagement scope, which we verified in the debugger.
+async function replyToFbComment(commentId, text) {
+    if (!commentId)
+        throw new Error('empty comment id');
+    const url = `${GRAPH_BASE}/${commentId}/comments?access_token=${encodeURIComponent(META_FB_PAGE_ACCESS_TOKEN)}`;
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text }),
+    });
+    if (!res.ok) {
+        const body = (await res.json().catch(() => ({})));
+        throw new Error(`Graph ${res.status}: ${body?.error?.message ?? 'unknown'}`);
+    }
+}
+// FB Page feed publish — POST to /{page-id}/photos with a public image_url
+// + caption. Returns the post id which we store as postFbPostId for the
+// Insights cron to use later.
+async function publishDraftToFacebook(draftData) {
+    if (!FB_CONFIGURED) {
+        return { ok: false, code: 'no-fb-credentials', message: 'META_FB_PAGE_ID / META_FB_PAGE_ACCESS_TOKEN not set in functions/.env.' };
+    }
+    const imageUrl = draftData?.assets?.[0]?.url;
+    const caption = String(draftData?.caption ?? '');
+    if (!imageUrl)
+        return { ok: false, code: 'no-asset', message: 'Draft has no image asset.' };
+    if (!caption)
+        return { ok: false, code: 'no-caption', message: 'Draft has no caption.' };
+    const params = new URLSearchParams({
+        url: imageUrl,
+        caption,
+        access_token: META_FB_PAGE_ACCESS_TOKEN,
+    });
+    const res = await fetch(`${GRAPH_BASE}/${META_FB_PAGE_ID}/photos`, {
+        method: 'POST',
+        body: params,
+    });
+    if (!res.ok) {
+        const body = (await res.json().catch(() => ({})));
+        return { ok: false, code: 'fb-publish-failed', message: body?.error?.message ?? `Graph ${res.status}` };
+    }
+    const data = await res.json();
+    // FB returns { id: photo_id, post_id: page_post_id } — we want post_id for permalink purposes.
+    const postId = data?.post_id ?? data?.id;
+    if (!postId)
+        return { ok: false, code: 'no-post-id', message: 'FB photo upload returned no id.' };
+    // Permalink: simplest reliable form is /{page-id}/posts/{numeric-suffix}.
+    // post_id format is "{pageId}_{numericId}" — we use the page-numeric form.
+    const numericSuffix = postId.includes('_') ? postId.split('_').pop() : postId;
+    const permalink = `https://www.facebook.com/${META_FB_PAGE_ID}/posts/${numericSuffix}`;
+    return { ok: true, postId, permalink };
 }
 async function publishDraftToInstagram(draftId, draftData) {
     const imageUrl = draftData?.assets?.[0]?.url;
@@ -232,25 +302,43 @@ async function publishDraftToInstagram(draftId, draftData) {
 }
 async function processDueDraft(draftId, draftData, actorEmail) {
     const draftRef = admin.firestore().doc(`marketing_drafts/${draftId}`);
-    const result = await publishDraftToInstagram(draftId, draftData);
-    if (result.ok) {
-        await draftRef.update({
-            status: 'posted',
-            postedAt: admin.firestore.FieldValue.serverTimestamp(),
-            postPermalinks: { instagram: result.permalink ?? '' },
-            // Saved so M5's pollMarketingInsights can fetch metrics by media id.
-            postIgMediaId: result.postId,
-            publishError: null,
-            ...(actorEmail ? { publishedBy: actorEmail } : {}),
-        });
-    }
-    else {
+    // IG is the primary channel (the system was IG-only originally). FB is
+    // best-effort: if FB creds missing or FB publish fails, the draft still
+    // reaches "posted" status from IG; the FB error is logged in
+    // publishError but doesn't block.
+    const igResult = await publishDraftToInstagram(draftId, draftData);
+    if (!igResult.ok) {
         await draftRef.update({
             status: 'failed',
-            publishError: `${result.code}: ${result.message}`,
+            publishError: `IG ${igResult.code}: ${igResult.message}`,
         });
+        return igResult;
     }
-    return result;
+    const permalinks = { instagram: igResult.permalink ?? '' };
+    let fbWarning = null;
+    let postFbPostId = null;
+    if (FB_CONFIGURED) {
+        const fbResult = await publishDraftToFacebook(draftData);
+        if (fbResult.ok) {
+            permalinks.facebook = fbResult.permalink ?? '';
+            postFbPostId = fbResult.postId;
+        }
+        else {
+            fbWarning = `FB ${fbResult.code}: ${fbResult.message}`;
+            console.warn(`[processDueDraft] ${draftId} IG ok, FB failed:`, fbWarning);
+        }
+    }
+    await draftRef.update({
+        status: 'posted',
+        postedAt: admin.firestore.FieldValue.serverTimestamp(),
+        postPermalinks: permalinks,
+        // Saved so M5's pollMarketingInsights can fetch metrics by media id.
+        postIgMediaId: igResult.postId,
+        ...(postFbPostId ? { postFbPostId } : {}),
+        publishError: fbWarning,
+        ...(actorEmail ? { publishedBy: actorEmail } : {}),
+    });
+    return igResult;
 }
 // ── Pubsub cron — every 5 min ──────────────────────────────────────────────
 function buildScheduledMarketingPublisher() {
