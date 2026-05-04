@@ -56,6 +56,27 @@ inbox — all without the admin ever logging into Meta.
   ie post-Phase 6).
 
 ### Last action
+**IG publish container-status polling fix.**
+
+Symptom: clicking "Publish now" on /admin/marketing/drafts returned
+`publish-failed: Media ID is not available`. Cause: classic IG Graph
+API timing race — POST `/{ig-user-id}/media` returns a container id,
+but IG processes the image asynchronously; calling
+`/media_publish?creation_id=…` before processing completes returns
+exactly that error (code 9007).
+
+Fix in `functions/src/marketing/publisher.ts` `publishDraftToInstagram`:
+between Step 1 (create container) and Step 2 (publish), poll
+`GET /{container-id}?fields=status_code,status` every 3s up to 60s.
+Proceed only when `status_code === 'FINISHED'`. Map `ERROR`/`EXPIRED`
+to `container-error`, timeout to `container-timeout` (admin can retry).
+
+Also bumped `publishMarketingDraftNow` timeout 60→180s so the new
+polling has headroom.
+
+Redeployed: publishMarketingDraftNow, scheduledMarketingPublisher.
+
+### Earlier this session
 **Permanent SYSTEM_USER access token wired for FB + IG (M4c-token milestone).**
 
 What changed:
