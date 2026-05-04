@@ -481,6 +481,7 @@ function DraftSlideOver({
   const isApproved = draft.status === 'approved';
   const isScheduled = draft.status === 'scheduled';
   const isPosted = draft.status === 'posted';
+  const isFailed = draft.status === 'failed';
 
   return (
     <SlideOver
@@ -591,6 +592,12 @@ function DraftSlideOver({
                   <Text style={[styles.btnLabel, { color: Colors.error }]}>Boost failed — see details</Text>
                 </View>
               ) : null}
+              {isFailed ? (
+                <Pressable onPress={handlePublishNow} disabled={saving} style={[styles.btn, styles.btnPrimary]}>
+                  <Ionicons name="refresh-circle" size={16} color="#fff" />
+                  <Text style={styles.btnLabel}>{saving ? 'Retrying…' : 'Retry publish'}</Text>
+                </Pressable>
+              ) : null}
               <Pressable
                 onPress={handleRegenerate}
                 disabled={regenerating}
@@ -637,6 +644,17 @@ function DraftSlideOver({
               <Text key={i} style={styles.flagText}>• {f}</Text>
             ))}
             <Text style={styles.flagHint}>Edit the caption to remove these phrases, then approve.</Text>
+          </View>
+        ) : null}
+
+        {isFailed && draft.publishError ? (
+          <View style={styles.publishErrorBox}>
+            <Text style={styles.publishErrorTitle}>Last publish error</Text>
+            <Text style={styles.publishErrorText}>{draft.publishError}</Text>
+            <Text style={styles.flagHint}>
+              Tap "Retry publish" below — IG processes images asynchronously,
+              transient errors usually clear on retry.
+            </Text>
           </View>
         ) : null}
 
@@ -1060,6 +1078,10 @@ const styles = StyleSheet.create({
   flagTitle: { fontWeight: '700', color: Colors.error, fontSize: FontSize.sm },
   flagText: { fontSize: FontSize.xs, color: Colors.error, fontWeight: '600' },
   flagHint: { fontSize: FontSize.xs, color: Colors.textMuted, marginTop: 4, fontStyle: 'italic' },
+
+  publishErrorBox: { backgroundColor: '#FFF4F4', borderRadius: Radius.md, padding: Spacing.md, borderWidth: 1, borderColor: '#F8C8CB', gap: 4 },
+  publishErrorTitle: { fontWeight: '700', color: Colors.error, fontSize: FontSize.sm },
+  publishErrorText: { fontSize: FontSize.xs, color: Colors.error, fontWeight: '600', lineHeight: 18 },
 
   captionHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   captionLabel: { fontSize: 11, fontWeight: '700', color: Colors.textLight, letterSpacing: 0.6, textTransform: 'uppercase' },

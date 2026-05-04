@@ -442,8 +442,8 @@ function buildPublishMarketingDraftNow(allowList) {
         if (!draftSnap.exists)
             return { ok: false, code: 'no-draft', message: 'Draft not found.' };
         const draftData = draftSnap.data();
-        if (draftData?.status !== 'scheduled' && draftData?.status !== 'approved') {
-            return { ok: false, code: 'wrong-status', message: `Draft status is ${draftData?.status} — only scheduled or approved drafts can be published.` };
+        if (draftData?.status !== 'scheduled' && draftData?.status !== 'approved' && draftData?.status !== 'failed') {
+            return { ok: false, code: 'wrong-status', message: `Draft status is ${draftData?.status} — only approved, scheduled, or failed drafts can be published.` };
         }
         const actorEmail = context.auth?.token?.email ?? null;
         const result = await processDueDraft(draftId, draftData, actorEmail);

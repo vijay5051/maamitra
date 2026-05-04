@@ -428,8 +428,8 @@ export function buildPublishMarketingDraftNow(allowList: ReadonlySet<string>) {
       const draftSnap = await db.doc(`marketing_drafts/${draftId}`).get();
       if (!draftSnap.exists) return { ok: false, code: 'no-draft', message: 'Draft not found.' };
       const draftData = draftSnap.data() as Record<string, any>;
-      if (draftData?.status !== 'scheduled' && draftData?.status !== 'approved') {
-        return { ok: false, code: 'wrong-status', message: `Draft status is ${draftData?.status} — only scheduled or approved drafts can be published.` };
+      if (draftData?.status !== 'scheduled' && draftData?.status !== 'approved' && draftData?.status !== 'failed') {
+        return { ok: false, code: 'wrong-status', message: `Draft status is ${draftData?.status} — only approved, scheduled, or failed drafts can be published.` };
       }
 
       const actorEmail = context.auth?.token?.email ?? null;
