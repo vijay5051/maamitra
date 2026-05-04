@@ -56,6 +56,58 @@ inbox — all without the admin ever logging into Meta.
   ie post-Phase 6).
 
 ### Last action
+**Unified inbox — webhook subscriptions wired + diagnostic + refresh
+button. Awaiting user to re-copy current App Secret to fix strict-mode
+signature verification.**
+
+What was wrong:
+- App-level subscriptions only had `object: user, fields: [feed]` —
+  Meta had no `instagram` or `page` object subscribed, so IG comments/
+  DMs/mentions and FB Page feed/mentions were not being delivered to
+  our webhook receiver at all.
+- Plus: signature verification was rejecting every Meta-sent payload
+  with `hash-mismatch`, so even when delivery happened it was 403'd.
+
+What was done (via API, in-session):
+- Subscribed app to `object: instagram` with fields `comments,
+  mentions, messages, messaging_postbacks, messaging_seen,
+  messaging_referral, message_reactions`.
+- Subscribed app to `object: page` with `feed, mention, messages,
+  messaging_postbacks, message_reactions, message_reads,
+  message_deliveries`.
+- Subscribed Page `1107050432491903` → MaaMitra app with `feed,
+  mention` (Messenger fields require `pages_messaging` scope, deferred).
+- Verified subscription state via /{app-id}/subscriptions and
+  /{page-id}/subscribed_apps — all green.
+
+Code changes (commit `2a1cced`):
+- `functions/src/marketing/inbox.ts` — heavy diagnostic (full sigs,
+  body sha256, body base64 for small bodies, secret length + endpoints
+  without leaking the secret) + new `META_WEBHOOK_PERMISSIVE` env flag.
+- `app/admin/marketing/inbox.tsx` — Refresh button (re-subscribes to
+  threads on press), Last-synced timestamp in banner, banner copy
+  updated to reflect live webhook state.
+- `functions/.env` — set `META_WEBHOOK_PERMISSIVE=1` so events ingest
+  while we resolve the signature mismatch (gitignored, env-only).
+
+Outstanding mystery — **Meta is signing webhook payloads with a
+secret different from our env `META_APP_SECRET`**:
+- 7 HMAC variants tested against a real IG-DM payload (sha256/sha1/md5,
+  secret as utf8/hex/base64/reversed, body raw/base64) — NONE matched.
+- The same env secret successfully authenticates `app_id|app_secret`
+  on debug_token, /me/accounts, and the subscription POSTs we just did
+  — so the secret IS valid for *auth*, just not for *webhook signing*.
+- Most likely: the App Secret was rotated at some point and Meta's
+  auth endpoints accept old values during a grace window while webhook
+  signing uses the current one. User to copy current App Secret from
+  Meta App Dashboard → Settings → Basic → App Secret → Show, paste
+  into `functions/.env` `META_APP_SECRET`, then flip
+  `META_WEBHOOK_PERMISSIVE=0` and redeploy `metaWebhookReceiver`.
+- IG DM ("Hey" from sender 2082504342326261) DID arrive as the first
+  successful ingestion — visible in marketing_inbox/<thread> with
+  permissive mode active.
+
+### Earlier this session
 **FB Page publish FIXED — System User token vs Page Access Token.**
 
 Root cause (deep audit traced this empirically across every Meta endpoint):
