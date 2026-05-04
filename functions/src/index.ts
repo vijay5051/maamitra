@@ -22,9 +22,11 @@ import textToSpeech from '@google-cloud/text-to-speech';
 import {
   buildBoostMarketingDraft,
   buildClassifyInboxThread,
+  buildCreateStudioDraft,
   buildDailyMarketingDraftCron,
   buildGenerateInboxReplies,
   buildGenerateMarketingDraft,
+  buildGenerateStudioVariants,
   buildGenerateWeeklyInsightDigest,
   buildMetaInboxReplyPublisher,
   buildMetaWebhookReceiver,
@@ -1398,3 +1400,12 @@ export const generateWeeklyInsightDigest = buildGenerateWeeklyInsightDigest();
 // META_FB_PAGE_ID + ads_management scope on the IG access token.
 export const renderUgcAsDraft = buildRenderUgcAsDraft(ADMIN_EMAILS);
 export const boostMarketingDraft = buildBoostMarketingDraft(ADMIN_EMAILS);
+
+// Studio v2 (Phase 2) — image-gen canvas backend.
+// generateStudioVariants: admin callable. Prompt + brand style profile →
+// 4 parallel variants from Imagen (default) or FLUX. Uploads to Storage.
+// createStudioDraft: admin callable. Picked variant + (optional) caption →
+// marketing_drafts row, lands in M2's pending_review queue. Synthesizes
+// caption via gpt-4o-mini if admin didn't write one.
+export const generateStudioVariants = buildGenerateStudioVariants(ADMIN_EMAILS);
+export const createStudioDraft = buildCreateStudioDraft(ADMIN_EMAILS);

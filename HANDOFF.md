@@ -56,6 +56,97 @@ inbox — all without the admin ever logging into Meta.
   ie post-Phase 6).
 
 ### Last action
+**Studio v2 Phase 2 — image-gen canvas shipped at /admin/marketing/create.**
+
+Studio Phase 2 wires the actual create flow. Admin types a prompt, picks
+quality, gets 4 brand-locked AI variants in parallel, picks one, edits/
+auto-generates caption, saves as draft (or schedules). Output lands in
+the existing M2 `marketing_drafts` queue → M3 publish / M4 inbox / M5
+insights / M6 boost all work without changes.
+
+What shipped:
+- `functions/src/marketing/studio.ts` — two callables:
+  - `generateStudioVariants` — admin callable. Reads `marketing_brand/main`
+    + styleProfile, builds a style-locked prompt (description + art keywords
+    + negative-prohibited list), fires N (1–4) parallel calls to the
+    chosen provider (Imagen default, FLUX option), uploads each result
+    to `marketing/studio/{ts}-{i}.png` via `file.makePublic()`, returns
+    `[{ variantId, url, storagePath }, …]`. Logs each call to
+    `marketing_cost_log` with source + bytes + actor. **Server-side
+    daily cost cap pre-check** — refuses to start if planned spend
+    would push total over `costCaps.dailyInr` (CLAUDE.md audit item).
+  - `createStudioDraft` — admin callable. Picked variant URL + (optional)
+    caption + (optional) scheduledAt → creates `marketing_drafts/{id}`
+    row with status = `pending_review` (or `scheduled`). Synthesises
+    caption via gpt-4o-mini in brand voice if admin didn't write one.
+    Tags `schemaVersion: 2` + `sourceTool: 'studio'` so analytics +
+    Posts hub can identify Studio-created drafts.
+- `functions/src/marketing/index.ts` + `functions/src/index.ts` — exports
+  wired and bound to `ADMIN_EMAILS` allow-list, deployed alongside the
+  rest of the marketing module.
+- `services/marketingStudio.ts` — client wrappers for both callables,
+  returning the raw discriminated-union response so callers can pipe
+  through `friendlyError()`.
+- `app/admin/marketing/create.tsx` — replaces the 4-option stub with
+  the actual canvas. Three-step wizard:
+  - **Step 1 — Prompt:** large textarea + Quality picker (Best ₹13/4
+    Imagen, Quick ₹1/4 FLUX) + live cost estimate + Generate CTA.
+    Empty-state validation prevents firing without a real prompt.
+  - **Step 2 — Pick:** prompt summary card with "Edit" link, 2x2
+    variant grid with skeleton loaders (each shows A/B/C/D badge),
+    selected variant gets purple border + checkmark, "Try again"
+    re-fires generation, "Use this image" advances when picked.
+    Failed variants surface "Skipped" + an info banner suggesting retry.
+  - **Step 3 — Save:** picked image preview (with "Change image" link),
+    caption editor with placeholder explaining AI auto-write, char
+    counter, native datetime picker, "Save as draft" (default) and
+    "Schedule" (requires datetime) actions. On success → drops admin
+    into Posts → To-review tab with the new draft slide-over open.
+
+Brand-style lock (the foundation for "everything looks on-brand"):
+- Style preamble built server-side from `marketing_brand/main.styleProfile`
+  (codified during Studio v2 Phase 1):
+  - `description` → "Visual style: …"
+  - `artKeywords` → "Art direction keywords: …"
+  - `prohibited` → "Do NOT include: …"
+  - Plus universal suffix: "Single coherent illustration. No text, no
+    logos, no watermarks." (so we don't end up with garbled AI text in
+    the image — we composite text via Satori later if needed).
+- Default profile (set at first onboarding) codifies "flat 2D, pastel,
+  brown-skin Indian moms" — every Studio gen starts from this.
+- LoRA training (Phase 5 from the plan) is the next step-change in
+  consistency. ~$2 + 30 min training on the 72 illustration set →
+  custom Replicate endpoint replaces Imagen as default. Wires into
+  the same `model` discriminator already in `studio.ts`.
+
+Cost + safety guardrails (CLAUDE.md audit items implemented):
+- ✅ Server-side daily cost cap before any image gen
+- ✅ Per-call `marketing_cost_log` row with actor + bytes + variantId
+- ✅ Permanent Storage upload of every variant (signed-URL expiry safe)
+- ✅ Admin-only callable gating (callerIsMarketingAdmin)
+- ✅ Plain-English errors throughout (friendlyError client-side, no raw
+  Cloud Function codes leak)
+
+Browser-verified in dev preview:
+- Step 1 renders cleanly: textarea, quality picker, cost estimate,
+  disabled CTA when empty → enabled when valid
+- Click Generate fires the callable; "Not connected" friendly fallback
+  in dev mode (no real Firebase auth) — confirms the error path works
+- Step 2 + 3 layouts visible in code; live verification needs deployed
+  functions (next step)
+
+Outstanding (next session — Studio Phase 3+):
+- Image editing (text-edit "change bg to pink", masked inpaint, bg
+  swap, logo overlay)
+- Multi-image carousel (3–5 variants sharing seed + style for IG carousel)
+- LoRA training pipeline (one-time ~$2, then $0.003/inference)
+- "Reuse winners" — Today CTA pre-fills prompt from last week's
+  top-performing draft (closes M5 feedback loop visually)
+- Style reference image input — currently only prompt prefix; once we
+  pick a provider that supports image-input (gpt-image-1 edits API or
+  Imagen subject-ref), pass the styleReferences[] from brand kit too.
+
+### Earlier this session
 **Studio v2 — UX restructure shipped (calm shell + onboarding + Posts hub
 + Settings hub + Style Profile foundation + plain-English errors).**
 
