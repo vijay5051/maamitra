@@ -56,6 +56,44 @@ inbox — all without the admin ever logging into Meta.
   ie post-Phase 6).
 
 ### Last action
+**M6 — UGC pipeline + Boost-this-post shipped** (commits `95a89ec` + `67a6591`).
+
+What's now live:
+- `/share-story` (user-facing) — moms submit photo + story + display
+  name with explicit consent. Photo upload to gated Storage path
+  (admin-read only). DPDP-compliant consent ledger row written.
+- `/admin/marketing/ugc` — review queue with status filter chips
+  (Pending / Approved / Rendered / Rejected), thumbnail cards,
+  slide-over with full preview + Approve / Reject (with reason) /
+  Render-as-Real-Story / Delete.
+- New `realStoryCard` Satori template (4th template) — 60% photo
+  + 40% quote panel with eyebrow + attribution + logo. Falls back
+  to brand-color fill when no photo.
+- `renderUgcAsDraft` Cloud Function — approved UGC → realStoryCard
+  render → marketing_drafts/{id} status='approved' (skips
+  pending_review since admin vetted source). Goes through M3
+  publish pipeline.
+- `boostMarketingDraft` Cloud Function — Marketing API Campaign +
+  AdSet + Creative + Ad on a posted draft. Budget ₹100-5000/day,
+  duration 1-7 days, India targeting, IG stream + story
+  placements. Result stored on `draft.boost`.
+- "Boost this post" button on slide-over (posted state, no boost
+  yet). Modal asks for daily budget + duration; previews total
+  spend cap. Active boost shows status chip with ₹ + reach.
+- Storage rules updated for `ugc/{id}/{file}` path.
+- Firestore rules updated: users may CREATE pending UGC under
+  their own uid; admin has full CRUD.
+
+Required env vars for boost (not yet set, function gracefully
+errors with "missing-creds"):
+- META_AD_ACCOUNT_ID
+- META_FB_PAGE_ID
+- ads_management scope on the existing META_IG_ACCESS_TOKEN
+
+UTM attribution — deferred to M6b (iOS deep-linking edge cases
+make it a separate session).
+
+### Earlier this session
 **M5 — analytics + feedback loop shipped** (commits `2a60b6c` + `a7194ed`).
 
 What's now live (IG-only — FB Page parity deferred until token):
@@ -269,31 +307,40 @@ Each milestone is shippable + end-to-end testable.
 - **M4b — Real Meta wiring (IG)** ✅ Shipped earlier. FB Page
   (fb_message + fb_comment + FB feed posts) deferred to M4c —
   needs Page Access Token + Page ID.
-- **M5 — Analytics + feedback loop (IG-only)** ✅ Shipped this
-  session.
+- **M5 — Analytics + feedback loop (IG-only)** ✅ Shipped earlier.
+- **M6 — UGC + Boost-this-post** ✅ Shipped this session. UTM
+  attribution deferred to M6b.
 - **M4c / M5-FB** — FB Page wiring + FB Insights (deferred until
   user generates META_FB_PAGE_ID + META_FB_PAGE_ACCESS_TOKEN; the
   Manage Pages use case has the perms granted but the token UI
   was hard to locate in the new dashboard layout).
+- **M6b — UTM attribution + Boost env config** — small follow-up:
+  add UTM params to outbound IG bio URLs, capture on web app
+  first-visit, store as users/{uid}.attribution. Plus user adds
+  META_AD_ACCOUNT_ID + META_FB_PAGE_ID to .env for boost to fire.
 - **M5 — Performance + growth.** Per-post analytics, weekly insight
   digest, feedback loop, UGC pipeline, attribution.
 
 ### Next step
 
-The marketing system is now feature-complete for IG. Three doors:
+Marketing system is feature-complete for IG including UGC + Boost.
+Three doors:
 
-1. **Stress-test what's shipped** — generate / approve / publish /
-   inbox / reply for 1-2 weeks, watch analytics + feedback loop
-   improve content quality. No more code; just usage.
-2. **M4c / FB parity** — when user can generate
-   META_FB_PAGE_ACCESS_TOKEN + META_FB_PAGE_ID, ~120 LOC follow-up
-   adds FB feed posting + FB comment receive/reply + FB Page
-   Insights to the existing M3b/M4b/M5 paths.
-3. **M6 — UGC + attribution + paid promotion** — in-app "share your
-   story" flow with consent → curated → auto-rendered as Real
-   Story posts. UTM + deferred deep linking → know which post drove
-   each install. "Boost this post" using `ads_management`. Bigger
-   build (~2 sessions).
+1. **Stress-test it** — generate / approve / publish / inbox /
+   reply / inject UGC / boost — for 1-2 weeks. Watch analytics +
+   feedback loop improve content quality. No more code; just usage.
+2. **M6b — UTM attribution + Boost env config** — small (~150 LOC):
+   user adds META_AD_ACCOUNT_ID + META_FB_PAGE_ID to .env so
+   boost actually fires. UTM params on outbound bio URLs + web-app
+   first-visit capture → install attribution per post.
+3. **M4c — FB Page parity** — when user has Page Access Token,
+   ~120 LOC adds FB feed posting + FB comments inbox + FB Page
+   Insights to M3b/M4b/M5 paths.
+
+After those three small follow-ups, the marketing system is
+genuinely complete. Anything beyond is product feature work
+(LinkedIn, X, YouTube, WhatsApp Business broadcast, etc.) which
+each needs its own OAuth + paid API + ~50 LOC adapter.
 
 To enable the daily cron now that M3 is shipped:
 - /admin/marketing/ → "Daily 6am IST cron" toggle card → Enable.
@@ -428,6 +475,8 @@ Latest deploy: 2026-05-03.
   not for acting on behalf of users.
 
 ## Recent commits
+- `67a6591` chore(functions) — rebuild lib/ for M6 UGC + boost
+- `95a89ec` feat(marketing) — M6 UGC pipeline + Boost-this-post
 - `a7194ed` chore(functions) — rebuild lib/ for M5 insights
 - `2a60b6c` feat(marketing) — M5 analytics + feedback loop
 - `e8f26eb` chore(functions) — rebuild lib/ for M3b+M4b publisher
