@@ -56,6 +56,32 @@ inbox — all without the admin ever logging into Meta.
   ie post-Phase 6).
 
 ### Last action
+**M5 — analytics + feedback loop shipped** (commits `2a60b6c` + `a7194ed`).
+
+What's now live (IG-only — FB Page parity deferred until token):
+- `pollMarketingInsights` (every 6h) — pulls reach/impressions/likes/
+  comments/saved/shares/profile_visits per posted draft via IG Graph
+  /{media-id}/insights. Snapshots → marketing_drafts/{id}/insights/{ts};
+  latest values denormalised onto the draft.
+- `pollMarketingAccountInsights` (daily 03:00 IST) — follower count
+  + daily reach/impressions snapshot to marketing_account_insights/
+  {YYYY-MM-DD} with computed followersDelta.
+- `generateWeeklyInsightDigest` (Mondays 08:00 IST) — gpt-4o-mini
+  weekly recap + 3 actionable recommendations stored at
+  marketing_insights/{ISO-week-id}.
+- M3b publisher now stores `postIgMediaId` at publish time so
+  insights polling can find each post.
+- runGenerator now self-improves: pillar selection biased 0.5×–2×
+  by 30d engagement vs overall avg; caption prompt receives
+  "inspiration" from top 3 winning image prompts + a templateHint
+  when one template clearly outperforms in the active pillar.
+- New `/admin/marketing/analytics` dashboard: 4 topline tiles,
+  per-pillar bar chart, per-persona bar chart, top-5 + bottom-5
+  posts, weekly digest card.
+- Overview shows weekly digest preview card with click-thru to
+  full analytics.
+
+### Earlier this session
 **M3b + M4b — IG auto-publish + outbound replies shipped** (commits
 `174e116` + `e8f26eb`).
 
@@ -237,27 +263,37 @@ Each milestone is shippable + end-to-end testable.
 - **M2 — Content engine + approval queue** ✅ Shipped earlier this session.
 - **M3a — Scheduling + calendar + A/B + crisis pause + export** ✅
   Shipped earlier this session.
-- **M3b — IG auto-publish (scheduled + manual)** ✅ Shipped this
-  session. LinkedIn / X / YouTube / WhatsApp adapters still deferred.
+- **M3b — IG auto-publish (scheduled + manual)** ✅ Shipped earlier.
+  LinkedIn / X / YouTube / WhatsApp adapters still deferred.
 - **M4a — Engagement (UI + endpoint scaffolding)** ✅ Shipped earlier.
-- **M4b — Real Meta wiring (IG)** ✅ Shipped this session. FB Page
+- **M4b — Real Meta wiring (IG)** ✅ Shipped earlier. FB Page
   (fb_message + fb_comment + FB feed posts) deferred to M4c —
   needs Page Access Token + Page ID.
+- **M5 — Analytics + feedback loop (IG-only)** ✅ Shipped this
+  session.
+- **M4c / M5-FB** — FB Page wiring + FB Insights (deferred until
+  user generates META_FB_PAGE_ID + META_FB_PAGE_ACCESS_TOKEN; the
+  Manage Pages use case has the perms granted but the token UI
+  was hard to locate in the new dashboard layout).
 - **M5 — Performance + growth.** Per-post analytics, weekly insight
   digest, feedback loop, UGC pipeline, attribution.
 
 ### Next step
-**M5 — Performance + growth** (per-post analytics from IG Insights,
-weekly insight digest with LLM commentary, feedback loop into
-content engine, UGC pipeline, attribution). Most pieces buildable
-today — IG Insights API is gated on the same permissions we
-already have.
 
-OR **M4c — FB Page wiring** if you want FB feed + Messenger working
-alongside IG. Needs you to generate a Page Access Token from the
-"Manage everything on your Page" use case section in Meta dashboard
-and add `META_FB_PAGE_ID` + `META_FB_PAGE_ACCESS_TOKEN` to
-functions/.env. ~80 LOC of glue.
+The marketing system is now feature-complete for IG. Three doors:
+
+1. **Stress-test what's shipped** — generate / approve / publish /
+   inbox / reply for 1-2 weeks, watch analytics + feedback loop
+   improve content quality. No more code; just usage.
+2. **M4c / FB parity** — when user can generate
+   META_FB_PAGE_ACCESS_TOKEN + META_FB_PAGE_ID, ~120 LOC follow-up
+   adds FB feed posting + FB comment receive/reply + FB Page
+   Insights to the existing M3b/M4b/M5 paths.
+3. **M6 — UGC + attribution + paid promotion** — in-app "share your
+   story" flow with consent → curated → auto-rendered as Real
+   Story posts. UTM + deferred deep linking → know which post drove
+   each install. "Boost this post" using `ads_management`. Bigger
+   build (~2 sessions).
 
 To enable the daily cron now that M3 is shipped:
 - /admin/marketing/ → "Daily 6am IST cron" toggle card → Enable.
@@ -392,6 +428,8 @@ Latest deploy: 2026-05-03.
   not for acting on behalf of users.
 
 ## Recent commits
+- `a7194ed` chore(functions) — rebuild lib/ for M5 insights
+- `2a60b6c` feat(marketing) — M5 analytics + feedback loop
 - `e8f26eb` chore(functions) — rebuild lib/ for M3b+M4b publisher
 - `174e116` feat(marketing) — M3b+M4b IG auto-publish + outbound replies
 - `ca2ef7b` chore(functions) — rebuild lib/ for M4 webhook + AI inbox
