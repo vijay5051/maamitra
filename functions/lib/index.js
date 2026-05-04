@@ -52,7 +52,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.publishMarketingDraftNow = exports.scheduledMarketingPublisher = exports.metaInboxReplyPublisher = exports.classifyInboxThread = exports.generateInboxReplies = exports.metaWebhookReceiver = exports.dailyMarketingDraftCron = exports.generateMarketingDraft = exports.scoreMarketingDraft = exports.renderMarketingTemplate = exports.repairCommunityCounters = exports.onUserCreated = exports.onFollowDelete = exports.onFollowCreate = exports.onPostDelete = exports.onCommentDelete = exports.onCommentCreate = exports.synthesizeSpeech = exports.adminFactoryReset = exports.factoryReset = exports.processScheduledPushes = exports.adminCreateUser = exports.adminDeleteUser = exports.dispatchPush = void 0;
+exports.generateWeeklyInsightDigest = exports.pollMarketingAccountInsights = exports.pollMarketingInsights = exports.publishMarketingDraftNow = exports.scheduledMarketingPublisher = exports.metaInboxReplyPublisher = exports.classifyInboxThread = exports.generateInboxReplies = exports.metaWebhookReceiver = exports.dailyMarketingDraftCron = exports.generateMarketingDraft = exports.scoreMarketingDraft = exports.renderMarketingTemplate = exports.repairCommunityCounters = exports.onUserCreated = exports.onFollowDelete = exports.onFollowCreate = exports.onPostDelete = exports.onCommentDelete = exports.onCommentCreate = exports.synthesizeSpeech = exports.adminFactoryReset = exports.factoryReset = exports.processScheduledPushes = exports.adminCreateUser = exports.adminDeleteUser = exports.dispatchPush = void 0;
 const functions = __importStar(require("firebase-functions/v1"));
 const admin = __importStar(require("firebase-admin"));
 const text_to_speech_1 = __importDefault(require("@google-cloud/text-to-speech"));
@@ -1177,3 +1177,14 @@ exports.metaInboxReplyPublisher = (0, marketing_1.buildMetaInboxReplyPublisher)(
 // now" button on the slide-over.
 exports.scheduledMarketingPublisher = (0, marketing_1.buildScheduledMarketingPublisher)();
 exports.publishMarketingDraftNow = (0, marketing_1.buildPublishMarketingDraftNow)(ADMIN_EMAILS);
+// M5 — analytics + feedback loop.
+//
+// pollMarketingInsights: every 6h cron pulls per-post Insights for posted
+// drafts in the last 30d.
+// pollMarketingAccountInsights: daily 03:00 IST snapshot of follower
+// count + reach.
+// generateWeeklyInsightDigest: Mondays 08:00 IST LLM commentary on the
+// week's posts + 3 actionable recommendations.
+exports.pollMarketingInsights = (0, marketing_1.buildPollMarketingInsights)();
+exports.pollMarketingAccountInsights = (0, marketing_1.buildPollMarketingAccountInsights)();
+exports.generateWeeklyInsightDigest = (0, marketing_1.buildGenerateWeeklyInsightDigest)();

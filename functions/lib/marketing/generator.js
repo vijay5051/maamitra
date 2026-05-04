@@ -123,7 +123,93 @@ function todayInIst() {
         isoDate: ist.toISOString().slice(0, 10),
     };
 }
-function pickSlot(brand, override, today) {
+async function loadPerformanceStats() {
+    const out = {
+        byPillar: new Map(),
+        byPillarTemplate: new Map(),
+        topPrompts: [],
+    };
+    try {
+        const cutoff = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
+        const snap = await admin.firestore()
+            .collection('marketing_drafts')
+            .where('status', '==', 'posted')
+            .where('postedAt', '>=', cutoff)
+            .limit(200)
+            .get();
+        const rows = [];
+        for (const d of snap.docs) {
+            const data = d.data();
+            if (data?.isSynthetic === true)
+                continue;
+            const m = data?.latestInsights;
+            if (!m || typeof m?.reach !== 'number' || m.reach <= 0)
+                continue;
+            const eng = (m.likes ?? 0) + (m.comments ?? 0) + (m.shares ?? 0) + (m.saved ?? 0);
+            const rate = eng / m.reach;
+            const pillar = typeof data?.pillarId === 'string' ? data.pillarId : 'unknown';
+            const template = typeof data?.assets?.[0]?.template === 'string' ? data.assets[0].template : 'unknown';
+            const prompt = typeof data?.imagePrompt === 'string' ? data.imagePrompt : '';
+            rows.push({ pillar, template, rate, prompt });
+        }
+        // Aggregate by pillar
+        for (const r of rows) {
+            const cur = out.byPillar.get(r.pillar) ?? { posts: 0, avgRate: 0 };
+            cur.posts += 1;
+            cur.avgRate += r.rate;
+            out.byPillar.set(r.pillar, cur);
+        }
+        out.byPillar.forEach((v) => { v.avgRate = v.posts ? v.avgRate / v.posts : 0; });
+        // Aggregate by (pillar, template)
+        for (const r of rows) {
+            const inner = out.byPillarTemplate.get(r.pillar) ?? new Map();
+            const cur = inner.get(r.template) ?? { posts: 0, avgRate: 0 };
+            cur.posts += 1;
+            cur.avgRate += r.rate;
+            inner.set(r.template, cur);
+            out.byPillarTemplate.set(r.pillar, inner);
+        }
+        out.byPillarTemplate.forEach((inner) => {
+            inner.forEach((v) => { v.avgRate = v.posts ? v.avgRate / v.posts : 0; });
+        });
+        // Top 3 image prompts by rate (only if non-trivial reach)
+        out.topPrompts = rows
+            .filter((r) => r.prompt.length > 20)
+            .sort((a, b) => b.rate - a.rate)
+            .slice(0, 3)
+            .map((r) => r.prompt);
+    }
+    catch (e) {
+        console.warn('[loadPerformanceStats] failed', e);
+    }
+    return out;
+}
+/** Pillar weights — winners get up to 2× their share, losers down to 0.5×. */
+function weightedPillarPick(pillars, stats) {
+    if (pillars.length === 0)
+        return null;
+    // Need at least 5 datapoints overall to bias; otherwise even rotation.
+    const totalPosts = Array.from(stats.byPillar.values()).reduce((a, v) => a + v.posts, 0);
+    if (totalPosts < 5)
+        return pillars[Math.floor(Math.random() * pillars.length)];
+    const overallAvg = Array.from(stats.byPillar.values()).reduce((a, v) => a + v.avgRate * v.posts, 0) / Math.max(1, totalPosts);
+    const weights = pillars.map((p) => {
+        const stat = stats.byPillar.get(p.id);
+        if (!stat || stat.posts < 2)
+            return 1; // unseen / under-sampled → neutral
+        const ratio = overallAvg > 0 ? stat.avgRate / overallAvg : 1;
+        return Math.max(0.5, Math.min(2, ratio));
+    });
+    const total = weights.reduce((a, w) => a + w, 0);
+    let r = Math.random() * total;
+    for (let i = 0; i < pillars.length; i++) {
+        r -= weights[i];
+        if (r <= 0)
+            return pillars[i];
+    }
+    return pillars[pillars.length - 1];
+}
+function pickSlot(brand, override, today, stats) {
     // Cultural event matching today's date — checks YYYY-MM-DD or YYYY-MM-DD
     // suffix of an event date (handles yearly events stored with a year).
     const todayMd = today.isoDate.slice(5); // "MM-DD"
@@ -135,7 +221,8 @@ function pickSlot(brand, override, today) {
             return false;
         return e.date.slice(5) === todayMd || e.date === today.isoDate;
     }) ?? null;
-    // Pillar — explicit override, else event's pillarHint, else first enabled.
+    // Pillar — explicit override, else event's pillarHint, else
+    // performance-weighted pick across enabled pillars.
     let pillar = null;
     const pillarOverride = typeof override.pillarId === 'string' ? override.pillarId : '';
     if (pillarOverride)
@@ -143,7 +230,7 @@ function pickSlot(brand, override, today) {
     if (!pillar && event?.pillarHint)
         pillar = brand.pillars.find((p) => p.id === event.pillarHint) ?? null;
     if (!pillar)
-        pillar = brand.pillars[0] ?? null;
+        pillar = weightedPillarPick(brand.pillars, stats);
     // Persona — explicit override, else round-robin by IST day-of-month over
     // enabled personas (so a 5-persona list rotates ~weekly).
     let persona = null;
@@ -163,7 +250,7 @@ function pickSlot(brand, override, today) {
         themePrompt: theme?.prompt ?? '',
     };
 }
-async function generateCaption(brand, slot) {
+async function generateCaption(brand, slot, stats) {
     if (!OPENAI_API_KEY)
         throw new Error('OPENAI_API_KEY not set in functions/.env');
     const localeInstruction = brand.voice.bilingual === 'english_only'
@@ -181,6 +268,25 @@ async function generateCaption(brand, slot) {
         ? `\nContent pillar: ${slot.pillar.label} — ${slot.pillar.description}`
         : '';
     const themeLine = slot.themePrompt ? `\nWeekly theme (${slot.themeLabel}): ${slot.themePrompt}` : '';
+    // Feedback-loop hint — top-performing image prompts from the last 30d.
+    // Empty until insights data exists; only adds 100-300 tokens when present.
+    const inspirationLine = stats.topPrompts.length > 0
+        ? `\n\nInspiration — these image prompts have performed well recently (use as STYLE reference, do NOT copy verbatim):\n${stats.topPrompts.map((p, i) => `${i + 1}. ${p}`).join('\n')}`
+        : '';
+    // Pillar-template winning hint — if there's a clear winner template
+    // for this pillar, suggest it.
+    let templateHint = '';
+    if (slot.pillar) {
+        const inner = stats.byPillarTemplate.get(slot.pillar.id);
+        if (inner && inner.size >= 2) {
+            const winner = Array.from(inner.entries())
+                .filter(([, v]) => v.posts >= 2)
+                .sort((a, b) => b[1].avgRate - a[1].avgRate)[0];
+            if (winner) {
+                templateHint = `\nFor pillar "${slot.pillar.label}", recent winners use template "${winner[0]}". Lean toward it unless the content clearly fits a different one.`;
+            }
+        }
+    }
     const forbidden = brand.compliance.medicalForbiddenWords.slice(0, 30).join(', ');
     const blockedTopics = brand.compliance.blockedTopics.slice(0, 20).join(', ');
     const system = [
@@ -198,6 +304,8 @@ async function generateCaption(brand, slot) {
         personaLine,
         pillarLine,
         themeLine,
+        templateHint,
+        inspirationLine,
         '',
         'Pick the most appropriate template:',
         '- "tipCard" — a numbered list of 3 short practical tips (use for advice / safety / how-to)',
@@ -390,10 +498,11 @@ async function runGenerator(input, actorEmail) {
         return { ok: false, code: 'strategy-incomplete', message: 'Add at least one enabled persona and pillar in /admin/marketing/strategy first.' };
     }
     const today = todayInIst();
-    const slot = pickSlot(brand, input, today);
+    const stats = await loadPerformanceStats();
+    const slot = pickSlot(brand, input, today, stats);
     let captionOut;
     try {
-        captionOut = await generateCaption(brand, slot);
+        captionOut = await generateCaption(brand, slot, stats);
     }
     catch (e) {
         return { ok: false, code: 'caption-failed', message: e?.message ?? String(e) };
