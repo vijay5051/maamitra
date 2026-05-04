@@ -46,6 +46,42 @@ if (Platform.OS === 'web' && typeof window !== 'undefined') {
       try { window.location.reload(); } catch (_) { /* ignore */ }
     }
   });
+
+  // Stale-chunk guard. After a deploy, an open tab still has the previous
+  // build's index.html in memory; when it tries to lazy-load a chunk, the
+  // hash no longer exists so the SPA's `**` rewrite serves index.html
+  // back as text, and the JS module loader throws "Loading module …
+  // failed". Listen for that exact pattern and force one reload so the
+  // tab fetches the fresh index.html + new chunk hashes. SessionStorage
+  // flag prevents reload loops in case the error is genuine.
+  const RELOAD_FLAG = '__chunk_reload_attempted__';
+  const isChunkLoadError = (msg: string) =>
+    /Loading module .+ failed/i.test(msg) ||
+    /Failed to fetch dynamically imported module/i.test(msg) ||
+    /Importing a module script failed/i.test(msg);
+  const handleChunkError = (msg: string) => {
+    if (!isChunkLoadError(msg)) return;
+    try {
+      if (sessionStorage.getItem(RELOAD_FLAG) === '1') return; // already tried
+      sessionStorage.setItem(RELOAD_FLAG, '1');
+    } catch (_) { /* sessionStorage may be unavailable */ }
+    try { window.location.reload(); } catch (_) { /* ignore */ }
+  };
+  window.addEventListener('error', (e) => {
+    if (e?.message) handleChunkError(String(e.message));
+  });
+  window.addEventListener('unhandledrejection', (e: any) => {
+    const reason = e?.reason;
+    const msg = typeof reason === 'string' ? reason : reason?.message ?? '';
+    if (msg) handleChunkError(String(msg));
+  });
+  // Clear the reload flag once the fresh page loads cleanly. On the next
+  // tick — far enough in that any chunk-load error from this load would
+  // have surfaced — we trust the page is healthy and reset the guard so
+  // a future stale-bundle scenario can self-heal again.
+  setTimeout(() => {
+    try { sessionStorage.removeItem(RELOAD_FLAG); } catch (_) { /* ignore */ }
+  }, 30_000);
 }
 
 export default function RootLayout() {
