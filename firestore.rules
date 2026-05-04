@@ -450,6 +450,14 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow write: if false;
     }
+    // Connection health probe doc — single doc at marketing_health/main.
+    // The probeMarketingHealth Cloud Function (hourly cron + admin callable)
+    // writes via the service account; admin reads to drive the IG/FB dots
+    // in the marketing shell + Settings Connected accounts card.
+    match /marketing_health/{docId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
     // UGC submissions (M6). Authenticated users may CREATE their own
     // submissions (so the in-app "share your story" flow works) but may
     // not read/update/delete — the queue is admin-only. Admin has full

@@ -25,10 +25,19 @@ import {
 } from 'react-native';
 
 import { Colors, FontSize, Radius, Shadow, Spacing } from '../../../constants/theme';
-import { fetchBrandKit, saveBrandKit, subscribeBrandKit } from '../../../services/marketing';
+import {
+  fetchBrandKit,
+  probeMarketingHealthNow,
+  saveBrandKit,
+  subscribeBrandKit,
+  subscribeMarketingHealth,
+} from '../../../services/marketing';
+import { friendlyError } from '../../../services/marketingErrors';
 import {
   BrandKit,
+  ChannelHealth,
   DEFAULT_STYLE_PROFILE,
+  MarketingHealth,
   StyleProfile,
 } from '../../../lib/marketingTypes';
 import { useAuthStore } from '../../../store/useAuthStore';
@@ -40,6 +49,8 @@ export default function MarketingSettingsScreen() {
   const isWide = width >= 900;
 
   const [brand, setBrand] = useState<BrandKit | null>(null);
+  const [health, setHealth] = useState<MarketingHealth | null>(null);
+  const [recheckBusy, setRecheckBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [banner, setBanner] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null);
@@ -47,8 +58,9 @@ export default function MarketingSettingsScreen() {
   useEffect(() => {
     setLoading(true);
     void fetchBrandKit().then((k) => { setBrand(k); setLoading(false); });
-    const unsub = subscribeBrandKit((k) => setBrand(k));
-    return () => { unsub(); };
+    const unsubBrand = subscribeBrandKit((k) => setBrand(k));
+    const unsubHealth = subscribeMarketingHealth(setHealth);
+    return () => { unsubBrand(); unsubHealth(); };
   }, []);
 
   const showBanner = useCallback((tone: 'ok' | 'err', text: string) => {
@@ -122,13 +134,46 @@ export default function MarketingSettingsScreen() {
         />
 
         <Card>
-          <CardHead icon="link-outline" title="Connected accounts" />
+          <View style={styles.cardHead}>
+            <View style={styles.cardIcon}>
+              <Ionicons name="link-outline" size={16} color={Colors.primary} />
+            </View>
+            <Text style={styles.cardTitle}>Connected accounts</Text>
+            <Pressable
+              disabled={recheckBusy}
+              onPress={async () => {
+                setRecheckBusy(true);
+                try {
+                  const out = await probeMarketingHealthNow();
+                  showBanner(
+                    out.ig.ok && out.fb.ok ? 'ok' : 'err',
+                    out.ig.ok && out.fb.ok
+                      ? 'Both connections are live.'
+                      : `IG ${out.ig.ok ? 'OK' : '✕'} • FB ${out.fb.ok ? 'OK' : '✕'}`,
+                  );
+                } catch (e: any) {
+                  showBanner('err', friendlyError('Re-check connections', e));
+                } finally {
+                  setRecheckBusy(false);
+                }
+              }}
+              style={styles.editLink}
+            >
+              {recheckBusy ? (
+                <ActivityIndicator size="small" color={Colors.primary} />
+              ) : (
+                <Text style={styles.editLinkLabel}>Re-check now</Text>
+              )}
+            </Pressable>
+          </View>
           <View style={{ gap: 8, marginTop: 8 }}>
-            <ConnectionRow platform="Instagram" handle="maamitra.official" status="connected" />
-            <ConnectionRow platform="Facebook Page" handle="MaaMitra" status="connected" />
+            <ConnectionRow platform="Instagram" channel={health?.ig ?? null} pending={health === null} fallbackHandle="maamitra.official" />
+            <ConnectionRow platform="Facebook Page" channel={health?.fb ?? null} pending={health === null} fallbackHandle="MaaMitra" />
           </View>
           <Text style={styles.cardHint}>
-            Connections are managed through Meta Business. Tokens refresh automatically.
+            {health?.lastCheckedAt
+              ? `Checked ${formatRelative(health.lastCheckedAt)}. Re-checks every hour automatically.`
+              : 'Waiting for first probe — re-check now to populate.'}
           </Text>
         </Card>
 
@@ -274,24 +319,52 @@ function NavCard({
 }
 
 function ConnectionRow({
-  platform, handle, status,
+  platform, channel, pending, fallbackHandle,
 }: {
   platform: string;
-  handle: string;
-  status: 'connected' | 'disconnected';
+  channel: ChannelHealth | null;
+  /** True while we're waiting for the first probe to land. */
+  pending: boolean;
+  /** Shown when the probe hasn't returned a handle yet. */
+  fallbackHandle: string;
 }) {
+  // Three states: pending (no probe yet), ok (last probe succeeded), fail.
+  const dotColor = pending
+    ? Colors.textMuted
+    : channel?.ok ? Colors.success : Colors.error;
+  const handleText = (channel?.handle && channel.handle.trim()) || fallbackHandle;
+  const statusText = pending ? 'Checking…' : channel?.ok ? 'Connected' : 'Reconnect';
+  const statusColor = pending
+    ? Colors.textMuted
+    : channel?.ok ? Colors.success : Colors.error;
   return (
-    <View style={styles.connectionRow}>
-      <View style={styles.connectionDot}>
-        <View style={[styles.dot, { backgroundColor: status === 'connected' ? Colors.success : Colors.error }]} />
+    <View style={{ gap: 2 }}>
+      <View style={styles.connectionRow}>
+        <View style={styles.connectionDot}>
+          <View style={[styles.dot, { backgroundColor: dotColor }]} />
+        </View>
+        <Text style={styles.connectionPlatform}>{platform}</Text>
+        <Text style={styles.connectionHandle}>{handleText}</Text>
+        <Text style={[styles.connectionStatus, { color: statusColor }]}>{statusText}</Text>
       </View>
-      <Text style={styles.connectionPlatform}>{platform}</Text>
-      <Text style={styles.connectionHandle}>{handle}</Text>
-      <Text style={[styles.connectionStatus, status === 'connected' && { color: Colors.success }]}>
-        {status === 'connected' ? 'Connected' : 'Reconnect'}
-      </Text>
+      {channel && !channel.ok && channel.error ? (
+        <Text style={styles.connectionError}>{channel.error}</Text>
+      ) : null}
     </View>
   );
+}
+
+function formatRelative(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return 'just now';
+  const sec = Math.round(ms / 1000);
+  if (sec < 45) return 'just now';
+  const min = Math.round(sec / 60);
+  if (min < 60) return `${min} min ago`;
+  const hr = Math.round(min / 60);
+  if (hr < 24) return `${hr} h ago`;
+  const day = Math.round(hr / 24);
+  return `${day} d ago`;
 }
 
 function StyleProfileEditor({
@@ -462,6 +535,12 @@ const styles = StyleSheet.create({
   connectionPlatform: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textDark, width: 110 },
   connectionHandle: { fontSize: FontSize.xs, color: Colors.textLight, flex: 1 },
   connectionStatus: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textMuted },
+  connectionError: {
+    fontSize: 11,
+    color: Colors.error,
+    marginLeft: 24,
+    lineHeight: 14,
+  },
 
   // Status chip
   statusChip: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 },

@@ -39,6 +39,7 @@ export {
 export { buildRenderUgcAsDraft } from './ugc';
 export { buildBoostMarketingDraft } from './boost';
 export { buildGenerateStudioVariants, buildCreateStudioDraft, buildEditStudioImage } from './studio';
+export { buildProbeMarketingHealth, buildProbeMarketingHealthNow } from './health';
 
 // firebase-admin is initialized in functions/src/index.ts before this module
 // is imported; we just grab the existing instance.

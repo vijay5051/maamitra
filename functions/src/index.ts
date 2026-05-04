@@ -33,6 +33,8 @@ import {
   buildMetaWebhookReceiver,
   buildPollMarketingAccountInsights,
   buildPollMarketingInsights,
+  buildProbeMarketingHealth,
+  buildProbeMarketingHealthNow,
   buildPublishMarketingDraftNow,
   buildRenderMarketingTemplate,
   buildRenderUgcAsDraft,
@@ -1416,3 +1418,9 @@ export const createStudioDraft = buildCreateStudioDraft(ADMIN_EMAILS);
 // the new image, returns the new URL. Caller (the canvas) replaces the
 // picked variant with this one.
 export const editStudioImage = buildEditStudioImage(ADMIN_EMAILS);
+
+// Connection health probe — refreshes marketing_health/main with live IG +
+// FB token validity. Hourly cron keeps the admin shell's IG/FB dots honest;
+// the callable backs the "Re-check now" button in Settings.
+export const probeMarketingHealth = buildProbeMarketingHealth();
+export const probeMarketingHealthNow = buildProbeMarketingHealthNow(ADMIN_EMAILS);

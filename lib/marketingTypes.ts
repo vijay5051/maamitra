@@ -619,3 +619,47 @@ export interface InboxMessage {
   /** Inbound only — Meta event ID for idempotency (= Firestore doc id). */
   externalId?: string;
 }
+
+// ── Marketing health probe ─────────────────────────────────────────────────
+// Single Firestore doc at marketing_health/main, written by the
+// probeMarketingHealth Cloud Function (hourly cron + admin-callable
+// "Refresh" button). Drives the IG/FB dots in the MarketingShell health
+// chip and the Connected accounts card in Settings — replaces the previous
+// optimistic "always green" UI with live token-validity state.
+
+export interface ChannelHealth {
+  /** True when the most recent probe call hit Graph successfully. */
+  ok: boolean;
+  /** ISO timestamp of the last probe attempt (success or failure). */
+  checkedAt: string | null;
+  /** Display handle resolved from Graph when ok (IG: @username, FB: Page name). */
+  handle: string | null;
+  /** Resource id resolved from Graph when ok. */
+  externalId: string | null;
+  /** When !ok: short, plain-English reason for the failure. */
+  error: string | null;
+  /** When !ok: Meta error code (or 'no-token', 'no-id', 'fetch-failed'). */
+  errorCode: string | null;
+}
+
+export interface MarketingHealth {
+  ig: ChannelHealth;
+  fb: ChannelHealth;
+  /** ISO timestamp of the most recent full probe pass. */
+  lastCheckedAt: string | null;
+}
+
+export const UNKNOWN_CHANNEL_HEALTH: ChannelHealth = {
+  ok: false,
+  checkedAt: null,
+  handle: null,
+  externalId: null,
+  error: null,
+  errorCode: 'unknown',
+};
+
+export const UNKNOWN_MARKETING_HEALTH: MarketingHealth = {
+  ig: UNKNOWN_CHANNEL_HEALTH,
+  fb: UNKNOWN_CHANNEL_HEALTH,
+  lastCheckedAt: null,
+};

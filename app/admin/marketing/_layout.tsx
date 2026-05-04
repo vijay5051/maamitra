@@ -13,8 +13,8 @@ import { Platform } from 'react-native';
 import { useEffect, useState } from 'react';
 
 import MarketingShell, { HealthStatus } from '../../../components/marketing/MarketingShell';
-import { fetchBrandKit, subscribeBrandKit } from '../../../services/marketing';
-import { BrandKit } from '../../../lib/marketingTypes';
+import { fetchBrandKit, subscribeBrandKit, subscribeMarketingHealth } from '../../../services/marketing';
+import { BrandKit, MarketingHealth, UNKNOWN_MARKETING_HEALTH } from '../../../lib/marketingTypes';
 
 const ONBOARDING_PATH = '/admin/marketing/onboarding';
 
@@ -37,13 +37,19 @@ function isDevPreviewBypass(): boolean {
 export default function MarketingLayout() {
   const pathname = usePathname() ?? '';
   const [brand, setBrand] = useState<BrandKit | null | undefined>(undefined); // undefined = loading
+  const [health, setHealth] = useState<MarketingHealth | null>(null);
   const isOnboarding = pathname.startsWith(ONBOARDING_PATH);
 
   useEffect(() => {
-    let unsub: (() => void) | undefined;
+    let unsubBrand: (() => void) | undefined;
+    let unsubHealth: (() => void) | undefined;
     void fetchBrandKit().then(setBrand);
-    unsub = subscribeBrandKit(setBrand);
-    return () => { if (unsub) unsub(); };
+    unsubBrand = subscribeBrandKit(setBrand);
+    unsubHealth = subscribeMarketingHealth(setHealth);
+    return () => {
+      if (unsubBrand) unsubBrand();
+      if (unsubHealth) unsubHealth();
+    };
   }, []);
 
   // Onboarding screen runs without the shell (modal-feel).
@@ -65,20 +71,26 @@ export default function MarketingLayout() {
     return <Redirect href={ONBOARDING_PATH as any} />;
   }
 
-  const health: HealthStatus = {
-    // Connection state isn't yet wired to Meta APIs from the client; the
-    // brand kit doesn't store live token validity. Surface the env-presence
-    // proxy: if the server-side functions report Meta wired, treat as ok.
-    // For v1 of the shell we surface optimistic state; Day-2 polish wires
-    // a `marketing_health/main` doc populated by a Cloud Function.
-    igConnected: true,
-    fbConnected: true,
+  // Live token-validity from probeMarketingHealth (hourly cron + admin
+  // callable). Pre-first-probe (doc missing) we degrade to "unknown" rather
+  // than the previous always-green optimistic state — the chip now reflects
+  // reality. cronEnabled / crisisPaused still come from the brand kit.
+  const liveHealth = health ?? UNKNOWN_MARKETING_HEALTH;
+  const shellHealth: HealthStatus = {
+    igConnected: liveHealth.ig.ok,
+    fbConnected: liveHealth.fb.ok,
+    igHandle: liveHealth.ig.handle,
+    fbHandle: liveHealth.fb.handle,
+    igError: liveHealth.ig.error,
+    fbError: liveHealth.fb.error,
     cronEnabled: brand?.cronEnabled === true,
     crisisPaused: brand?.crisisPaused === true,
+    /** True until the first probe lands (or if Firestore subscription failed). */
+    healthUnknown: health === null,
   };
 
   return (
-    <MarketingShell health={health}>
+    <MarketingShell health={shellHealth}>
       <Stack screenOptions={{ headerShown: false }} />
     </MarketingShell>
   );

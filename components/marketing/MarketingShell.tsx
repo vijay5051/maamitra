@@ -35,6 +35,14 @@ export interface HealthStatus {
   fbConnected: boolean;
   cronEnabled: boolean;
   crisisPaused: boolean;
+  /** Display handle from the latest probe (e.g. "@maamitra.official"). */
+  igHandle?: string | null;
+  fbHandle?: string | null;
+  /** Plain-English error from the latest probe — surfaced on hover/long-press. */
+  igError?: string | null;
+  fbError?: string | null;
+  /** True before the first probe lands. Renders as muted "?" rather than red. */
+  healthUnknown?: boolean;
 }
 
 interface Tab {
@@ -190,19 +198,37 @@ function TabPill({ tab, active, compact }: { tab: Tab; active: boolean; compact?
 
 function HealthChip({ health }: { health: HealthStatus }) {
   const router = useRouter();
-  const { igConnected, fbConnected, cronEnabled, crisisPaused } = health;
-  const allOk = igConnected && fbConnected && cronEnabled && !crisisPaused;
-  const tone = crisisPaused ? 'paused' : allOk ? 'ok' : 'warn';
+  const {
+    igConnected, fbConnected, cronEnabled, crisisPaused,
+    igHandle, fbHandle, igError, fbError, healthUnknown,
+  } = health;
+  // "warn" covers both unknown (pre-first-probe) and any real failure so
+  // the user sees a visual cue rather than a green-on-broken lie.
+  const channelsOk = igConnected && fbConnected;
+  const channelsKnown = !healthUnknown;
+  const tone = crisisPaused
+    ? 'paused'
+    : (channelsOk && channelsKnown && cronEnabled) ? 'ok'
+    : 'warn';
+
+  // Native title attribute on web shows the error reason on hover.
+  const igHint = healthUnknown
+    ? 'Instagram: checking…'
+    : `Instagram: ${igConnected ? igHandle ?? 'connected' : igError ?? 'not connected'}`;
+  const fbHint = healthUnknown
+    ? 'Facebook: checking…'
+    : `Facebook: ${fbConnected ? fbHandle ?? 'connected' : fbError ?? 'not connected'}`;
+  const accessibilityHint = `${igHint} • ${fbHint}`;
 
   return (
     <Pressable
       onPress={() => router.push('/admin/marketing/settings' as any)}
       style={[styles.healthChip, tone === 'paused' && styles.healthChipPaused, tone === 'warn' && styles.healthChipWarn]}
-      accessibilityLabel="System health — open Settings"
+      accessibilityLabel={`System health — ${accessibilityHint}. Open Settings.`}
     >
-      <Dot ok={igConnected} />
+      <Dot state={dotState(igConnected, healthUnknown)} />
       <Text style={styles.healthLabel}>IG</Text>
-      <Dot ok={fbConnected} />
+      <Dot state={dotState(fbConnected, healthUnknown)} />
       <Text style={styles.healthLabel}>FB</Text>
       <View style={styles.healthDivider} />
       <Text style={styles.healthLabel}>
@@ -212,8 +238,18 @@ function HealthChip({ health }: { health: HealthStatus }) {
   );
 }
 
-function Dot({ ok }: { ok: boolean }) {
-  return <View style={[styles.dot, { backgroundColor: ok ? Colors.success : Colors.textMuted }]} />;
+type DotState = 'ok' | 'fail' | 'unknown';
+function dotState(ok: boolean, unknown: boolean | undefined): DotState {
+  if (unknown) return 'unknown';
+  return ok ? 'ok' : 'fail';
+}
+
+function Dot({ state }: { state: DotState }) {
+  const color =
+    state === 'ok' ? Colors.success :
+    state === 'fail' ? Colors.error :
+    Colors.textMuted;
+  return <View style={[styles.dot, { backgroundColor: color }]} />;
 }
 
 function deriveFirstName(name: string | null | undefined, email: string | null | undefined): string {

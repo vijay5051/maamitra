@@ -56,6 +56,69 @@ inbox — all without the admin ever logging into Meta.
   ie post-Phase 6).
 
 ### Last action
+**Connection-health probe shipped — IG/FB dots in the marketing shell +
+Settings Connected accounts card now reflect live token validity instead
+of optimistic "always green".**
+
+What shipped:
+- `functions/src/marketing/health.ts` — new module:
+  - `probeMarketingHealth` (pubsub cron, every 1 hour, 256MB / 60s) —
+    fires two cheap Graph node fetches (IG `/{ig-user-id}?fields=id,username`
+    + FB `/{page-id}?fields=id,name` via the SU→PAT derivation already
+    used by the publisher) and writes the result to
+    `marketing_health/main`. Maps Meta error codes (190, 10, 200, 4/17/32)
+    to plain-English copy with actionable guidance.
+  - `probeMarketingHealthNow` (admin callable, 30s) — same probe, fired
+    by the new "Re-check now" button in Settings → Connected accounts.
+- `firestore.rules` — adds `marketing_health/{docId}` rule (admin read,
+  service-account-only write).
+- `lib/marketingTypes.ts` — new `ChannelHealth` + `MarketingHealth`
+  interfaces; `UNKNOWN_CHANNEL_HEALTH` / `UNKNOWN_MARKETING_HEALTH`
+  fallbacks for pre-first-probe state.
+- `services/marketing.ts` — `subscribeMarketingHealth(cb)` Firestore
+  subscription + `probeMarketingHealthNow()` callable wrapper. All shapes
+  normalised at the boundary so UI reads typed values (no raw Firestore
+  Timestamps leaking through).
+- `components/marketing/MarketingShell.tsx` — `HealthStatus` interface
+  extended with `igHandle`, `fbHandle`, `igError`, `fbError`,
+  `healthUnknown`. The chip now has three dot states (ok green / fail
+  red / unknown muted-gray); accessibility label includes the live
+  handle or the plain-English error reason.
+- `app/admin/marketing/_layout.tsx` — subscribes to the health doc
+  alongside the brand kit; passes live state into the shell.
+- `app/admin/marketing/settings.tsx` — Connected accounts card rewritten:
+  - Live IG / FB dots driven by the probe doc (gray Checking… while
+    pre-first-probe, green Connected when ok, red Reconnect with the
+    plain-English error inline below the row when failed).
+  - "Re-check now" button on the card head fires the callable and shows
+    a banner with both channels' status.
+  - Footer hint shows relative timestamp ("Checked 4 min ago. Re-checks
+    every hour automatically.") instead of the previous optimistic
+    "Tokens refresh automatically." copy.
+
+Why this matters:
+- Replaced two pieces of CLAUDE.md-violating optimistic UI ("✓ ✓ static"
+  in Connected accounts; `igConnected: true` hardcoded in MarketingShell)
+  with honest live state. Token expiry / scope loss now visible at a
+  glance instead of silent until publishes start failing.
+- Sets up future surface for FB Messenger fb_message channel — once
+  `pages_messaging` scope is added, extending the probe is a 5-line
+  patch: a third channel field on the doc + a third dot in the chip.
+
+Browser-verified in dev preview:
+- Settings page renders correctly with both channels in "Checking…"
+  pending state
+- Health chip shows muted-gray dots + warn border in the pre-probe
+  state (correctly degraded from previous always-green lie)
+- "Re-check now" button visible + accessibility-labelled correctly
+- Real probe path needs deployed Cloud Functions + real auth (next
+  step)
+
+Outstanding (Studio Phase 4+):
+- Carousels, mask inpainting, LoRA training, bg swap, logo overlay,
+  reuse winners
+
+### Earlier this session
 **Studio v2 Phase 3 — text-edit shipped. Admin can refine a picked
 variant ("change bg to pastel pink") without re-rolling all 4.**
 
@@ -304,8 +367,6 @@ Outstanding (next session):
 - Studio Phase 2: actual image-gen canvas at /admin/marketing/create
   (gpt-image-1 + Imagen + style-ref binding). Phase 5 LoRA training
   layered after.
-- `marketing_health/main` Firestore doc populated by a Cloud Function
-  so the IG/FB chip reflects live token validity, not optimistic state.
 - Style Profile → image-gen wiring: the profile is stored but not yet
   consumed by the generator. Land in Phase 2 alongside the canvas.
 - Drag-to-reschedule on Posts → Calendar.

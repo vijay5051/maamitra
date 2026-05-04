@@ -13,6 +13,7 @@ import {
   AudiencePersona,
   BrandIllustration,
   BrandKit,
+  ChannelHealth,
   ComplianceRules,
   ContentPillar,
   CostCaps,
@@ -31,7 +32,9 @@ import {
   DEFAULT_STYLE_PROFILE,
   DEFAULT_THEME_CALENDAR,
   DEFAULT_VOICE,
+  MarketingHealth,
   StyleProfile,
+  UNKNOWN_CHANNEL_HEALTH,
   WeekDay,
 } from '../lib/marketingTypes';
 import { logAdminAction } from './audit';
@@ -520,6 +523,60 @@ function tsToIso(ts: any): string | null {
   }
   if (typeof ts === 'string') return ts;
   return null;
+}
+
+// ── Connection health (subscribe + manual re-check) ───────────────────────
+// The probeMarketingHealth Cloud Function writes marketing_health/main.
+// Clients subscribe for the live IG/FB dots in MarketingShell + Settings.
+// The "Re-check now" button calls probeMarketingHealthNow which forces a
+// fresh probe and returns the new state synchronously.
+
+const HEALTH_PATH = 'marketing_health/main';
+
+export function subscribeMarketingHealth(cb: (health: MarketingHealth | null) => void): Unsubscribe {
+  if (!db) {
+    cb(null);
+    return () => {};
+  }
+  return onSnapshot(
+    doc(db, HEALTH_PATH),
+    (snap) => cb(snap.exists() ? normaliseHealth(snap.data()) : null),
+    () => cb(null),
+  );
+}
+
+interface ProbeNowResponse {
+  ok: true;
+  ig: { ok: boolean; handle: string | null; error: string | null };
+  fb: { ok: boolean; handle: string | null; error: string | null };
+}
+
+export async function probeMarketingHealthNow(): Promise<ProbeNowResponse> {
+  if (!app) throw new Error('Firebase app not configured');
+  const { getFunctions, httpsCallable } = await import('firebase/functions');
+  const fn = httpsCallable<unknown, ProbeNowResponse>(getFunctions(app), 'probeMarketingHealthNow');
+  const result = await fn({});
+  return result.data;
+}
+
+function normaliseHealth(data: any): MarketingHealth {
+  return {
+    ig: normaliseChannelHealth(data?.ig),
+    fb: normaliseChannelHealth(data?.fb),
+    lastCheckedAt: tsToIso(data?.lastCheckedAt),
+  };
+}
+
+function normaliseChannelHealth(raw: any): ChannelHealth {
+  if (!raw || typeof raw !== 'object') return UNKNOWN_CHANNEL_HEALTH;
+  return {
+    ok: raw.ok === true,
+    checkedAt: tsToIso(raw.checkedAt),
+    handle: typeof raw.handle === 'string' ? raw.handle : null,
+    externalId: typeof raw.externalId === 'string' ? raw.externalId : null,
+    error: typeof raw.error === 'string' ? raw.error : null,
+    errorCode: typeof raw.errorCode === 'string' ? raw.errorCode : null,
+  };
 }
 
 function sanitiseStyleProfile(raw: any): StyleProfile {
