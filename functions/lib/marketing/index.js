@@ -50,7 +50,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.buildGenerateWeeklyInsightDigest = exports.buildPollMarketingAccountInsights = exports.buildPollMarketingInsights = exports.buildPublishMarketingDraftNow = exports.buildScheduledMarketingPublisher = exports.buildMetaInboxReplyPublisher = exports.buildClassifyInboxThread = exports.buildGenerateInboxReplies = exports.buildMetaWebhookReceiver = exports.buildDailyMarketingDraftCron = exports.buildGenerateMarketingDraft = exports.buildScoreMarketingDraft = void 0;
+exports.buildBoostMarketingDraft = exports.buildRenderUgcAsDraft = exports.buildGenerateWeeklyInsightDigest = exports.buildPollMarketingAccountInsights = exports.buildPollMarketingInsights = exports.buildPublishMarketingDraftNow = exports.buildScheduledMarketingPublisher = exports.buildMetaInboxReplyPublisher = exports.buildClassifyInboxThread = exports.buildGenerateInboxReplies = exports.buildMetaWebhookReceiver = exports.buildDailyMarketingDraftCron = exports.buildGenerateMarketingDraft = exports.buildScoreMarketingDraft = void 0;
 exports.buildRenderMarketingTemplate = buildRenderMarketingTemplate;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions/v1"));
@@ -74,6 +74,10 @@ var insights_1 = require("./insights");
 Object.defineProperty(exports, "buildPollMarketingInsights", { enumerable: true, get: function () { return insights_1.buildPollMarketingInsights; } });
 Object.defineProperty(exports, "buildPollMarketingAccountInsights", { enumerable: true, get: function () { return insights_1.buildPollMarketingAccountInsights; } });
 Object.defineProperty(exports, "buildGenerateWeeklyInsightDigest", { enumerable: true, get: function () { return insights_1.buildGenerateWeeklyInsightDigest; } });
+var ugc_1 = require("./ugc");
+Object.defineProperty(exports, "buildRenderUgcAsDraft", { enumerable: true, get: function () { return ugc_1.buildRenderUgcAsDraft; } });
+var boost_1 = require("./boost");
+Object.defineProperty(exports, "buildBoostMarketingDraft", { enumerable: true, get: function () { return boost_1.buildBoostMarketingDraft; } });
 // firebase-admin is initialized in functions/src/index.ts before this module
 // is imported; we just grab the existing instance.
 // Capability check — Marketing renders are gated on the same admin signal

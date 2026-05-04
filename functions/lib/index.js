@@ -52,7 +52,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateWeeklyInsightDigest = exports.pollMarketingAccountInsights = exports.pollMarketingInsights = exports.publishMarketingDraftNow = exports.scheduledMarketingPublisher = exports.metaInboxReplyPublisher = exports.classifyInboxThread = exports.generateInboxReplies = exports.metaWebhookReceiver = exports.dailyMarketingDraftCron = exports.generateMarketingDraft = exports.scoreMarketingDraft = exports.renderMarketingTemplate = exports.repairCommunityCounters = exports.onUserCreated = exports.onFollowDelete = exports.onFollowCreate = exports.onPostDelete = exports.onCommentDelete = exports.onCommentCreate = exports.synthesizeSpeech = exports.adminFactoryReset = exports.factoryReset = exports.processScheduledPushes = exports.adminCreateUser = exports.adminDeleteUser = exports.dispatchPush = void 0;
+exports.boostMarketingDraft = exports.renderUgcAsDraft = exports.generateWeeklyInsightDigest = exports.pollMarketingAccountInsights = exports.pollMarketingInsights = exports.publishMarketingDraftNow = exports.scheduledMarketingPublisher = exports.metaInboxReplyPublisher = exports.classifyInboxThread = exports.generateInboxReplies = exports.metaWebhookReceiver = exports.dailyMarketingDraftCron = exports.generateMarketingDraft = exports.scoreMarketingDraft = exports.renderMarketingTemplate = exports.repairCommunityCounters = exports.onUserCreated = exports.onFollowDelete = exports.onFollowCreate = exports.onPostDelete = exports.onCommentDelete = exports.onCommentCreate = exports.synthesizeSpeech = exports.adminFactoryReset = exports.factoryReset = exports.processScheduledPushes = exports.adminCreateUser = exports.adminDeleteUser = exports.dispatchPush = void 0;
 const functions = __importStar(require("firebase-functions/v1"));
 const admin = __importStar(require("firebase-admin"));
 const text_to_speech_1 = __importDefault(require("@google-cloud/text-to-speech"));
@@ -1188,3 +1188,14 @@ exports.publishMarketingDraftNow = (0, marketing_1.buildPublishMarketingDraftNow
 exports.pollMarketingInsights = (0, marketing_1.buildPollMarketingInsights)();
 exports.pollMarketingAccountInsights = (0, marketing_1.buildPollMarketingAccountInsights)();
 exports.generateWeeklyInsightDigest = (0, marketing_1.buildGenerateWeeklyInsightDigest)();
+// M6 — UGC + boost.
+//
+// renderUgcAsDraft: admin callable. Approved UGC submission → realStoryCard
+// render → marketing_drafts/{id} with status='approved' so admin can
+// publish through the existing M3 path.
+// boostMarketingDraft: admin callable. Posted draft + budget + duration
+// → Marketing API Campaign + AdSet + Creative + Ad. Records boost on
+// the draft for ROI tracking. Requires META_AD_ACCOUNT_ID +
+// META_FB_PAGE_ID + ads_management scope on the IG access token.
+exports.renderUgcAsDraft = (0, marketing_1.buildRenderUgcAsDraft)(ADMIN_EMAILS);
+exports.boostMarketingDraft = (0, marketing_1.buildBoostMarketingDraft)(ADMIN_EMAILS);
