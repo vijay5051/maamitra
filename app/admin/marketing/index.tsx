@@ -26,7 +26,8 @@ import {
 } from '../../../services/marketing';
 import { countDraftsByStatus } from '../../../services/marketingDrafts';
 import { countByStatus as countInboxByStatus } from '../../../services/marketingInbox';
-import { BrandKit, DraftStatus, InboxStatus } from '../../../lib/marketingTypes';
+import { fetchLatestWeeklyDigest } from '../../../services/marketingAnalytics';
+import { BrandKit, DraftStatus, InboxStatus, WeeklyDigest } from '../../../lib/marketingTypes';
 import { useAuthStore } from '../../../store/useAuthStore';
 
 const META_APP_ID = '1485870226522993';
@@ -47,6 +48,7 @@ export default function MarketingOverviewScreen() {
   const [costRows, setCostRows] = useState<CostLogRow[]>([]);
   const [draftCounts, setDraftCounts] = useState<Record<DraftStatus, number> | null>(null);
   const [inboxCounts, setInboxCounts] = useState<Record<InboxStatus | 'all', number> | null>(null);
+  const [digest, setDigest] = useState<WeeklyDigest | null>(null);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState<'cron' | 'crisis' | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -57,16 +59,18 @@ export default function MarketingOverviewScreen() {
     setLoading(true);
     setError(null);
     try {
-      const [k, rows, dc, ic] = await Promise.all([
+      const [k, rows, dc, ic, dg] = await Promise.all([
         fetchBrandKit(),
         fetchRecentCostLog(120),
         countDraftsByStatus(),
         countInboxByStatus(),
+        fetchLatestWeeklyDigest(),
       ]);
       setBrand(k);
       setCostRows(rows);
       setDraftCounts(dc);
       setInboxCounts(ic);
+      setDigest(dg);
     } catch (e: any) {
       setError(e?.message ?? String(e));
     } finally {
@@ -194,6 +198,13 @@ export default function MarketingOverviewScreen() {
       href: '/admin/marketing/inbox',
     },
     {
+      key: 'analytics',
+      label: 'Analytics + feedback loop',
+      description: 'Per-post Insights polled every 6h, daily account snapshots, weekly LLM digest with recommendations. The generator self-improves: pillar/template selection biases toward winners over time.',
+      state: 'done',
+      href: '/admin/marketing/analytics',
+    },
+    {
       key: 'app-review',
       label: 'Meta App Review',
       description: 'Submit screencast + permission justifications for instagram_content_publish, pages_manage_posts, etc. 3–7 day turnaround. Submit after Phase 6 ships so the screencast shows the real flow.',
@@ -275,6 +286,23 @@ export default function MarketingOverviewScreen() {
               </Pressable>
             </View>
           </View>
+        ) : null}
+
+        {digest ? (
+          <Pressable
+            onPress={() => router.push('/admin/marketing/analytics' as any)}
+            style={styles.digestCard}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <Ionicons name="sparkles" size={16} color={Colors.primary} />
+              <Text style={styles.digestCardTitle}>This week's takeaways</Text>
+              <Text style={styles.digestCardWeek}>· {digest.weekId}</Text>
+            </View>
+            {digest.commentary ? (
+              <Text style={styles.digestCardBody} numberOfLines={3}>{digest.commentary}</Text>
+            ) : null}
+            <Text style={styles.digestCardCta}>Open full analytics →</Text>
+          </Pressable>
         ) : null}
 
         <View style={styles.statBar}>
@@ -510,4 +538,16 @@ const styles = StyleSheet.create({
   toggleBtnOn: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   toggleBtnLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textMuted },
   toggleBtnLabelOn: { color: '#fff' },
+
+  digestCard: {
+    backgroundColor: Colors.primarySoft,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    borderWidth: 1, borderColor: Colors.primary,
+    marginBottom: Spacing.md,
+  },
+  digestCardTitle: { fontSize: FontSize.md, fontWeight: '800', color: Colors.primary },
+  digestCardWeek: { fontSize: FontSize.xs, color: Colors.primary, opacity: 0.7, fontWeight: '700' },
+  digestCardBody: { fontSize: FontSize.xs, color: Colors.textDark, lineHeight: 18, marginVertical: 4 },
+  digestCardCta: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.primary, marginTop: 4 },
 });

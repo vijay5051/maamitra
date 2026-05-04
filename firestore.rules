@@ -440,6 +440,16 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow write: if false;
     }
+    // Account-level Insights snapshots (M5). Daily cron writes; admin reads.
+    match /marketing_account_insights/{date} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    // Weekly digest collection (M5). Cron writes Mondays; admin reads.
+    match /marketing_insights/{weekId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
 
     // ── Consent ledger (Wave 7: DPDP compliance) ─────────────────────────────
     // Append-only. Users may write THEIR OWN consent rows during onboarding;

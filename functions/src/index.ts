@@ -24,8 +24,11 @@ import {
   buildDailyMarketingDraftCron,
   buildGenerateInboxReplies,
   buildGenerateMarketingDraft,
+  buildGenerateWeeklyInsightDigest,
   buildMetaInboxReplyPublisher,
   buildMetaWebhookReceiver,
+  buildPollMarketingAccountInsights,
+  buildPollMarketingInsights,
   buildPublishMarketingDraftNow,
   buildRenderMarketingTemplate,
   buildScheduledMarketingPublisher,
@@ -1369,3 +1372,15 @@ export const metaInboxReplyPublisher = buildMetaInboxReplyPublisher();
 // now" button on the slide-over.
 export const scheduledMarketingPublisher = buildScheduledMarketingPublisher();
 export const publishMarketingDraftNow = buildPublishMarketingDraftNow(ADMIN_EMAILS);
+
+// M5 — analytics + feedback loop.
+//
+// pollMarketingInsights: every 6h cron pulls per-post Insights for posted
+// drafts in the last 30d.
+// pollMarketingAccountInsights: daily 03:00 IST snapshot of follower
+// count + reach.
+// generateWeeklyInsightDigest: Mondays 08:00 IST LLM commentary on the
+// week's posts + 3 actionable recommendations.
+export const pollMarketingInsights = buildPollMarketingInsights();
+export const pollMarketingAccountInsights = buildPollMarketingAccountInsights();
+export const generateWeeklyInsightDigest = buildGenerateWeeklyInsightDigest();

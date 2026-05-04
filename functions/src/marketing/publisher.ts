@@ -213,6 +213,8 @@ async function processDueDraft(draftId: string, draftData: Record<string, any>, 
       status: 'posted',
       postedAt: admin.firestore.FieldValue.serverTimestamp(),
       postPermalinks: { instagram: result.permalink ?? '' },
+      // Saved so M5's pollMarketingInsights can fetch metrics by media id.
+      postIgMediaId: result.postId,
       publishError: null,
       ...(actorEmail ? { publishedBy: actorEmail } : {}),
     });

@@ -31,6 +31,11 @@ export {
   buildScheduledMarketingPublisher,
   buildPublishMarketingDraftNow,
 } from './publisher';
+export {
+  buildPollMarketingInsights,
+  buildPollMarketingAccountInsights,
+  buildGenerateWeeklyInsightDigest,
+} from './insights';
 
 // firebase-admin is initialized in functions/src/index.ts before this module
 // is imported; we just grab the existing instance.

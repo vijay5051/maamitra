@@ -427,6 +427,56 @@ export interface InboxThread {
 
 export type OutboundStatus = 'pending_send' | 'sent' | 'failed';
 
+// ── Analytics (M5) ──────────────────────────────────────────────────────────
+// One PostInsightSnapshot per fetch — stored as a subcollection of the draft
+// at marketing_drafts/{id}/insights/{ts}. The latest values are also
+// denormalised onto the parent draft for cheap queries.
+
+export interface PostInsightMetrics {
+  reach: number;
+  impressions: number;
+  likes: number;
+  comments: number;
+  saved: number;
+  shares: number;
+  profileVisits: number;
+}
+
+export interface PostInsightSnapshot extends PostInsightMetrics {
+  /** ISO timestamp of when this snapshot was fetched. */
+  fetchedAt: string;
+  /** Hours since the post was published — useful for "1h / 24h / 7d" buckets. */
+  hoursSincePost: number;
+}
+
+export interface AccountInsightDay {
+  /** Calendar day in IST, YYYY-MM-DD. Doc id of marketing_account_insights. */
+  date: string;
+  followerCount: number;
+  reach: number;
+  impressions: number;
+  /** Net follower change vs the previous stored day. Computed on write. */
+  followersDelta: number;
+}
+
+export interface WeeklyDigest {
+  /** ISO week id, e.g. "2026-W18". Doc id of marketing_insights. */
+  weekId: string;
+  weekStart: string;
+  weekEnd: string;
+  postsPublished: number;
+  totalReach: number;
+  totalImpressions: number;
+  avgEngagementRate: number;
+  /** LLM commentary on what worked + what didn't + recommendations. */
+  commentary: string;
+  /** Top 3 posts of the week by engagement rate. */
+  topPosts: { draftId: string; headline: string; engagementRate: number }[];
+  /** Recommended pillar shifts — feeds into the M5 feedback loop. */
+  recommendations: string[];
+  generatedAt: string;
+}
+
 export interface InboxMessage {
   id: string;
   threadId: string;
