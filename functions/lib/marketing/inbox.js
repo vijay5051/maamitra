@@ -118,10 +118,21 @@ function buildMetaWebhookReceiver() {
             // matters because Meta retries on non-200.
             console.warn('[metaWebhookReceiver] META_APP_SECRET not set, skipping signature check');
         }
-        else if (!verifySignature(req.rawBody, sig, META_APP_SECRET)) {
-            console.warn('[metaWebhookReceiver] signature verification failed');
-            res.status(403).send('signature mismatch');
-            return;
+        else {
+            const verify = verifySignatureDiag(req.rawBody, sig, META_APP_SECRET);
+            if (!verify.ok) {
+                console.warn('[metaWebhookReceiver] signature verification failed:', JSON.stringify({
+                    reason: verify.reason,
+                    headerSigPrefix: sig.slice(0, 16),
+                    expectedPrefix: verify.expectedPrefix ?? null,
+                    actualPrefix: verify.actualPrefix ?? null,
+                    rawBodyType: typeof req.rawBody,
+                    rawBodyLen: req.rawBody?.length ?? null,
+                    bodyKeys: Object.keys(req.body ?? {}),
+                }));
+                res.status(403).send('signature mismatch');
+                return;
+            }
         }
         try {
             await ingestEvents(req.body ?? {});
@@ -133,15 +144,35 @@ function buildMetaWebhookReceiver() {
         res.status(200).send('OK');
     });
 }
-function verifySignature(rawBody, headerSig, secret) {
-    if (!rawBody || !headerSig.startsWith('sha256='))
-        return false;
+function verifySignatureDiag(rawBody, headerSig, secret) {
+    if (!rawBody)
+        return { ok: false, reason: 'rawBody-undefined' };
+    if (!Buffer.isBuffer(rawBody))
+        return { ok: false, reason: `rawBody-not-buffer (got ${typeof rawBody})` };
+    if (!headerSig)
+        return { ok: false, reason: 'no-header-sig' };
+    if (!headerSig.startsWith('sha256='))
+        return { ok: false, reason: 'header-sig-bad-prefix' };
     const expected = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
     const actual = headerSig.slice('sha256='.length);
-    // timingSafeEqual requires equal-length buffers.
-    if (expected.length !== actual.length)
-        return false;
-    return crypto.timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(actual, 'hex'));
+    if (expected.length !== actual.length) {
+        return {
+            ok: false,
+            reason: `length-mismatch (expected ${expected.length}, got ${actual.length})`,
+            expectedPrefix: expected.slice(0, 8),
+            actualPrefix: actual.slice(0, 8),
+        };
+    }
+    const matches = crypto.timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(actual, 'hex'));
+    if (!matches) {
+        return {
+            ok: false,
+            reason: 'hash-mismatch',
+            expectedPrefix: expected.slice(0, 8),
+            actualPrefix: actual.slice(0, 8),
+        };
+    }
+    return { ok: true };
 }
 async function ingestEvents(body) {
     if (!body.entry)

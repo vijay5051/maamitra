@@ -19,6 +19,14 @@ import * as functions from 'firebase-functions/v1';
 
 const META_IG_USER_ID = process.env.META_IG_USER_ID ?? '';
 const META_IG_ACCESS_TOKEN = process.env.META_IG_ACCESS_TOKEN ?? '';
+const META_FB_PAGE_ACCESS_TOKEN = process.env.META_FB_PAGE_ACCESS_TOKEN ?? '';
+
+// graph.facebook.com IG Insights endpoints need EAA-style tokens — see
+// publisher.ts comment for context. Prefer Page token, fall back to IG.
+const IG_GRAPH_TOKEN =
+  (META_FB_PAGE_ACCESS_TOKEN && META_FB_PAGE_ACCESS_TOKEN.startsWith('EAA'))
+    ? META_FB_PAGE_ACCESS_TOKEN
+    : META_IG_ACCESS_TOKEN;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY ?? '';
 const GRAPH_BASE = 'https://graph.facebook.com/v21.0';
 
@@ -41,9 +49,9 @@ const ZERO_METRICS: PostInsightMetrics = {
 interface MetricBucket { name: string; values?: { value?: number }[] }
 
 async function fetchPostMetrics(igMediaId: string): Promise<PostInsightMetrics | null> {
-  if (!META_IG_ACCESS_TOKEN) return null;
+  if (!IG_GRAPH_TOKEN) return null;
   const metrics = ['reach', 'impressions', 'likes', 'comments', 'saved', 'shares', 'profile_visits'];
-  const url = `${GRAPH_BASE}/${igMediaId}/insights?metric=${metrics.join(',')}&access_token=${encodeURIComponent(META_IG_ACCESS_TOKEN)}`;
+  const url = `${GRAPH_BASE}/${igMediaId}/insights?metric=${metrics.join(',')}&access_token=${encodeURIComponent(IG_GRAPH_TOKEN)}`;
   try {
     const res = await fetch(url);
     if (!res.ok) {
@@ -77,7 +85,7 @@ export function buildPollMarketingInsights() {
     .runWith({ memory: '512MB', timeoutSeconds: 540 })
     .pubsub.schedule('every 6 hours')
     .onRun(async () => {
-      if (!META_IG_USER_ID || !META_IG_ACCESS_TOKEN) {
+      if (!META_IG_USER_ID || !IG_GRAPH_TOKEN) {
         console.log('[pollMarketingInsights] IG creds missing — skipping cycle');
         return null;
       }
@@ -155,11 +163,11 @@ interface AccountMetrics {
 }
 
 async function fetchAccountSnapshot(): Promise<AccountMetrics | null> {
-  if (!META_IG_USER_ID || !META_IG_ACCESS_TOKEN) return null;
+  if (!META_IG_USER_ID || !IG_GRAPH_TOKEN) return null;
   try {
     // Follower count is on the user node directly.
     const userRes = await fetch(
-      `${GRAPH_BASE}/${META_IG_USER_ID}?fields=followers_count&access_token=${encodeURIComponent(META_IG_ACCESS_TOKEN)}`,
+      `${GRAPH_BASE}/${META_IG_USER_ID}?fields=followers_count&access_token=${encodeURIComponent(IG_GRAPH_TOKEN)}`,
     );
     if (!userRes.ok) {
       console.warn('[pollMarketingAccountInsights] user node failed', await userRes.text());
@@ -170,7 +178,7 @@ async function fetchAccountSnapshot(): Promise<AccountMetrics | null> {
     // Daily reach + impressions for yesterday.
     const yesterday = new Date(Date.now() - 24 * 3600 * 1000).toISOString().slice(0, 10);
     const insRes = await fetch(
-      `${GRAPH_BASE}/${META_IG_USER_ID}/insights?metric=reach,impressions&period=day&since=${yesterday}&until=${yesterday}&access_token=${encodeURIComponent(META_IG_ACCESS_TOKEN)}`,
+      `${GRAPH_BASE}/${META_IG_USER_ID}/insights?metric=reach,impressions&period=day&since=${yesterday}&until=${yesterday}&access_token=${encodeURIComponent(IG_GRAPH_TOKEN)}`,
     );
     let reach = 0;
     let impressions = 0;

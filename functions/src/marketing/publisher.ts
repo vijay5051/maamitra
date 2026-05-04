@@ -30,6 +30,23 @@ const GRAPH_BASE = 'https://graph.facebook.com/v21.0';
 
 const FB_CONFIGURED = !!META_FB_PAGE_ID && !!META_FB_PAGE_ACCESS_TOKEN;
 
+// Choose which token to use for IG Graph API calls.
+//
+// graph.facebook.com IG endpoints (/{ig-user-id}/media, comment replies)
+// need an EAA-style token. The IG use case "Generate token" mints an
+// IGAA-style "Login with Instagram" token that ONLY works on
+// graph.instagram.com — calling graph.facebook.com with it returns
+// "Cannot parse access token". Page tokens, however, have IG content +
+// engagement scopes baked in when the IG account is linked to the Page.
+//
+// So: if the user gave us a Page token (EAA), prefer it for IG Graph
+// calls. Otherwise fall back to META_IG_ACCESS_TOKEN (the user might
+// have minted a proper EAA user token via Graph Explorer).
+const IG_GRAPH_TOKEN =
+  (META_FB_PAGE_ACCESS_TOKEN && META_FB_PAGE_ACCESS_TOKEN.startsWith('EAA'))
+    ? META_FB_PAGE_ACCESS_TOKEN
+    : META_IG_ACCESS_TOKEN;
+
 interface GraphErrorBody {
   error?: { message?: string; type?: string; code?: number };
 }
@@ -83,8 +100,8 @@ export function buildMetaInboxReplyPublisher() {
         return null;
       }
 
-      if (!META_IG_USER_ID || !META_IG_ACCESS_TOKEN) {
-        await snap.ref.update({ outboundStatus: 'failed', outboundError: 'IG credentials missing in functions/.env' });
+      if (!META_IG_USER_ID || !IG_GRAPH_TOKEN) {
+        await snap.ref.update({ outboundStatus: 'failed', outboundError: 'IG credentials missing in functions/.env (need META_IG_USER_ID + an EAA-style token, either META_FB_PAGE_ACCESS_TOKEN or a user token in META_IG_ACCESS_TOKEN)' });
         return null;
       }
 
@@ -128,7 +145,7 @@ export function buildMetaInboxReplyPublisher() {
 
 async function sendIgDirectMessage(recipientId: string, text: string): Promise<void> {
   if (!recipientId) throw new Error('empty recipient id');
-  const url = `${GRAPH_BASE}/${META_IG_USER_ID}/messages?access_token=${encodeURIComponent(META_IG_ACCESS_TOKEN)}`;
+  const url = `${GRAPH_BASE}/${META_IG_USER_ID}/messages?access_token=${encodeURIComponent(IG_GRAPH_TOKEN)}`;
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -145,7 +162,7 @@ async function sendIgDirectMessage(recipientId: string, text: string): Promise<v
 
 async function replyToIgComment(commentId: string, text: string): Promise<void> {
   if (!commentId) throw new Error('empty comment id');
-  const url = `${GRAPH_BASE}/${commentId}/replies?access_token=${encodeURIComponent(META_IG_ACCESS_TOKEN)}`;
+  const url = `${GRAPH_BASE}/${commentId}/replies?access_token=${encodeURIComponent(IG_GRAPH_TOKEN)}`;
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -221,15 +238,15 @@ async function publishDraftToInstagram(draftId: string, draftData: Record<string
   const caption = String(draftData?.caption ?? '');
   if (!imageUrl) return { ok: false, code: 'no-asset', message: 'Draft has no image asset.' };
   if (!caption) return { ok: false, code: 'no-caption', message: 'Draft has no caption.' };
-  if (!META_IG_USER_ID || !META_IG_ACCESS_TOKEN) {
-    return { ok: false, code: 'no-credentials', message: 'META_IG_USER_ID / META_IG_ACCESS_TOKEN not set in functions/.env.' };
+  if (!META_IG_USER_ID || !IG_GRAPH_TOKEN) {
+    return { ok: false, code: 'no-credentials', message: 'IG Graph credentials missing — need META_IG_USER_ID + an EAA-style token (META_FB_PAGE_ACCESS_TOKEN works since the IG account is linked to the Page).' };
   }
 
   // Step 1 — create the media container.
   const params = new URLSearchParams({
     image_url: imageUrl,
     caption,
-    access_token: META_IG_ACCESS_TOKEN,
+    access_token: IG_GRAPH_TOKEN,
   });
   const createRes = await fetch(`${GRAPH_BASE}/${META_IG_USER_ID}/media`, {
     method: 'POST',
@@ -243,8 +260,34 @@ async function publishDraftToInstagram(draftId: string, draftData: Record<string
   const mediaId = create?.id;
   if (!mediaId) return { ok: false, code: 'no-media-id', message: 'Container creation returned no id.' };
 
+  // Step 1.5 — wait for IG to finish processing the container.
+  // Calling /media_publish before status_code === 'FINISHED' returns
+  // "Media ID is not available" (code 9007). Per Meta's recommendation
+  // we poll up to 60s with ~3s gaps.
+  const statusUrl = `${GRAPH_BASE}/${mediaId}?fields=status_code,status&access_token=${encodeURIComponent(IG_GRAPH_TOKEN)}`;
+  const deadline = Date.now() + 60_000;
+  let lastStatus: string | null = null;
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 3000));
+    const sRes = await fetch(statusUrl);
+    if (!sRes.ok) {
+      const body = (await sRes.json().catch(() => ({}))) as GraphErrorBody;
+      return { ok: false, code: 'status-poll-failed', message: body?.error?.message ?? `Graph ${sRes.status}` };
+    }
+    const sJson = await sRes.json() as { status_code?: string; status?: string };
+    lastStatus = sJson?.status_code ?? null;
+    if (lastStatus === 'FINISHED') break;
+    if (lastStatus === 'ERROR' || lastStatus === 'EXPIRED') {
+      return { ok: false, code: 'container-error', message: `IG container ${lastStatus}: ${sJson?.status ?? 'no detail'}` };
+    }
+    // IN_PROGRESS / PUBLISHED — keep polling.
+  }
+  if (lastStatus !== 'FINISHED') {
+    return { ok: false, code: 'container-timeout', message: `Container still ${lastStatus ?? 'unknown'} after 60s — try Publish again.` };
+  }
+
   // Step 2 — publish.
-  const publishParams = new URLSearchParams({ creation_id: mediaId, access_token: META_IG_ACCESS_TOKEN });
+  const publishParams = new URLSearchParams({ creation_id: mediaId, access_token: IG_GRAPH_TOKEN });
   const pubRes = await fetch(`${GRAPH_BASE}/${META_IG_USER_ID}/media_publish`, {
     method: 'POST',
     body: publishParams,
@@ -260,7 +303,7 @@ async function publishDraftToInstagram(draftId: string, draftData: Record<string
   // Step 3 — best-effort permalink fetch.
   let permalink: string | null = null;
   try {
-    const linkRes = await fetch(`${GRAPH_BASE}/${postId}?fields=permalink&access_token=${encodeURIComponent(META_IG_ACCESS_TOKEN)}`);
+    const linkRes = await fetch(`${GRAPH_BASE}/${postId}?fields=permalink&access_token=${encodeURIComponent(IG_GRAPH_TOKEN)}`);
     if (linkRes.ok) {
       const link = await linkRes.json() as { permalink?: string };
       permalink = typeof link?.permalink === 'string' ? link.permalink : null;
@@ -373,7 +416,7 @@ type PublishNowResult =
 
 export function buildPublishMarketingDraftNow(allowList: ReadonlySet<string>) {
   return functions
-    .runWith({ memory: '512MB', timeoutSeconds: 60 })
+    .runWith({ memory: '512MB', timeoutSeconds: 180 })
     .https.onCall(async (data: PublishNowInput, context): Promise<PublishNowResult> => {
       if (!(await callerIsMarketingAdmin(context.auth?.token, allowList))) {
         throw new functions.https.HttpsError('permission-denied', 'Admin only.');

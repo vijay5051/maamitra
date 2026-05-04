@@ -85,10 +85,24 @@ export function buildMetaWebhookReceiver() {
         // Webhook isn't fully configured — accept but log. Returning 200
         // matters because Meta retries on non-200.
         console.warn('[metaWebhookReceiver] META_APP_SECRET not set, skipping signature check');
-      } else if (!verifySignature(req.rawBody as Buffer | undefined, sig, META_APP_SECRET)) {
-        console.warn('[metaWebhookReceiver] signature verification failed');
-        res.status(403).send('signature mismatch');
-        return;
+      } else {
+        const verify = verifySignatureDiag(req.rawBody as Buffer | undefined, sig, META_APP_SECRET);
+        if (!verify.ok) {
+          console.warn(
+            '[metaWebhookReceiver] signature verification failed:',
+            JSON.stringify({
+              reason: verify.reason,
+              headerSigPrefix: sig.slice(0, 16),
+              expectedPrefix: verify.expectedPrefix ?? null,
+              actualPrefix: verify.actualPrefix ?? null,
+              rawBodyType: typeof req.rawBody,
+              rawBodyLen: (req.rawBody as Buffer | undefined)?.length ?? null,
+              bodyKeys: Object.keys(req.body ?? {}),
+            }),
+          );
+          res.status(403).send('signature mismatch');
+          return;
+        }
       }
 
       try {
@@ -101,13 +115,38 @@ export function buildMetaWebhookReceiver() {
     });
 }
 
-function verifySignature(rawBody: Buffer | undefined, headerSig: string, secret: string): boolean {
-  if (!rawBody || !headerSig.startsWith('sha256=')) return false;
+interface VerifyDiag {
+  ok: boolean;
+  reason?: string;
+  expectedPrefix?: string;
+  actualPrefix?: string;
+}
+
+function verifySignatureDiag(rawBody: Buffer | undefined, headerSig: string, secret: string): VerifyDiag {
+  if (!rawBody) return { ok: false, reason: 'rawBody-undefined' };
+  if (!Buffer.isBuffer(rawBody)) return { ok: false, reason: `rawBody-not-buffer (got ${typeof rawBody})` };
+  if (!headerSig) return { ok: false, reason: 'no-header-sig' };
+  if (!headerSig.startsWith('sha256=')) return { ok: false, reason: 'header-sig-bad-prefix' };
   const expected = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
   const actual = headerSig.slice('sha256='.length);
-  // timingSafeEqual requires equal-length buffers.
-  if (expected.length !== actual.length) return false;
-  return crypto.timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(actual, 'hex'));
+  if (expected.length !== actual.length) {
+    return {
+      ok: false,
+      reason: `length-mismatch (expected ${expected.length}, got ${actual.length})`,
+      expectedPrefix: expected.slice(0, 8),
+      actualPrefix: actual.slice(0, 8),
+    };
+  }
+  const matches = crypto.timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(actual, 'hex'));
+  if (!matches) {
+    return {
+      ok: false,
+      reason: 'hash-mismatch',
+      expectedPrefix: expected.slice(0, 8),
+      actualPrefix: actual.slice(0, 8),
+    };
+  }
+  return { ok: true };
 }
 
 interface MetaEntryChange {
