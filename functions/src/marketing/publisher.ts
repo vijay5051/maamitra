@@ -174,12 +174,45 @@ async function replyToIgComment(commentId: string, text: string): Promise<void> 
   }
 }
 
+// META_FB_PAGE_ACCESS_TOKEN in our env is actually a **System User** token
+// (debug_token reports type=SYSTEM_USER, /me returns the System User identity).
+// New Pages Experience publish/comment endpoints reject System User tokens
+// with "User access token is not supported. A Page access token is required
+// for this call for the new Pages experience." We have to derive a real Page
+// Access Token from the System User token via /me/accounts.
+//
+// The derived PAT is permanent (System User tokens never expire and the
+// derivation has no TTL), so a cold-start memo is fine. Single in-flight
+// promise prevents duplicate /me/accounts calls under concurrent invokes.
+let pageTokenPromise: Promise<string> | null = null;
+async function getFbPagePat(): Promise<string> {
+  if (pageTokenPromise) return pageTokenPromise;
+  pageTokenPromise = (async () => {
+    const url = `${GRAPH_BASE}/me/accounts?fields=id,access_token&access_token=${encodeURIComponent(META_FB_PAGE_ACCESS_TOKEN)}`;
+    const r = await fetch(url);
+    if (!r.ok) {
+      const body = (await r.json().catch(() => ({}))) as GraphErrorBody;
+      throw new Error(`derive-page-token-failed: Graph ${r.status}: ${body?.error?.message ?? 'unknown'}`);
+    }
+    const json = await r.json() as { data?: Array<{ id?: string; access_token?: string }> };
+    const match = (json.data ?? []).find((p) => p.id === META_FB_PAGE_ID);
+    if (!match?.access_token) {
+      // Reset so a later call can retry rather than poison the cache.
+      pageTokenPromise = null;
+      throw new Error(`Page ${META_FB_PAGE_ID} not in /me/accounts response. Confirm the System User has Page asset access with MANAGE / CREATE_CONTENT tasks in Business Manager.`);
+    }
+    return match.access_token;
+  })();
+  return pageTokenPromise;
+}
+
 // FB comment reply — the Graph endpoint is /{comment-id}/comments (creates
-// a child comment under the parent). The Page Access Token must have
-// pages_manage_engagement scope, which we verified in the debugger.
+// a child comment under the parent). Requires a Page Access Token (not the
+// System User token).
 async function replyToFbComment(commentId: string, text: string): Promise<void> {
   if (!commentId) throw new Error('empty comment id');
-  const url = `${GRAPH_BASE}/${commentId}/comments?access_token=${encodeURIComponent(META_FB_PAGE_ACCESS_TOKEN)}`;
+  const pat = await getFbPagePat();
+  const url = `${GRAPH_BASE}/${commentId}/comments?access_token=${encodeURIComponent(pat)}`;
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -192,8 +225,8 @@ async function replyToFbComment(commentId: string, text: string): Promise<void> 
 }
 
 // FB Page feed publish — POST to /{page-id}/photos with a public image_url
-// + caption. Returns the post id which we store as postFbPostId for the
-// Insights cron to use later.
+// + caption. Requires a Page Access Token (the System User token in
+// META_FB_PAGE_ACCESS_TOKEN can't publish on its own under new Pages).
 async function publishDraftToFacebook(draftData: Record<string, any>): Promise<{ ok: true; postId: string; permalink: string | null } | { ok: false; code: string; message: string }> {
   if (!FB_CONFIGURED) {
     return { ok: false, code: 'no-fb-credentials', message: 'META_FB_PAGE_ID / META_FB_PAGE_ACCESS_TOKEN not set in functions/.env.' };
@@ -203,10 +236,17 @@ async function publishDraftToFacebook(draftData: Record<string, any>): Promise<{
   if (!imageUrl) return { ok: false, code: 'no-asset', message: 'Draft has no image asset.' };
   if (!caption) return { ok: false, code: 'no-caption', message: 'Draft has no caption.' };
 
+  let pat: string;
+  try {
+    pat = await getFbPagePat();
+  } catch (e: any) {
+    return { ok: false, code: 'no-page-token', message: e?.message ?? String(e) };
+  }
+
   const params = new URLSearchParams({
     url: imageUrl,
     caption,
-    access_token: META_FB_PAGE_ACCESS_TOKEN,
+    access_token: pat,
   });
   const res = await fetch(`${GRAPH_BASE}/${META_FB_PAGE_ID}/photos`, {
     method: 'POST',
