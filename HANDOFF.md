@@ -56,6 +56,38 @@ inbox — all without the admin ever logging into Meta.
   ie post-Phase 6).
 
 ### Last action
+**Permanent SYSTEM_USER access token wired for FB + IG (M4c-token milestone).**
+
+What changed:
+- New `scripts/mint-fb-page-token.mjs` (3-step Meta flow:
+  short-lived user token → long-lived user token → never-expiring
+  Page token). Reads `META_APP_SECRET` + `META_FB_PAGE_ID` from
+  `functions/.env` so the secret never appears on the command line.
+- User minted a permanent token; debug_token confirms:
+  - type `SYSTEM_USER`, app `MaaMitra`, valid, `expires_at: 0` (never)
+  - 21 scopes — every FB Page perm + every IG perm + `ads_management`
+    + `ads_read` + `business_management` + `read_insights`
+- `functions/.env` updated: `META_IG_ACCESS_TOKEN` now points at the
+  same SYSTEM_USER Page token (single permanent token drives every
+  marketing surface). The old `IGAATY…` Instagram-Login token was
+  the wrong shape and was erroring out (code 190) anyway.
+- Verified: GET `/{ig-user-id}` and GET `/{page-id}` both return 200
+  with the Page token (`maamitra.official` / `MaaMitra` page).
+- Redeployed: pollMarketingInsights, pollMarketingAccountInsights,
+  scheduledMarketingPublisher, publishMarketingDraftNow,
+  metaInboxReplyPublisher, boostMarketingDraft — all `Successful
+  update operation`.
+
+Side effect: **boost-this-post is now functional**. Previously
+blocked because `META_IG_ACCESS_TOKEN` lacked `ads_management`;
+the Page token has it baked in. M6b's "set boost env vars"
+follow-up is no longer needed for token reasons (still need
+`META_AD_ACCOUNT_ID` and `META_FB_PAGE_ID` — both already set).
+
+Token is gitignored (`functions/.env` in root `.gitignore`); only
+the script + this handoff note are committed.
+
+### Earlier this session
 **Admin panel mobile polish shipped** (worktree `claude/eager-grothendieck-0d6818`).
 
 What changed:
