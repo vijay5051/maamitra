@@ -50,7 +50,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.buildProbeMarketingHealthNow = exports.buildProbeMarketingHealth = exports.buildComposeStudioLogo = exports.buildUploadStudioImage = exports.buildEditStudioImage = exports.buildCreateStudioDraft = exports.buildGenerateStudioVariants = exports.buildBoostMarketingDraft = exports.buildRenderUgcAsDraft = exports.buildGenerateWeeklyInsightDigest = exports.buildPollMarketingAccountInsights = exports.buildPollMarketingInsights = exports.buildPublishMarketingDraftNow = exports.buildScheduledMarketingPublisher = exports.buildMetaInboxReplyPublisher = exports.buildClassifyInboxThread = exports.buildGenerateInboxReplies = exports.buildMetaWebhookReceiver = exports.buildDailyMarketingDraftCron = exports.buildGenerateMarketingDraft = exports.buildScoreMarketingDraft = void 0;
+exports.buildProbeMarketingHealthNow = exports.buildProbeMarketingHealth = exports.buildComposeStudioLogo = exports.buildUploadStudioImage = exports.buildEditStudioImage = exports.buildCreateStudioDraft = exports.buildGenerateStudioVariants = exports.buildBoostMarketingDraft = exports.buildRenderUgcAsDraft = exports.buildGenerateWeeklyInsightDigest = exports.buildPollMarketingAccountInsights = exports.buildPollMarketingInsights = exports.buildPublishMarketingDraftNow = exports.buildScheduledMarketingPublisher = exports.buildMetaInboxReplyPublisher = exports.buildClassifyInboxThread = exports.buildGenerateInboxReplies = exports.buildMetaWebhookReceiver = exports.buildGenerateAheadDrafts = exports.buildDailyMarketingDraftCron = exports.buildGenerateMarketingDraft = exports.buildScoreMarketingDraft = void 0;
 exports.buildRenderMarketingTemplate = buildRenderMarketingTemplate;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions/v1"));
@@ -62,6 +62,7 @@ Object.defineProperty(exports, "buildScoreMarketingDraft", { enumerable: true, g
 var generator_1 = require("./generator");
 Object.defineProperty(exports, "buildGenerateMarketingDraft", { enumerable: true, get: function () { return generator_1.buildGenerateMarketingDraft; } });
 Object.defineProperty(exports, "buildDailyMarketingDraftCron", { enumerable: true, get: function () { return generator_1.buildDailyMarketingDraftCron; } });
+Object.defineProperty(exports, "buildGenerateAheadDrafts", { enumerable: true, get: function () { return generator_1.buildGenerateAheadDrafts; } });
 var inbox_1 = require("./inbox");
 Object.defineProperty(exports, "buildMetaWebhookReceiver", { enumerable: true, get: function () { return inbox_1.buildMetaWebhookReceiver; } });
 Object.defineProperty(exports, "buildGenerateInboxReplies", { enumerable: true, get: function () { return inbox_1.buildGenerateInboxReplies; } });

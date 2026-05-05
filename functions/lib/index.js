@@ -52,7 +52,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateIntegrationConfig = exports.checkIntegrationHealth = exports.probeMarketingHealthNow = exports.probeMarketingHealth = exports.composeStudioLogo = exports.uploadStudioImage = exports.editStudioImage = exports.createStudioDraft = exports.generateStudioVariants = exports.boostMarketingDraft = exports.renderUgcAsDraft = exports.generateWeeklyInsightDigest = exports.pollMarketingAccountInsights = exports.pollMarketingInsights = exports.publishMarketingDraftNow = exports.scheduledMarketingPublisher = exports.metaInboxReplyPublisher = exports.classifyInboxThread = exports.generateInboxReplies = exports.metaWebhookReceiver = exports.dailyMarketingDraftCron = exports.generateMarketingDraft = exports.scoreMarketingDraft = exports.renderMarketingTemplate = exports.repairCommunityCounters = exports.onUserCreated = exports.onFollowDelete = exports.onFollowCreate = exports.onPostDelete = exports.onCommentDelete = exports.onCommentCreate = exports.synthesizeSpeech = exports.adminFactoryReset = exports.factoryReset = exports.processScheduledPushes = exports.adminCreateUser = exports.adminDeleteUser = exports.dispatchPush = void 0;
+exports.updateIntegrationConfig = exports.checkIntegrationHealth = exports.probeMarketingHealthNow = exports.probeMarketingHealth = exports.composeStudioLogo = exports.uploadStudioImage = exports.editStudioImage = exports.createStudioDraft = exports.generateStudioVariants = exports.boostMarketingDraft = exports.renderUgcAsDraft = exports.generateWeeklyInsightDigest = exports.pollMarketingAccountInsights = exports.pollMarketingInsights = exports.publishMarketingDraftNow = exports.scheduledMarketingPublisher = exports.metaInboxReplyPublisher = exports.classifyInboxThread = exports.generateInboxReplies = exports.metaWebhookReceiver = exports.generateAheadDrafts = exports.dailyMarketingDraftCron = exports.generateMarketingDraft = exports.scoreMarketingDraft = exports.renderMarketingTemplate = exports.repairCommunityCounters = exports.onUserCreated = exports.onFollowDelete = exports.onFollowCreate = exports.onPostDelete = exports.onCommentDelete = exports.onCommentCreate = exports.synthesizeSpeech = exports.adminFactoryReset = exports.factoryReset = exports.processScheduledPushes = exports.adminCreateUser = exports.adminDeleteUser = exports.dispatchPush = void 0;
 const functions = __importStar(require("firebase-functions/v1"));
 const admin = __importStar(require("firebase-admin"));
 const text_to_speech_1 = __importDefault(require("@google-cloud/text-to-speech"));
@@ -1152,8 +1152,14 @@ exports.scoreMarketingDraft = (0, marketing_1.buildScoreMarketingDraft)(ADMIN_EM
 // template, and writes a marketing_drafts row with status=pending_review.
 exports.generateMarketingDraft = (0, marketing_1.buildGenerateMarketingDraft)(ADMIN_EMAILS);
 // Daily 6am IST cron — opt-in via marketing_brand/main.cronEnabled=true.
-// Same generation flow, runs as service account.
+// Same generation flow, runs as service account. Automatically skips if a
+// per-date skip override is set in cronOverrides, or if a draft already
+// exists for today (i.e. admin pre-generated via generateAheadDrafts).
 exports.dailyMarketingDraftCron = (0, marketing_1.buildDailyMarketingDraftCron)();
+// Scheduler Layer 3 — admin-callable to pre-generate drafts for the next
+// N days (default 7). Each future date gets a pending_review draft in
+// the normal queue. The cron skips any date that already has one.
+exports.generateAheadDrafts = (0, marketing_1.buildGenerateAheadDrafts)(ADMIN_EMAILS);
 // M4 — engagement / unified inbox.
 //
 // metaWebhookReceiver is a public HTTPS endpoint (no auth — Meta is the
