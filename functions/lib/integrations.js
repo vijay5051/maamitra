@@ -217,12 +217,20 @@ function buildUpdateIntegrationConfig(allowList) {
     });
 }
 function sanitizePatch(raw) {
-    const allowed = new Set(['openai', 'replicate', 'gemini', 'pexels', 'anthropic', 'meta']);
+    const allowed = new Set(['openai', 'replicate', 'gemini', 'pexels', 'anthropic', 'meta', 'notes']);
     const out = {};
     for (const [k, v] of Object.entries(raw)) {
         if (!allowed.has(k))
             continue;
-        if (typeof v === 'object' && v !== null && !Array.isArray(v)) {
+        if (k === 'notes' && typeof v === 'object' && v !== null && !Array.isArray(v)) {
+            const sanitizedNotes = {};
+            for (const [nk, nv] of Object.entries(v)) {
+                if (typeof nv === 'string')
+                    sanitizedNotes[nk] = nv;
+            }
+            out['notes'] = sanitizedNotes;
+        }
+        else if (typeof v === 'object' && v !== null && !Array.isArray(v)) {
             out[k] = v;
         }
     }
