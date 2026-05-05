@@ -11,90 +11,45 @@ No active coding task.
 
 ---
 
-## Last action (2026-05-05) — Library admin unified UX (two-tier nav)
+## Last action (2026-05-05) — Brand visual style + Generate cover button
 
-**Commit `c383bcc` · hosting deployed · OTA `df8ce8b3` published.**
+**Two commits shipped:**
 
-### What changed
-- `app/admin/library-ai.tsx` — full rewrite: two-tier nav
-  - **Tier 1**: Kind pill chips (📰 Articles / 📚 Books / 🛍️ Products)
-  - **Tier 2**: Section underline tabs (Library | Autopilot | History)
-  - Default section = Library so admin lands on content, not settings
-  - `ContentLibrarySection`: all items (AI + manual), search, status filter,
-    full CRUD — edit opens modal showing entire article body
-  - `AutopilotSection`: compact StatusBanner + SettingsCard + GenerateCard
-  - `HistorySection`: cron run logs
-- `app/admin/content.tsx` — stripped to Schemes & Yoga only
-- `AdminShell.tsx` — nav order: Library (AI+CRUD) first, Schemes & Yoga second
+### 1. Brand visual style fingerprint + gpt-image-1 default (`fab5c52`)
+- Audited actual in-app illustrations to identify the real visual DNA:
+  painterly storybook (NOT flat vector), lavender+sage+dusty-pink+cream palette,
+  Indian women in white chikankari-embroidered lavender kurtas, messy bun hair,
+  generous negative space.
+- Rewrote `DEFAULT_STYLE_PROFILE` in `lib/marketingTypes.ts` to match: added
+  `oneLiner` (~280 chars for Imagen token limit), full `description`, full
+  `prohibited` list (flat vector, 3D puffy, photorealism, non-Indian looks…),
+  `artKeywords`.
+- Added `DEFAULT_STYLE_REFERENCES` array (6 canonical illustration paths).
+- Switched default AI image model from `'imagen'` → `'dalle'` (gpt-image-1)
+  in `generator.ts` (cron) and `studio.ts` (Studio canvas).
+- `buildStyleLockedImagePrompt` / `buildStudioPrompt` now use `oneLiner` first
+  (avoids Imagen's ~480-token cap hitting the long description).
+- Style constants in 3 places (`lib/marketingTypes.ts`, `generator.ts`,
+  `studio.ts`) all updated and kept in sync.
 
----
+### 2. ✨ Generate cover button on article + book editor (`e862462`)
+- `app/admin/content.tsx`: when editing an article or book, the "Header image
+  URL" / "Cover image URL" field gets a "✨ Generate" button inline.
+- Calls `generateStudioVariants({ prompt, model: 'dalle', variantCount: 1 })`
+  with a subject prompt built from `title + topic` (articles) or
+  `title + author + topic` (books). Style injection happens server-side via
+  `buildStudioPrompt`.
+- On success, the returned Storage URL is written back into `imageUrl`; admin
+  saves as normal.
 
-## Previous last action (2026-05-05) — Library AI autopilot (Articles · Books · Products)
-
-**Full AI content pipeline for all three Library sections. Fully deployed.**
-
-### What was built
-
-**9 new Cloud Function modules** under `functions/src/library/`:
-- `settings.ts` — `LibraryAiSettings` per-kind config (frequency / topics / tone /
-  age-buckets / autoPublish / expiry) stored in `app_settings/libraryAi`. Admin
-  changes take effect instantly (no cache).
-- `brand.ts` — shares brand voice + compliance + style profile from
-  `marketing_brand/main` (same forbidden-words list, same visual DNA as Studio).
-- `openai.ts` — gpt-4o-mini JSON-mode helper (reuses Firestore-stored API key).
-- `auth.ts` — admin gate (super | content role); mirrors marketing gate.
-- `articles.ts` — AI writes article → Imagen hero image → compliance scan →
-  Firestore `articles` collection. Rotates age buckets and topics by day. De-dupes
-  by scanning recent 60 days of titles.
-- `books.ts` — AI picks 3-5 real book candidates → verifies each against Google
-  Books API (free, no key) → constructs Amazon.in deep links (`/dp/<ISBN13>`) or
-  search URLs. Stores book covers in Firebase Storage.
-- `products.ts` — AI picks brand-name products (Pigeon, Mee Mee, Himalaya…) →
-  constructs Amazon.in + Flipkart search URLs. AI thumbnail via Imagen → Pexels
-  fallback.
-- `cron.ts` — daily 06:30 IST generator (fires each kind if `shouldFireToday()`);
-  daily 03:00 IST stale-archival sweep (flips past-`expiresAt` items to `archived`).
-- `index.ts` — barrel exports.
-
-**6 new Cloud Functions exported from `functions/src/index.ts`:**
-`generateArticleNow`, `generateBooksNow`, `generateProductsNow`,
-`archiveLibraryItem`, `dailyLibraryAiCron`, `expireStaleLibrary`. All created.
-
-**Admin UI** (`app/admin/library-ai.tsx`):
-- Per-kind tabs (Articles / Books / Products) with enable toggle, frequency picker,
-  perRun/expireAfterDays steppers, autoPublish switch, topic catalog textarea,
-  tone editor.
-- Generate-now card: topic override, age bucket chips, count, publish mode → fires
-  callable, shows live result.
-- AI item queue: live onSnapshot feed with thumbnail, title, topic, age range,
-  timestamp, expiry, compliance flags, status badge, link button, archive button.
-- Cron run history table (articles tab).
-- Nav item added: "Library AI autopilot" (sparkles icon, `edit_content` cap) in
-  AdminShell Content group.
-
-**Firestore live sync** (`hooks/useLibraryFirestoreSync.ts`):
-- 3 `onSnapshot` subscriptions on `articles`, `books`, `products`
-  (where `status == 'published'`), mounted from the Library tab.
-- Hydrates Zustand stores (`setArticles`, `setBooks`, `setProducts`) in real time.
-
-**Other files changed:**
-- `store/useArticleStore.ts`, `useBookStore.ts`, `useProductStore.ts` — added
-  `setArticles / setBooks / setProducts` actions.
-- `services/libraryAi.ts` — client callable wrappers + settings subscribe.
-- `firestore.rules` — admin read for `library_ai_log`, `library_ai_runs`.
-- `firestore.indexes.json` — 6 composite indexes
-  (`source+createdAt`, `source+status+expiresAt`) across articles/books/products.
-- `services/audit.ts` — added `library_ai.*` action types.
-
-### What deployed (commit `5a89241`)
-- Firebase Functions: 6 new functions created, 39 existing updated. ✔
-- Firestore rules + indexes deployed. ✔
-- Web hosting updated. ✔
-- EAS OTA published (update group `4366c8b3`). ✔
+### What deployed
+- Web hosting — updated
+- OTA — published (update group `dcebfb48-bd48-4745-be63-2651eb40d3d6`)
+- No new Cloud Functions needed (reuses `generateStudioVariants`).
 
 ---
 
-## Previous last action (2026-05-05) — Auto-scheduler visibility & control
+## Previous action (2026-05-05) — Auto-scheduler visibility & control
 
 **Phase 5 — Admin can now see and control what the 6 AM cron will generate.**
 
