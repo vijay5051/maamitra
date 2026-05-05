@@ -24,6 +24,8 @@ interface BookState {
   addBook: (book: Omit<DynamicBook, 'id' | 'addedAt'>) => string;
   removeBook: (id: string) => void;
   updateBook: (id: string, updates: Partial<Omit<DynamicBook, 'id' | 'addedAt'>>) => void;
+  /** Wholesale replacement for live Firestore hydration. */
+  setBooks: (rows: DynamicBook[]) => void;
 }
 
 export const useBookStore = create<BookState>()(
@@ -49,6 +51,8 @@ export const useBookStore = create<BookState>()(
         set((s) => ({
           books: s.books.map((b) => (b.id === id ? { ...b, ...updates } : b)),
         })),
+
+      setBooks: (rows) => set({ books: rows }),
     }),
     {
       name: 'maamitra-books',

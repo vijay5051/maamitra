@@ -23,6 +23,8 @@ interface ProductState {
   addProduct: (p: Omit<DynamicProduct, 'id' | 'addedAt'>) => string;
   removeProduct: (id: string) => void;
   updateProduct: (id: string, updates: Partial<Omit<DynamicProduct, 'id' | 'addedAt'>>) => void;
+  /** Wholesale replacement for live Firestore hydration. */
+  setProducts: (rows: DynamicProduct[]) => void;
 }
 
 export const useProductStore = create<ProductState>()(
@@ -45,6 +47,8 @@ export const useProductStore = create<ProductState>()(
         set((s) => ({
           products: s.products.map((p) => (p.id === id ? { ...p, ...updates } : p)),
         })),
+
+      setProducts: (rows) => set({ products: rows }),
     }),
     {
       name: 'maamitra-products',

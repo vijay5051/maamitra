@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useFilteredArticles } from '../../hooks/useFilteredContent';
+import { useLibraryFirestoreSync } from '../../hooks/useLibraryFirestoreSync';
 import { useActiveKid } from '../../hooks/useActiveKid';
 import { useProfileStore, calculateAgeInMonths } from '../../store/useProfileStore';
 import { useChatStore } from '../../store/useChatStore';
@@ -1207,6 +1208,12 @@ export default function LibraryScreen() {
   const isAdmin = isAdminEmail(user?.email);
 
   const profile = useProfileStore((s) => s.profile);
+
+  // Live-hydrate articles/books/products from Firestore (where status='published').
+  // The Zustand stores stay the source of truth for rendering; this hook
+  // wholesale-replaces their lists on every snapshot, so AI-generated content
+  // from the autopilot cron lands in Library without any extra plumbing.
+  useLibraryFirestoreSync();
 
   const { books: dynamicBooks } = useBookStore();
   const { articles: dynamicArticles } = useArticleStore();

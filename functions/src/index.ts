@@ -21,6 +21,14 @@ import textToSpeech from '@google-cloud/text-to-speech';
 
 import { buildCheckIntegrationHealth, buildUpdateIntegrationConfig } from './integrations';
 import {
+  buildArchiveLibraryItem,
+  buildDailyLibraryAiCron,
+  buildExpireStaleLibrary,
+  buildGenerateArticleNow,
+  buildGenerateBooksNow,
+  buildGenerateProductsNow,
+} from './library';
+import {
   buildBoostMarketingDraft,
   buildClassifyInboxThread,
   buildCreateStudioDraft,
@@ -1455,3 +1463,26 @@ export const probeMarketingHealthNow = buildProbeMarketingHealthNow(ADMIN_EMAILS
 // functions pick up new keys within 5 minutes.
 export const checkIntegrationHealth = buildCheckIntegrationHealth(ADMIN_EMAILS);
 export const updateIntegrationConfig = buildUpdateIntegrationConfig(ADMIN_EMAILS);
+
+// ── Library AI (autopilot for Articles · Books · Products) ─────────────────
+// Mirrors the marketing automation pattern but writes into the existing
+// `articles` / `books` / `products` Firestore collections so the live
+// Library tab reads them through the same code path as manual content.
+//
+// Settings: app_settings/libraryAi (admin-editable from /admin/library-ai).
+// Daily cron: 06:30 IST — checks each kind's frequency and fires perRun
+// generations on its scheduled days.
+// Expiry cron: 03:00 IST — flips `published` AI items past expiresAt to
+// `archived` so admins never have to babysit stale content.
+//
+// Required keys (set in /admin/integrations):
+//   OPENAI_API_KEY        — gpt-4o-mini for body / curation prompts
+//   GEMINI_API_KEY        — Imagen for hero images / product thumbnails
+//   PEXELS_API_KEY        — fallback stock photos
+//   (REPLICATE_API_TOKEN  — optional, for FLUX hero images)
+export const generateArticleNow   = buildGenerateArticleNow(ADMIN_EMAILS);
+export const generateBooksNow     = buildGenerateBooksNow(ADMIN_EMAILS);
+export const generateProductsNow  = buildGenerateProductsNow(ADMIN_EMAILS);
+export const archiveLibraryItem   = buildArchiveLibraryItem(ADMIN_EMAILS);
+export const dailyLibraryAiCron   = buildDailyLibraryAiCron();
+export const expireStaleLibrary   = buildExpireStaleLibrary();

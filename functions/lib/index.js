@@ -52,11 +52,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateIntegrationConfig = exports.checkIntegrationHealth = exports.probeMarketingHealthNow = exports.probeMarketingHealth = exports.composeStudioLogo = exports.uploadStudioImage = exports.editStudioImage = exports.createStudioDraft = exports.generateStudioVariants = exports.boostMarketingDraft = exports.renderUgcAsDraft = exports.generateWeeklyInsightDigest = exports.pollMarketingAccountInsights = exports.pollMarketingInsights = exports.publishMarketingDraftNow = exports.scheduledMarketingPublisher = exports.metaInboxReplyPublisher = exports.classifyInboxThread = exports.generateInboxReplies = exports.metaWebhookReceiver = exports.generateAheadDrafts = exports.dailyMarketingDraftCron = exports.generateMarketingDraft = exports.scoreMarketingDraft = exports.renderMarketingTemplate = exports.repairCommunityCounters = exports.onUserCreated = exports.onFollowDelete = exports.onFollowCreate = exports.onPostDelete = exports.onCommentDelete = exports.onCommentCreate = exports.synthesizeSpeech = exports.adminFactoryReset = exports.factoryReset = exports.processScheduledPushes = exports.adminCreateUser = exports.adminDeleteUser = exports.dispatchPush = void 0;
+exports.expireStaleLibrary = exports.dailyLibraryAiCron = exports.archiveLibraryItem = exports.generateProductsNow = exports.generateBooksNow = exports.generateArticleNow = exports.updateIntegrationConfig = exports.checkIntegrationHealth = exports.probeMarketingHealthNow = exports.probeMarketingHealth = exports.composeStudioLogo = exports.uploadStudioImage = exports.editStudioImage = exports.createStudioDraft = exports.generateStudioVariants = exports.boostMarketingDraft = exports.renderUgcAsDraft = exports.generateWeeklyInsightDigest = exports.pollMarketingAccountInsights = exports.pollMarketingInsights = exports.publishMarketingDraftNow = exports.scheduledMarketingPublisher = exports.metaInboxReplyPublisher = exports.classifyInboxThread = exports.generateInboxReplies = exports.metaWebhookReceiver = exports.generateAheadDrafts = exports.dailyMarketingDraftCron = exports.generateMarketingDraft = exports.scoreMarketingDraft = exports.renderMarketingTemplate = exports.repairCommunityCounters = exports.onUserCreated = exports.onFollowDelete = exports.onFollowCreate = exports.onPostDelete = exports.onCommentDelete = exports.onCommentCreate = exports.synthesizeSpeech = exports.adminFactoryReset = exports.factoryReset = exports.processScheduledPushes = exports.adminCreateUser = exports.adminDeleteUser = exports.dispatchPush = void 0;
 const functions = __importStar(require("firebase-functions/v1"));
 const admin = __importStar(require("firebase-admin"));
 const text_to_speech_1 = __importDefault(require("@google-cloud/text-to-speech"));
 const integrations_1 = require("./integrations");
+const library_1 = require("./library");
 const marketing_1 = require("./marketing");
 admin.initializeApp();
 // Allow undefined fields in setDoc/update payloads to be silently dropped
@@ -1241,3 +1242,25 @@ exports.probeMarketingHealthNow = (0, marketing_1.buildProbeMarketingHealthNow)(
 // functions pick up new keys within 5 minutes.
 exports.checkIntegrationHealth = (0, integrations_1.buildCheckIntegrationHealth)(ADMIN_EMAILS);
 exports.updateIntegrationConfig = (0, integrations_1.buildUpdateIntegrationConfig)(ADMIN_EMAILS);
+// ── Library AI (autopilot for Articles · Books · Products) ─────────────────
+// Mirrors the marketing automation pattern but writes into the existing
+// `articles` / `books` / `products` Firestore collections so the live
+// Library tab reads them through the same code path as manual content.
+//
+// Settings: app_settings/libraryAi (admin-editable from /admin/library-ai).
+// Daily cron: 06:30 IST — checks each kind's frequency and fires perRun
+// generations on its scheduled days.
+// Expiry cron: 03:00 IST — flips `published` AI items past expiresAt to
+// `archived` so admins never have to babysit stale content.
+//
+// Required keys (set in /admin/integrations):
+//   OPENAI_API_KEY        — gpt-4o-mini for body / curation prompts
+//   GEMINI_API_KEY        — Imagen for hero images / product thumbnails
+//   PEXELS_API_KEY        — fallback stock photos
+//   (REPLICATE_API_TOKEN  — optional, for FLUX hero images)
+exports.generateArticleNow = (0, library_1.buildGenerateArticleNow)(ADMIN_EMAILS);
+exports.generateBooksNow = (0, library_1.buildGenerateBooksNow)(ADMIN_EMAILS);
+exports.generateProductsNow = (0, library_1.buildGenerateProductsNow)(ADMIN_EMAILS);
+exports.archiveLibraryItem = (0, library_1.buildArchiveLibraryItem)(ADMIN_EMAILS);
+exports.dailyLibraryAiCron = (0, library_1.buildDailyLibraryAiCron)();
+exports.expireStaleLibrary = (0, library_1.buildExpireStaleLibrary)();

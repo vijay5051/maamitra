@@ -23,6 +23,9 @@ interface ArticleState {
   addArticle: (a: Omit<DynamicArticle, 'id' | 'addedAt'>) => string;
   removeArticle: (id: string) => void;
   updateArticle: (id: string, updates: Partial<Omit<DynamicArticle, 'id' | 'addedAt'>>) => void;
+  /** Wholesale-replace the cached list from Firestore. Used by the live
+   *  hydrator so AI-generated articles appear in Library immediately. */
+  setArticles: (rows: DynamicArticle[]) => void;
 }
 
 export const useArticleStore = create<ArticleState>()(
@@ -45,6 +48,8 @@ export const useArticleStore = create<ArticleState>()(
         set((s) => ({
           articles: s.articles.map((a) => (a.id === id ? { ...a, ...updates } : a)),
         })),
+
+      setArticles: (rows) => set({ articles: rows }),
     }),
     {
       name: 'maamitra-articles',

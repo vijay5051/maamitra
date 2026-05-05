@@ -77,7 +77,11 @@ export type AdminAction =
   | 'marketing.inbox.archive'
   | 'marketing.cron.override'
   // Integration Hub — API key rotation
-  | 'integration.update';
+  | 'integration.update'
+  // Library AI — autopilot for Articles / Books / Products
+  | 'library_ai.settings.update'
+  | 'library_ai.generate'
+  | 'library_ai.archive';
 
 export interface AuditTarget {
   /** Most actions target a user (uid). May be empty for global actions. */

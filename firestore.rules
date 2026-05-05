@@ -408,6 +408,20 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // ── Library AI autopilot ─────────────────────────────────────────────────
+    // Cron + admin-callables generate Articles / Books / Products into the
+    // existing collections (rules above). These two collections are admin-
+    // only logs the cron writes via service account; admin reads to power
+    // the queue + history dashboards.
+    match /library_ai_log/{rowId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+    match /library_ai_runs/{rowId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     // ── Marketing automation ─────────────────────────────────────────────────
     // Brand kit (logo, palette, voice, theme calendar): single doc at
     // marketing_brand/main. Drives every rendered post + AI prompt. Admin-
