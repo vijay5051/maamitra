@@ -174,6 +174,8 @@ export default function LibraryAiAdmin() {
     } catch (e: any) { setGlobalErr(e?.message ?? String(e)); }
   }
 
+  const autopilotEnabled = k.enabled && !settings.paused;
+
   return (
     <>
       <Stack.Screen options={{ title: 'Library' }} />
@@ -212,10 +214,14 @@ export default function LibraryAiAdmin() {
               })}
             </ScrollView>
 
-            {/* Tier 2: Section */}
+            {/* Tier 2: Section — with live dot on Autopilot */}
             <View style={s.sectionTabRow}>
               {SECTIONS.map((sec) => {
                 const active = sec.key === section;
+                const showDot = sec.key === 'autopilot';
+                const dotColor = settings.paused
+                  ? Colors.warning
+                  : k.enabled ? Colors.success : Colors.textMuted;
                 return (
                   <Pressable
                     key={sec.key}
@@ -230,6 +236,9 @@ export default function LibraryAiAdmin() {
                     <Text style={[s.sectionTabText, active && s.sectionTabTextActive]}>
                       {sec.label}
                     </Text>
+                    {showDot && (
+                      <View style={[s.statusDot, { backgroundColor: dotColor }]} />
+                    )}
                   </Pressable>
                 );
               })}
@@ -240,7 +249,13 @@ export default function LibraryAiAdmin() {
       >
         {/* ── Section: Library (content CRUD) ── */}
         {section === 'library' && (
-          <ContentLibrarySection kind={kind} onError={setGlobalErr} />
+          <ContentLibrarySection
+            kind={kind}
+            kindSettings={k}
+            globalPaused={settings.paused}
+            onGoToAutopilot={() => setSection('autopilot')}
+            onError={setGlobalErr}
+          />
         )}
 
         {/* ── Section: Autopilot (settings + generate) ── */}
@@ -268,8 +283,11 @@ export default function LibraryAiAdmin() {
 // SECTION 1 — Content library (all items, full CRUD)
 // ═════════════════════════════════════════════════════════════════════════════
 
-function ContentLibrarySection({ kind, onError }: {
+function ContentLibrarySection({ kind, kindSettings, globalPaused, onGoToAutopilot, onError }: {
   kind: Kind;
+  kindSettings: KindSettings;
+  globalPaused: boolean;
+  onGoToAutopilot: () => void;
   onError: (msg: string | null) => void;
 }) {
   const [items, setItems] = useState<LibraryContentItem[]>([]);
@@ -355,8 +373,50 @@ function ContentLibrarySection({ kind, onError }: {
     { key: 'archived',  label: `Archived (${counts.archived})` },
   ];
 
+  // Autopilot teaser strip
+  const paused = globalPaused;
+  const enabled = kindSettings.enabled;
+  const teaserColor = paused ? Colors.warning : enabled ? Colors.success : Colors.textMuted;
+  const teaserBg   = paused ? '#fff7ed'       : enabled ? '#f0fdf4'      : Colors.bgLight;
+  const teaserBorder = paused ? '#fdba74'     : enabled ? '#86efac'      : Colors.borderSoft;
+  const teaserDot  = paused ? Colors.warning  : enabled ? Colors.success : Colors.textMuted;
+  const teaserStatus = paused
+    ? '⏸ AI paused globally'
+    : enabled
+      ? `✅ Autopilot ON · ${FREQUENCY_LABELS[kindSettings.frequency]} · ${kindSettings.autoPublish ? 'auto-publish' : 'saves as drafts'}`
+      : `💤 Autopilot is OFF`;
+  const teaserSub = paused
+    ? 'Flip the "AI paused" toggle in the header to resume.'
+    : enabled
+      ? 'AI generates content automatically on schedule. You can also generate on demand.'
+      : 'Turn on autopilot to have AI write and publish content automatically.';
+
   return (
     <>
+      {/* ── Autopilot teaser — always visible so admin knows the feature exists ── */}
+      <Pressable
+        style={[s.teaserBanner, { backgroundColor: teaserBg, borderColor: teaserBorder }]}
+        onPress={onGoToAutopilot}
+      >
+        <View style={[s.teaserDot, { backgroundColor: teaserDot }]} />
+        <View style={{ flex: 1 }}>
+          <Text style={[s.teaserStatus, { color: teaserColor }]}>{teaserStatus}</Text>
+          <Text style={s.teaserSub}>{teaserSub}</Text>
+        </View>
+        <View style={s.teaserActions}>
+          <Pressable style={s.teaserBtn} onPress={onGoToAutopilot}>
+            <Ionicons name="sparkles-outline" size={12} color={Colors.primary} />
+            <Text style={s.teaserBtnText}>{enabled ? 'Configure' : 'Set up'}</Text>
+          </Pressable>
+          {enabled && !paused && (
+            <Pressable style={[s.teaserBtn, s.teaserBtnPrimary]} onPress={onGoToAutopilot}>
+              <Ionicons name="flash-outline" size={12} color="#fff" />
+              <Text style={[s.teaserBtnText, { color: '#fff' }]}>Generate now</Text>
+            </Pressable>
+          )}
+        </View>
+      </Pressable>
+
       {/* Toolbar row */}
       <View style={s.libraryToolbar}>
         <Toolbar
@@ -1223,4 +1283,33 @@ const s = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: '#fdba74',
   },
   flagText: { fontSize: FontSize.xs, color: Colors.warning, fontWeight: '600', flex: 1 },
+
+  // Section tab live dot
+  statusDot: {
+    width: 7, height: 7, borderRadius: 4,
+    marginLeft: 2,
+  },
+
+  // Autopilot teaser strip (Library section)
+  teaserBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
+    borderRadius: Radius.lg, borderWidth: 1,
+    paddingHorizontal: Spacing.md, paddingVertical: 10,
+    marginBottom: Spacing.md,
+  },
+  teaserDot: {
+    width: 9, height: 9, borderRadius: 5, flexShrink: 0,
+  },
+  teaserStatus: { fontSize: FontSize.sm, fontWeight: '700' },
+  teaserSub: { fontSize: 11, color: Colors.textMuted, marginTop: 1 },
+  teaserActions: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0 },
+  teaserBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 10, paddingVertical: 5,
+    borderRadius: 999, borderWidth: 1, borderColor: Colors.primary,
+  },
+  teaserBtnPrimary: {
+    backgroundColor: Colors.primary, borderColor: Colors.primary,
+  },
+  teaserBtnText: { fontSize: 11, fontWeight: '700', color: Colors.primary },
 });
