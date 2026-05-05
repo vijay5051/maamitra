@@ -584,22 +584,39 @@ function StyleProfileEditor({
               multiline
             />
           </Field>
-          <Pressable
-            disabled={loading}
-            style={[styles.savePillBtn, loading && { opacity: 0.6 }]}
-            onPress={async () => {
-              await onSave({
-                oneLiner: oneLiner.trim(),
-                description: description.trim(),
-                artKeywords: keywords.trim(),
-                prohibited: prohibited.split(',').map((s) => s.trim()).filter(Boolean).slice(0, 40),
-              });
-              setEditing(false);
-            }}
-          >
-            {loading ? <ActivityIndicator size="small" color={Colors.white} /> :
-              <Text style={styles.savePillBtnLabel}>Save changes</Text>}
-          </Pressable>
+          <View style={styles.styleFooterRow}>
+            <Pressable
+              disabled={loading}
+              style={[styles.resetBtn, loading && { opacity: 0.6 }]}
+              onPress={async () => {
+                const d = DEFAULT_STYLE_PROFILE;
+                setOneLiner(d.oneLiner);
+                setDescription(d.description);
+                setKeywords(d.artKeywords);
+                setProhibited(d.prohibited.join(', '));
+                await onSave(d);
+                setEditing(false);
+              }}
+            >
+              <Text style={styles.resetBtnLabel}>{loading ? '…' : 'Reset to defaults'}</Text>
+            </Pressable>
+            <Pressable
+              disabled={loading}
+              style={[styles.savePillBtn, loading && { opacity: 0.6 }]}
+              onPress={async () => {
+                await onSave({
+                  oneLiner: oneLiner.trim(),
+                  description: description.trim(),
+                  artKeywords: keywords.trim(),
+                  prohibited: prohibited.split(',').map((s) => s.trim()).filter(Boolean).slice(0, 40),
+                });
+                setEditing(false);
+              }}
+            >
+              {loading ? <ActivityIndicator size="small" color={Colors.white} /> :
+                <Text style={styles.savePillBtnLabel}>Save changes</Text>}
+            </Pressable>
+          </View>
         </View>
       ) : null}
     </Card>
@@ -706,14 +723,20 @@ const styles = StyleSheet.create({
     minHeight: 36,
     outlineStyle: 'none' as any,
   },
+  styleFooterRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' },
   savePillBtn: {
-    alignSelf: 'flex-start',
     paddingHorizontal: 14, paddingVertical: 8,
     backgroundColor: Colors.primary,
     borderRadius: 999,
-    marginTop: 4,
   },
   savePillBtnLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.white },
+  resetBtn: {
+    paddingHorizontal: 14, paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1, borderColor: Colors.border,
+    backgroundColor: Colors.bgLight,
+  },
+  resetBtnLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textMuted },
 
   // Scheduler slot rows
   slotRow: {
