@@ -258,6 +258,21 @@ function buildGenerateStudioVariants(allowList) {
         }
         const ts = new Date().toISOString().replace(/[:.]/g, '-');
         const actor = context.auth?.token?.email ?? context.auth?.uid ?? null;
+        // Pre-flight: verify the chosen provider has a key configured so we can
+        // return an actionable error immediately rather than failing all variants
+        // with a generic message.
+        {
+            const cfg = await (0, integrationConfig_1.getIntegrationConfig)();
+            if (model === 'dalle' && !cfg.openai.apiKey) {
+                return { ok: false, code: 'missing-api-key', message: 'OpenAI API key is not set. Add it in Admin → Integrations → OpenAI.' };
+            }
+            if (model === 'imagen' && !cfg.gemini.apiKey) {
+                return { ok: false, code: 'missing-api-key', message: 'Gemini API key is not set. Add it in Admin → Integrations → Google Gemini.' };
+            }
+            if (model === 'flux' && !cfg.replicate.apiToken) {
+                return { ok: false, code: 'missing-api-key', message: 'Replicate API token is not set. Add it in Admin → Integrations → Replicate.' };
+            }
+        }
         // Fire all variants in parallel. Each provider returns a data: URL or
         // http URL; we upload to Storage and return the public Storage URL so
         // the URL doesn't expire when the API session ends.
@@ -273,9 +288,12 @@ function buildGenerateStudioVariants(allowList) {
             const styledPrompt = buildStudioPrompt(subjectPrompt, brand);
             tasks.push((async () => {
                 let imageUrl = null;
+                let hint = '';
                 try {
                     if (model === 'imagen') {
                         imageUrl = await (0, imageSources_1.imagenGenerate)(styledPrompt, { aspectRatio: aspectRatio === '16:9' ? '16:9' : aspectRatio });
+                        if (!imageUrl)
+                            hint = 'Imagen returned no image. The model endpoint may have changed — check your Gemini API key in Integrations.';
                     }
                     else if (model === 'dalle') {
                         // gpt-image-1 only supports a fixed set of square / portrait /
@@ -284,34 +302,43 @@ function buildGenerateStudioVariants(allowList) {
                             : aspectRatio === '16:9' ? '1536x1024'
                                 : '1024x1024';
                         imageUrl = await (0, imageSources_1.openaiImage)(styledPrompt, { quality: 'medium', size });
+                        if (!imageUrl)
+                            hint = 'gpt-image-1 returned no image. Check your OpenAI API key in Integrations and ensure your organisation is verified at platform.openai.com.';
                     }
                     else {
                         imageUrl = await (0, imageSources_1.fluxSchnell)(styledPrompt, { aspectRatio: aspectRatio === '16:9' ? '16:9' : aspectRatio });
+                        if (!imageUrl)
+                            hint = 'FLUX returned no image. Check your Replicate API token in Integrations.';
                     }
                 }
                 catch (e) {
                     console.warn(`[studio] variant ${i} provider threw`, e);
+                    hint = e?.message ?? 'Provider error.';
                 }
                 if (!imageUrl)
-                    return null;
+                    return { variant: null, hint };
                 const variantId = mode === 'carousel' ? `${ts}-slide${i}` : `${ts}-${i}`;
                 const storagePath = `marketing/studio/${variantId}.png`;
                 try {
                     const { url, bytes } = await uploadToStorage(imageUrl, storagePath);
                     await logCost({ source: model, costInr: perImage, bytes, actor: actor, meta: { variantId, mode } });
-                    return { variantId, url, storagePath };
+                    return { variant: { variantId, url, storagePath }, hint: '' };
                 }
                 catch (e) {
                     console.warn(`[studio] variant ${i} upload failed`, e);
-                    return null;
+                    return { variant: null, hint: 'Upload to Storage failed.' };
                 }
             })());
         }
         const settled = await Promise.all(tasks);
-        const variants = settled.filter((v) => v !== null);
+        const variants = settled.map((s) => s.variant).filter((v) => v !== null);
         const failedCount = settled.length - variants.length;
         if (variants.length === 0) {
-            return { ok: false, code: 'all-variants-failed', message: "Couldn't generate any images. Try a different prompt or wait a moment." };
+            const firstHint = settled.find((s) => s.hint)?.hint ?? '';
+            const msg = firstHint
+                ? `Couldn't generate any images. ${firstHint}`
+                : "Couldn't generate any images. Try a different prompt or wait a moment.";
+            return { ok: false, code: 'all-variants-failed', message: msg };
         }
         return {
             ok: true,
