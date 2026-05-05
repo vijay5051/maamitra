@@ -11,7 +11,45 @@ No active coding task.
 
 ---
 
-## Last action (2026-05-05) — Auto-scheduler visibility & control
+## Last action (2026-05-05) — Brand visual style + Generate cover button
+
+**Two commits shipped:**
+
+### 1. Brand visual style fingerprint + gpt-image-1 default (`fab5c52`)
+- Audited actual in-app illustrations to identify the real visual DNA:
+  painterly storybook (NOT flat vector), lavender+sage+dusty-pink+cream palette,
+  Indian women in white chikankari-embroidered lavender kurtas, messy bun hair,
+  generous negative space.
+- Rewrote `DEFAULT_STYLE_PROFILE` in `lib/marketingTypes.ts` to match: added
+  `oneLiner` (~280 chars for Imagen token limit), full `description`, full
+  `prohibited` list (flat vector, 3D puffy, photorealism, non-Indian looks…),
+  `artKeywords`.
+- Added `DEFAULT_STYLE_REFERENCES` array (6 canonical illustration paths).
+- Switched default AI image model from `'imagen'` → `'dalle'` (gpt-image-1)
+  in `generator.ts` (cron) and `studio.ts` (Studio canvas).
+- `buildStyleLockedImagePrompt` / `buildStudioPrompt` now use `oneLiner` first
+  (avoids Imagen's ~480-token cap hitting the long description).
+- Style constants in 3 places (`lib/marketingTypes.ts`, `generator.ts`,
+  `studio.ts`) all updated and kept in sync.
+
+### 2. ✨ Generate cover button on article + book editor (`e862462`)
+- `app/admin/content.tsx`: when editing an article or book, the "Header image
+  URL" / "Cover image URL" field gets a "✨ Generate" button inline.
+- Calls `generateStudioVariants({ prompt, model: 'dalle', variantCount: 1 })`
+  with a subject prompt built from `title + topic` (articles) or
+  `title + author + topic` (books). Style injection happens server-side via
+  `buildStudioPrompt`.
+- On success, the returned Storage URL is written back into `imageUrl`; admin
+  saves as normal.
+
+### What deployed
+- Web hosting — updated
+- OTA — published (update group `dcebfb48-bd48-4745-be63-2651eb40d3d6`)
+- No new Cloud Functions needed (reuses `generateStudioVariants`).
+
+---
+
+## Previous action (2026-05-05) — Auto-scheduler visibility & control
 
 **Phase 5 — Admin can now see and control what the 6 AM cron will generate.**
 
