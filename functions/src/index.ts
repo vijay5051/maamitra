@@ -28,6 +28,7 @@ import {
   buildEditStudioImage,
   buildUploadStudioImage,
   buildComposeStudioLogo,
+  buildGenerateAheadDrafts,
   buildGenerateInboxReplies,
   buildGenerateMarketingDraft,
   buildGenerateStudioVariants,
@@ -1353,8 +1354,15 @@ export const scoreMarketingDraft = buildScoreMarketingDraft(ADMIN_EMAILS);
 export const generateMarketingDraft = buildGenerateMarketingDraft(ADMIN_EMAILS);
 
 // Daily 6am IST cron — opt-in via marketing_brand/main.cronEnabled=true.
-// Same generation flow, runs as service account.
+// Same generation flow, runs as service account. Automatically skips if a
+// per-date skip override is set in cronOverrides, or if a draft already
+// exists for today (i.e. admin pre-generated via generateAheadDrafts).
 export const dailyMarketingDraftCron = buildDailyMarketingDraftCron();
+
+// Scheduler Layer 3 — admin-callable to pre-generate drafts for the next
+// N days (default 7). Each future date gets a pending_review draft in
+// the normal queue. The cron skips any date that already has one.
+export const generateAheadDrafts = buildGenerateAheadDrafts(ADMIN_EMAILS);
 
 // M4 — engagement / unified inbox.
 //

@@ -30,6 +30,16 @@ interface GenerateInput {
   eventId?: unknown;
   template?: unknown;
   imageModel?: unknown;
+  /** Scheduler Layer 2: override the AI prompt hint for this generation. */
+  promptOverride?: unknown;
+  /** Scheduler Layer 3: explicit IST date (YYYY-MM-DD) to generate for.
+   *  Used by generateAheadDrafts to pre-generate future dates. */
+  forDateIso?: unknown;
+}
+
+interface GenerateAheadInput {
+  /** How many future days to pre-generate (1-7). Default: 7. */
+  days?: unknown;
 }
 
 interface GenerateOk {
@@ -175,14 +185,38 @@ function buildStyleLockedImagePrompt(subject: string, brand: BrandKitData): stri
 
 const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
 
-function todayInIst(): { weekdayKey: string; isoDate: string } {
-  const now = new Date();
-  // Crude IST shift (no DST in India). Good enough for theme picking.
-  const ist = new Date(now.getTime() + 5.5 * 3600 * 1000);
+/** Convert any UTC Date to its IST representation.
+ *  India is UTC+5:30 and has no DST — this shift is exact. */
+function dateInIst(d: Date): { weekdayKey: string; isoDate: string } {
+  const ist = new Date(d.getTime() + 5.5 * 3600 * 1000);
   return {
     weekdayKey: WEEKDAY_KEYS[ist.getUTCDay()],
     isoDate: ist.toISOString().slice(0, 10),
   };
+}
+
+function todayInIst() { return dateInIst(new Date()); }
+
+/** Return the IST date for N days from now (N=1 = tomorrow IST). */
+function istDateOffset(daysFromNow: number): { weekdayKey: string; isoDate: string } {
+  return dateInIst(new Date(Date.now() + daysFromNow * 24 * 3600 * 1000));
+}
+
+/** Does a draft already exist for the given IST date? Checks pending_review,
+ *  approved, scheduled, and posted statuses — all mean "cron should skip". */
+async function draftExistsForDate(isoDate: string): Promise<boolean> {
+  try {
+    const snap = await admin.firestore()
+      .collection('marketing_drafts')
+      .where('generatedForDate', '==', isoDate)
+      .where('status', 'in', ['pending_review', 'approved', 'scheduled', 'posted'])
+      .limit(1)
+      .get();
+    return !snap.empty;
+  } catch {
+    // On any query error, proceed with generation rather than silently skipping.
+    return false;
+  }
 }
 
 interface PickedSlot {
@@ -191,6 +225,8 @@ interface PickedSlot {
   event: CalEvent | null;
   themeLabel: string;
   themePrompt: string;
+  /** Optional per-date admin prompt hint (from cronOverrides or manual input). */
+  promptOverride: string | null;
 }
 
 // ── Feedback-loop stats (M5) ───────────────────────────────────────────────
@@ -287,7 +323,7 @@ function weightedPillarPick(pillars: Pillar[], stats: PerfStats): Pillar | null 
   return pillars[pillars.length - 1];
 }
 
-function pickSlot(brand: BrandKitData, override: GenerateInput, today: { weekdayKey: string; isoDate: string }, stats: PerfStats): PickedSlot {
+function pickSlot(brand: BrandKitData, override: GenerateInput, today: { weekdayKey: string; isoDate: string }, stats: PerfStats, promptOverride?: string | null): PickedSlot {
   // Cultural event matching today's date — checks YYYY-MM-DD or YYYY-MM-DD
   // suffix of an event date (handles yearly events stored with a year).
   const todayMd = today.isoDate.slice(5); // "MM-DD"
@@ -323,6 +359,7 @@ function pickSlot(brand: BrandKitData, override: GenerateInput, today: { weekday
     event,
     themeLabel: theme?.label ?? today.weekdayKey,
     themePrompt: theme?.prompt ?? '',
+    promptOverride: typeof promptOverride === 'string' && promptOverride.trim() ? promptOverride.trim() : null,
   };
 }
 
@@ -362,6 +399,7 @@ async function generateCaption(brand: BrandKitData, slot: PickedSlot, stats: Per
     : '';
 
   const themeLine = slot.themePrompt ? `\nWeekly theme (${slot.themeLabel}): ${slot.themePrompt}` : '';
+  const overrideLine = slot.promptOverride ? `\nAdmin override for today: ${slot.promptOverride}` : '';
 
   // Feedback-loop hint — top-performing image prompts from the last 30d.
   // Empty until insights data exists; only adds 100-300 tokens when present.
@@ -403,6 +441,7 @@ async function generateCaption(brand: BrandKitData, slot: PickedSlot, stats: Per
     personaLine,
     pillarLine,
     themeLine,
+    overrideLine,
     templateHint,
     inspirationLine,
     '',
@@ -635,9 +674,22 @@ export async function runGenerator(
     return { ok: false, code: 'strategy-incomplete', message: 'Add at least one enabled persona and pillar in /admin/marketing/strategy first.' };
   }
 
-  const today = todayInIst();
+  // Resolve target IST date — explicit forDateIso wins, else today.
+  const rawForDate = typeof input.forDateIso === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(input.forDateIso)
+    ? input.forDateIso
+    : null;
+  const today = rawForDate
+    ? { weekdayKey: WEEKDAY_KEYS[new Date(rawForDate + 'T05:30:00Z').getUTCDay()], isoDate: rawForDate }
+    : todayInIst();
+
+  // Merge any caller-supplied promptOverride (can come from cronOverrides or
+  // from the manual Generate form).
+  const promptOverrideMerged = typeof input.promptOverride === 'string' && input.promptOverride.trim()
+    ? input.promptOverride.trim()
+    : null;
+
   const stats = await loadPerformanceStats();
-  const slot = pickSlot(brand, input, today, stats);
+  const slot = pickSlot(brand, input, today, stats, promptOverrideMerged);
 
   let captionOut: CaptionOutput;
   try {
@@ -698,6 +750,7 @@ export async function runGenerator(
     imageSource: render.source,
     costInr: totalCost,
     generatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    generatedForDate: today.isoDate,
     generatedBy: actorEmail ?? 'cron',
     approvedAt: null,
     approvedBy: null,
@@ -759,12 +812,101 @@ export function buildDailyMarketingDraftCron() {
         console.log('[dailyMarketingDraftCron] crisis pause active — skipping today');
         return null;
       }
-      const result = await runGenerator({}, null);
+
+      const { isoDate: todayIso } = todayInIst();
+
+      // Layer 2: check per-date override for today.
+      const overrides = (data?.cronOverrides ?? {}) as Record<string, any>;
+      const todayOverride = overrides[todayIso] ?? {};
+      if (todayOverride.skip === true) {
+        console.log('[dailyMarketingDraftCron] skip override active for', todayIso);
+        return null;
+      }
+
+      // Layer 3: skip if a draft was already pre-generated (via generateAheadDrafts).
+      if (await draftExistsForDate(todayIso)) {
+        console.log('[dailyMarketingDraftCron] draft already exists for', todayIso, '— skipping cron');
+        return null;
+      }
+
+      // Build input — merge any per-date override fields.
+      const genInput: GenerateInput = {};
+      if (typeof todayOverride.personaId === 'string') genInput.personaId = todayOverride.personaId;
+      if (typeof todayOverride.pillarId === 'string') genInput.pillarId = todayOverride.pillarId;
+      if (typeof todayOverride.promptOverride === 'string') genInput.promptOverride = todayOverride.promptOverride;
+      genInput.forDateIso = todayIso;
+
+      const result = await runGenerator(genInput, null);
       if (result.ok) {
-        console.log('[dailyMarketingDraftCron] generated draft', result.draftId);
+        console.log('[dailyMarketingDraftCron] generated draft', result.draftId, 'for', todayIso);
       } else {
-        console.error('[dailyMarketingDraftCron] failed', result);
+        console.error('[dailyMarketingDraftCron] failed for', todayIso, result);
       }
       return null;
+    });
+}
+
+// ── Admin callable: pre-generate drafts for the next N days ─────────────────
+// Lets the admin "queue" tomorrow through +7d so they can review and adjust
+// content before it goes live. The cron automatically skips any date that
+// already has a draft, so pre-generated drafts are not duplicated.
+
+export function buildGenerateAheadDrafts(allowList: ReadonlySet<string>) {
+  return functions
+    .runWith({ memory: '1GB', timeoutSeconds: 540 })
+    .https.onCall(async (data: GenerateAheadInput, context) => {
+      if (!(await callerIsMarketingAdmin(context.auth?.token, allowList))) {
+        throw new functions.https.HttpsError('permission-denied', 'Only admins with marketing access can pre-generate drafts.');
+      }
+
+      const brandSnap = await admin.firestore().doc('marketing_brand/main').get();
+      const brandData = (brandSnap.exists ? brandSnap.data() : {}) as any;
+      if (brandData?.crisisPaused === true) {
+        return { ok: false, code: 'crisis-paused', message: 'Cannot pre-generate while crisis pause is active.' };
+      }
+      if ((brandData?.personas?.length ?? 0) === 0 || (brandData?.pillars?.length ?? 0) === 0) {
+        return { ok: false, code: 'strategy-incomplete', message: 'Add at least one enabled persona and pillar first.' };
+      }
+
+      const rawDays = typeof data?.days === 'number' ? Math.min(7, Math.max(1, Math.round(data.days))) : 7;
+      const actorEmail = context.auth?.token?.email ?? null;
+      const overrides = (brandData?.cronOverrides ?? {}) as Record<string, any>;
+
+      const results: { date: string; ok: boolean; draftId?: string; skipped?: string }[] = [];
+
+      for (let i = 1; i <= rawDays; i++) {
+        const { isoDate } = istDateOffset(i);
+        const dayOverride = overrides[isoDate] ?? {};
+
+        // Skip this date if admin marked it.
+        if (dayOverride.skip === true) {
+          results.push({ date: isoDate, ok: true, skipped: 'override-skip' });
+          continue;
+        }
+        // Skip if a draft already exists for this date.
+        if (await draftExistsForDate(isoDate)) {
+          results.push({ date: isoDate, ok: true, skipped: 'already-exists' });
+          continue;
+        }
+
+        // Build per-date input, merging any override fields.
+        const genInput: GenerateInput = { forDateIso: isoDate };
+        if (typeof dayOverride.personaId === 'string') genInput.personaId = dayOverride.personaId;
+        if (typeof dayOverride.pillarId === 'string') genInput.pillarId = dayOverride.pillarId;
+        if (typeof dayOverride.promptOverride === 'string') genInput.promptOverride = dayOverride.promptOverride;
+
+        const r = await runGenerator(genInput, actorEmail);
+        if (r.ok) {
+          results.push({ date: isoDate, ok: true, draftId: r.draftId });
+          console.log('[generateAheadDrafts] generated', r.draftId, 'for', isoDate);
+        } else {
+          results.push({ date: isoDate, ok: false, skipped: r.message });
+          console.error('[generateAheadDrafts] failed for', isoDate, r);
+        }
+      }
+
+      const generated = results.filter((r) => r.draftId).length;
+      const skipped = results.filter((r) => r.skipped).length;
+      return { ok: true, generated, skipped, results };
     });
 }

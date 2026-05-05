@@ -75,6 +75,7 @@ export type AdminAction =
   | 'marketing.connection.disconnect'
   | 'marketing.inbox.reply'
   | 'marketing.inbox.archive'
+  | 'marketing.cron.override'
   // Integration Hub — API key rotation
   | 'integration.update';
 

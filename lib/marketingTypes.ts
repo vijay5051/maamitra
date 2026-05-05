@@ -163,9 +163,32 @@ export interface BrandKit {
   /** Studio v2 — 6-12 illustrations from `illustrations[]` curated as the
    *  canonical visual references. Image-gen calls pass these as style refs. */
   styleReferences: string[];
+  /** Per-date scheduler overrides. Keyed by YYYY-MM-DD IST date.
+   *  Cron reads the key matching today's IST date before generating.
+   *  Skip a date, or override the persona/pillar/prompt for that day. */
+  cronOverrides: CronOverrides;
   updatedAt: string | null;
   updatedBy: string | null;
 }
+
+// ── Scheduler overrides (Layer 2) ─────────────────────────────────────────────
+
+/** Per-date control for the 6 AM IST cron. Stored at
+ *  `marketing_brand/main.cronOverrides[YYYY-MM-DD]`. */
+export interface CronOverride {
+  /** When true the cron silently skips this date — no draft is created. */
+  skip?: boolean;
+  /** Optional plain-English hint injected into the AI caption prompt for
+   *  this date (e.g. "focus on Diwali safety tips for babies"). */
+  promptOverride?: string;
+  /** Force a specific persona id for this date, overriding the round-robin. */
+  personaId?: string;
+  /** Force a specific pillar id for this date, overriding the weighted pick. */
+  pillarId?: string;
+}
+
+/** YYYY-MM-DD → override data. Stored on marketing_brand/main. */
+export type CronOverrides = Record<string, CronOverride>;
 
 /**
  * Studio v2 — Brand Style Profile.
@@ -336,6 +359,7 @@ export function defaultBrandKit(brandName = 'MaaMitra'): BrandKit {
     onboardedAt: null,
     styleProfile: DEFAULT_STYLE_PROFILE,
     styleReferences: [],
+    cronOverrides: {},
     updatedAt: null,
     updatedBy: null,
   };

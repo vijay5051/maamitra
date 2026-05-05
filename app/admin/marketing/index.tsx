@@ -31,7 +31,16 @@ import { Colors, FontSize, Radius, Shadow, Spacing } from '../../../constants/th
 import { fetchAccountInsights, fetchPostsWithMetrics } from '../../../services/marketingAnalytics';
 import { countByStatus as countInboxByStatus } from '../../../services/marketingInbox';
 import { countDraftsByStatus, listDrafts } from '../../../services/marketingDrafts';
-import { MarketingDraft } from '../../../lib/marketingTypes';
+import {
+  generateAheadDrafts,
+  previewScheduledSlot,
+  saveCronOverride,
+  subscribeBrandKit,
+  ScheduledSlotPreview,
+} from '../../../services/marketing';
+import { friendlyError } from '../../../services/marketingErrors';
+import { BrandKit, MarketingDraft } from '../../../lib/marketingTypes';
+import { useAuthStore } from '../../../store/useAuthStore';
 
 interface State {
   scheduledNext: MarketingDraft | null;
@@ -44,6 +53,7 @@ interface State {
 
 export default function MarketingTodayScreen() {
   const router = useRouter();
+  const user = useAuthStore((s) => s.user);
   const { width } = useWindowDimensions();
   const isWide = Platform.OS === 'web' && width >= 900;
 
@@ -55,6 +65,33 @@ export default function MarketingTodayScreen() {
     unreadReplies: 0,
     loading: true,
   });
+
+  // Brand kit — needed for tomorrow's slot preview + cron-enabled gate.
+  const [brand, setBrand] = useState<BrandKit | null>(null);
+  const [tomorrowSlot, setTomorrowSlot] = useState<ScheduledSlotPreview | null>(null);
+  const [skipBusy, setSkipBusy] = useState(false);
+  const [aheadBusy, setAheadBusy] = useState(false);
+  const [aheadBanner, setAheadBanner] = useState<{ ok: boolean; text: string } | null>(null);
+
+  useEffect(() => {
+    const unsub = subscribeBrandKit((k) => {
+      setBrand(k);
+      if (k) {
+        const tomorrow = new Date(Date.now() + 24 * 3600 * 1000);
+        setTomorrowSlot(previewScheduledSlot(k, tomorrow));
+      } else {
+        setTomorrowSlot(null);
+      }
+    });
+    return unsub;
+  }, []);
+
+  // Dismiss ahead-banner after 3s.
+  useEffect(() => {
+    if (!aheadBanner) return;
+    const t = setTimeout(() => setAheadBanner(null), 3000);
+    return () => clearTimeout(t);
+  }, [aheadBanner]);
 
   const load = useCallback(async () => {
     setState((s) => ({ ...s, loading: true }));
@@ -153,6 +190,56 @@ export default function MarketingTodayScreen() {
             href="/admin/marketing/inbox"
           />
         </View>
+
+        {/* Tomorrow's auto-post — only shown when cron is enabled */}
+        {brand?.cronEnabled && tomorrowSlot ? (
+          <Section title="Tomorrow's auto-post">
+            <TomorrowCard
+              slot={tomorrowSlot}
+              skipBusy={skipBusy}
+              aheadBusy={aheadBusy}
+              banner={aheadBanner}
+              onSkip={async () => {
+                if (!user || !tomorrowSlot) return;
+                setSkipBusy(true);
+                try {
+                  const newSkip = !tomorrowSlot.skipped;
+                  await saveCronOverride(
+                    { uid: user.uid, email: user.email },
+                    tomorrowSlot.dateIso,
+                    newSkip ? { skip: true } : null,
+                  );
+                  // The subscribeBrandKit callback will update tomorrowSlot.
+                } catch (e: any) {
+                  setAheadBanner({ ok: false, text: friendlyError('Skip', e) });
+                } finally {
+                  setSkipBusy(false);
+                }
+              }}
+              onPreGenerate={async () => {
+                if (aheadBusy) return;
+                setAheadBusy(true);
+                try {
+                  const r = await generateAheadDrafts(7);
+                  if (r.ok) {
+                    setAheadBanner({
+                      ok: true,
+                      text: r.generated > 0
+                        ? `${r.generated} draft${r.generated === 1 ? '' : 's'} queued for review`
+                        : 'All upcoming dates already have drafts',
+                    });
+                  } else {
+                    setAheadBanner({ ok: false, text: r.message });
+                  }
+                } catch (e: any) {
+                  setAheadBanner({ ok: false, text: friendlyError('Pre-generate', e) });
+                } finally {
+                  setAheadBusy(false);
+                }
+              }}
+            />
+          </Section>
+        ) : null}
 
         {/* Going out next */}
         <Section title="Going out next" right={
@@ -327,6 +414,104 @@ function EmptyCard({
   );
 }
 
+// ── Tomorrow card ────────────────────────────────────────────────────────────
+
+function TomorrowCard({
+  slot,
+  skipBusy,
+  aheadBusy,
+  banner,
+  onSkip,
+  onPreGenerate,
+}: {
+  slot: ScheduledSlotPreview;
+  skipBusy: boolean;
+  aheadBusy: boolean;
+  banner: { ok: boolean; text: string } | null;
+  onSkip: () => void;
+  onPreGenerate: () => void;
+}) {
+  return (
+    <View style={styles.tomorrowCard}>
+      {slot.skipped ? (
+        <View style={styles.tomorrowSkippedBanner}>
+          <Ionicons name="ban-outline" size={14} color={Colors.warning} />
+          <Text style={styles.tomorrowSkippedText}>Skipped — cron will not generate tomorrow</Text>
+        </View>
+      ) : null}
+
+      <View style={styles.tomorrowRow}>
+        <View style={styles.tomorrowDateBox}>
+          <Text style={styles.tomorrowDay}>{slot.weekdayName.slice(0, 3).toUpperCase()}</Text>
+          <Text style={styles.tomorrowDate}>{slot.dateIso.slice(8)}</Text>
+        </View>
+        <View style={{ flex: 1, gap: 6 }}>
+          <Text style={styles.tomorrowTheme}>{slot.themeLabel}</Text>
+          <View style={styles.tomorrowChips}>
+            {slot.pillarLabel ? (
+              <View style={styles.chip}>
+                <Text style={styles.chipText}>{slot.pillarEmoji ? `${slot.pillarEmoji} ` : ''}{slot.pillarLabel}</Text>
+              </View>
+            ) : null}
+            {slot.personaLabel ? (
+              <View style={[styles.chip, styles.chipSecondary]}>
+                <Text style={[styles.chipText, styles.chipTextSecondary]}>{slot.personaLabel}</Text>
+              </View>
+            ) : null}
+            {slot.eventLabel ? (
+              <View style={[styles.chip, styles.chipEvent]}>
+                <Ionicons name="calendar-outline" size={10} color={Colors.primary} />
+                <Text style={[styles.chipText, { color: Colors.primary }]}>{slot.eventLabel}</Text>
+              </View>
+            ) : null}
+          </View>
+        </View>
+      </View>
+
+      {banner ? (
+        <View style={[styles.tomorrowBanner, !banner.ok && styles.tomorrowBannerErr]}>
+          <Ionicons name={banner.ok ? 'checkmark-circle-outline' : 'alert-circle-outline'} size={13} color={banner.ok ? Colors.success : Colors.error} />
+          <Text style={[styles.tomorrowBannerText, !banner.ok && { color: Colors.error }]}>{banner.text}</Text>
+        </View>
+      ) : null}
+
+      <View style={styles.tomorrowActions}>
+        <Pressable
+          onPress={onSkip}
+          disabled={skipBusy}
+          style={[styles.tomorrowBtn, slot.skipped && styles.tomorrowBtnActive]}
+        >
+          {skipBusy ? (
+            <ActivityIndicator size="small" color={slot.skipped ? Colors.white : Colors.warning} />
+          ) : (
+            <>
+              <Ionicons name={slot.skipped ? 'refresh-outline' : 'ban-outline'} size={13} color={slot.skipped ? Colors.white : Colors.warning} />
+              <Text style={[styles.tomorrowBtnLabel, slot.skipped && { color: Colors.white }, !slot.skipped && { color: Colors.warning }]}>
+                {slot.skipped ? 'Un-skip' : 'Skip tomorrow'}
+              </Text>
+            </>
+          )}
+        </Pressable>
+
+        <Pressable
+          onPress={onPreGenerate}
+          disabled={aheadBusy}
+          style={styles.tomorrowBtnPrimary}
+        >
+          {aheadBusy ? (
+            <ActivityIndicator size="small" color={Colors.white} />
+          ) : (
+            <>
+              <Ionicons name="flash-outline" size={13} color={Colors.white} />
+              <Text style={styles.tomorrowBtnPrimaryLabel}>Queue 7 days</Text>
+            </>
+          )}
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 function formatInt(n: number): string {
@@ -462,4 +647,76 @@ const styles = StyleSheet.create({
   thumb: { width: 88, height: 88, borderRadius: Radius.md, backgroundColor: Colors.bgTint },
   thumbSkeleton: { alignItems: 'center', justifyContent: 'center' },
   thumbWhen: { fontSize: 10, fontWeight: '600', color: Colors.textMuted },
+
+  // Tomorrow card
+  tomorrowCard: {
+    backgroundColor: Colors.cardBg,
+    borderRadius: Radius.lg,
+    borderWidth: 1, borderColor: Colors.borderSoft,
+    overflow: 'hidden',
+    ...Shadow.sm,
+  },
+  tomorrowSkippedBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: 'rgba(245,158,11,0.08)',
+    paddingHorizontal: Spacing.md, paddingVertical: 6,
+    borderBottomWidth: 1, borderBottomColor: 'rgba(245,158,11,0.15)',
+  },
+  tomorrowSkippedText: { fontSize: 11, fontWeight: '600', color: Colors.warning },
+  tomorrowRow: {
+    flexDirection: 'row', gap: Spacing.md, padding: Spacing.md,
+  },
+  tomorrowDateBox: {
+    width: 44, height: 44, borderRadius: Radius.md,
+    backgroundColor: Colors.primarySoft,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: Colors.primary,
+  },
+  tomorrowDay: { fontSize: 9, fontWeight: '800', color: Colors.primary, letterSpacing: 0.5 },
+  tomorrowDate: { fontSize: 18, fontWeight: '800', color: Colors.primary, lineHeight: 20 },
+  tomorrowTheme: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textDark },
+  tomorrowChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
+  chip: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    backgroundColor: Colors.primarySoft,
+    paddingHorizontal: 7, paddingVertical: 3,
+    borderRadius: 999,
+  },
+  chipSecondary: { backgroundColor: Colors.bgTint },
+  chipEvent: { backgroundColor: Colors.primarySoft, borderWidth: 1, borderColor: Colors.primary },
+  chipText: { fontSize: 10, fontWeight: '700', color: Colors.primary },
+  chipTextSecondary: { color: Colors.textMuted },
+  tomorrowActions: {
+    flexDirection: 'row', gap: Spacing.sm,
+    paddingHorizontal: Spacing.md, paddingBottom: Spacing.md,
+  },
+  tomorrowBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1, borderColor: Colors.warning,
+    backgroundColor: 'transparent',
+  },
+  tomorrowBtnActive: {
+    backgroundColor: Colors.warning,
+    borderColor: Colors.warning,
+  },
+  tomorrowBtnLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.warning },
+  tomorrowBtnPrimary: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: Colors.primary,
+  },
+  tomorrowBtnPrimaryLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.white },
+  tomorrowBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    marginHorizontal: Spacing.md, marginBottom: 8,
+    paddingHorizontal: 10, paddingVertical: 6,
+    backgroundColor: 'rgba(34,197,94,0.08)',
+    borderRadius: Radius.sm,
+    borderWidth: 1, borderColor: Colors.success,
+  },
+  tomorrowBannerErr: { backgroundColor: 'rgba(239,68,68,0.06)', borderColor: Colors.error },
+  tomorrowBannerText: { fontSize: 11, fontWeight: '600', color: Colors.success },
 });

@@ -17,6 +17,8 @@ import {
   ComplianceRules,
   ContentPillar,
   CostCaps,
+  CronOverride,
+  CronOverrides,
   CulturalEvent,
   DisclaimerRule,
   defaultBrandKit,
@@ -511,9 +513,33 @@ function normaliseBrandKit(data: any): BrandKit {
     styleReferences: Array.isArray(data?.styleReferences)
       ? data.styleReferences.filter((r: any): r is string => typeof r === 'string').slice(0, 12)
       : [],
+    cronOverrides: normaliseCronOverrides(data?.cronOverrides),
     updatedAt: iso,
     updatedBy: typeof data?.updatedBy === 'string' ? data.updatedBy : null,
   };
+}
+
+function normaliseCronOverrides(raw: unknown): CronOverrides {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const result: CronOverrides = {};
+  for (const [key, val] of Object.entries(raw as Record<string, unknown>)) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) continue;
+    if (!val || typeof val !== 'object') continue;
+    const v = val as Record<string, unknown>;
+    const override: CronOverride = {};
+    if (v.skip === true) override.skip = true;
+    if (typeof v.promptOverride === 'string' && v.promptOverride.trim()) {
+      override.promptOverride = v.promptOverride.trim().slice(0, 400);
+    }
+    if (typeof v.personaId === 'string' && v.personaId.trim()) {
+      override.personaId = v.personaId.trim().slice(0, 40);
+    }
+    if (typeof v.pillarId === 'string' && v.pillarId.trim()) {
+      override.pillarId = v.pillarId.trim().slice(0, 40);
+    }
+    result[key] = override;
+  }
+  return result;
 }
 
 function tsToIso(ts: any): string | null {
@@ -588,4 +614,162 @@ function sanitiseStyleProfile(raw: any): StyleProfile {
       : DEFAULT_STYLE_PROFILE.prohibited,
     artKeywords: typeof raw?.artKeywords === 'string' ? raw.artKeywords.slice(0, 240) : DEFAULT_STYLE_PROFILE.artKeywords,
   };
+}
+
+// ── Scheduler controls (Layer 2 + 3) ──────────────────────────────────────────
+//
+// saveCronOverride — writes (or clears) a per-date override into
+//   marketing_brand/main.cronOverrides[YYYY-MM-DD]. Uses dot-notation merge
+//   so it only touches that one key in the map.
+//
+// previewScheduledSlot — pure-client simulation of what the cron will pick
+//   for a given date. Reads from the already-fetched BrandKit, no server round
+//   trip. Used by the Today tab and Settings to show the "tomorrow" preview.
+//
+// generateAheadDrafts — calls the generateAheadDrafts Cloud Function, which
+//   pre-generates pending_review drafts for the next N days.
+
+/** Write (or clear) a per-date cron override. Pass `override: null` to remove. */
+export async function saveCronOverride(
+  actor: { uid: string; email: string | null | undefined },
+  dateIso: string,
+  override: CronOverride | null,
+): Promise<void> {
+  if (!db) throw new Error('Firestore not ready');
+  const { updateDoc } = await import('firebase/firestore');
+  const field = `cronOverrides.${dateIso}`;
+  if (override === null) {
+    const { deleteField } = await import('firebase/firestore');
+    await updateDoc(doc(db, BRAND_PATH), { [field]: deleteField() });
+  } else {
+    const sanitised: CronOverride = {};
+    if (override.skip === true) sanitised.skip = true;
+    if (typeof override.promptOverride === 'string' && override.promptOverride.trim()) {
+      sanitised.promptOverride = override.promptOverride.trim().slice(0, 400);
+    }
+    if (typeof override.personaId === 'string' && override.personaId.trim()) {
+      sanitised.personaId = override.personaId.trim().slice(0, 40);
+    }
+    if (typeof override.pillarId === 'string' && override.pillarId.trim()) {
+      sanitised.pillarId = override.pillarId.trim().slice(0, 40);
+    }
+    await updateDoc(doc(db, BRAND_PATH), { [field]: sanitised });
+  }
+  await logAdminAction(
+    actor,
+    'marketing.cron.override',
+    { docId: 'main', label: `cron override ${dateIso}` },
+    { dateIso, action: override === null ? 'clear' : override.skip ? 'skip' : 'override' },
+  );
+}
+
+// ── Slot preview (pure-client) ───────────────────────────────────────────────
+
+export interface ScheduledSlotPreview {
+  dateIso: string;
+  /** Weekday name, e.g. "Tuesday". */
+  weekdayName: string;
+  /** Theme label from the brand kit, e.g. "Tip Tuesday". */
+  themeLabel: string;
+  personaId: string | null;
+  personaLabel: string | null;
+  pillarId: string | null;
+  pillarLabel: string | null;
+  pillarEmoji: string | null;
+  eventId: string | null;
+  eventLabel: string | null;
+  /** True when skip override is set for this date. */
+  skipped: boolean;
+  /** The active override (if any) for this date. */
+  override: CronOverride | null;
+}
+
+const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
+const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+function toIstDate(d: Date): { isoDate: string; weekdayIdx: number } {
+  const ist = new Date(d.getTime() + 5.5 * 3600 * 1000);
+  return {
+    isoDate: ist.toISOString().slice(0, 10),
+    weekdayIdx: ist.getUTCDay(),
+  };
+}
+
+/** Pure-client simulation of what the 6 AM cron will pick for `targetDate`.
+ *  No server round-trip — reads from the already-fetched BrandKit snapshot. */
+export function previewScheduledSlot(brand: BrandKit, targetDate: Date): ScheduledSlotPreview {
+  const { isoDate, weekdayIdx } = toIstDate(targetDate);
+  const weekdayKey = WEEKDAY_KEYS[weekdayIdx];
+  const weekdayName = WEEKDAY_NAMES[weekdayIdx];
+  const override = brand.cronOverrides?.[isoDate] ?? null;
+  const skipped = override?.skip === true;
+
+  const enabledPersonas = brand.personas.filter((p) => p.enabled !== false);
+  const enabledPillars = brand.pillars.filter((p) => p.enabled !== false);
+
+  // Event matching: same MD as target date.
+  const todayMd = isoDate.slice(5);
+  const event = brand.culturalCalendar.find(
+    (e) => e.date.slice(5) === todayMd || e.date === isoDate,
+  ) ?? null;
+
+  // Pillar: override → event pillarHint → first enabled
+  let pillar = enabledPillars[0] ?? null;
+  const pillarIdOverride = override?.pillarId ?? null;
+  if (pillarIdOverride) {
+    pillar = enabledPillars.find((p) => p.id === pillarIdOverride) ?? pillar;
+  } else if (event?.pillarHint) {
+    pillar = enabledPillars.find((p) => p.id === event.pillarHint) ?? pillar;
+  }
+
+  // Persona: override → day-of-month round-robin
+  let persona: typeof enabledPersonas[0] | null = null;
+  const personaIdOverride = override?.personaId ?? null;
+  if (personaIdOverride) {
+    persona = enabledPersonas.find((p) => p.id === personaIdOverride) ?? null;
+  }
+  if (!persona && enabledPersonas.length > 0) {
+    const dayOfMonth = parseInt(isoDate.slice(8, 10), 10) || 1;
+    persona = enabledPersonas[(dayOfMonth - 1) % enabledPersonas.length];
+  }
+
+  const theme = (brand.themeCalendar as any)?.[weekdayKey];
+  return {
+    dateIso: isoDate,
+    weekdayName,
+    themeLabel: theme?.label ?? weekdayKey,
+    personaId: persona?.id ?? null,
+    personaLabel: persona?.label ?? null,
+    pillarId: pillar?.id ?? null,
+    pillarLabel: pillar?.label ?? null,
+    pillarEmoji: pillar?.emoji ?? null,
+    eventId: event?.id ?? null,
+    eventLabel: event?.label ?? null,
+    skipped,
+    override,
+  };
+}
+
+// ── Ahead-generate callable wrapper ──────────────────────────────────────────
+
+export interface GenerateAheadResult {
+  ok: true;
+  generated: number;
+  skipped: number;
+  results: { date: string; ok: boolean; draftId?: string; skipped?: string }[];
+}
+
+export async function generateAheadDrafts(days = 7): Promise<GenerateAheadResult | { ok: false; code: string; message: string }> {
+  if (!app) return { ok: false, code: 'no-firebase', message: 'Not connected.' };
+  const { getFunctions, httpsCallable } = await import('firebase/functions');
+  const fn = httpsCallable<{ days: number }, GenerateAheadResult | { ok: false; code: string; message: string }>(
+    getFunctions(app),
+    'generateAheadDrafts',
+  );
+  try {
+    const r = await fn({ days });
+    return r.data;
+  } catch (e: any) {
+    return { ok: false, code: e?.code ?? 'callable-failed', message: e?.message ?? String(e) };
+  }
 }

@@ -24,7 +24,7 @@ import { renderTemplate } from './renderer';
 import { BrandSnapshot, TEMPLATE_NAMES } from './templates';
 
 export { buildScoreMarketingDraft } from './scoring';
-export { buildGenerateMarketingDraft, buildDailyMarketingDraftCron } from './generator';
+export { buildGenerateMarketingDraft, buildDailyMarketingDraftCron, buildGenerateAheadDrafts } from './generator';
 export { buildMetaWebhookReceiver, buildGenerateInboxReplies, buildClassifyInboxThread } from './inbox';
 export {
   buildMetaInboxReplyPublisher,

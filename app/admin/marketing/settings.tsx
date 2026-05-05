@@ -27,10 +27,14 @@ import {
 import { Colors, FontSize, Radius, Shadow, Spacing } from '../../../constants/theme';
 import {
   fetchBrandKit,
+  generateAheadDrafts,
+  previewScheduledSlot,
   probeMarketingHealthNow,
   saveBrandKit,
+  saveCronOverride,
   subscribeBrandKit,
   subscribeMarketingHealth,
+  ScheduledSlotPreview,
 } from '../../../services/marketing';
 import { friendlyError } from '../../../services/marketingErrors';
 import {
@@ -55,10 +59,26 @@ export default function MarketingSettingsScreen() {
   const [saving, setSaving] = useState<string | null>(null);
   const [banner, setBanner] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null);
 
+  // Scheduler preview — upcoming 3 days
+  const [upcomingSlots, setUpcomingSlots] = useState<ScheduledSlotPreview[]>([]);
+  const [skipBusy, setSkipBusy] = useState<string | null>(null); // dateIso being toggled
+  const [aheadBusy, setAheadBusy] = useState(false);
+
   useEffect(() => {
     setLoading(true);
     void fetchBrandKit().then((k) => { setBrand(k); setLoading(false); });
-    const unsubBrand = subscribeBrandKit((k) => setBrand(k));
+    const unsubBrand = subscribeBrandKit((k) => {
+      setBrand(k);
+      if (k) {
+        const slots: ScheduledSlotPreview[] = [];
+        for (let i = 1; i <= 3; i++) {
+          slots.push(previewScheduledSlot(k, new Date(Date.now() + i * 24 * 3600 * 1000)));
+        }
+        setUpcomingSlots(slots);
+      } else {
+        setUpcomingSlots([]);
+      }
+    });
     const unsubHealth = subscribeMarketingHealth(setHealth);
     return () => { unsubBrand(); unsubHealth(); };
   }, []);
@@ -113,6 +133,71 @@ export default function MarketingSettingsScreen() {
           disabled={loading}
           onToggle={(v) => update('cron', { cronEnabled: v })}
         />
+
+        {/* Scheduler preview — next 3 days. Only shown when cron is on. */}
+        {brand?.cronEnabled && upcomingSlots.length > 0 ? (
+          <Card>
+            <View style={styles.cardHead}>
+              <View style={styles.cardIcon}>
+                <Ionicons name="calendar-clear-outline" size={16} color={Colors.primary} />
+              </View>
+              <Text style={styles.cardTitle}>Upcoming auto-posts</Text>
+              <Pressable
+                disabled={aheadBusy}
+                onPress={async () => {
+                  if (!user || aheadBusy) return;
+                  setAheadBusy(true);
+                  try {
+                    const r = await generateAheadDrafts(7);
+                    if (r.ok) {
+                      showBanner('ok', r.generated > 0
+                        ? `${r.generated} draft${r.generated === 1 ? '' : 's'} queued for review`
+                        : 'All upcoming dates already have drafts');
+                    } else {
+                      showBanner('err', r.message);
+                    }
+                  } catch (e: any) {
+                    showBanner('err', friendlyError('Pre-generate', e));
+                  } finally {
+                    setAheadBusy(false);
+                  }
+                }}
+                style={styles.editLink}
+              >
+                {aheadBusy ? (
+                  <ActivityIndicator size="small" color={Colors.primary} />
+                ) : (
+                  <Text style={styles.editLinkLabel}>Queue 7 days</Text>
+                )}
+              </Pressable>
+            </View>
+            <Text style={styles.cardHint}>What the 6 AM cron will generate. Skip a day or queue drafts early for review.</Text>
+            {upcomingSlots.map((slot) => (
+              <SchedulerSlotRow
+                key={slot.dateIso}
+                slot={slot}
+                skipBusy={skipBusy === slot.dateIso}
+                onSkipToggle={async () => {
+                  if (!user) return;
+                  setSkipBusy(slot.dateIso);
+                  try {
+                    const newSkip = !slot.skipped;
+                    await saveCronOverride(
+                      { uid: user.uid, email: user.email },
+                      slot.dateIso,
+                      newSkip ? { skip: true } : null,
+                    );
+                    showBanner('ok', newSkip ? `${slot.weekdayName} skipped` : `${slot.weekdayName} un-skipped`);
+                  } catch (e: any) {
+                    showBanner('err', friendlyError('Skip', e));
+                  } finally {
+                    setSkipBusy(null);
+                  }
+                }}
+              />
+            ))}
+          </Card>
+        ) : null}
 
         <ToggleRow
           icon="pause-circle-outline"
@@ -315,6 +400,59 @@ function NavCard({
       </View>
       <Text style={styles.cardBody}>{body}</Text>
     </Pressable>
+  );
+}
+
+function SchedulerSlotRow({
+  slot,
+  skipBusy,
+  onSkipToggle,
+}: {
+  slot: ScheduledSlotPreview;
+  skipBusy: boolean;
+  onSkipToggle: () => void;
+}) {
+  return (
+    <View style={[styles.slotRow, slot.skipped && styles.slotRowSkipped]}>
+      {/* Date box */}
+      <View style={styles.slotDateBox}>
+        <Text style={styles.slotDayName}>{slot.weekdayName.slice(0, 3).toUpperCase()}</Text>
+        <Text style={styles.slotDate}>{slot.dateIso.slice(5).replace('-', '/')}</Text>
+      </View>
+
+      {/* Slot details */}
+      <View style={{ flex: 1, gap: 3 }}>
+        <Text style={[styles.slotTheme, slot.skipped && { color: Colors.textMuted, textDecorationLine: 'line-through' }]}>
+          {slot.themeLabel}
+        </Text>
+        <View style={styles.slotChips}>
+          {slot.pillarLabel ? (
+            <Text style={styles.slotChip}>{slot.pillarEmoji ? `${slot.pillarEmoji} ` : ''}{slot.pillarLabel}</Text>
+          ) : null}
+          {slot.personaLabel ? (
+            <Text style={[styles.slotChip, styles.slotChipSecondary]}>{slot.personaLabel}</Text>
+          ) : null}
+          {slot.eventLabel ? (
+            <Text style={[styles.slotChip, styles.slotChipEvent]}>📅 {slot.eventLabel}</Text>
+          ) : null}
+        </View>
+      </View>
+
+      {/* Skip toggle */}
+      <Pressable
+        onPress={onSkipToggle}
+        disabled={skipBusy}
+        style={[styles.slotSkipBtn, slot.skipped && styles.slotSkipBtnActive]}
+      >
+        {skipBusy ? (
+          <ActivityIndicator size="small" color={slot.skipped ? Colors.white : Colors.warning} />
+        ) : (
+          <Text style={[styles.slotSkipLabel, slot.skipped && { color: Colors.white }]}>
+            {slot.skipped ? 'Un-skip' : 'Skip'}
+          </Text>
+        )}
+      </Pressable>
+    </View>
   );
 }
 
@@ -575,4 +713,37 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   savePillBtnLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.white },
+
+  // Scheduler slot rows
+  slotRow: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
+    paddingVertical: 8,
+    borderTopWidth: 1, borderTopColor: Colors.borderSoft,
+  },
+  slotRowSkipped: { opacity: 0.65 },
+  slotDateBox: {
+    width: 40, alignItems: 'center', gap: 1,
+  },
+  slotDayName: { fontSize: 9, fontWeight: '800', color: Colors.primary, letterSpacing: 0.5 },
+  slotDate: { fontSize: 12, fontWeight: '700', color: Colors.textDark },
+  slotTheme: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textDark },
+  slotChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 3 },
+  slotChip: {
+    fontSize: 10, fontWeight: '600', color: Colors.primary,
+    backgroundColor: Colors.primarySoft,
+    paddingHorizontal: 6, paddingVertical: 2,
+    borderRadius: 999,
+  },
+  slotChipSecondary: { color: Colors.textMuted, backgroundColor: Colors.bgTint },
+  slotChipEvent: { color: Colors.primary, backgroundColor: Colors.primarySoft },
+  slotSkipBtn: {
+    paddingHorizontal: 10, paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1, borderColor: Colors.warning,
+    minWidth: 54, alignItems: 'center',
+  },
+  slotSkipBtnActive: {
+    backgroundColor: Colors.warning, borderColor: Colors.warning,
+  },
+  slotSkipLabel: { fontSize: 10, fontWeight: '700', color: Colors.warning },
 });
