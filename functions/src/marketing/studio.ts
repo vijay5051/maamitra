@@ -23,7 +23,7 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions/v1';
 
-import { fluxSchnell, imagenGenerate, openaiImageEdit } from './imageSources';
+import { fluxSchnell, imagenGenerate, openaiImage, openaiImageEdit } from './imageSources';
 import { Resvg } from '@resvg/resvg-js';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -67,8 +67,11 @@ interface StudioBrand {
   logoUrl: string | null;
 }
 
-const DEFAULT_STYLE_DESCRIPTION = 'A warm hand-drawn 2D illustration. Flat colours with subtle gradients, no photorealism. Indian characters (brown skin, dark hair). Soft pastels. Rounded organic shapes. Generous negative space. Single-scene composition.';
-const DEFAULT_STYLE_KEYWORDS = 'flat illustration, pastel, Indian, motherhood, gentle, hand-drawn, soft gradient, organic shapes';
+// Keep in sync with functions/src/marketing/generator.ts (STYLE_DEFAULT_*)
+// and lib/marketingTypes.ts (DEFAULT_STYLE_PROFILE).
+const DEFAULT_STYLE_ONE_LINER = 'Soft painterly storybook illustration with subtle watercolor texture. Lavender + sage + dusty-pink + cream palette. Indian women (warm brown skin, dark messy-bun hair) in white-chikankari-embroidered lavender kurtas. Single calm scene, generous negative space, warm cream background.';
+const DEFAULT_STYLE_DESCRIPTION = 'A soft, painterly storybook illustration in the spirit of a children\'s-book spread — NOT flat vector. Characters and fabric carry subtle volume, gentle gradients, and a faint watercolor / paper-grain texture. No hard black outlines. Light is warm, ambient and dappled — never harsh shadows. Disciplined pastel palette: warm cream / ivory background, signature soft lavender on hero garments and props, dusty / baby pink, sage / mint green, with golden-honey + peach used sparingly. Characters are Indian women — moms, grandmothers (dadis), with babies and toddlers — warm brown skin, dark messy-bun hair (or long braid / soft waves); grandmothers wear silver-grey hair and a small bindi. Faces are soft and rounded with peaceful or gently-closed eyes, calm half-smile, soft rosy cheeks. Wardrobe: lavender kurta with delicate WHITE CHIKANKARI floral embroidery at neckline and cuffs, white salwar, soft dupatta; grandmothers in pastel sarees; subtle gold jewelry only. Composition is always a SINGLE calm scene; for wide hero formats character sits on the right with generous empty cream space on the left for caption overlay. Recurring motifs: lotus blossoms, marigolds, drifting leaves, potted plants in pastel ceramic pots, round dusty-pink rugs with tasseled fringe, sage-green yoga mats. Never more than 3-4 characters in one frame.';
+const DEFAULT_STYLE_KEYWORDS = 'painterly 2D illustration, watercolor texture, storybook spread, soft pastel palette, lavender + sage + dusty pink + cream, Indian woman, warm brown skin, messy bun, white chikankari embroidery on lavender kurta, soft dupatta, peaceful closed eyes, gentle smile, generous negative space, warm dappled light, lotus, marigold';
 
 async function loadStudioBrand(): Promise<StudioBrand> {
   const snap = await admin.firestore().doc('marketing_brand/main').get();
@@ -83,7 +86,7 @@ async function loadStudioBrand(): Promise<StudioBrand> {
     },
     hashtags: arr(d?.hashtags),
     styleProfile: d?.styleProfile ? {
-      oneLiner: typeof d.styleProfile.oneLiner === 'string' ? d.styleProfile.oneLiner : '',
+      oneLiner: typeof d.styleProfile.oneLiner === 'string' && d.styleProfile.oneLiner ? d.styleProfile.oneLiner : DEFAULT_STYLE_ONE_LINER,
       description: typeof d.styleProfile.description === 'string' ? d.styleProfile.description : DEFAULT_STYLE_DESCRIPTION,
       prohibited: arr(d.styleProfile.prohibited),
       artKeywords: typeof d.styleProfile.artKeywords === 'string' ? d.styleProfile.artKeywords : DEFAULT_STYLE_KEYWORDS,
@@ -135,7 +138,12 @@ async function logCost(opts: { source: string; costInr: number; bytes: number; a
 
 function buildStudioPrompt(userPrompt: string, brand: StudioBrand): string {
   const profile = brand.styleProfile;
-  const styleDesc = profile?.description ?? DEFAULT_STYLE_DESCRIPTION;
+  // Imagen 3 caps prompts ~480 tokens. Use the punchy oneLiner as the
+  // visual-style line; description stays in Firestore for admin reference
+  // but isn't piped into the model.
+  const styleLine = profile?.oneLiner?.trim()
+    || profile?.description?.slice(0, 320).trim()
+    || DEFAULT_STYLE_ONE_LINER;
   const keywords = profile?.artKeywords ?? DEFAULT_STYLE_KEYWORDS;
   const negative = (profile?.prohibited ?? []).join(', ');
 
@@ -143,7 +151,7 @@ function buildStudioPrompt(userPrompt: string, brand: StudioBrand): string {
   // the subject, then the negative-style guard. Keeping the positive
   // style block at the front gives the model the strongest steer.
   const parts: string[] = [];
-  parts.push(`Visual style: ${styleDesc}`);
+  parts.push(`Visual style: ${styleLine}`);
   parts.push(`Art direction keywords: ${keywords}.`);
   parts.push(`Subject: ${userPrompt.trim()}`);
   if (negative) parts.push(`Do NOT include: ${negative}.`);
@@ -218,6 +226,7 @@ type GenerateVariantsResult = GenerateVariantsOk | GenerateVariantsErr;
 
 const COST_PER_IMAGE: Record<string, number> = {
   imagen: 3.30,
+  dalle: 3.50,
   flux: 0.25,
 };
 
@@ -239,7 +248,13 @@ export function buildGenerateStudioVariants(allowList: ReadonlySet<string>) {
       const variantCount = mode === 'carousel'
         ? Math.max(3, Math.min(5, Number.isFinite(requested) ? requested : 3))
         : Math.max(1, Math.min(4, Number.isFinite(requested) ? requested : 4));
-      const model: 'imagen' | 'flux' = data?.model === 'flux' ? 'flux' : 'imagen';
+      // Default = gpt-image-1 (dalle) — strongest prompt adherence for our
+      // chikankari + composition + palette specifics. Caller can pass
+      // 'imagen' or 'flux' to override.
+      const model: 'imagen' | 'dalle' | 'flux' =
+        data?.model === 'imagen' ? 'imagen'
+        : data?.model === 'flux' ? 'flux'
+        : 'dalle';
       const aspectRatio: '1:1' | '9:16' | '16:9' = (
         data?.aspectRatio === '9:16' ? '9:16' :
         data?.aspectRatio === '16:9' ? '16:9' :
@@ -286,6 +301,14 @@ export function buildGenerateStudioVariants(allowList: ReadonlySet<string>) {
           try {
             if (model === 'imagen') {
               imageUrl = await imagenGenerate(styledPrompt, { aspectRatio: aspectRatio === '16:9' ? '16:9' : aspectRatio });
+            } else if (model === 'dalle') {
+              // gpt-image-1 only supports a fixed set of square / portrait /
+              // landscape sizes — pick the closest to the requested aspect.
+              const size: '1024x1024' | '1024x1536' | '1536x1024' =
+                aspectRatio === '9:16' ? '1024x1536'
+                : aspectRatio === '16:9' ? '1536x1024'
+                : '1024x1024';
+              imageUrl = await openaiImage(styledPrompt, { quality: 'medium', size });
             } else {
               imageUrl = await fluxSchnell(styledPrompt, { aspectRatio: aspectRatio === '16:9' ? '16:9' : aspectRatio });
             }

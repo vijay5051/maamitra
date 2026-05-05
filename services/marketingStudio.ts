@@ -20,7 +20,7 @@ export interface GenerateStudioVariantsInput {
   prompt: string;
   /** Single mode: 1–4 picker variants. Carousel mode: 3–5 slides. */
   variantCount?: 1 | 2 | 3 | 4 | 5;
-  model?: 'imagen' | 'flux';
+  model?: 'dalle' | 'imagen' | 'flux';
   aspectRatio?: '1:1' | '9:16' | '16:9';
   /** When 'carousel', each slide gets a position-aware prompt prefix
    *  ("slide 1 of N (cover)", etc.) and the result becomes the carousel

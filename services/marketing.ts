@@ -606,13 +606,17 @@ function normaliseChannelHealth(raw: any): ChannelHealth {
 }
 
 function sanitiseStyleProfile(raw: any): StyleProfile {
+  // Caps raised 2026-05-05 to fit the audited DEFAULT_STYLE_PROFILE — the
+  // codified prose runs ~2000 chars and includes specific motifs/palette
+  // anchors. Below cap = truncation mid-sentence. Don't lower without
+  // re-checking lib/marketingTypes.ts DEFAULT_STYLE_PROFILE lengths.
   return {
-    oneLiner: typeof raw?.oneLiner === 'string' ? raw.oneLiner.slice(0, 240) : DEFAULT_STYLE_PROFILE.oneLiner,
-    description: typeof raw?.description === 'string' ? raw.description.slice(0, 1500) : DEFAULT_STYLE_PROFILE.description,
+    oneLiner: typeof raw?.oneLiner === 'string' ? raw.oneLiner.slice(0, 320) : DEFAULT_STYLE_PROFILE.oneLiner,
+    description: typeof raw?.description === 'string' ? raw.description.slice(0, 2500) : DEFAULT_STYLE_PROFILE.description,
     prohibited: Array.isArray(raw?.prohibited)
-      ? raw.prohibited.filter((s: any): s is string => typeof s === 'string').slice(0, 30)
+      ? raw.prohibited.filter((s: any): s is string => typeof s === 'string').slice(0, 40)
       : DEFAULT_STYLE_PROFILE.prohibited,
-    artKeywords: typeof raw?.artKeywords === 'string' ? raw.artKeywords.slice(0, 240) : DEFAULT_STYLE_PROFILE.artKeywords,
+    artKeywords: typeof raw?.artKeywords === 'string' ? raw.artKeywords.slice(0, 400) : DEFAULT_STYLE_PROFILE.artKeywords,
   };
 }
 

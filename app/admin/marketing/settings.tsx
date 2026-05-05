@@ -547,21 +547,22 @@ function StyleProfileEditor({
       {editing ? (
         <View style={{ gap: Spacing.sm, marginTop: Spacing.sm }}>
           <Field label="One-line summary">
+            <Text style={styles.fieldHint}>Fed to AI image-gen as the visual-style line. Keep it punchy.</Text>
             <TextInput
               value={oneLiner}
               onChangeText={setOneLiner}
               style={styles.input}
-              maxLength={240}
+              maxLength={320}
               multiline
             />
           </Field>
           <Field label="Detailed description">
-            <Text style={styles.fieldHint}>Fed to AI image-gen as a style preamble.</Text>
+            <Text style={styles.fieldHint}>Long-form admin reference. Imagen prompt limits mean the model gets the one-liner, not this — but write the full fingerprint here.</Text>
             <TextInput
               value={description}
               onChangeText={setDescription}
               style={[styles.input, { minHeight: 80 }]}
-              maxLength={1500}
+              maxLength={2500}
               multiline
             />
           </Field>
@@ -571,7 +572,7 @@ function StyleProfileEditor({
               value={keywords}
               onChangeText={setKeywords}
               style={styles.input}
-              maxLength={240}
+              maxLength={400}
             />
           </Field>
           <Field label="Things to avoid">
@@ -591,7 +592,7 @@ function StyleProfileEditor({
                 oneLiner: oneLiner.trim(),
                 description: description.trim(),
                 artKeywords: keywords.trim(),
-                prohibited: prohibited.split(',').map((s) => s.trim()).filter(Boolean).slice(0, 30),
+                prohibited: prohibited.split(',').map((s) => s.trim()).filter(Boolean).slice(0, 40),
               });
               setEditing(false);
             }}

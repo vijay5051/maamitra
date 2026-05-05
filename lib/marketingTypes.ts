@@ -337,6 +337,19 @@ export const DEFAULT_ILLUSTRATIONS: BrandIllustration[] = [
   { path: 'assets/illustrations/home-hero-afternoon.webp', label: 'Home hero',     pillarIds: [] },
 ];
 
+// Six canonical style teachers — the strongest examples of each axis of the
+// MaaMitra style (composition, character archetype, palette, motifs). Image-
+// gen passes these as visual references so generations stay on-brand even
+// when the StyleProfile prose drifts. Admin can override from settings.tsx.
+export const DEFAULT_STYLE_REFERENCES: string[] = [
+  'assets/illustrations/home-hero-morning.webp',     // hero composition + signature lavender chikankari
+  'assets/illustrations/health-hero.webp',           // sage mat + character archetype
+  'assets/illustrations/dadi-ke-nuskhe-hero.webp',   // grandmother archetype + cultural prop set
+  'assets/illustrations/community-hero.webp',        // multi-character community scene
+  'assets/illustrations/feature-india.webp',         // pan-India motif set (lotus, marigold, watercolor map)
+  'assets/illustrations/topic-pregnancy.webp',       // solo composition + sun disc + drifting leaves
+];
+
 export function defaultBrandKit(brandName = 'MaaMitra'): BrandKit {
   return {
     brandName,
@@ -358,24 +371,35 @@ export function defaultBrandKit(brandName = 'MaaMitra'): BrandKit {
     crisisPauseReason: null,
     onboardedAt: null,
     styleProfile: DEFAULT_STYLE_PROFILE,
-    styleReferences: [],
+    styleReferences: DEFAULT_STYLE_REFERENCES,
     cronOverrides: {},
     updatedAt: null,
     updatedBy: null,
   };
 }
 
+// Codified from the in-app illustration library (assets/illustrations/*.webp).
+// Audit: 2026-05-05. The bank is painterly storybook, NOT flat — the previous
+// "flat 2D" wording was producing off-brand outputs. Mirror any change here in
+// functions/src/marketing/generator.ts and functions/src/marketing/studio.ts
+// so daily-cron and Studio canvas drafts share the same visual DNA.
 export const DEFAULT_STYLE_PROFILE: StyleProfile = {
-  oneLiner: 'Flat 2D illustration, pastel palette, rounded shapes, brown-skin Indian moms and babies, soft gradients, no harsh shadows.',
-  description: 'A warm, hand-drawn 2D illustration style. Flat colours with subtle gradients, no photorealism. Characters are Indian (brown skin, dark hair, traditional or simple modern clothing). Soft pastels — peach, cream, sage, lavender, dusty pink. Rounded organic shapes; no geometric or angular harshness. Generous negative space. Single-scene compositions, never busy collages.',
+  oneLiner: 'Soft painterly storybook illustration with subtle watercolor texture. Lavender + sage + dusty-pink + cream palette. Indian women (warm brown skin, dark messy-bun hair) in white-chikankari-embroidered lavender kurtas. Single calm scene, generous negative space, warm cream background.',
+  description: 'A soft, painterly storybook illustration in the spirit of a children\'s-book spread — NOT flat vector. Characters and fabric carry subtle volume, gentle gradients, and a faint watercolor / paper-grain texture. No hard black outlines (or barely-there color-blended ones). Light is warm, ambient and dappled — never harsh shadows. Disciplined pastel palette: warm cream / ivory background (#FFF6EE), signature soft lavender (#B79EE6) on hero garments and props, dusty / baby pink, sage / mint green (yoga mats, plants, leaves), with golden-honey + peach used sparingly for sun discs, marigolds and hearts. Characters are Indian women — moms, grandmothers (dadis), with babies and toddlers — warm brown skin in a range of tones, dark brown to black hair styled as a messy bun with loose escaping curls, a long braid, or soft waves; grandmothers wear silver-grey hair and a small bindi. Faces are soft and rounded with peaceful or gently-closed eyes, a calm half-smile, and soft rosy cheeks. Wardrobe is iconic: lavender kurta / kurti with delicate WHITE CHIKANKARI floral embroidery at neckline and cuffs, white salwar / churidar, soft dupatta; grandmothers in pastel sarees; subtle gold jewelry only — small studs, thin bangles, a thin chain. Composition is always a SINGLE calm scene with one focal moment; for wide hero formats the character sits on the right with generous empty cream space on the left so captions can overlay. Recurring motifs to lean on: lotus blossoms, marigolds and drifting leaves; potted plants in lavender or pink ceramic pots; round dusty-pink rugs with tasseled fringe; sage-green yoga mats with leaf accents in the corners; pastel speech bubbles for community scenes; a pale-yellow sun disc; chai cups; bolster cushions; small wooden side-tables. Never more than 3-4 characters in one frame. Never any baked-in text, logos or watermarks.',
   prohibited: [
-    'photorealism', 'photographs', '3D renders', 'CGI',
-    'harsh shadows', 'high contrast',
-    'Western-only character traits', 'cartoon-network style',
-    'anime', 'manga', 'pixel art',
-    'cluttered backgrounds', 'busy compositions',
+    'photorealism', 'photographs', 'photo-illustration', 'photo collage',
+    '3D renders', 'CGI', 'claymation', 'glossy 3D puffy icon style',
+    'flat vector', 'flat geometric shapes', 'hard black outlines', 'comic-book ink lines',
+    'harsh shadows', 'high contrast', 'neon colours', 'saturated primary colours',
+    'anime', 'manga', 'pixel art', 'Cartoon Network style', 'Disney-Pixar style',
+    'Western-default characters (light skin, blonde or red hair)',
+    'cluttered backgrounds', 'busy collages', 'more than 4 characters in one frame',
+    'baked-in text', 'captions inside the image', 'logos', 'watermarks',
+    'readable signage', 'speech bubbles containing words',
+    'cleavage', 'tight or revealing clothing', 'bare midriff',
+    'Western dress (jeans + t-shirts as the default look)',
   ],
-  artKeywords: 'flat illustration, pastel, Indian, motherhood, gentle, hand-drawn, soft gradient, organic shapes',
+  artKeywords: 'painterly 2D illustration, watercolor texture, storybook spread, soft pastel palette, lavender + sage + dusty pink + cream, Indian woman, warm brown skin, messy bun, white chikankari embroidery on lavender kurta, soft dupatta, peaceful closed eyes, gentle smile, generous negative space, warm dappled light, lotus, marigold',
 };
 
 // ── Connections (Phase 4) ───────────────────────────────────────────────────

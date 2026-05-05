@@ -86,18 +86,18 @@ interface AiModelOption {
 }
 
 const AI_MODELS: AiModelOption[] = [
-  { value: 'imagen', label: 'Imagen (Google)', hint: 'Best for Indian skin tones, traditional clothing, Indian environments. ~₹3.30/render.' },
-  { value: 'dalle',  label: 'gpt-image-1 (OpenAI)', hint: 'Strong prompt adherence for compositional details. ~₹3.50/render (medium quality).' },
+  { value: 'dalle',  label: 'gpt-image-1 (OpenAI)', hint: 'Default. Strongest prompt adherence for our chikankari + composition specifics. ~₹3.50/render (medium quality).' },
+  { value: 'imagen', label: 'Imagen (Google)', hint: 'Strong on Indian skin tones, traditional clothing. ~₹3.30/render.' },
   { value: 'flux',   label: 'FLUX Schnell',  hint: 'Cheapest + fastest, generic look. ~₹0.25/render.' },
 ];
 
 export default function MarketingPreviewScreen() {
   const [template, setTemplate] = useState<RenderableTemplateName>('tipCard');
-  // Tip Card has no background; non-tip templates default to AI/Imagen for
-  // best Indian-context fidelity (admins can swap to stock for free, or to
-  // FLUX for the cheap-and-fast option).
+  // Tip Card has no background; non-tip templates default to gpt-image-1 for
+  // strongest prompt adherence on our brand specifics (chikankari, palette,
+  // composition). Admins can swap to stock for free, or to Imagen / FLUX.
   const [sourceKind, setSourceKind] = useState<SourceKind>('none');
-  const [aiModel, setAiModel] = useState<AiImageModel>('imagen');
+  const [aiModel, setAiModel] = useState<AiImageModel>('dalle');
   const [stockQuery, setStockQuery] = useState<string>(TEMPLATE_PRESETS.tipCard.defaultStockQuery ?? '');
   const [aiPrompt, setAiPrompt] = useState<string>(TEMPLATE_PRESETS.tipCard.defaultAiPrompt ?? '');
   const [propsJson, setPropsJson] = useState<string>(JSON.stringify(TEMPLATE_PRESETS.tipCard.props, null, 2));

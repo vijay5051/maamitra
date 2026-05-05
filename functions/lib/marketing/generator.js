@@ -78,11 +78,13 @@ async function callerIsMarketingAdmin(token, allowList) {
         return false;
     }
 }
-// Studio v2 defaults — kept identical to functions/src/marketing/studio.ts so
-// the cron generator and the Studio canvas produce visually consistent
-// drafts. Update both when tweaking the brand visual DNA.
-const STYLE_DEFAULT_DESCRIPTION = 'A warm hand-drawn 2D illustration. Flat colours with subtle gradients, no photorealism. Indian characters (brown skin, dark hair). Soft pastels. Rounded organic shapes. Generous negative space. Single-scene composition.';
-const STYLE_DEFAULT_KEYWORDS = 'flat illustration, pastel, Indian, motherhood, gentle, hand-drawn, soft gradient, organic shapes';
+// Studio v2 defaults — kept identical to functions/src/marketing/studio.ts AND
+// lib/marketingTypes.ts (DEFAULT_STYLE_PROFILE) so the cron generator, the
+// Studio canvas and the client all produce visually consistent drafts. Update
+// all three when tweaking the brand visual DNA.
+const STYLE_DEFAULT_ONE_LINER = 'Soft painterly storybook illustration with subtle watercolor texture. Lavender + sage + dusty-pink + cream palette. Indian women (warm brown skin, dark messy-bun hair) in white-chikankari-embroidered lavender kurtas. Single calm scene, generous negative space, warm cream background.';
+const STYLE_DEFAULT_DESCRIPTION = 'A soft, painterly storybook illustration in the spirit of a children\'s-book spread — NOT flat vector. Characters and fabric carry subtle volume, gentle gradients, and a faint watercolor / paper-grain texture. No hard black outlines. Light is warm, ambient and dappled — never harsh shadows. Disciplined pastel palette: warm cream / ivory background, signature soft lavender on hero garments and props, dusty / baby pink, sage / mint green, with golden-honey + peach used sparingly. Characters are Indian women — moms, grandmothers (dadis), with babies and toddlers — warm brown skin, dark messy-bun hair (or long braid / soft waves); grandmothers wear silver-grey hair and a small bindi. Faces are soft and rounded with peaceful or gently-closed eyes, calm half-smile, soft rosy cheeks. Wardrobe: lavender kurta with delicate WHITE CHIKANKARI floral embroidery at neckline and cuffs, white salwar, soft dupatta; grandmothers in pastel sarees; subtle gold jewelry only. Composition is always a SINGLE calm scene; for wide hero formats character sits on the right with generous empty cream space on the left for caption overlay. Recurring motifs: lotus blossoms, marigolds, drifting leaves, potted plants in pastel ceramic pots, round dusty-pink rugs with tasseled fringe, sage-green yoga mats. Never more than 3-4 characters in one frame.';
+const STYLE_DEFAULT_KEYWORDS = 'painterly 2D illustration, watercolor texture, storybook spread, soft pastel palette, lavender + sage + dusty pink + cream, Indian woman, warm brown skin, messy bun, white chikankari embroidery on lavender kurta, soft dupatta, peaceful closed eyes, gentle smile, generous negative space, warm dappled light, lotus, marigold';
 async function loadBrandKit() {
     const snap = await admin.firestore().doc('marketing_brand/main').get();
     const d = snap.exists ? snap.data() : {};
@@ -118,6 +120,7 @@ async function loadBrandKit() {
         logoUrl: typeof d?.logoUrl === 'string' ? d.logoUrl : null,
         styleProfile: d?.styleProfile ? {
             description: typeof d.styleProfile.description === 'string' ? d.styleProfile.description : STYLE_DEFAULT_DESCRIPTION,
+            oneLiner: typeof d.styleProfile.oneLiner === 'string' ? d.styleProfile.oneLiner : STYLE_DEFAULT_ONE_LINER,
             artKeywords: typeof d.styleProfile.artKeywords === 'string' ? d.styleProfile.artKeywords : STYLE_DEFAULT_KEYWORDS,
             prohibited: arr(d.styleProfile.prohibited).filter((s) => typeof s === 'string'),
         } : null,
@@ -125,14 +128,21 @@ async function loadBrandKit() {
 }
 /** Wrap the LLM-supplied imagePrompt with the brand's visual DNA so daily
  *  cron drafts match Studio variants. Mirrors buildStudioPrompt in studio.ts;
- *  keep the structure aligned when tweaking either. */
+ *  keep the structure aligned when tweaking either.
+ *
+ *  Imagen 3 caps prompts at ~480 tokens (~1920 chars) and behaves better with
+ *  concise prompts. Use the punchy oneLiner as the visual-style line; the
+ *  long description stays in Firestore for admin reference but isn't piped
+ *  into the model. */
 function buildStyleLockedImagePrompt(subject, brand) {
     const profile = brand.styleProfile;
-    const desc = profile?.description ?? STYLE_DEFAULT_DESCRIPTION;
+    const styleLine = profile?.oneLiner?.trim()
+        || profile?.description?.slice(0, 320).trim()
+        || STYLE_DEFAULT_ONE_LINER;
     const keywords = profile?.artKeywords ?? STYLE_DEFAULT_KEYWORDS;
     const negative = profile?.prohibited?.length ? profile.prohibited.join(', ') : '';
     const parts = [
-        `Visual style: ${desc}`,
+        `Visual style: ${styleLine}`,
         `Art direction keywords: ${keywords}.`,
         `Subject: ${subject.trim()}`,
     ];
@@ -581,9 +591,13 @@ async function runGenerator(input, actorEmail) {
     const requestedTemplate = ['tipCard', 'quoteCard', 'milestoneCard'].includes(input.template)
         ? input.template
         : captionOut.template;
+    // Default = gpt-image-1 (dalle path) — strongest prompt adherence for the
+    // composition + chikankari + palette specifics in the brand StyleProfile.
+    // ~₹3.50/render at medium quality. Admin can override per-call from the
+    // Studio create UI; the daily cron uses this default.
     const requestedModel = ['imagen', 'dalle', 'flux'].includes(input.imageModel)
         ? input.imageModel
-        : 'imagen';
+        : 'dalle';
     let render;
     try {
         render = await renderDraftImage(requestedTemplate, captionOut.templateProps, captionOut.imagePrompt, requestedModel, brand);
