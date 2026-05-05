@@ -398,6 +398,7 @@ export default function AdminIntegrations() {
   const [config, setConfig] = useState<IntegrationConfig | null>(null);
   const [health, setHealth] = useState<HealthCheckResults | null>(null);
   const [checking, setChecking] = useState(false);
+  const [checkingId, setCheckingId] = useState<string | null>(null);
   const [category, setCategory] = useState<Category>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -412,8 +413,9 @@ export default function AdminIntegrations() {
     return unsub;
   }, []);
 
-  async function runHealthCheck() {
+  async function runHealthCheck(triggeringId?: string) {
     if (checking) return;
+    setCheckingId(triggeringId ?? null);
     setChecking(true);
     try {
       const result = await checkIntegrationHealth();
@@ -422,6 +424,7 @@ export default function AdminIntegrations() {
       Alert.alert('Health check failed', e?.message ?? String(e));
     } finally {
       setChecking(false);
+      setCheckingId(null);
     }
   }
 
@@ -451,6 +454,14 @@ export default function AdminIntegrations() {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function handleSaveNote(integId: string, note: string) {
+    if (!user) return;
+    await saveIntegrationConfig(
+      { uid: user.uid, email: user.email ?? null },
+      { notes: { [integId]: note } } as any,
+    );
   }
 
   const visibleIntegrations = category === 'all'
@@ -494,7 +505,7 @@ export default function AdminIntegrations() {
           </View>
           <TouchableOpacity
             style={[styles.testAllBtn, checking && { opacity: 0.6 }]}
-            onPress={runHealthCheck}
+            onPress={() => runHealthCheck()}
             disabled={checking}
             activeOpacity={0.8}
           >
@@ -537,6 +548,8 @@ export default function AdminIntegrations() {
               editing={isEditing}
               saving={saving}
               draft={draft}
+              testing={checking && checkingId === integ.id}
+              noteValue={config?.notes?.[integ.id] ?? ''}
               onToggle={() => setExpandedId(isExpanded ? null : integ.id)}
               onEdit={() => {
                 // Pre-populate draft with current config values
@@ -550,7 +563,8 @@ export default function AdminIntegrations() {
               onCancelEdit={() => { setEditingId(null); setDraft({}); }}
               onSave={() => handleSave(integ.id)}
               onDraftChange={(path, val) => setDraft((d) => ({ ...d, [path]: val }))}
-              onTest={integ.healthKey ? runHealthCheck : undefined}
+              onTest={integ.healthKey ? () => runHealthCheck(integ.id) : undefined}
+              onSaveNote={(note) => handleSaveNote(integ.id, note)}
             />
           );
         })}
@@ -579,7 +593,8 @@ export default function AdminIntegrations() {
 
 function IntegrationCard({
   integ, config, result, expanded, editing, saving, draft,
-  onToggle, onEdit, onCancelEdit, onSave, onDraftChange, onTest,
+  testing, noteValue,
+  onToggle, onEdit, onCancelEdit, onSave, onDraftChange, onTest, onSaveNote,
 }: {
   integ: IntegrationDef;
   config: IntegrationConfig | null;
@@ -588,14 +603,20 @@ function IntegrationCard({
   editing: boolean;
   saving: boolean;
   draft: Record<string, string>;
+  testing: boolean;
+  noteValue: string;
   onToggle: () => void;
   onEdit: () => void;
   onCancelEdit: () => void;
   onSave: () => void;
   onDraftChange: (path: string, val: string) => void;
   onTest?: () => void;
+  onSaveNote: (note: string) => Promise<void>;
 }) {
   const [showSetup, setShowSetup] = useState(false);
+  const [editingNote, setEditingNote] = useState(false);
+  const [noteDraft, setNoteDraft] = useState('');
+  const [savingNote, setSavingNote] = useState(false);
 
   return (
     <View style={styles.card}>
@@ -627,17 +648,17 @@ function IntegrationCard({
       {/* Expanded body */}
       {expanded && (
         <View style={styles.cardBody}>
-          {/* Error message if probe failed */}
+          {/* Test result banners */}
           {result && !result.ok && (
             <View style={styles.errorBox}>
               <Ionicons name="warning-outline" size={14} color="#b91c1c" />
               <Text style={styles.errorText}>{result.error ?? 'Connection failed.'}</Text>
             </View>
           )}
-          {result?.ok && result.detail && (
+          {result?.ok && (
             <View style={styles.successBox}>
               <Ionicons name="checkmark-circle-outline" size={14} color="#166534" />
-              <Text style={styles.successText}>{result.detail}</Text>
+              <Text style={styles.successText}>{result.detail ?? 'Connected'}{result.latencyMs ? ` — ${result.latencyMs}ms` : ''}</Text>
             </View>
           )}
 
@@ -694,9 +715,16 @@ function IntegrationCard({
           {/* Action buttons */}
           <View style={styles.actionRow}>
             {onTest && !integ.alwaysOn && (
-              <TouchableOpacity style={styles.actionBtn} onPress={onTest}>
-                <Ionicons name="pulse-outline" size={14} color={Colors.primary} />
-                <Text style={styles.actionBtnText}>Test connection</Text>
+              <TouchableOpacity
+                style={[styles.actionBtn, testing && { opacity: 0.7 }]}
+                onPress={onTest}
+                disabled={testing}
+              >
+                {testing
+                  ? <ActivityIndicator size="small" color={Colors.primary} />
+                  : <Ionicons name="pulse-outline" size={14} color={Colors.primary} />
+                }
+                <Text style={styles.actionBtnText}>{testing ? 'Testing…' : 'Test connection'}</Text>
               </TouchableOpacity>
             )}
             {integ.dashboardUrl && (
@@ -733,6 +761,73 @@ function IntegrationCard({
               )}
             </View>
           )}
+
+          {/* Notes / Remarks */}
+          <View style={styles.notesSection}>
+            <View style={styles.notesSectionHeader}>
+              <View style={styles.notesHeaderLeft}>
+                <Ionicons name="document-text-outline" size={13} color={Colors.textLight} />
+                <Text style={styles.fieldsSectionTitle}>Notes</Text>
+              </View>
+              {!editingNote && (
+                <TouchableOpacity
+                  style={styles.editBtn}
+                  onPress={() => { setNoteDraft(noteValue); setEditingNote(true); }}
+                >
+                  <Ionicons name="pencil-outline" size={13} color={Colors.primary} />
+                  <Text style={styles.editBtnText}>{noteValue ? 'Edit' : 'Add note'}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            {editingNote ? (
+              <View style={styles.notesEditWrap}>
+                <TextInput
+                  style={styles.notesInput}
+                  value={noteDraft}
+                  onChangeText={setNoteDraft}
+                  placeholder="e.g. Rotated 2026-05-01 · Account: admin@yourorg.com · Rate limit: 5 req/min"
+                  placeholderTextColor="#9ca3af"
+                  multiline
+                  numberOfLines={4}
+                  textAlignVertical="top"
+                  autoFocus
+                />
+                <View style={styles.saveRow}>
+                  <TouchableOpacity
+                    style={styles.cancelBtn}
+                    onPress={() => setEditingNote(false)}
+                    disabled={savingNote}
+                  >
+                    <Text style={styles.cancelBtnText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.saveBtn, savingNote && { opacity: 0.6 }]}
+                    disabled={savingNote}
+                    onPress={async () => {
+                      setSavingNote(true);
+                      try {
+                        await onSaveNote(noteDraft.trim());
+                        setEditingNote(false);
+                      } catch (e: any) {
+                        Alert.alert('Save failed', e?.message ?? String(e));
+                      } finally {
+                        setSavingNote(false);
+                      }
+                    }}
+                  >
+                    {savingNote
+                      ? <ActivityIndicator size="small" color="#fff" />
+                      : <Text style={styles.saveBtnText}>Save</Text>
+                    }
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : noteValue ? (
+              <Text style={styles.notesText}>{noteValue}</Text>
+            ) : (
+              <Text style={styles.notesEmpty}>No notes yet — tap "Add note" to store rotation dates, account info, or any reminders.</Text>
+            )}
+          </View>
         </View>
       )}
     </View>
@@ -1193,4 +1288,35 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   archNoteText: { fontSize: 11, color: Colors.textLight, flex: 1, lineHeight: 16 },
+
+  // Notes section
+  notesSection: {
+    backgroundColor: Colors.bgLight,
+    borderRadius: Radius.sm,
+    padding: Spacing.sm,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: Colors.borderSoft,
+  },
+  notesSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  notesHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  notesText: { fontSize: 13, color: Colors.textDark, lineHeight: 19 },
+  notesEmpty: { fontSize: 12, color: Colors.textLight, fontStyle: 'italic', lineHeight: 17 },
+  notesEditWrap: { gap: 8 },
+  notesInput: {
+    borderWidth: 1,
+    borderColor: Colors.borderSoft,
+    borderRadius: Radius.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 13,
+    color: Colors.textDark,
+    backgroundColor: Colors.cardBg,
+    minHeight: 90,
+    lineHeight: 19,
+  },
 });

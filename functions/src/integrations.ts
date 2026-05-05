@@ -214,11 +214,17 @@ export function buildUpdateIntegrationConfig(allowList: ReadonlySet<string>) {
 }
 
 function sanitizePatch(raw: Record<string, any>): Record<string, any> {
-  const allowed = new Set(['openai', 'replicate', 'gemini', 'pexels', 'anthropic', 'meta']);
+  const allowed = new Set(['openai', 'replicate', 'gemini', 'pexels', 'anthropic', 'meta', 'notes']);
   const out: Record<string, any> = {};
   for (const [k, v] of Object.entries(raw)) {
     if (!allowed.has(k)) continue;
-    if (typeof v === 'object' && v !== null && !Array.isArray(v)) {
+    if (k === 'notes' && typeof v === 'object' && v !== null && !Array.isArray(v)) {
+      const sanitizedNotes: Record<string, string> = {};
+      for (const [nk, nv] of Object.entries(v)) {
+        if (typeof nv === 'string') sanitizedNotes[nk] = nv;
+      }
+      out['notes'] = sanitizedNotes;
+    } else if (typeof v === 'object' && v !== null && !Array.isArray(v)) {
       out[k] = v;
     }
   }

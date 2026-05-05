@@ -29,6 +29,7 @@ export interface IntegrationConfig {
   pexels: { apiKey: string };
   anthropic: { workerUrl: string };
   meta: MetaIntegrationConfig;
+  notes: Record<string, string>;
 }
 
 export const EMPTY_CONFIG: IntegrationConfig = {
@@ -46,6 +47,7 @@ export const EMPTY_CONFIG: IntegrationConfig = {
     webhookVerifyToken: '',
     adAccountId: '',
   },
+  notes: {},
 };
 
 export interface ServiceResult {
@@ -123,6 +125,11 @@ export async function checkIntegrationHealth(): Promise<HealthCheckResults> {
 
 function mergeWithDefaults(d: Record<string, any>): IntegrationConfig {
   const m = d.meta ?? {};
+  const rawNotes = d.notes ?? {};
+  const notes: Record<string, string> = {};
+  for (const [k, v] of Object.entries(rawNotes)) {
+    if (typeof v === 'string') notes[k] = v;
+  }
   return {
     openai: {
       apiKey: str(d.openai?.apiKey),
@@ -141,6 +148,7 @@ function mergeWithDefaults(d: Record<string, any>): IntegrationConfig {
       webhookVerifyToken: str(m.webhookVerifyToken),
       adAccountId:        str(m.adAccountId),
     },
+    notes,
   };
 }
 
