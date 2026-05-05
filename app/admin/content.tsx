@@ -1,10 +1,8 @@
 /**
- * Admin — Content Manager.
+ * Admin — Schemes & Yoga content manager.
  *
- * Wave 3 rebuild. Full CRUD for: Books · Articles · Products · Schemes · Yoga.
- * AdminPage shell + FilterBar tabs + DataTable + ConfirmDialog +
- * SlideOver-based form. Schema-driven so adding a new content type
- * is a one-line change to TAB_META + SCHEMAS.
+ * Articles · Books · Products have moved to /admin/library-ai (unified).
+ * This page covers the remaining content types: Government Schemes + Yoga sessions.
  */
 import { Ionicons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
@@ -32,7 +30,7 @@ import {
 } from '../../components/admin/ui';
 import { createContent, deleteContent, getContent, updateContent } from '../../services/firebase';
 
-type ContentTab = 'books' | 'articles' | 'products' | 'schemes' | 'yoga';
+type ContentTab = 'schemes' | 'yoga';
 type ContentStatus = 'draft' | 'published';
 interface ContentItem { id?: string; status?: ContentStatus; [key: string]: any; }
 
@@ -50,45 +48,6 @@ interface FieldSpec {
 }
 
 const SCHEMAS: Record<ContentTab, FieldSpec[]> = {
-  books: [
-    { key: 'title', label: 'Title *' },
-    { key: 'author', label: 'Author *' },
-    { key: 'description', label: 'Description', multiline: true },
-    { key: 'topic', label: 'Topic', hint: 'e.g. Pregnancy, Sleep' },
-    { key: 'rating', label: 'Rating (1–5)', numeric: true },
-    { key: 'reviews', label: 'Review count', numeric: true },
-    { key: 'url', label: 'Buy URL' },
-    { key: 'sampleUrl', label: 'Sample / preview URL' },
-    { key: 'imageUrl', label: 'Cover image URL' },
-    { key: 'ageMin', label: 'Age min (months)', numeric: true, hint: '-9 = pregnancy' },
-    { key: 'ageMax', label: 'Age max (months)', numeric: true, hint: '999 = all ages' },
-  ],
-  articles: [
-    { key: 'title', label: 'Title *' },
-    { key: 'preview', label: 'Preview *', multiline: true },
-    { key: 'body', label: 'Full body', multiline: true },
-    { key: 'topic', label: 'Topic', hint: 'Feeding, Sleep, Nutrition…' },
-    { key: 'readTime', label: 'Read time', hint: 'e.g. "4 min read"' },
-    { key: 'emoji', label: 'Emoji icon' },
-    { key: 'tag', label: 'Tag', hint: 'e.g. Breastfeeding' },
-    { key: 'url', label: 'External URL' },
-    { key: 'imageUrl', label: 'Header image URL' },
-    { key: 'ageMin', label: 'Age min (months)', numeric: true },
-    { key: 'ageMax', label: 'Age max (months)', numeric: true },
-  ],
-  products: [
-    { key: 'name', label: 'Product name *' },
-    { key: 'category', label: 'Category', hint: 'Feeding, Sleep, Skincare…' },
-    { key: 'emoji', label: 'Emoji' },
-    { key: 'price', label: 'Price (₹)', numeric: true },
-    { key: 'originalPrice', label: 'Original price (₹)', numeric: true },
-    { key: 'rating', label: 'Rating (1–5)', numeric: true },
-    { key: 'reviews', label: 'Review count', numeric: true },
-    { key: 'badge', label: 'Badge', hint: 'e.g. Best Seller' },
-    { key: 'description', label: 'Description', multiline: true },
-    { key: 'url', label: 'Affiliate / buy URL' },
-    { key: 'imageUrl', label: 'Image URL' },
-  ],
   schemes: [
     { key: 'name', label: 'Scheme name *' },
     { key: 'shortName', label: 'Short name / abbreviation' },
@@ -113,9 +72,6 @@ const SCHEMAS: Record<ContentTab, FieldSpec[]> = {
 };
 
 const TAB_META: Record<ContentTab, { label: string; icon: keyof typeof Ionicons.glyphMap; collection: string; primaryKey: string }> = {
-  books:    { label: 'Books',    icon: 'book-outline',           collection: 'books',    primaryKey: 'title' },
-  articles: { label: 'Articles', icon: 'newspaper-outline',      collection: 'articles', primaryKey: 'title' },
-  products: { label: 'Products', icon: 'bag-handle-outline',     collection: 'products', primaryKey: 'name'  },
   schemes:  { label: 'Schemes',  icon: 'ribbon-outline',         collection: 'schemes',  primaryKey: 'name'  },
   yoga:     { label: 'Yoga',     icon: 'body-outline',           collection: 'yoga',     primaryKey: 'name'  },
 };
@@ -126,9 +82,6 @@ function getTitle(item: ContentItem, tab: ContentTab): string {
 
 function getSub(item: ContentItem, tab: ContentTab): string {
   switch (tab) {
-    case 'books':    return [item.author, item.topic].filter(Boolean).join(' · ');
-    case 'articles': return [item.topic, item.readTime].filter(Boolean).join(' · ');
-    case 'products': return [item.category, item.price ? `₹${item.price}` : null].filter(Boolean).join(' · ');
     case 'schemes':  return item.shortDesc ?? '';
     case 'yoga':     return [item.level, item.duration].filter(Boolean).join(' · ');
   }
@@ -141,7 +94,7 @@ function blankItem(tab: ContentTab): ContentItem {
 }
 
 export default function ContentScreen() {
-  const [tab, setTab] = useState<ContentTab>('books');
+  const [tab, setTab] = useState<ContentTab>('schemes');
   const [items, setItems] = useState<ContentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -150,7 +103,7 @@ export default function ContentScreen() {
   const [editing, setEditing] = useState<ContentItem | null>(null);
   const [confirmDel, setConfirmDel] = useState<ContentItem | null>(null);
   const [counts, setCounts] = useState<Record<ContentTab, number>>({
-    books: 0, articles: 0, products: 0, schemes: 0, yoga: 0,
+    schemes: 0, yoga: 0,
   });
 
   useEffect(() => { void load(); }, [tab]);
@@ -172,7 +125,7 @@ export default function ContentScreen() {
 
   async function loadCounts() {
     const tabs = Object.keys(TAB_META) as ContentTab[];
-    const next: Record<ContentTab, number> = { books: 0, articles: 0, products: 0, schemes: 0, yoga: 0 };
+    const next: Record<ContentTab, number> = { schemes: 0, yoga: 0 };
     for (const t of tabs) {
       try {
         const data = await getContent(TAB_META[t].collection);
@@ -281,36 +234,20 @@ export default function ContentScreen() {
       ),
       sort: (i) => getTitle(i, tab).toLowerCase(),
     },
-    ...(tab === 'books' || tab === 'products' ? [{
-      key: 'rating',
-      header: 'Rating',
-      width: 100,
-      align: 'right' as const,
-      render: (i: ContentItem) => i.rating ? <StatusBadge label={`★ ${i.rating}`} color={Colors.warning} /> : <Text style={styles.muted}>—</Text>,
-      sort: (i: ContentItem) => Number(i.rating ?? 0),
-    }] : []),
-    ...(tab === 'products' ? [{
-      key: 'price',
-      header: 'Price',
-      width: 100,
-      align: 'right' as const,
-      render: (i: ContentItem) => <Text style={styles.cellNumber}>{i.price ? `₹${i.price}` : '—'}</Text>,
-      sort: (i: ContentItem) => Number(i.price ?? 0),
-    }] : []),
   ];
 
   return (
     <>
-      <Stack.Screen options={{ title: 'Content library' }} />
+      <Stack.Screen options={{ title: 'Schemes & Yoga' }} />
       <AdminPage
-        title="Content library"
-        description="Books · Articles · Products · Schemes · Yoga. Edits sync to every signed-in user immediately."
-        crumbs={[{ label: 'Admin', href: '/admin' }, { label: 'Content' }]}
+        title="Schemes & Yoga"
+        description="Government schemes and yoga sessions. Articles · Books · Products are managed in Library AI autopilot."
+        crumbs={[{ label: 'Admin', href: '/admin' }, { label: 'Schemes & Yoga' }]}
         headerActions={
           <>
             <ToolbarButton label="Refresh" icon="refresh" onPress={load} />
             <ToolbarButton
-              label={`Add ${TAB_META[tab].label.toLowerCase()}`}
+              label={`Add ${TAB_META[tab].label.replace(/s$/, '').toLowerCase()}`}
               icon="add"
               variant="primary"
               onPress={() => { setEditing(null); setModalOpen(true); }}

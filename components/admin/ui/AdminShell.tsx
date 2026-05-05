@@ -77,8 +77,8 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/admin/community', label: 'Community',     icon: 'chatbubbles-outline', cap: 'moderate_posts' },
       { href: '/admin/comments',  label: 'Comments',      icon: 'chatbubble-ellipses-outline', cap: 'moderate_comments' },
-      { href: '/admin/content',   label: 'Content library', icon: 'library-outline', cap: 'edit_content' },
-      { href: '/admin/library-ai', label: 'Library AI autopilot', icon: 'sparkles-outline', cap: 'edit_content', fresh: true },
+      { href: '/admin/library-ai', label: 'Library (AI + CRUD)', icon: 'sparkles-outline', cap: 'edit_content' },
+      { href: '/admin/content',   label: 'Schemes & Yoga',    icon: 'ribbon-outline',   cap: 'edit_content' },
       { href: '/admin/vaccines',  label: 'Vaccine schedule', icon: 'medkit-outline', cap: 'edit_vaccines' },
     ],
   },

@@ -273,6 +273,72 @@ export async function archiveLibraryItem(kind: 'articles' | 'books' | 'products'
   return r.data;
 }
 
+// ── All library items (unified content library) ──────────────────────────────
+
+/** Full doc shape returned by subscribeAllLibraryItems.
+ *  `raw` contains the complete Firestore doc so the form modal can show every
+ *  field without a second round-trip. */
+export interface LibraryContentItem {
+  id: string;
+  kind: 'articles' | 'books' | 'products';
+  title: string;
+  topic: string;
+  ageMin: number;
+  ageMax: number;
+  status: 'published' | 'draft' | 'archived';
+  imageUrl: string | null;
+  url: string | null;
+  createdAt: Timestamp | null;
+  expiresAt: Timestamp | null;
+  source: 'ai' | 'manual';
+  flags: string[];
+  raw: Record<string, any>; // full doc data for editing
+}
+
+export function subscribeAllLibraryItems(
+  kind: 'articles' | 'books' | 'products',
+  cb: (rows: LibraryContentItem[]) => void,
+  limitN = 100,
+): () => void {
+  if (!db) { cb([]); return () => {}; }
+  const q = query(
+    collection(db, kind),
+    orderBy('createdAt', 'desc'),
+    fbLimit(limitN),
+  );
+  return onSnapshot(
+    q,
+    (snap) => {
+      const rows: LibraryContentItem[] = snap.docs.map((d) => {
+        const data = d.data() as any;
+        const titleField = kind === 'products' ? 'name' : 'title';
+        return {
+          id: d.id,
+          kind,
+          title: typeof data[titleField] === 'string' ? data[titleField] : '(untitled)',
+          topic: data.topic ?? data.category ?? data.aiTopic ?? '',
+          ageMin: typeof data.ageMin === 'number' ? data.ageMin
+            : typeof data.ageMinMonths === 'number' ? data.ageMinMonths : 0,
+          ageMax: typeof data.ageMax === 'number' ? data.ageMax
+            : typeof data.ageMaxMonths === 'number' ? data.ageMaxMonths : 999,
+          status: data.status === 'archived' ? 'archived'
+            : data.status === 'draft' ? 'draft' : 'published',
+          imageUrl: typeof data.imageUrl === 'string' ? data.imageUrl : null,
+          url: typeof data.url === 'string' ? data.url : null,
+          createdAt: data.createdAt ?? null,
+          expiresAt: data.expiresAt ?? null,
+          source: data.source === 'manual' ? 'manual' : 'ai',
+          flags: Array.isArray(data.aiFlags)
+            ? data.aiFlags.filter((f: any) => typeof f === 'string') : [],
+          raw: { ...data, id: d.id },
+        };
+      });
+      cb(rows);
+    },
+    () => cb([]),
+  );
+}
+
 // ── Recent AI items (for the admin queue) ───────────────────────────────────
 
 export interface AiItem {
