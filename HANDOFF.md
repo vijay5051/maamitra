@@ -11,7 +11,25 @@ No active coding task.
 
 ---
 
-## Last action (2026-05-05) — Library AI autopilot (Articles · Books · Products)
+## Last action (2026-05-05) — Library admin unified UX (two-tier nav)
+
+**Commit `c383bcc` · hosting deployed · OTA `df8ce8b3` published.**
+
+### What changed
+- `app/admin/library-ai.tsx` — full rewrite: two-tier nav
+  - **Tier 1**: Kind pill chips (📰 Articles / 📚 Books / 🛍️ Products)
+  - **Tier 2**: Section underline tabs (Library | Autopilot | History)
+  - Default section = Library so admin lands on content, not settings
+  - `ContentLibrarySection`: all items (AI + manual), search, status filter,
+    full CRUD — edit opens modal showing entire article body
+  - `AutopilotSection`: compact StatusBanner + SettingsCard + GenerateCard
+  - `HistorySection`: cron run logs
+- `app/admin/content.tsx` — stripped to Schemes & Yoga only
+- `AdminShell.tsx` — nav order: Library (AI+CRUD) first, Schemes & Yoga second
+
+---
+
+## Previous last action (2026-05-05) — Library AI autopilot (Articles · Books · Products)
 
 **Full AI content pipeline for all three Library sections. Fully deployed.**
 
