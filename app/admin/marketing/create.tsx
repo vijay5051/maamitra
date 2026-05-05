@@ -51,9 +51,9 @@ interface Variant {
 type Quality = 'best' | 'quick';
 type Step = 1 | 2 | 3;
 
-const QUALITY_INFO: Record<Quality, { label: string; sub: string; provider: 'imagen' | 'flux'; perVariantInr: number }> = {
-  best:  { label: 'Best',  sub: 'Stronger Indian context. ~₹3.30 per image.', provider: 'imagen', perVariantInr: 3.30 },
-  quick: { label: 'Quick', sub: 'Fast, ~₹0.25 per image. Use for iteration.', provider: 'flux',   perVariantInr: 0.25 },
+const QUALITY_INFO: Record<Quality, { label: string; sub: string; provider: 'dalle' | 'imagen' | 'flux'; perVariantInr: number }> = {
+  best:  { label: 'Best',  sub: 'gpt-image-1 — strongest prompt adherence for chikankari + composition. ~₹3.50 per image.', provider: 'dalle', perVariantInr: 3.50 },
+  quick: { label: 'Quick', sub: 'Fast, ~₹0.25 per image. Use for iteration.', provider: 'flux',  perVariantInr: 0.25 },
 };
 
 export default function StudioCanvasScreen() {
