@@ -31,6 +31,7 @@ import {
   ToolbarButton,
 } from '../../components/admin/ui';
 import { createContent, deleteContent, getContent, updateContent } from '../../services/firebase';
+import { generateStudioVariants } from '../../services/marketingStudio';
 
 type ContentTab = 'books' | 'articles' | 'products' | 'schemes' | 'yoga';
 type ContentStatus = 'draft' | 'published';
@@ -379,8 +380,31 @@ function FormModal({ visible, tab, item, onClose, onSave, onDelete, onTogglePubl
   const isEdit = !!(item?.id);
   const [form, setForm] = useState<ContentItem>(item ?? blankItem(tab));
   const [saving, setSaving] = useState(false);
+  const [generatingCover, setGeneratingCover] = useState(false);
+  const [coverError, setCoverError] = useState<string | null>(null);
 
-  useEffect(() => { setForm(item ?? blankItem(tab)); }, [item, tab, visible]);
+  useEffect(() => { setForm(item ?? blankItem(tab)); setCoverError(null); }, [item, tab, visible]);
+
+  async function generateCover() {
+    const title = String(form.title || form.name || '').trim();
+    const topic = String(form.topic || '').trim();
+    const author = String(form.author || '').trim();
+    const subject = tab === 'books'
+      ? `book cover illustration for "${title || 'parenting book'}"${author ? ` by ${author}` : ''}${topic ? `. Topic: ${topic}` : ''}. Indian parenting / baby book.`
+      : `article cover illustration for "${title || 'parenting article'}"${topic ? `. Topic: ${topic}` : ''}. Indian parenting app article.`;
+    setGeneratingCover(true);
+    setCoverError(null);
+    try {
+      const res = await generateStudioVariants({ prompt: subject, model: 'dalle', variantCount: 1 });
+      if (!res.ok) { setCoverError(res.message); return; }
+      const url = res.variants[0]?.url;
+      if (url) setForm((f) => ({ ...f, imageUrl: url }));
+    } catch (e: any) {
+      setCoverError(e?.message ?? String(e));
+    } finally {
+      setGeneratingCover(false);
+    }
+  }
 
   const schema = SCHEMAS[tab];
   const primaryField = schema[0];
@@ -407,25 +431,54 @@ function FormModal({ visible, tab, item, onClose, onSave, onDelete, onTogglePubl
             </Pressable>
           </View>
           <ScrollView contentContainerStyle={styles.modalBody} keyboardShouldPersistTaps="handled">
-            {schema.map((field) => (
-              <View key={field.key} style={{ marginBottom: Spacing.md }}>
-                <Text style={styles.fieldLabel}>{field.label}</Text>
-                {field.hint ? <Text style={styles.fieldHint}>{field.hint}</Text> : null}
-                <TextInput
-                  style={[styles.fieldInput, field.multiline && { minHeight: 80, textAlignVertical: 'top' }]}
-                  value={String(form[field.key] ?? '')}
-                  onChangeText={(v) => setForm((f) => ({ ...f, [field.key]: v }))}
-                  multiline={field.multiline}
-                  keyboardType={field.numeric ? 'decimal-pad' : 'default'}
-                  autoCapitalize={
-                    field.key === 'url' || field.key === 'imageUrl' || field.key === 'sampleUrl'
-                      ? 'none' : 'sentences'
-                  }
-                  placeholderTextColor={Colors.textMuted}
-                  placeholder={field.label.replace(' *', '')}
-                />
-              </View>
-            ))}
+            {schema.map((field) => {
+              const isImageUrl = field.key === 'imageUrl' && (tab === 'articles' || tab === 'books');
+              return (
+                <View key={field.key} style={{ marginBottom: Spacing.md }}>
+                  <Text style={styles.fieldLabel}>{field.label}</Text>
+                  {field.hint ? <Text style={styles.fieldHint}>{field.hint}</Text> : null}
+                  {isImageUrl ? (
+                    <>
+                      <View style={styles.imageUrlRow}>
+                        <TextInput
+                          style={[styles.fieldInput, styles.imageUrlInput]}
+                          value={String(form[field.key] ?? '')}
+                          onChangeText={(v) => setForm((f) => ({ ...f, [field.key]: v }))}
+                          autoCapitalize="none"
+                          placeholderTextColor={Colors.textMuted}
+                          placeholder="https://…"
+                        />
+                        <Pressable
+                          onPress={generateCover}
+                          disabled={generatingCover}
+                          style={[styles.genBtn, generatingCover && styles.genBtnDisabled]}
+                        >
+                          <Ionicons name="sparkles" size={13} color={generatingCover ? Colors.textMuted : Colors.primary} />
+                          <Text style={[styles.genBtnLabel, generatingCover && { color: Colors.textMuted }]}>
+                            {generatingCover ? 'Generating…' : 'Generate'}
+                          </Text>
+                        </Pressable>
+                      </View>
+                      {coverError ? <Text style={styles.coverError}>{coverError}</Text> : null}
+                    </>
+                  ) : (
+                    <TextInput
+                      style={[styles.fieldInput, field.multiline && { minHeight: 80, textAlignVertical: 'top' }]}
+                      value={String(form[field.key] ?? '')}
+                      onChangeText={(v) => setForm((f) => ({ ...f, [field.key]: v }))}
+                      multiline={field.multiline}
+                      keyboardType={field.numeric ? 'decimal-pad' : 'default'}
+                      autoCapitalize={
+                        field.key === 'url' || field.key === 'imageUrl' || field.key === 'sampleUrl'
+                          ? 'none' : 'sentences'
+                      }
+                      placeholderTextColor={Colors.textMuted}
+                      placeholder={field.label.replace(' *', '')}
+                    />
+                  )}
+                </View>
+              );
+            })}
           </ScrollView>
           <View style={styles.modalFooter}>
             {onDelete ? (
@@ -513,4 +566,17 @@ const styles = StyleSheet.create({
     fontSize: FontSize.sm, color: Colors.textDark,
     borderWidth: 1, borderColor: Colors.border,
   },
+
+  imageUrlRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  imageUrlInput: { flex: 1 },
+  genBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 12, paddingVertical: 9,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.primarySoft,
+    borderWidth: 1, borderColor: Colors.primary,
+  },
+  genBtnDisabled: { backgroundColor: Colors.bgLight, borderColor: Colors.border },
+  genBtnLabel: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.primary },
+  coverError: { fontSize: FontSize.xs, color: Colors.error, marginTop: 4 },
 });
