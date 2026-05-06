@@ -431,6 +431,8 @@ function TomorrowCard({
   onSkip: () => void;
   onPreGenerate: () => void;
 }) {
+  const { width: cardWidth } = useWindowDimensions();
+  const isNarrow = cardWidth < 900;
   return (
     <View style={styles.tomorrowCard}>
       {slot.skipped ? (
@@ -475,7 +477,7 @@ function TomorrowCard({
         </View>
       ) : null}
 
-      <View style={styles.tomorrowActions}>
+      <View style={[styles.tomorrowActions, isNarrow && styles.tomorrowActionsNarrow]}>
         <Pressable
           onPress={onSkip}
           disabled={skipBusy}
@@ -689,6 +691,9 @@ const styles = StyleSheet.create({
   tomorrowActions: {
     flexDirection: 'row', gap: Spacing.sm,
     paddingHorizontal: Spacing.md, paddingBottom: Spacing.md,
+  },
+  tomorrowActionsNarrow: {
+    flexDirection: 'column',
   },
   tomorrowBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4,

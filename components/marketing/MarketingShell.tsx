@@ -154,19 +154,23 @@ export default function MarketingShell({ children, health, bare }: Props) {
         {health ? <HealthChip health={health} /> : null}
       </View>
 
-      {/* Pill tab strip */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={{ flexGrow: 0, flexShrink: 0 }}
-        contentContainerStyle={[styles.tabStrip, isWide ? styles.tabStripWide : styles.tabStripNarrow]}
-      >
-        {TABS.map((t) => (
-          <TabPill key={t.key} tab={t} active={activeKey === t.key} />
-        ))}
-        <View style={{ flex: 1 }} />
-        <TabPill tab={SETTINGS_TAB} active={activeKey === SETTINGS_TAB.key} compact />
-      </ScrollView>
+      {/* Pill tab strip — tabs scroll horizontally; settings gear is pinned to the right */}
+      <View style={styles.tabBarRow}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ flex: 1 }}
+          contentContainerStyle={[styles.tabStrip, isWide ? styles.tabStripWide : styles.tabStripNarrow]}
+        >
+          {TABS.map((t) => (
+            <TabPill key={t.key} tab={t} active={activeKey === t.key} />
+          ))}
+        </ScrollView>
+        {/* Settings gear is always visible — outside the ScrollView so it never scrolls away */}
+        <View style={[styles.settingsPill, isWide ? styles.settingsPillWide : null]}>
+          <TabPill tab={SETTINGS_TAB} active={activeKey === SETTINGS_TAB.key} compact />
+        </View>
+      </View>
 
       {/* Body */}
       <View style={{ flex: 1 }}>{children}</View>
@@ -302,6 +306,24 @@ const styles = StyleSheet.create({
   wave: { fontSize: FontSize.xl },
 
   // ── Pill tabs ─────────────────────────────────────────────────────────
+  // Outer row: tabs scroll, settings gear pinned right
+  tabBarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexGrow: 0,
+    flexShrink: 0,
+  },
+  // Wrapper for the pinned settings gear (always-visible right side)
+  settingsPill: {
+    paddingRight: Spacing.md,
+    paddingBottom: Spacing.md,
+    paddingLeft: 4,
+    borderLeftWidth: 1,
+    borderLeftColor: Colors.borderSoft,
+  },
+  settingsPillWide: {
+    paddingRight: Spacing.xxxl,
+  },
   tabStrip: {
     flexDirection: 'row',
     gap: 6,

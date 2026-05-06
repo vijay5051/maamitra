@@ -171,6 +171,8 @@ function CalendarPane() {
         </View>
       ) : null}
 
+      {/* Calendar grid — horizontal scroll on mobile so all 7 days are always reachable */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }}>
       <View style={styles.dayGrid}>
         {week.days.map((d, i) => {
           const items = byDay[d.iso] ?? [];
@@ -214,6 +216,7 @@ function CalendarPane() {
           );
         })}
       </View>
+      </ScrollView>
     </View>
   );
 }
@@ -540,11 +543,10 @@ const styles = StyleSheet.create({
   unscheduledTitle: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.warning },
   unscheduledBody: { fontSize: FontSize.xs, color: Colors.textDark },
 
-  dayGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  // dayGrid: no-wrap row inside a horizontal ScrollView — cells never collapse on mobile.
+  dayGrid: { flexDirection: 'row', gap: 6 },
   dayCell: {
-    width: '13.7%',
-    minWidth: 100,
-    flexGrow: 1,
+    width: 100,
     backgroundColor: Colors.cardBg,
     borderRadius: Radius.sm,
     padding: 6,

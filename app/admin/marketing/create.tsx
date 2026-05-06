@@ -52,8 +52,8 @@ type Quality = 'best' | 'quick';
 type Step = 1 | 2 | 3;
 
 const QUALITY_INFO: Record<Quality, { label: string; sub: string; provider: 'dalle' | 'imagen' | 'flux'; perVariantInr: number }> = {
-  best:  { label: 'Best',  sub: 'gpt-image-1 — strongest prompt adherence for chikankari + composition. ~₹3.50 per image.', provider: 'dalle', perVariantInr: 3.50 },
-  quick: { label: 'Quick', sub: 'Fast, ~₹0.25 per image. Use for iteration.', provider: 'flux',  perVariantInr: 0.25 },
+  best:  { label: 'Best',  sub: 'Strongest brand-style match. ~₹3.50 / image.', provider: 'dalle', perVariantInr: 3.50 },
+  quick: { label: 'Quick', sub: 'Fast iteration. ~₹0.25 / image.', provider: 'flux',  perVariantInr: 0.25 },
 };
 
 export default function StudioCanvasScreen() {
@@ -649,6 +649,8 @@ function Step2Pick({
   brushOpen: boolean;
   setBrushOpen: (v: boolean) => void;
 }) {
+  const { width: screenWidth } = useWindowDimensions();
+  const isNarrow = screenWidth < 900;
   const slots = Array.from({ length: variantCount });
   return (
     <View style={{ gap: Spacing.md }}>
@@ -796,33 +798,63 @@ function Step2Pick({
         </View>
       ) : null}
 
-      {/* Actions */}
+      {/* Actions — narrow: ghost buttons row + primary full-width below.
+                  wide: single row with spacer. */}
       {!editing ? (
-        <View style={styles.actionsRow}>
-          <Pressable onPress={onRetry} disabled={generating} style={styles.ghostBtn}>
-            <Ionicons name="refresh" size={16} color={Colors.textDark} />
-            <Text style={styles.ghostBtnLabel}>Try again</Text>
-          </Pressable>
-          {pickedId && !carouselMode ? (
-            <Pressable onPress={onEnterEdit} style={styles.ghostBtn}>
-              <Ionicons name="brush-outline" size={16} color={Colors.textDark} />
-              <Text style={styles.ghostBtnLabel}>Edit it first</Text>
+        isNarrow ? (
+          <View style={{ gap: Spacing.sm, marginTop: 4 }}>
+            <View style={{ flexDirection: 'row', gap: Spacing.sm }}>
+              <Pressable onPress={onRetry} disabled={generating} style={[styles.ghostBtn, { flex: 1 }]}>
+                <Ionicons name="refresh" size={16} color={Colors.textDark} />
+                <Text style={styles.ghostBtnLabel}>Try again</Text>
+              </Pressable>
+              {pickedId && !carouselMode ? (
+                <Pressable onPress={onEnterEdit} style={[styles.ghostBtn, { flex: 1 }]}>
+                  <Ionicons name="brush-outline" size={16} color={Colors.textDark} />
+                  <Text style={styles.ghostBtnLabel}>Edit first</Text>
+                </Pressable>
+              ) : null}
+            </View>
+            <Pressable
+              onPress={
+                carouselMode
+                  ? (variants.length >= 2 ? onContinue : undefined)
+                  : (pickedId ? onContinue : undefined)
+              }
+              disabled={carouselMode ? variants.length < 2 : !pickedId}
+              style={[styles.primaryBtn, { justifyContent: 'center' }, (carouselMode ? variants.length < 2 : !pickedId) && styles.primaryBtnDisabled]}
+            >
+              <Text style={styles.primaryBtnLabel}>{carouselMode ? `Use these ${variants.length} slides` : 'Use this image'}</Text>
+              <Ionicons name="arrow-forward" size={16} color={Colors.white} />
             </Pressable>
-          ) : null}
-          <View style={{ flex: 1 }} />
-          <Pressable
-            onPress={
-              carouselMode
-                ? (variants.length >= 2 ? onContinue : undefined)
-                : (pickedId ? onContinue : undefined)
-            }
-            disabled={carouselMode ? variants.length < 2 : !pickedId}
-            style={[styles.primaryBtn, (carouselMode ? variants.length < 2 : !pickedId) && styles.primaryBtnDisabled]}
-          >
-            <Text style={styles.primaryBtnLabel}>{carouselMode ? `Use these ${variants.length} slides` : 'Use this image'}</Text>
-            <Ionicons name="arrow-forward" size={16} color={Colors.white} />
-          </Pressable>
-        </View>
+          </View>
+        ) : (
+          <View style={styles.actionsRow}>
+            <Pressable onPress={onRetry} disabled={generating} style={styles.ghostBtn}>
+              <Ionicons name="refresh" size={16} color={Colors.textDark} />
+              <Text style={styles.ghostBtnLabel}>Try again</Text>
+            </Pressable>
+            {pickedId && !carouselMode ? (
+              <Pressable onPress={onEnterEdit} style={styles.ghostBtn}>
+                <Ionicons name="brush-outline" size={16} color={Colors.textDark} />
+                <Text style={styles.ghostBtnLabel}>Edit it first</Text>
+              </Pressable>
+            ) : null}
+            <View style={{ flex: 1 }} />
+            <Pressable
+              onPress={
+                carouselMode
+                  ? (variants.length >= 2 ? onContinue : undefined)
+                  : (pickedId ? onContinue : undefined)
+              }
+              disabled={carouselMode ? variants.length < 2 : !pickedId}
+              style={[styles.primaryBtn, (carouselMode ? variants.length < 2 : !pickedId) && styles.primaryBtnDisabled]}
+            >
+              <Text style={styles.primaryBtnLabel}>{carouselMode ? `Use these ${variants.length} slides` : 'Use this image'}</Text>
+              <Ionicons name="arrow-forward" size={16} color={Colors.white} />
+            </Pressable>
+          </View>
+        )
       ) : null}
     </View>
   );
@@ -878,7 +910,7 @@ function Step3Save({
             ))}
           </ScrollView>
         ) : (
-          <View style={{ position: 'relative' }}>
+          <View style={styles.savePreviewWrap}>
             <Image source={{ uri: picked.url }} style={styles.savePreviewImage} resizeMode="cover" />
             {logoApplying ? (
               <View style={[StyleSheet.absoluteFillObject, styles.logoOverlay]}>
@@ -1501,10 +1533,18 @@ const styles = StyleSheet.create({
 
   // Step 3
   savePane: { gap: Spacing.md },
+  // savePreview: centered column — "Change image" button and carousel both benefit from center.
   savePreview: { alignItems: 'center', gap: 8 },
-  savePreviewImage: {
+  // savePreviewWrap: gives the image container an explicit width so `width: '100%'`
+  // on the Image resolves correctly (without this, the View collapses to 0 inside
+  // an alignItems-center parent and the image becomes invisible).
+  savePreviewWrap: {
+    position: 'relative',
     width: '100%',
     maxWidth: 360,
+  },
+  savePreviewImage: {
+    width: '100%',
     aspectRatio: 1,
     borderRadius: Radius.lg,
     backgroundColor: Colors.bgTint,
