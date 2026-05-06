@@ -39,6 +39,7 @@ import {
   DEFAULT_THEME_CALENDAR,
   DEFAULT_VOICE,
   MarketingHealth,
+  SlotFrequency,
   StyleProfile,
   UNKNOWN_CHANNEL_HEALTH,
   WeekDay,
@@ -175,6 +176,7 @@ function sanitiseThemeCalendar(tc: BrandKit['themeCalendar']): BrandKit['themeCa
       label: typeof day.label === 'string' ? day.label.trim().slice(0, 40) || DEFAULT_THEME_CALENDAR[d].label : DEFAULT_THEME_CALENDAR[d].label,
       prompt: typeof day.prompt === 'string' ? day.prompt.trim().slice(0, 400) || DEFAULT_THEME_CALENDAR[d].prompt : DEFAULT_THEME_CALENDAR[d].prompt,
       enabled: typeof day.enabled === 'boolean' ? day.enabled : DEFAULT_THEME_CALENDAR[d].enabled,
+      autoSchedule: typeof day.autoSchedule === 'boolean' ? day.autoSchedule : false,
     };
   });
   return result;
@@ -198,6 +200,17 @@ function sanitiseAutomationTemplate(value: unknown): AutomationTemplate {
     : 'auto';
 }
 
+function sanitiseSlotFrequency(value: unknown): SlotFrequency {
+  return ['daily', 'alternate_day', 'weekly', 'monthly'].includes(value as string)
+    ? (value as SlotFrequency)
+    : 'daily';
+}
+
+const VALID_WEEKDAYS: WeekDay[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+function sanitiseWeekDay(value: unknown): WeekDay {
+  return VALID_WEEKDAYS.includes(value as WeekDay) ? (value as WeekDay) : 'mon';
+}
+
 function sanitisePlatforms(input: unknown): ('instagram' | 'facebook')[] {
   const out = Array.isArray(input)
     ? input.filter((p): p is 'instagram' | 'facebook' => p === 'instagram' || p === 'facebook')
@@ -213,6 +226,7 @@ function sanitiseAutomationSlots(input: unknown): AutomationSlot[] {
       const obj = slot as Record<string, unknown>;
       const id = sanitiseId(obj.id, `slot_${i}`);
       const label = typeof obj.label === 'string' ? obj.label.trim().slice(0, 40) : '';
+      const frequency = sanitiseSlotFrequency(obj.frequency);
       return {
         id,
         label: label || `Slot ${i + 1}`,
@@ -221,6 +235,9 @@ function sanitiseAutomationSlots(input: unknown): AutomationSlot[] {
         platforms: sanitisePlatforms(obj.platforms),
         enabled: obj.enabled !== false,
         autoSchedule: obj.autoSchedule === true,
+        frequency,
+        ...(frequency === 'weekly' ? { runOnWeekDay: sanitiseWeekDay(obj.runOnWeekDay) } : {}),
+        ...(frequency === 'monthly' ? { runOnMonthDay: Math.min(28, Math.max(1, typeof obj.runOnMonthDay === 'number' ? Math.round(obj.runOnMonthDay) : 1)) } : {}),
       };
     })
     .filter((slot): slot is AutomationSlot => slot !== null)

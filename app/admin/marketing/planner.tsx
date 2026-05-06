@@ -23,7 +23,7 @@ import {
   ScheduledSlotPreview,
 } from '../../../services/marketing';
 import { friendlyError } from '../../../services/marketingErrors';
-import { AutomationSlot, BrandKit, CulturalEvent, ThemeForDay, WeekDay } from '../../../lib/marketingTypes';
+import { AutomationSlot, BrandKit, CulturalEvent, SlotFrequency, ThemeForDay, WeekDay } from '../../../lib/marketingTypes';
 import { useAuthStore } from '../../../store/useAuthStore';
 
 const WEEKDAY_ORDER: WeekDay[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
@@ -253,7 +253,10 @@ function WeeklyRhythmEditor({
   const dirty = WEEKDAY_ORDER.some((day) => {
     const current = draft[day];
     const original = themeCalendar[day];
-    return current.label !== original.label || current.prompt !== original.prompt || current.enabled !== original.enabled;
+    return current.label !== original.label ||
+      current.prompt !== original.prompt ||
+      current.enabled !== original.enabled ||
+      (current.autoSchedule ?? false) !== (original.autoSchedule ?? false);
   });
 
   const enabledSlots = slots.filter((slot) => slot.enabled);
@@ -326,6 +329,24 @@ function WeeklyRhythmEditor({
                   multiline
                   style={[styles.slotInput, styles.themePromptInput]}
                 />
+              </View>
+
+              <View style={styles.themeField}>
+                <Text style={styles.fieldLabel}>Delivery</Text>
+                <View style={styles.choiceRow}>
+                  {([{ label: 'Needs review', value: false }, { label: 'Auto schedule', value: true }] as const).map((mode) => {
+                    const active = (item.autoSchedule ?? false) === mode.value;
+                    return (
+                      <Pressable
+                        key={mode.label}
+                        onPress={() => patch(day, (current) => ({ ...current, autoSchedule: mode.value }))}
+                        style={[styles.choiceChip, active && styles.choiceChipActive]}
+                      >
+                        <Text style={[styles.choiceLabel, active && { color: Colors.primary }]}>{mode.label}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
               </View>
             </View>
           );
@@ -484,6 +505,7 @@ function AutomationSlotsEditor({
         platforms: ['instagram', 'facebook'],
         enabled: true,
         autoSchedule: false,
+        frequency: 'daily' as SlotFrequency,
       },
     ]);
   };
@@ -581,6 +603,71 @@ function AutomationSlotsEditor({
                   })}
                 </View>
               </View>
+
+              <View style={styles.slotFieldWide}>
+                <Text style={styles.fieldLabel}>Frequency</Text>
+                <View style={styles.choiceRow}>
+                  {([
+                    { label: 'Daily', value: 'daily' as SlotFrequency },
+                    { label: 'Alt. day', value: 'alternate_day' as SlotFrequency },
+                    { label: 'Weekly', value: 'weekly' as SlotFrequency },
+                    { label: 'Monthly', value: 'monthly' as SlotFrequency },
+                  ]).map((opt) => {
+                    const active = (slot.frequency ?? 'daily') === opt.value;
+                    return (
+                      <Pressable
+                        key={opt.value}
+                        onPress={() => patch(slot.id, (current) => ({
+                          ...current,
+                          frequency: opt.value,
+                          runOnWeekDay: opt.value === 'weekly' ? (current.runOnWeekDay ?? 'mon') : current.runOnWeekDay,
+                          runOnMonthDay: opt.value === 'monthly' ? (current.runOnMonthDay ?? 1) : current.runOnMonthDay,
+                        }))}
+                        style={[styles.choiceChip, active && styles.choiceChipActive]}
+                      >
+                        <Text style={[styles.choiceLabel, active && { color: Colors.primary }]}>{opt.label}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {(slot.frequency ?? 'daily') === 'weekly' ? (
+                <View style={styles.slotFieldWide}>
+                  <Text style={styles.fieldLabel}>Run on</Text>
+                  <View style={styles.choiceRow}>
+                    {WEEKDAY_ORDER.map((day) => {
+                      const active = (slot.runOnWeekDay ?? 'mon') === day;
+                      return (
+                        <Pressable
+                          key={day}
+                          onPress={() => patch(slot.id, (current) => ({ ...current, runOnWeekDay: day }))}
+                          style={[styles.choiceChip, active && styles.choiceChipActive]}
+                        >
+                          <Text style={[styles.choiceLabel, active && { color: Colors.primary }]}>{WEEKDAY_LABELS[day]}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+              ) : null}
+
+              {(slot.frequency ?? 'daily') === 'monthly' ? (
+                <View style={styles.slotField}>
+                  <Text style={styles.fieldLabel}>Day of month</Text>
+                  <TextInput
+                    value={String(slot.runOnMonthDay ?? 1)}
+                    onChangeText={(v) => {
+                      const n = parseInt(v, 10);
+                      if (!isNaN(n)) patch(slot.id, (current) => ({ ...current, runOnMonthDay: Math.min(28, Math.max(1, n)) }));
+                    }}
+                    keyboardType="number-pad"
+                    placeholder="1"
+                    placeholderTextColor={Colors.textMuted}
+                    style={styles.slotInput}
+                  />
+                </View>
+              ) : null}
             </View>
           </View>
         ))}

@@ -44,6 +44,9 @@ export interface BrandVoice {
 
 export type WeekDay = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
 
+/** How often an automation slot generates a draft. */
+export type SlotFrequency = 'daily' | 'alternate_day' | 'weekly' | 'monthly';
+
 export interface ThemeForDay {
   /** Theme name shown to admin (e.g. "Tip Tuesday"). */
   label: string;
@@ -51,6 +54,8 @@ export interface ThemeForDay {
   prompt: string;
   /** Whether this day is enabled. Disabled days produce no drafts. */
   enabled: boolean;
+  /** When true, drafts for this day are auto-scheduled instead of queued for review. Overrides the slot-level setting. */
+  autoSchedule?: boolean;
 }
 
 // ── Strategic foundation (M1) ───────────────────────────────────────────────
@@ -139,6 +144,12 @@ export interface AutomationSlot {
   enabled: boolean;
   /** True = create the draft directly as scheduled. False = create for review. */
   autoSchedule: boolean;
+  /** How often this slot generates: daily (default), every other day, once per week, once per month. */
+  frequency: SlotFrequency;
+  /** For weekly frequency — which weekday to run on. Defaults to 'mon'. */
+  runOnWeekDay?: WeekDay;
+  /** For monthly frequency — which day of the month (1-28) to run on. Defaults to 1. */
+  runOnMonthDay?: number;
 }
 
 export interface BrandKit {
@@ -263,13 +274,13 @@ export const DEFAULT_VOICE: BrandVoice = {
 };
 
 export const DEFAULT_THEME_CALENDAR: Record<WeekDay, ThemeForDay> = {
-  mon: { label: 'Mom-Wisdom Monday', prompt: 'A short story or learning from a real Indian mom. Warm, relatable, ends with one practical takeaway.', enabled: true },
-  tue: { label: 'Tip Tuesday', prompt: 'One specific, actionable parenting or pregnancy tip. Number + concrete action.', enabled: true },
-  wed: { label: 'Myth-Buster Wednesday', prompt: 'A common Indian-parenting myth + the actual evidence. Friendly correction, never judgemental.', enabled: true },
-  thu: { label: 'Throwback Thursday', prompt: 'A nostalgic / generational moment — pairing tradition with modern parenting.', enabled: true },
-  fri: { label: 'Friday Q&A', prompt: 'A question moms commonly DM us, answered in 3 lines max.', enabled: true },
-  sat: { label: 'Self-care Saturday', prompt: 'A reminder for moms to care for themselves. Specific, doable in 5 minutes.', enabled: true },
-  sun: { label: 'Sunday Reflection', prompt: 'A gentle quote or thought for the week ahead. Quiet, hopeful tone.', enabled: true },
+  mon: { label: 'Mom-Wisdom Monday', prompt: 'A short story or learning from a real Indian mom. Warm, relatable, ends with one practical takeaway.', enabled: true, autoSchedule: false },
+  tue: { label: 'Tip Tuesday', prompt: 'One specific, actionable parenting or pregnancy tip. Number + concrete action.', enabled: true, autoSchedule: false },
+  wed: { label: 'Myth-Buster Wednesday', prompt: 'A common Indian-parenting myth + the actual evidence. Friendly correction, never judgemental.', enabled: true, autoSchedule: false },
+  thu: { label: 'Throwback Thursday', prompt: 'A nostalgic / generational moment — pairing tradition with modern parenting.', enabled: true, autoSchedule: false },
+  fri: { label: 'Friday Q&A', prompt: 'A question moms commonly DM us, answered in 3 lines max.', enabled: true, autoSchedule: false },
+  sat: { label: 'Self-care Saturday', prompt: 'A reminder for moms to care for themselves. Specific, doable in 5 minutes.', enabled: true, autoSchedule: false },
+  sun: { label: 'Sunday Reflection', prompt: 'A gentle quote or thought for the week ahead. Quiet, hopeful tone.', enabled: true, autoSchedule: false },
 };
 
 export const DEFAULT_HASHTAGS = [
@@ -286,6 +297,7 @@ export const DEFAULT_AUTOMATION_SLOTS: AutomationSlot[] = [
     platforms: ['instagram', 'facebook'],
     enabled: true,
     autoSchedule: false,
+    frequency: 'daily',
   },
 ];
 
