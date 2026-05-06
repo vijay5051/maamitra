@@ -270,8 +270,8 @@ export default function AdminDashboard() {
           </Card>
         ) : null}
 
-        {/* ─── Actionable cards (all viewports) ────────────────── */}
-        <View style={[styles.cols, twoCol && styles.colsWide]}>
+        {/* ─── All cards ───────────────────────────────────────── */}
+        <View style={[styles.cols, twoCol ? styles.colsWide : styles.colsNarrow]}>
 
           {/* Pending posts — always visible */}
           <View style={[styles.col, twoCol && styles.colHalf]}>
@@ -354,80 +354,79 @@ export default function AdminDashboard() {
             </Card>
           </View>
 
-          {/* ── Desktop-only analytics (hidden on mobile) ── */}
-          {twoCol ? (
-            <>
-              <View style={styles.colHalf}>
-                <Card label="Where users live">
-                  {snap?.topStates.length ? snap.topStates.map((row) => (
-                    <View key={row.state} style={styles.stateRow}>
-                      <Ionicons name="location-outline" size={14} color={Colors.primary} />
-                      <Text style={styles.stateName}>{row.state}</Text>
-                      <Text style={styles.stateCount}>{row.count.toLocaleString('en-IN')}</Text>
+          {/* Where users live */}
+          <View style={[styles.col, twoCol && styles.colHalf]}>
+            <Card label="Where users live" compact={narrow}>
+              {snap?.topStates.length ? snap.topStates.map((row) => (
+                <View key={row.state} style={styles.stateRow}>
+                  <Ionicons name="location-outline" size={14} color={Colors.primary} />
+                  <Text style={styles.stateName}>{row.state}</Text>
+                  <Text style={styles.stateCount}>{row.count.toLocaleString('en-IN')}</Text>
+                </View>
+              )) : <Text style={styles.muted}>No state data yet.</Text>}
+            </Card>
+          </View>
+
+          {/* Feature adoption */}
+          <View style={[styles.col, twoCol && styles.colHalf]}>
+            <Card label="Feature adoption" hint="% of users who've used each feature at least once." compact={narrow}>
+              {snap?.featureAdoption.length ? snap.featureAdoption.map((item) => (
+                <AdoptionRow key={item.label} item={item} />
+              )) : <Text style={styles.muted}>No adoption data yet.</Text>}
+            </Card>
+          </View>
+
+          {/* Activation funnel */}
+          <View style={[styles.col, twoCol && styles.colHalf]}>
+            <Card label="Activation funnel" compact={narrow}>
+              {funnel.length === 0 ? (
+                <Text style={styles.muted}>Nothing to show yet.</Text>
+              ) : funnel.map((step, i) => {
+                const w = `${Math.min(100, step.pct)}%` as const;
+                return (
+                  <View key={step.key} style={{ marginBottom: i === funnel.length - 1 ? 0 : 6 }}>
+                    <View style={styles.adoptionLabelRow}>
+                      <Text style={styles.adoptionLabel}>{step.label}</Text>
+                      <Text style={styles.adoptionStat}>{step.users} · {step.pct}%</Text>
                     </View>
-                  )) : <Text style={styles.muted}>No state data yet.</Text>}
-                </Card>
-              </View>
+                    <View style={styles.adoptionBarTrack}>
+                      <View style={[styles.adoptionBarFill, { width: w, backgroundColor: Colors.primary }]} />
+                    </View>
+                  </View>
+                );
+              })}
+            </Card>
+          </View>
 
-              <View style={styles.colHalf}>
-                <Card label="Feature adoption" hint="% of users who've used each feature at least once.">
-                  {snap?.featureAdoption.length ? snap.featureAdoption.map((item) => (
-                    <AdoptionRow key={item.label} item={item} />
-                  )) : <Text style={styles.muted}>No adoption data yet.</Text>}
-                </Card>
-              </View>
-
-              <View style={styles.colHalf}>
-                <Card label="Activation funnel">
-                  {funnel.length === 0 ? (
-                    <Text style={styles.muted}>Nothing to show yet.</Text>
-                  ) : funnel.map((step, i) => {
-                    const w = `${Math.min(100, step.pct)}%` as const;
-                    return (
-                      <View key={step.key} style={{ marginBottom: i === funnel.length - 1 ? 0 : 8 }}>
-                        <View style={styles.adoptionLabelRow}>
-                          <Text style={styles.adoptionLabel}>{step.label}</Text>
-                          <Text style={styles.adoptionStat}>{step.users} · {step.pct}%</Text>
-                        </View>
-                        <View style={styles.adoptionBarTrack}>
-                          <View style={[styles.adoptionBarFill, { width: w, backgroundColor: Colors.primary }]} />
-                        </View>
+          {/* Weekly cohort retention */}
+          <View style={[styles.col, twoCol && styles.colHalf]}>
+            <Card label="Weekly cohort retention" compact={narrow}>
+              {retention.length === 0 ? (
+                <Text style={styles.muted}>No cohort data yet.</Text>
+              ) : (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={styles.cohortTable}>
+                    <View style={[styles.cohortRow, { borderBottomWidth: 1, borderBottomColor: Colors.borderSoft }]}>
+                      <Text style={[styles.cohortName, styles.cohortNameCol]}>Cohort</Text>
+                      <Text style={styles.cohortCell}>Size</Text>
+                      <Text style={styles.cohortCell}>D1</Text>
+                      <Text style={styles.cohortCell}>D7</Text>
+                      <Text style={styles.cohortCell}>D30</Text>
+                    </View>
+                    {retention.map((c) => (
+                      <View key={c.cohort} style={styles.cohortRow}>
+                        <Text style={[styles.cohortName, styles.cohortNameCol]}>{c.cohort}</Text>
+                        <Text style={styles.cohortCell}>{c.size}</Text>
+                        <Text style={styles.cohortCell}>{c.d1}</Text>
+                        <Text style={styles.cohortCell}>{c.d7}</Text>
+                        <Text style={styles.cohortCell}>{c.d30}</Text>
                       </View>
-                    );
-                  })}
-                </Card>
-              </View>
-
-              <View style={styles.colHalf}>
-                <Card label="Weekly cohort retention">
-                  {retention.length === 0 ? (
-                    <Text style={styles.muted}>No cohort data yet.</Text>
-                  ) : (
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                      <View style={styles.cohortTable}>
-                        <View style={[styles.cohortRow, { borderBottomWidth: 1, borderBottomColor: Colors.borderSoft }]}>
-                          <Text style={[styles.cohortName, styles.cohortNameCol]}>Cohort</Text>
-                          <Text style={styles.cohortCell}>Size</Text>
-                          <Text style={styles.cohortCell}>D1</Text>
-                          <Text style={styles.cohortCell}>D7</Text>
-                          <Text style={styles.cohortCell}>D30</Text>
-                        </View>
-                        {retention.map((c) => (
-                          <View key={c.cohort} style={styles.cohortRow}>
-                            <Text style={[styles.cohortName, styles.cohortNameCol]}>{c.cohort}</Text>
-                            <Text style={styles.cohortCell}>{c.size}</Text>
-                            <Text style={styles.cohortCell}>{c.d1}</Text>
-                            <Text style={styles.cohortCell}>{c.d7}</Text>
-                            <Text style={styles.cohortCell}>{c.d30}</Text>
-                          </View>
-                        ))}
-                      </View>
-                    </ScrollView>
-                  )}
-                </Card>
-              </View>
-            </>
-          ) : null}
+                    ))}
+                  </View>
+                </ScrollView>
+              )}
+            </Card>
+          </View>
         </View>
 
         {/* ─── Live activity — desktop position (bottom, full width) ── */}
@@ -547,6 +546,7 @@ const styles = StyleSheet.create({
 
   cols: { flexDirection: 'column', gap: Spacing.lg },
   colsWide: { flexDirection: 'row', flexWrap: 'wrap' },
+  colsNarrow: { flexDirection: 'column', gap: Spacing.sm },
   col: { flexBasis: '100%', minWidth: 0 },
   colHalf: {
     // @ts-ignore — calc() is web-only; native uses percentage flexBasis

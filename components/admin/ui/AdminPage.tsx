@@ -215,5 +215,5 @@ const styles = StyleSheet.create({
   toolbarSlotNarrow: { paddingHorizontal: Spacing.md, paddingBottom: Spacing.sm },
   body: { padding: Spacing.lg, gap: Spacing.lg, paddingBottom: 80 },
   bodyWide: { paddingHorizontal: Spacing.xxxl },
-  bodyNarrow: { padding: Spacing.md, gap: Spacing.md, paddingBottom: 80 },
+  bodyNarrow: { padding: Spacing.md, gap: Spacing.sm, paddingBottom: 40 },
 });
