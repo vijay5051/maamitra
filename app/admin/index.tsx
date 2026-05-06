@@ -19,6 +19,7 @@ import {
   Alert,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -56,6 +57,11 @@ export default function AdminDashboard() {
   const role = useAdminRole();
   const { width } = useWindowDimensions();
   const wide = Platform.OS === 'web' && width >= 1100;
+  // twoCol — show card pairs side-by-side on tablets / large-phone landscape
+  // (680px = iPad mini portrait, wide phones in landscape). Both web and native.
+  const twoCol = width >= 680;
+  // narrow — phone in portrait: hide the verbose header description to save space
+  const narrow = width < 500;
 
   const [snap, setSnap] = useState<AnalyticsSnapshot | null>(null);
   const [pendingPosts, setPendingPosts] = useState<any[]>([]);
@@ -150,9 +156,9 @@ export default function AdminDashboard() {
       <Stack.Screen options={{ title: 'Dashboard' }} />
       <AdminPage
         title={`Good ${greetingByHour()}, ${user?.email?.split('@')[0] ?? 'admin'}`}
-        description={role
-          ? `Signed in as ${ADMIN_ROLE_LABELS[role]}. Live signal across the whole app — flags, traffic, vigilance, activity.`
-          : 'Live signal across the whole app — flags, traffic, vigilance, activity.'}
+        description={narrow ? undefined : role
+          ? `${ADMIN_ROLE_LABELS[role]} · Live signal — flags, traffic, vigilance, activity.`
+          : 'Live signal — flags, traffic, vigilance, activity.'}
         hideBack
         headerActions={
           <>
@@ -209,8 +215,8 @@ export default function AdminDashboard() {
         </View>
 
         {/* ─── Two-column body on wide ─────────────────────────── */}
-        <View style={[styles.cols, wide && styles.colsWide]}>
-          <View style={[styles.col, wide && styles.colHalf]}>
+        <View style={[styles.cols, twoCol && styles.colsWide]}>
+          <View style={[styles.col, twoCol && styles.colHalf]}>
             <Card label="Signups · last 7 days">
               <Sparkline points={snap?.signupTrend ?? []} />
               <View style={styles.sparkFooter}>
@@ -221,7 +227,7 @@ export default function AdminDashboard() {
             </Card>
           </View>
 
-          <View style={[styles.col, wide && styles.colHalf]}>
+          <View style={[styles.col, twoCol && styles.colHalf]}>
             <Card label="Where users live">
               {snap?.topStates.length ? snap.topStates.map((row) => (
                 <View key={row.state} style={styles.stateRow}>
@@ -235,7 +241,7 @@ export default function AdminDashboard() {
             </Card>
           </View>
 
-          <View style={[styles.col, wide && styles.colHalf]}>
+          <View style={[styles.col, twoCol && styles.colHalf]}>
             <Card label="Feature adoption" hint="% of users who've used each feature at least once.">
               {snap?.featureAdoption.length ? snap.featureAdoption.map((item) => (
                 <AdoptionRow key={item.label} item={item} />
@@ -245,7 +251,7 @@ export default function AdminDashboard() {
             </Card>
           </View>
 
-          <View style={[styles.col, wide && styles.colHalf]}>
+          <View style={[styles.col, twoCol && styles.colHalf]}>
             <Card label="Pending posts">
               <View style={styles.vigilanceRow}>
                 <StatusBadge label={`${snap?.vigilance.pendingPosts ?? 0} pending`} color={Colors.warning} />
@@ -286,7 +292,7 @@ export default function AdminDashboard() {
             </Card>
           </View>
 
-          <View style={[styles.col, wide && styles.colHalf]}>
+          <View style={[styles.col, twoCol && styles.colHalf]}>
             <Card label="Recent signups">
               {snap?.recentSignups.length ? snap.recentSignups.slice(0, 6).map((u) => (
                 <Pressable key={u.uid} style={styles.signupRow} onPress={() => router.push(`/admin/users/${u.uid}` as any)}>
@@ -312,7 +318,7 @@ export default function AdminDashboard() {
             </Card>
           </View>
 
-          <View style={[styles.col, wide && styles.colHalf]}>
+          <View style={[styles.col, twoCol && styles.colHalf]}>
             <Card label="Activation funnel">
               {funnel.length === 0 ? (
                 <Text style={styles.muted}>Nothing to show yet.</Text>
@@ -333,29 +339,31 @@ export default function AdminDashboard() {
             </Card>
           </View>
 
-          <View style={[styles.col, wide && styles.colHalf]}>
+          <View style={[styles.col, twoCol && styles.colHalf]}>
             <Card label="Weekly cohort retention">
               {retention.length === 0 ? (
                 <Text style={styles.muted}>No cohort data yet.</Text>
               ) : (
-                <>
-                  <View style={[styles.cohortRow, { borderBottomWidth: 1, borderBottomColor: Colors.borderSoft }]}>
-                    <Text style={[styles.cohortName, { flex: 1 }]}>Cohort</Text>
-                    <Text style={styles.cohortCell}>Size</Text>
-                    <Text style={styles.cohortCell}>D1</Text>
-                    <Text style={styles.cohortCell}>D7</Text>
-                    <Text style={styles.cohortCell}>D30</Text>
-                  </View>
-                  {retention.map((c) => (
-                    <View key={c.cohort} style={styles.cohortRow}>
-                      <Text style={[styles.cohortName, { flex: 1 }]}>{c.cohort}</Text>
-                      <Text style={styles.cohortCell}>{c.size}</Text>
-                      <Text style={styles.cohortCell}>{c.d1}</Text>
-                      <Text style={styles.cohortCell}>{c.d7}</Text>
-                      <Text style={styles.cohortCell}>{c.d30}</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={styles.cohortTable}>
+                    <View style={[styles.cohortRow, { borderBottomWidth: 1, borderBottomColor: Colors.borderSoft }]}>
+                      <Text style={[styles.cohortName, styles.cohortNameCol]}>Cohort</Text>
+                      <Text style={styles.cohortCell}>Size</Text>
+                      <Text style={styles.cohortCell}>D1</Text>
+                      <Text style={styles.cohortCell}>D7</Text>
+                      <Text style={styles.cohortCell}>D30</Text>
                     </View>
-                  ))}
-                </>
+                    {retention.map((c) => (
+                      <View key={c.cohort} style={styles.cohortRow}>
+                        <Text style={[styles.cohortName, styles.cohortNameCol]}>{c.cohort}</Text>
+                        <Text style={styles.cohortCell}>{c.size}</Text>
+                        <Text style={styles.cohortCell}>{c.d1}</Text>
+                        <Text style={styles.cohortCell}>{c.d7}</Text>
+                        <Text style={styles.cohortCell}>{c.d30}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </ScrollView>
               )}
             </Card>
           </View>
@@ -485,9 +493,9 @@ const styles = StyleSheet.create({
   colsWide: { flexDirection: 'row', flexWrap: 'wrap' },
   col: { flexBasis: '100%', minWidth: 0 },
   colHalf: {
-    // @ts-ignore — calc() is web-only
-    flexBasis: Platform.OS === 'web' ? ('calc(50% - 8px)' as any) : '100%',
-    flexGrow: 1, minWidth: 320,
+    // @ts-ignore — calc() is web-only; native uses percentage flexBasis
+    flexBasis: Platform.OS === 'web' ? ('calc(50% - 8px)' as any) : '48%',
+    flexGrow: 1, minWidth: 280,
   },
 
   card: {
@@ -551,7 +559,9 @@ const styles = StyleSheet.create({
   activityRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.borderSoft },
   activityIcon: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
 
+  cohortTable: { minWidth: 300 },
   cohortRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8 },
   cohortName: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textDark },
-  cohortCell: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textLight, width: 40, textAlign: 'right' },
+  cohortNameCol: { width: 110 },
+  cohortCell: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textLight, width: 44, textAlign: 'right' },
 });
