@@ -1081,19 +1081,37 @@ function buildGenerateAheadDrafts(allowList) {
             for (const rawSlot of slots) {
                 if (rawSlot?.enabled === false)
                     continue;
+                // Frequency gate — weekly/monthly/alternate-day slots must NOT run
+                // every day of the 7-day window. Mirrors the daily cron at line
+                // 1104. Without this, a "Sunday weekly" slot would generate 7
+                // drafts (one per day) on Queue-7-Days.
+                if (!shouldRunSlotToday(rawSlot, isoDate, weekdayKey)) {
+                    results.push({ date: `${isoDate}:${rawSlot?.id ?? 'default'}`, ok: true, skipped: 'frequency-skip' });
+                    continue;
+                }
                 const slotId = typeof rawSlot?.id === 'string' ? rawSlot.id : 'default';
                 const generatedForKey = `${isoDate}:${slotId}`;
                 if (await draftExistsForKey(generatedForKey)) {
                     results.push({ date: generatedForKey, ok: true, skipped: 'already-exists' });
                     continue;
                 }
+                // Day-level (theme) overrides win over slot-level — same precedence
+                // as the daily cron. This is what makes Queue-7-Days actually put
+                // drafts on the calendar: `theme.autoSchedule = true` + `theme.postTime`
+                // → scheduledAt gets written, otherwise drafts stay status='approved'
+                // with scheduledAt=null and never appear on the day grid.
+                const theme = brandData?.themeCalendar?.[weekdayKey];
+                const effectiveAutoSchedule = theme?.autoSchedule === true ? true : rawSlot?.autoSchedule === true;
+                const effectiveSlotTime = (typeof theme?.postTime === 'string' && /^[0-2]\d:[0-5]\d$/.test(theme.postTime))
+                    ? theme.postTime
+                    : (typeof rawSlot?.time === 'string' ? rawSlot.time : (brandData?.defaultPostTime ?? '09:00'));
                 const genInput = {
                     forDateIso: isoDate,
                     slotId,
                     slotLabel: typeof rawSlot?.label === 'string' ? rawSlot.label : 'Daily slot',
-                    slotTime: typeof rawSlot?.time === 'string' ? rawSlot.time : (brandData?.defaultPostTime ?? '09:00'),
+                    slotTime: effectiveSlotTime,
                     slotPlatforms: rawSlot?.platforms,
-                    autoSchedule: rawSlot?.autoSchedule === true,
+                    autoSchedule: effectiveAutoSchedule,
                 };
                 const slotOverride = resolveSlotOverride(overrides, isoDate, slotId);
                 if (slotOverride.skip === true) {

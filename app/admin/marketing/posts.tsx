@@ -11,7 +11,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -22,10 +22,11 @@ import {
   View,
 } from 'react-native';
 
-import { Colors, FontSize, Radius, Shadow, Spacing } from '../../../constants/theme';
+import { Colors, FontSize, Radius, Spacing } from '../../../constants/theme';
 import { listDrafts } from '../../../services/marketingDrafts';
 import { subscribeUgcQueue } from '../../../services/marketingUgc';
 import { MarketingDraft, UgcSubmission } from '../../../lib/marketingTypes';
+import { PublishingCalendar } from '../../../components/marketing/PublishingCalendar';
 
 type PostsTab = 'calendar' | 'inbox' | 'ugc' | 'posted';
 
@@ -93,132 +94,13 @@ export default function PostsHubScreen() {
 }
 
 // ── Calendar pane ───────────────────────────────────────────────────────────
+// Uses the shared <PublishingCalendar /> — same month-grid component as the
+// standalone /admin/marketing/calendar route. The previous lightweight
+// week-grid lived here in v1 and was removed once the rich calendar moved
+// into Posts.
 
 function CalendarPane() {
-  const router = useRouter();
-  const [weekOffset, setWeekOffset] = useState(0);
-  const [drafts, setDrafts] = useState<MarketingDraft[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const rows = await listDrafts({ limitN: 200 });
-      setDrafts(rows);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { void load(); }, [load]);
-
-  const week = useMemo(() => weekFromOffset(weekOffset), [weekOffset]);
-  const byDay: Record<string, MarketingDraft[]> = useMemo(() => {
-    const out: Record<string, MarketingDraft[]> = { unscheduled: [] };
-    week.days.forEach((d) => { out[d.iso] = []; });
-    for (const d of drafts) {
-      if (d.status === 'pending_review' || d.status === 'rejected') continue;
-      const ts = d.scheduledAt ?? d.postedAt;
-      if (!ts) {
-        if (d.status === 'approved') out.unscheduled.push(d);
-        continue;
-      }
-      const key = istDayKey(ts);
-      if (out[key]) out[key].push(d);
-    }
-    return out;
-  }, [drafts, week]);
-
-  const todayKey = istToday();
-
-  return (
-    <View style={{ gap: Spacing.md }}>
-      <View style={styles.weekBar}>
-        <Pressable style={styles.weekArrow} onPress={() => setWeekOffset((n) => n - 1)} accessibilityLabel="Previous week">
-          <Ionicons name="chevron-back" size={18} color={Colors.textDark} />
-        </Pressable>
-        <View style={{ flex: 1, alignItems: 'center' }}>
-          <Text style={styles.weekTitle}>
-            {weekOffset === 0 ? 'This week' : weekOffset === -1 ? 'Last week' : weekOffset === 1 ? 'Next week' : formatRange(week)}
-          </Text>
-          <Text style={styles.weekRange}>{formatRange(week)}</Text>
-        </View>
-        <Pressable style={styles.weekArrow} onPress={() => setWeekOffset((n) => n + 1)} accessibilityLabel="Next week">
-          <Ionicons name="chevron-forward" size={18} color={Colors.textDark} />
-        </Pressable>
-        {weekOffset !== 0 ? (
-          <Pressable
-            style={[styles.weekArrow, { backgroundColor: Colors.primarySoft }]}
-            onPress={() => setWeekOffset(0)}
-          >
-            <Text style={{ fontSize: FontSize.xs, fontWeight: '700', color: Colors.primary }}>Today</Text>
-          </Pressable>
-        ) : null}
-      </View>
-
-      {loading && drafts.length === 0 ? (
-        <ActivityIndicator size="small" color={Colors.primary} />
-      ) : null}
-
-      {byDay.unscheduled.length > 0 ? (
-        <View style={styles.unscheduledBlock}>
-          <Text style={styles.unscheduledTitle}>
-            <Ionicons name="alert-circle-outline" size={14} color={Colors.warning} /> {byDay.unscheduled.length} approved but not scheduled
-          </Text>
-          <Text style={styles.unscheduledBody}>
-            Open one and tap "Schedule…" to put it on the calendar.
-          </Text>
-        </View>
-      ) : null}
-
-      {/* Calendar grid — horizontal scroll on mobile so all 7 days are always reachable */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }}>
-      <View style={styles.dayGrid}>
-        {week.days.map((d, i) => {
-          const items = byDay[d.iso] ?? [];
-          const isToday = d.iso === todayKey;
-          return (
-            <View key={d.iso} style={[styles.dayCell, isToday && styles.dayCellToday]}>
-              <View style={styles.dayHead}>
-                <Text style={[styles.dayName, isToday && { color: Colors.primary }]}>
-                  {WEEKDAY_SHORT[i]}
-                </Text>
-                <Text style={[styles.dayNumber, isToday && { color: Colors.primary }]}>{d.dayOfMonth}</Text>
-              </View>
-              {items.length === 0 ? (
-                <Pressable
-                  style={styles.dayEmpty}
-                  onPress={() => router.push('/admin/marketing/create' as any)}
-                  accessibilityLabel={`Create a post for ${d.iso}`}
-                >
-                  <Ionicons name="add" size={14} color={Colors.textMuted} />
-                </Pressable>
-              ) : (
-                items.slice(0, 3).map((item) => (
-                  <Pressable
-                    key={item.id}
-                    style={[styles.dayItem, statusTint(item.status)]}
-                    onPress={() => router.push(`/admin/marketing/drafts?open=${item.id}` as any)}
-                  >
-                    <Text style={styles.dayItemTime} numberOfLines={1}>
-                      {item.scheduledAt ? istHHmm(item.scheduledAt) : item.status === 'posted' ? 'posted' : 'unsched'}
-                    </Text>
-                    <Text style={styles.dayItemTitle} numberOfLines={2}>
-                      {item.headline ?? item.caption.slice(0, 50)}
-                    </Text>
-                  </Pressable>
-                ))
-              )}
-              {items.length > 3 ? (
-                <Text style={styles.moreItems}>+{items.length - 3} more</Text>
-              ) : null}
-            </View>
-          );
-        })}
-      </View>
-      </ScrollView>
-    </View>
-  );
+  return <PublishingCalendar />;
 }
 
 // ── Inbox pane (drafts pending review) ──────────────────────────────────────
@@ -444,50 +326,6 @@ function statusInfo(status: MarketingDraft['status']) {
   }
 }
 
-function statusTint(status: MarketingDraft['status']) {
-  const info = statusInfo(status);
-  return { backgroundColor: info.bg, borderLeftColor: info.color };
-}
-
-const WEEKDAY_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-interface WeekDay { iso: string; dayOfMonth: number }
-function weekFromOffset(offset: number): { days: WeekDay[] } {
-  const today = istNowStartOfDay();
-  const day = today.getUTCDay();
-  const mondayDelta = (day + 6) % 7;
-  const monday = new Date(today);
-  monday.setUTCDate(today.getUTCDate() - mondayDelta + offset * 7);
-  const days: WeekDay[] = [];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(monday);
-    d.setUTCDate(monday.getUTCDate() + i);
-    days.push({ iso: d.toISOString().slice(0, 10), dayOfMonth: d.getUTCDate() });
-  }
-  return { days };
-}
-function istNowStartOfDay(): Date {
-  const ist = new Date(Date.now() + 5.5 * 3600 * 1000);
-  ist.setUTCHours(0, 0, 0, 0);
-  return ist;
-}
-function istToday(): string {
-  return new Date(Date.now() + 5.5 * 3600 * 1000).toISOString().slice(0, 10);
-}
-function istDayKey(iso: string): string {
-  const t = new Date(iso).getTime() + 5.5 * 3600 * 1000;
-  return new Date(t).toISOString().slice(0, 10);
-}
-function istHHmm(iso: string): string {
-  const t = new Date(iso).getTime() + 5.5 * 3600 * 1000;
-  const d = new Date(t);
-  return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
-}
-function formatRange(week: { days: WeekDay[] }) {
-  const a = week.days[0].iso;
-  const b = week.days[6].iso;
-  return `${a.slice(5)} → ${b.slice(5)}`;
-}
 function formatScheduledShort(iso: string): string {
   try {
     const d = new Date(iso);
@@ -516,58 +354,6 @@ const styles = StyleSheet.create({
   subTabLabelActive: { color: Colors.primary, fontWeight: '700' },
 
   body: { padding: Spacing.md, gap: Spacing.md, paddingBottom: 80 },
-
-  // Calendar
-  weekBar: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: Colors.cardBg,
-    borderRadius: Radius.md,
-    padding: 6,
-    borderWidth: 1, borderColor: Colors.borderSoft,
-  },
-  weekArrow: {
-    width: 36, height: 36, borderRadius: 8,
-    backgroundColor: Colors.bgTint,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  weekTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textDark },
-  weekRange: { fontSize: FontSize.xs, color: Colors.textMuted, fontWeight: '600' },
-
-  unscheduledBlock: {
-    padding: Spacing.sm,
-    backgroundColor: 'rgba(245, 158, 11, 0.08)',
-    borderRadius: Radius.sm,
-    borderWidth: 1, borderColor: Colors.warning,
-    gap: 2,
-  },
-  unscheduledTitle: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.warning },
-  unscheduledBody: { fontSize: FontSize.xs, color: Colors.textDark },
-
-  // dayGrid: no-wrap row inside a horizontal ScrollView — cells never collapse on mobile.
-  dayGrid: { flexDirection: 'row', gap: 6 },
-  dayCell: {
-    width: 100,
-    backgroundColor: Colors.cardBg,
-    borderRadius: Radius.sm,
-    padding: 6,
-    minHeight: 130,
-    borderWidth: 1, borderColor: Colors.borderSoft,
-  },
-  dayCellToday: { borderColor: Colors.primary, borderWidth: 1.5 },
-  dayHead: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline',
-    marginBottom: 6,
-  },
-  dayName: { fontSize: 10, fontWeight: '700', color: Colors.textMuted, textTransform: 'uppercase' },
-  dayNumber: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.textDark },
-  dayItem: {
-    padding: 6, borderRadius: 6, marginBottom: 4,
-    borderLeftWidth: 3,
-  },
-  dayItemTime: { fontSize: 9, fontWeight: '700', color: Colors.textMuted, marginBottom: 2 },
-  dayItemTitle: { fontSize: 11, fontWeight: '600', color: Colors.textDark, lineHeight: 14 },
-  dayEmpty: { alignItems: 'center', justifyContent: 'center', paddingVertical: 12, opacity: 0.3 },
-  moreItems: { fontSize: 10, color: Colors.textMuted, fontWeight: '600', textAlign: 'center' },
 
   // Row
   row: {
