@@ -86,16 +86,15 @@ interface AiModelOption {
 }
 
 const AI_MODELS: AiModelOption[] = [
-  { value: 'dalle',  label: 'gpt-image-1 (OpenAI)', hint: 'Default. Strongest prompt adherence for our chikankari + composition specifics. ~₹3.50/render (medium quality).' },
-  { value: 'imagen', label: 'Imagen (Google)', hint: 'Strong on Indian skin tones, traditional clothing. ~₹3.30/render.' },
+  { value: 'imagen', label: 'Imagen (Google)', hint: 'Best for Indian skin tones, traditional clothing, Indian environments. ~₹3.30/render.' },
+  { value: 'dalle',  label: 'gpt-image-1 (OpenAI)', hint: 'Strong prompt adherence for compositional details. ~₹3.50/render (medium quality).' },
   { value: 'flux',   label: 'FLUX Schnell',  hint: 'Cheapest + fastest, generic look. ~₹0.25/render.' },
 ];
 
 export default function MarketingPreviewScreen() {
   const [template, setTemplate] = useState<RenderableTemplateName>('tipCard');
-  // Tip Card has no background; non-tip templates default to gpt-image-1 for
-  // strongest prompt adherence on our brand specifics (chikankari, palette,
-  // composition). Admins can swap to stock for free, or to Imagen / FLUX.
+  // Tip Card has no background; non-tip templates default to OpenAI's
+  // ChatGPT image model for stronger brand-theme adherence.
   const [sourceKind, setSourceKind] = useState<SourceKind>('none');
   const [aiModel, setAiModel] = useState<AiImageModel>('dalle');
   const [stockQuery, setStockQuery] = useState<string>(TEMPLATE_PRESETS.tipCard.defaultStockQuery ?? '');

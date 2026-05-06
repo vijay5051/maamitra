@@ -20,6 +20,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -50,10 +51,11 @@ interface Variant {
 
 type Quality = 'best' | 'quick';
 type Step = 1 | 2 | 3;
+type StudioAspectRatio = '1:1' | '9:16' | '16:9';
 
 const QUALITY_INFO: Record<Quality, { label: string; sub: string; provider: 'dalle' | 'imagen' | 'flux'; perVariantInr: number }> = {
-  best:  { label: 'Best',  sub: 'Strongest brand-style match. ~₹3.50 / image.', provider: 'dalle', perVariantInr: 3.50 },
-  quick: { label: 'Quick', sub: 'Fast iteration. ~₹0.25 / image.', provider: 'flux',  perVariantInr: 0.25 },
+  best:  { label: 'Best',  sub: 'ChatGPT with MaaMitra illustration references.', provider: 'dalle', perVariantInr: 15.00 },
+  quick: { label: 'Quick', sub: 'Fast, ~₹0.25 per image. Use for iteration.', provider: 'flux',   perVariantInr: 0.25 },
 };
 
 export default function StudioCanvasScreen() {
@@ -68,8 +70,10 @@ export default function StudioCanvasScreen() {
   // Carousel mode (Phase 4 item 1) — when true, generate N slides instead
   // of picker variants; no picking step, all slides go into the draft.
   const [carouselMode, setCarouselMode] = useState(false);
+  const [singleVariantCount, setSingleVariantCount] = useState<1 | 2 | 3 | 4>(1);
   const [slideCount, setSlideCount] = useState<3 | 5>(3);
-  const variantCount: 1 | 2 | 3 | 4 | 5 = carouselMode ? slideCount : 4;
+  const [aspectRatio, setAspectRatio] = useState<StudioAspectRatio>('1:1');
+  const variantCount: 1 | 2 | 3 | 4 | 5 = carouselMode ? slideCount : singleVariantCount;
 
   const [variants, setVariants] = useState<Variant[]>([]);
   const [generating, setGenerating] = useState(false);
@@ -91,6 +95,9 @@ export default function StudioCanvasScreen() {
   // mask alongside the prompt so OpenAI only repaints the brushed region.
   const [maskDataUrl, setMaskDataUrl] = useState<string | null>(null);
   const [brushOpen, setBrushOpen] = useState(false);
+  const [cropOpen, setCropOpen] = useState(false);
+  const [cropApplying, setCropApplying] = useState(false);
+  const [cropAspectRatio, setCropAspectRatio] = useState<StudioAspectRatio>(aspectRatio);
 
   // Reuse-winners (Phase 4 item 2) — fetched once on mount when the
   // Studio canvas opens; null = no winner yet (need a posted draft with
@@ -149,7 +156,7 @@ export default function StudioCanvasScreen() {
         prompt: prompt.trim(),
         variantCount,
         model: QUALITY_INFO[quality].provider,
-        aspectRatio: '1:1',
+        aspectRatio,
         mode: carouselMode ? 'carousel' : 'single',
       });
       if (!r.ok) {
@@ -173,6 +180,29 @@ export default function StudioCanvasScreen() {
       setStep(1);
     } finally {
       setGenerating(false);
+    }
+  }
+
+  async function handleApplyCrop(dataUrl: string) {
+    if (!picked) return;
+    setError(null);
+    setCropApplying(true);
+    try {
+      const r = await uploadStudioImage({ dataUrl });
+      if (!r.ok) {
+        setError(friendlyError('Crop', r));
+        return;
+      }
+      const newVariant: Variant = { variantId: r.variantId, url: r.url, storagePath: r.storagePath };
+      setVariants((prev) => prev.map((v) => (v.variantId === picked.variantId ? newVariant : v)));
+      setPickedId(newVariant.variantId);
+      setCropOpen(false);
+      setOkBanner('Crop applied.');
+      setTimeout(() => setOkBanner(null), 2500);
+    } catch (e) {
+      setError(friendlyError('Crop', e));
+    } finally {
+      setCropApplying(false);
     }
   }
 
@@ -276,6 +306,39 @@ export default function StudioCanvasScreen() {
     }
   }
 
+  async function handleDownloadOutputs(items?: Variant[]) {
+    const selected = items?.length ? items : carouselMode ? variants : picked ? [picked] : [];
+    if (!selected.length) return;
+
+    try {
+      for (let i = 0; i < selected.length; i += 1) {
+        const item = selected[i];
+        const suffix = selected.length > 1 ? `-slide-${i + 1}` : '';
+        const filename = `maamitra-${item.variantId}${suffix}.png`;
+
+        if (Platform.OS === 'web' && typeof document !== 'undefined') {
+          const res = await fetch(item.url);
+          const blob = await res.blob();
+          const objectUrl = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = objectUrl;
+          a.download = filename;
+          a.rel = 'noopener';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(objectUrl);
+        } else {
+          await Linking.openURL(item.url);
+        }
+      }
+      setOkBanner(selected.length > 1 ? 'Slides downloaded.' : 'Image downloaded.');
+      setTimeout(() => setOkBanner(null), 2500);
+    } catch (e) {
+      setError('Download failed. Open the preview image in a new tab and save it from there.');
+    }
+  }
+
   async function handleAdvanceToCaption() {
     if (!picked) return;
     setStep(3);
@@ -374,8 +437,12 @@ export default function StudioCanvasScreen() {
             onUploadFile={handleUpload}
             carouselMode={carouselMode}
             setCarouselMode={setCarouselMode}
+            singleVariantCount={singleVariantCount}
+            setSingleVariantCount={setSingleVariantCount}
             slideCount={slideCount}
             setSlideCount={setSlideCount}
+            aspectRatio={aspectRatio}
+            setAspectRatio={setAspectRatio}
           />
         ) : step === 2 ? (
           <Step2Pick
@@ -401,6 +468,18 @@ export default function StudioCanvasScreen() {
             setMaskDataUrl={setMaskDataUrl}
             brushOpen={brushOpen}
             setBrushOpen={setBrushOpen}
+            onDownload={() => handleDownloadOutputs()}
+            aspectRatio={aspectRatio}
+            cropOpen={cropOpen}
+            cropApplying={cropApplying}
+            onOpenCrop={() => {
+              setCropAspectRatio(aspectRatio);
+              setCropOpen(true);
+            }}
+            onApplyCrop={handleApplyCrop}
+            onCancelCrop={() => setCropOpen(false)}
+            cropAspectRatio={cropAspectRatio}
+            setCropAspectRatio={setCropAspectRatio}
           />
         ) : (
           <Step3Save
@@ -420,6 +499,8 @@ export default function StudioCanvasScreen() {
             onApplyLogo={handleApplyLogo}
             carouselMode={carouselMode}
             slides={variants}
+            onDownload={() => handleDownloadOutputs(carouselMode ? variants : picked ? [picked] : [])}
+            aspectRatio={aspectRatio}
           />
         )}
       </ScrollView>
@@ -432,7 +513,8 @@ export default function StudioCanvasScreen() {
 function Step1Prompt({
   prompt, setPrompt, quality, setQuality, estCost, onGenerate, generating,
   winner, winnerLoaded, onReuseWinner, onUploadFile,
-  carouselMode, setCarouselMode, slideCount, setSlideCount,
+  carouselMode, setCarouselMode, singleVariantCount, setSingleVariantCount, slideCount, setSlideCount,
+  aspectRatio, setAspectRatio,
 }: {
   prompt: string; setPrompt: (v: string) => void;
   quality: Quality; setQuality: (q: Quality) => void;
@@ -445,8 +527,12 @@ function Step1Prompt({
   onUploadFile: (file: File) => void;
   carouselMode: boolean;
   setCarouselMode: (v: boolean) => void;
+  singleVariantCount: 1 | 2 | 3 | 4;
+  setSingleVariantCount: (n: 1 | 2 | 3 | 4) => void;
   slideCount: 3 | 5;
   setSlideCount: (n: 3 | 5) => void;
+  aspectRatio: StudioAspectRatio;
+  setAspectRatio: (v: StudioAspectRatio) => void;
 }) {
   const valid = prompt.trim().length >= 3;
   // Only surface the chip when there's a real winner with a usable prompt
@@ -487,7 +573,7 @@ function Step1Prompt({
             <Text style={[styles.qualityLabel, !carouselMode && { color: Colors.primary }]}>Single image</Text>
             {!carouselMode ? <Ionicons name="checkmark-circle" size={16} color={Colors.primary} /> : null}
           </View>
-          <Text style={styles.qualitySub}>4 variants — pick the best one.</Text>
+          <Text style={styles.qualitySub}>Choose 1–4 variants before generating.</Text>
         </Pressable>
         <Pressable
           onPress={() => setCarouselMode(true)}
@@ -501,7 +587,23 @@ function Step1Prompt({
         </Pressable>
       </View>
 
-      {carouselMode ? (
+      {!carouselMode ? (
+        <View style={[styles.qualityRow, { marginTop: Spacing.sm }]}>
+          {([1, 2, 3, 4] as const).map((n) => (
+            <Pressable
+              key={n}
+              onPress={() => setSingleVariantCount(n)}
+              style={[styles.countCard, singleVariantCount === n && styles.qualityCardSelected]}
+            >
+              <View style={styles.qualityHead}>
+                <Text style={[styles.qualityLabel, singleVariantCount === n && { color: Colors.primary }]}>{n}</Text>
+                {singleVariantCount === n ? <Ionicons name="checkmark-circle" size={16} color={Colors.primary} /> : null}
+              </View>
+              <Text style={styles.qualitySub}>{n === 1 ? 'Lowest cost' : `${n} options`}</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : (
         <View style={[styles.qualityRow, { marginTop: Spacing.sm }]}>
           {([3, 5] as const).map((n) => (
             <Pressable
@@ -516,7 +618,28 @@ function Step1Prompt({
             </Pressable>
           ))}
         </View>
-      ) : null}
+      )}
+
+      <Text style={[styles.cardTitle, { marginTop: Spacing.lg }]}>Aspect ratio</Text>
+      <View style={[styles.qualityRow, { marginTop: Spacing.sm }]}>
+        {([
+          { value: '1:1', label: '1:1', sub: 'Square' },
+          { value: '9:16', label: '9:16', sub: 'Story/Reel' },
+          { value: '16:9', label: '16:9', sub: 'Wide' },
+        ] as const).map((r) => (
+          <Pressable
+            key={r.value}
+            onPress={() => setAspectRatio(r.value)}
+            style={[styles.qualityCard, aspectRatio === r.value && styles.qualityCardSelected]}
+          >
+            <View style={styles.qualityHead}>
+              <Text style={[styles.qualityLabel, aspectRatio === r.value && { color: Colors.primary }]}>{r.label}</Text>
+              {aspectRatio === r.value ? <Ionicons name="checkmark-circle" size={16} color={Colors.primary} /> : null}
+            </View>
+            <Text style={styles.qualitySub}>{r.sub}</Text>
+          </Pressable>
+        ))}
+      </View>
 
       <Text style={[styles.cardTitle, { marginTop: Spacing.lg }]}>Quality</Text>
       <View style={styles.qualityRow}>
@@ -541,7 +664,7 @@ function Step1Prompt({
 
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.md, marginTop: Spacing.lg }}>
         <Text style={styles.estCost}>
-          ≈ ₹{estCost.toFixed(2)} for {carouselMode ? `${slideCount} slides` : '4 variants'}
+          ≈ ₹{estCost.toFixed(2)} for {carouselMode ? `${slideCount} slides` : `${singleVariantCount} ${singleVariantCount === 1 ? 'variant' : 'variants'}`}
         </Text>
         <View style={{ flex: 1 }} />
         <Pressable
@@ -558,7 +681,7 @@ function Step1Prompt({
             <>
               <Ionicons name="sparkles" size={16} color={Colors.white} />
               <Text style={styles.primaryBtnLabel}>
-                {carouselMode ? `Generate ${slideCount} slides` : 'Generate 4 variants'}
+                {carouselMode ? `Generate ${slideCount} slides` : `Generate ${singleVariantCount} ${singleVariantCount === 1 ? 'variant' : 'variants'}`}
               </Text>
             </>
           )}
@@ -622,6 +745,9 @@ function Step2Pick({
   picked, editing, editPrompt, setEditPrompt, editApplying, onEnterEdit, onApplyEdit, onCancelEdit,
   carouselMode,
   maskDataUrl, setMaskDataUrl, brushOpen, setBrushOpen,
+  onDownload,
+  aspectRatio, cropOpen, cropApplying, onOpenCrop, onApplyCrop, onCancelCrop,
+  cropAspectRatio, setCropAspectRatio,
 }: {
   prompt: string;
   variants: Variant[];
@@ -648,10 +774,18 @@ function Step2Pick({
   setMaskDataUrl: (v: string | null) => void;
   brushOpen: boolean;
   setBrushOpen: (v: boolean) => void;
+  onDownload: () => void;
+  aspectRatio: StudioAspectRatio;
+  cropOpen: boolean;
+  cropApplying: boolean;
+  onOpenCrop: () => void;
+  onApplyCrop: (dataUrl: string) => void;
+  onCancelCrop: () => void;
+  cropAspectRatio: StudioAspectRatio;
+  setCropAspectRatio: (v: StudioAspectRatio) => void;
 }) {
-  const { width: screenWidth } = useWindowDimensions();
-  const isNarrow = screenWidth < 900;
   const slots = Array.from({ length: variantCount });
+  const frameRatio = aspectRatioNumber(aspectRatio);
   return (
     <View style={{ gap: Spacing.md }}>
       {/* Prompt summary card */}
@@ -678,7 +812,7 @@ function Step2Pick({
               key={i}
               onPress={ready && !editing ? () => onPick(v) : undefined}
               disabled={!ready || editing}
-              style={[styles.variantCard, selected && styles.variantCardSelected]}
+              style={[styles.variantCard, { aspectRatio: frameRatio }, selected && styles.variantCardSelected]}
             >
               {ready ? (
                 <>
@@ -798,63 +932,56 @@ function Step2Pick({
         </View>
       ) : null}
 
-      {/* Actions — narrow: ghost buttons row + primary full-width below.
-                  wide: single row with spacer. */}
+      {cropOpen && picked && Platform.OS === 'web' ? (
+        <CropEditor
+          imageUrl={picked.url}
+          aspectRatio={cropAspectRatio}
+          setAspectRatio={setCropAspectRatio}
+          disabled={cropApplying}
+          onApply={onApplyCrop}
+          onCancel={onCancelCrop}
+        />
+      ) : null}
+
+      {/* Actions */}
       {!editing ? (
-        isNarrow ? (
-          <View style={{ gap: Spacing.sm, marginTop: 4 }}>
-            <View style={{ flexDirection: 'row', gap: Spacing.sm }}>
-              <Pressable onPress={onRetry} disabled={generating} style={[styles.ghostBtn, { flex: 1 }]}>
-                <Ionicons name="refresh" size={16} color={Colors.textDark} />
-                <Text style={styles.ghostBtnLabel}>Try again</Text>
-              </Pressable>
-              {pickedId && !carouselMode ? (
-                <Pressable onPress={onEnterEdit} style={[styles.ghostBtn, { flex: 1 }]}>
-                  <Ionicons name="brush-outline" size={16} color={Colors.textDark} />
-                  <Text style={styles.ghostBtnLabel}>Edit first</Text>
-                </Pressable>
-              ) : null}
-            </View>
-            <Pressable
-              onPress={
-                carouselMode
-                  ? (variants.length >= 2 ? onContinue : undefined)
-                  : (pickedId ? onContinue : undefined)
-              }
-              disabled={carouselMode ? variants.length < 2 : !pickedId}
-              style={[styles.primaryBtn, { justifyContent: 'center' }, (carouselMode ? variants.length < 2 : !pickedId) && styles.primaryBtnDisabled]}
-            >
-              <Text style={styles.primaryBtnLabel}>{carouselMode ? `Use these ${variants.length} slides` : 'Use this image'}</Text>
-              <Ionicons name="arrow-forward" size={16} color={Colors.white} />
+        <View style={styles.actionsRow}>
+          <Pressable onPress={onRetry} disabled={generating} style={styles.ghostBtn}>
+            <Ionicons name="refresh" size={16} color={Colors.textDark} />
+            <Text style={styles.ghostBtnLabel}>Try again</Text>
+          </Pressable>
+          {pickedId && !carouselMode ? (
+            <Pressable onPress={onEnterEdit} style={styles.ghostBtn}>
+              <Ionicons name="brush-outline" size={16} color={Colors.textDark} />
+              <Text style={styles.ghostBtnLabel}>Edit it first</Text>
             </Pressable>
-          </View>
-        ) : (
-          <View style={styles.actionsRow}>
-            <Pressable onPress={onRetry} disabled={generating} style={styles.ghostBtn}>
-              <Ionicons name="refresh" size={16} color={Colors.textDark} />
-              <Text style={styles.ghostBtnLabel}>Try again</Text>
+          ) : null}
+          {pickedId && !carouselMode && Platform.OS === 'web' ? (
+            <Pressable onPress={onOpenCrop} style={styles.ghostBtn}>
+              <Ionicons name="crop-outline" size={16} color={Colors.textDark} />
+              <Text style={styles.ghostBtnLabel}>Crop</Text>
             </Pressable>
-            {pickedId && !carouselMode ? (
-              <Pressable onPress={onEnterEdit} style={styles.ghostBtn}>
-                <Ionicons name="brush-outline" size={16} color={Colors.textDark} />
-                <Text style={styles.ghostBtnLabel}>Edit it first</Text>
-              </Pressable>
-            ) : null}
-            <View style={{ flex: 1 }} />
-            <Pressable
-              onPress={
-                carouselMode
-                  ? (variants.length >= 2 ? onContinue : undefined)
-                  : (pickedId ? onContinue : undefined)
-              }
-              disabled={carouselMode ? variants.length < 2 : !pickedId}
-              style={[styles.primaryBtn, (carouselMode ? variants.length < 2 : !pickedId) && styles.primaryBtnDisabled]}
-            >
-              <Text style={styles.primaryBtnLabel}>{carouselMode ? `Use these ${variants.length} slides` : 'Use this image'}</Text>
-              <Ionicons name="arrow-forward" size={16} color={Colors.white} />
+          ) : null}
+          {(carouselMode ? variants.length > 0 : !!pickedId) ? (
+            <Pressable onPress={onDownload} style={styles.ghostBtn}>
+              <Ionicons name="download-outline" size={16} color={Colors.textDark} />
+              <Text style={styles.ghostBtnLabel}>{carouselMode ? 'Download slides' : 'Download'}</Text>
             </Pressable>
-          </View>
-        )
+          ) : null}
+          <View style={{ flex: 1 }} />
+          <Pressable
+            onPress={
+              carouselMode
+                ? (variants.length >= 2 ? onContinue : undefined)
+                : (pickedId ? onContinue : undefined)
+            }
+            disabled={carouselMode ? variants.length < 2 : !pickedId}
+            style={[styles.primaryBtn, (carouselMode ? variants.length < 2 : !pickedId) && styles.primaryBtnDisabled]}
+          >
+            <Text style={styles.primaryBtnLabel}>{carouselMode ? `Use these ${variants.length} slides` : 'Use this image'}</Text>
+            <Ionicons name="arrow-forward" size={16} color={Colors.white} />
+          </Pressable>
+        </View>
       ) : null}
     </View>
   );
@@ -866,7 +993,7 @@ function Step3Save({
   prompt, picked, caption, setCaption, captionGenerating, scheduleAt, setScheduleAt,
   saving, onBack, onSaveDraft, onSchedule,
   logoApplying, logoApplied, onApplyLogo,
-  carouselMode, slides,
+  carouselMode, slides, onDownload, aspectRatio,
 }: {
   prompt: string;
   picked: Variant | null;
@@ -882,6 +1009,8 @@ function Step3Save({
   onApplyLogo: (position: LogoPosition) => void;
   carouselMode: boolean;
   slides: Variant[];
+  onDownload: () => void;
+  aspectRatio: StudioAspectRatio;
 }) {
   if (!picked) {
     return (
@@ -901,8 +1030,8 @@ function Step3Save({
             style={{ flexGrow: 0, alignSelf: 'stretch' }}
           >
             {slides.map((s, i) => (
-              <View key={s.variantId} style={styles.carouselSlideWrap}>
-                <Image source={{ uri: s.url }} style={styles.carouselSlide} resizeMode="cover" />
+              <View key={s.variantId} style={[styles.carouselSlideWrap, { aspectRatio: aspectRatioNumber(aspectRatio) }]}>
+                <Image source={{ uri: s.url }} style={[styles.carouselSlide, { aspectRatio: aspectRatioNumber(aspectRatio) }]} resizeMode="cover" />
                 <View style={styles.carouselSlideBadge}>
                   <Text style={styles.carouselSlideBadgeLabel}>{i + 1}/{slides.length}</Text>
                 </View>
@@ -910,8 +1039,8 @@ function Step3Save({
             ))}
           </ScrollView>
         ) : (
-          <View style={styles.savePreviewWrap}>
-            <Image source={{ uri: picked.url }} style={styles.savePreviewImage} resizeMode="cover" />
+          <View style={{ position: 'relative' }}>
+            <Image source={{ uri: picked.url }} style={[styles.savePreviewImage, { aspectRatio: aspectRatioNumber(aspectRatio) }]} resizeMode="cover" />
             {logoApplying ? (
               <View style={[StyleSheet.absoluteFillObject, styles.logoOverlay]}>
                 <ActivityIndicator size="small" color={Colors.white} />
@@ -920,10 +1049,16 @@ function Step3Save({
             ) : null}
           </View>
         )}
-        <Pressable onPress={onBack} style={styles.changePickBtn}>
-          <Ionicons name="swap-horizontal" size={14} color={Colors.primary} />
-          <Text style={styles.changePickLabel}>{carouselMode ? 'Change slides' : 'Change image'}</Text>
-        </Pressable>
+        <View style={styles.previewActionRow}>
+          <Pressable onPress={onBack} style={styles.changePickBtn}>
+            <Ionicons name="swap-horizontal" size={14} color={Colors.primary} />
+            <Text style={styles.changePickLabel}>{carouselMode ? 'Change slides' : 'Change image'}</Text>
+          </Pressable>
+          <Pressable onPress={onDownload} style={styles.changePickBtn}>
+            <Ionicons name="download-outline" size={14} color={Colors.primary} />
+            <Text style={styles.changePickLabel}>{carouselMode ? 'Download slides' : 'Download image'}</Text>
+          </Pressable>
+        </View>
       </View>
 
       {/* Logo overlay only available for single-image drafts. Carousel
@@ -1058,6 +1193,224 @@ function StepLine({ active }: { active: boolean }) {
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
+
+function aspectRatioNumber(r: StudioAspectRatio): number {
+  if (r === '9:16') return 9 / 16;
+  if (r === '16:9') return 16 / 9;
+  return 1;
+}
+
+function aspectOutputSize(r: StudioAspectRatio): { width: number; height: number } {
+  if (r === '9:16') return { width: 1080, height: 1920 };
+  if (r === '16:9') return { width: 1920, height: 1080 };
+  return { width: 1080, height: 1080 };
+}
+
+function CropEditor({
+  imageUrl, aspectRatio, setAspectRatio, disabled, onApply, onCancel,
+}: {
+  imageUrl: string;
+  aspectRatio: StudioAspectRatio;
+  setAspectRatio: (v: StudioAspectRatio) => void;
+  disabled: boolean;
+  onApply: (dataUrl: string) => void;
+  onCancel: () => void;
+}) {
+  const frameRef = useRef<HTMLDivElement | null>(null);
+  const imgRef = useRef<HTMLImageElement | null>(null);
+  const dragRef = useRef<{ x: number; y: number; startX: number; startY: number } | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [src, setSrc] = useState(imageUrl);
+  const [loadingImage, setLoadingImage] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const ratio = aspectRatioNumber(aspectRatio);
+  const frameWidth = 420;
+  const frameHeight = Math.round(frameWidth / ratio);
+
+  useEffect(() => {
+    let alive = true;
+    let objectUrl: string | null = null;
+    setSrc(imageUrl);
+    setErr(null);
+    setLoadingImage(true);
+    fetch(imageUrl)
+      .then((r) => {
+        if (!r.ok) throw new Error(`image-fetch-${r.status}`);
+        return r.blob();
+      })
+      .then((blob) => {
+        if (!alive) return;
+        objectUrl = URL.createObjectURL(blob);
+        setSrc(objectUrl);
+      })
+      .catch(() => {
+        if (alive) setErr('Crop preview could not load this image. Try Download, crop externally, then upload it back.');
+      })
+      .finally(() => {
+        if (alive) setLoadingImage(false);
+      });
+    return () => {
+      alive = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [imageUrl]);
+
+  function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    if (disabled) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragRef.current = { x: e.clientX, y: e.clientY, startX: offset.x, startY: offset.y };
+  }
+  function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (!dragRef.current || disabled) return;
+    setOffset({
+      x: dragRef.current.startX + e.clientX - dragRef.current.x,
+      y: dragRef.current.startY + e.clientY - dragRef.current.y,
+    });
+  }
+  function onPointerUp(e: React.PointerEvent<HTMLDivElement>) {
+    dragRef.current = null;
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch {/* noop */}
+  }
+
+  async function applyCrop() {
+    const img = imgRef.current;
+    const frame = frameRef.current;
+    if (!img || !frame || !img.naturalWidth || !img.naturalHeight) {
+      setErr('Image is still loading. Try again in a moment.');
+      return;
+    }
+    setErr(null);
+    try {
+      const rect = frame.getBoundingClientRect();
+      const output = aspectOutputSize(aspectRatio);
+      const coverScale = Math.max(rect.width / img.naturalWidth, rect.height / img.naturalHeight) * zoom;
+      const drawnW = img.naturalWidth * coverScale;
+      const drawnH = img.naturalHeight * coverScale;
+      const drawnX = rect.width / 2 - drawnW / 2 + offset.x;
+      const drawnY = rect.height / 2 - drawnH / 2 + offset.y;
+      const sx = Math.max(0, -drawnX / coverScale);
+      const sy = Math.max(0, -drawnY / coverScale);
+      const sw = Math.min(img.naturalWidth - sx, rect.width / coverScale);
+      const sh = Math.min(img.naturalHeight - sy, rect.height / coverScale);
+      const canvas = document.createElement('canvas');
+      canvas.width = output.width;
+      canvas.height = output.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('canvas-unavailable');
+      ctx.fillStyle = '#FFF8F2';
+      ctx.fillRect(0, 0, output.width, output.height);
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, output.width, output.height);
+      onApply(canvas.toDataURL('image/png'));
+    } catch {
+      setErr('Crop failed. Download the image and crop externally, then upload it back.');
+    }
+  }
+
+  return (
+    <View style={styles.cropPanel}>
+      <View style={styles.editHead}>
+        <Ionicons name="crop-outline" size={16} color={Colors.primary} />
+        <Text style={styles.editTitle}>Crop to {aspectRatio}</Text>
+      </View>
+      <Text style={styles.editHint}>Drag the image to reframe. Use zoom if the subject needs more breathing room.</Text>
+      <View style={styles.cropAspectRow}>
+        {([
+          { value: '1:1', label: '1:1' },
+          { value: '9:16', label: '9:16' },
+          { value: '16:9', label: '16:9' },
+        ] as const).map((r) => (
+          <Pressable
+            key={r.value}
+            onPress={() => {
+              setAspectRatio(r.value);
+              setZoom(1);
+              setOffset({ x: 0, y: 0 });
+            }}
+            disabled={disabled}
+            style={[styles.cropAspectBtn, aspectRatio === r.value && styles.cropAspectBtnActive, disabled && { opacity: 0.6 }]}
+          >
+            <Text style={[styles.cropAspectLabel, aspectRatio === r.value && { color: Colors.primary }]}>{r.label}</Text>
+          </Pressable>
+        ))}
+      </View>
+      {loadingImage ? (
+        <View style={styles.cropLoading}>
+          <ActivityIndicator size="small" color={Colors.primary} />
+          <Text style={styles.editHint}>Loading preview…</Text>
+        </View>
+      ) : null}
+      <div
+        ref={frameRef}
+        style={{
+          width: '100%',
+          maxWidth: frameWidth,
+          height: Math.min(frameHeight, 560),
+          aspectRatio: ratio,
+          position: 'relative',
+          overflow: 'hidden',
+          borderRadius: Radius.md,
+          background: Colors.bgTint,
+          touchAction: 'none',
+          cursor: disabled ? 'not-allowed' : 'grab',
+          alignSelf: 'center',
+        }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerLeave={onPointerUp}
+      >
+        <img
+          ref={imgRef}
+          src={src}
+          alt="Crop source"
+          draggable={false}
+          style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            minWidth: '100%',
+            minHeight: '100%',
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            transform: `translate(calc(-50% + ${offset.x}px), calc(-50% + ${offset.y}px)) scale(${zoom})`,
+            transformOrigin: 'center',
+            userSelect: 'none',
+            pointerEvents: 'none',
+          }}
+        />
+      </div>
+      <View style={styles.cropControls}>
+        <Text style={styles.editHint}>Zoom</Text>
+        <input
+          type="range"
+          min="1"
+          max="2.2"
+          step="0.05"
+          value={zoom}
+          disabled={disabled}
+          onChange={(e) => setZoom(Number(e.currentTarget.value))}
+          style={{ flex: 1 }}
+        />
+        <Pressable onPress={() => { setZoom(1); setOffset({ x: 0, y: 0 }); }} disabled={disabled} style={styles.ghostBtn}>
+          <Text style={styles.ghostBtnLabel}>Reset</Text>
+        </Pressable>
+      </View>
+      {err ? <Text style={[styles.editHint, { color: Colors.error }]}>{err}</Text> : null}
+      <View style={styles.editActions}>
+        <Pressable onPress={onCancel} disabled={disabled} style={styles.ghostBtn}>
+          <Text style={styles.ghostBtnLabel}>Cancel</Text>
+        </Pressable>
+        <View style={{ flex: 1 }} />
+        <Pressable onPress={applyCrop} disabled={disabled} style={[styles.primaryBtn, disabled && styles.primaryBtnDisabled]}>
+          {disabled ? <ActivityIndicator size="small" color={Colors.white} /> : <Ionicons name="checkmark" size={16} color={Colors.white} />}
+          <Text style={styles.primaryBtnLabel}>{disabled ? 'Applying…' : 'Apply crop'}</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
 
 // ── Mask brush (Phase 4 item 5) ────────────────────────────────────────────
 // Web-only HTML canvas overlay that lets admin paint a region to repaint.
@@ -1422,6 +1775,16 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderColor: Colors.borderSoft,
     gap: 4,
   },
+  countCard: {
+    flex: 1,
+    minWidth: 72,
+    padding: Spacing.md,
+    backgroundColor: Colors.bgLight,
+    borderRadius: Radius.md,
+    borderWidth: 1.5,
+    borderColor: Colors.borderSoft,
+    gap: 4,
+  },
   qualityCardSelected: { borderColor: Colors.primary, backgroundColor: Colors.primarySoft },
   qualityHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   qualityLabel: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textDark },
@@ -1530,21 +1893,35 @@ const styles = StyleSheet.create({
   editActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: 4 },
 
   actionsRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginTop: 4 },
+  cropPanel: {
+    backgroundColor: Colors.bgLight,
+    borderRadius: Radius.lg,
+    padding: Spacing.md,
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+    gap: Spacing.sm,
+    ...Shadow.sm,
+  },
+  cropControls: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flexWrap: 'wrap' },
+  cropLoading: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  cropAspectRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flexWrap: 'wrap' },
+  cropAspectBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: Colors.cardBg,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.borderSoft,
+  },
+  cropAspectBtnActive: { borderColor: Colors.primary, backgroundColor: Colors.primarySoft },
+  cropAspectLabel: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.textDark },
 
   // Step 3
   savePane: { gap: Spacing.md },
-  // savePreview: centered column — "Change image" button and carousel both benefit from center.
   savePreview: { alignItems: 'center', gap: 8 },
-  // savePreviewWrap: gives the image container an explicit width so `width: '100%'`
-  // on the Image resolves correctly (without this, the View collapses to 0 inside
-  // an alignItems-center parent and the image becomes invisible).
-  savePreviewWrap: {
-    position: 'relative',
-    width: '100%',
-    maxWidth: 360,
-  },
   savePreviewImage: {
     width: '100%',
+    maxWidth: 360,
     aspectRatio: 1,
     borderRadius: Radius.lg,
     backgroundColor: Colors.bgTint,
@@ -1552,6 +1929,13 @@ const styles = StyleSheet.create({
   changePickBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     paddingHorizontal: 10, paddingVertical: 4,
+  },
+  previewActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
   },
   changePickLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.primary },
 

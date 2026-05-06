@@ -136,7 +136,7 @@ export default function MarketingDraftsScreen() {
         setError(`${failures.length} of ${results.length} variants didn't work — opening the ones that did.`);
       }
     } catch (e: any) {
-      setError(e?.message ?? String(e));
+      setError(friendlyError('Generate', e));
     } finally {
       setGenerating(false);
     }
@@ -173,8 +173,17 @@ export default function MarketingDraftsScreen() {
           </View>
         }
         loading={loading && drafts.length === 0}
-        error={error}
       >
+        {error ? (
+          <View style={styles.inlineError}>
+            <Ionicons name="alert-circle-outline" size={18} color={Colors.error} />
+            <Text style={styles.inlineErrorText}>{error}</Text>
+            <Pressable onPress={() => setError(null)} hitSlop={8}>
+              <Ionicons name="close" size={18} color={Colors.textMuted} />
+            </Pressable>
+          </View>
+        ) : null}
+
         <View style={styles.filterBar}>
           {STATUS_FILTERS.map((f) => (
             <Pressable
@@ -1201,6 +1210,24 @@ const styles = StyleSheet.create({
   btnDanger: { backgroundColor: Colors.error },
   btnGhost: { backgroundColor: Colors.bgLight, borderWidth: 1, borderColor: Colors.border },
   btnLabel: { color: '#fff', fontWeight: '700', fontSize: FontSize.sm },
+  inlineError: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    borderWidth: 1,
+    borderColor: '#fecaca',
+    backgroundColor: '#fff1f2',
+    borderRadius: Radius.lg,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 10,
+    marginBottom: Spacing.md,
+  },
+  inlineErrorText: {
+    flex: 1,
+    color: Colors.error,
+    fontSize: FontSize.sm,
+    fontWeight: '700',
+  },
   errorText: { color: Colors.error, fontSize: FontSize.xs, fontWeight: '600' },
   rejectRow: { flexDirection: 'row', gap: 6, alignItems: 'center', flexWrap: 'wrap' },
 

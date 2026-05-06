@@ -27,6 +27,10 @@ import {
   buildGenerateArticleNow,
   buildGenerateBooksNow,
   buildGenerateProductsNow,
+  buildProcessPendingArticleImage,
+  buildRetryArticleImage,
+  buildSendArticleToMarketingDraft,
+  buildSyncPublishedArticleToMarketingDraft,
 } from './library';
 import {
   buildBoostMarketingDraft,
@@ -1481,6 +1485,10 @@ export const updateIntegrationConfig = buildUpdateIntegrationConfig(ADMIN_EMAILS
 //   PEXELS_API_KEY        — fallback stock photos
 //   (REPLICATE_API_TOKEN  — optional, for FLUX hero images)
 export const generateArticleNow   = buildGenerateArticleNow(ADMIN_EMAILS);
+export const processPendingArticleImage = buildProcessPendingArticleImage();
+export const retryArticleImage = buildRetryArticleImage(ADMIN_EMAILS);
+export const sendArticleToMarketingDraft = buildSendArticleToMarketingDraft(ADMIN_EMAILS);
+export const syncPublishedArticleToMarketingDraft = buildSyncPublishedArticleToMarketingDraft();
 export const generateBooksNow     = buildGenerateBooksNow(ADMIN_EMAILS);
 export const generateProductsNow  = buildGenerateProductsNow(ADMIN_EMAILS);
 export const archiveLibraryItem   = buildArchiveLibraryItem(ADMIN_EMAILS);

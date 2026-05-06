@@ -23,7 +23,7 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions/v1';
 
-import { fluxSchnell, imagenGenerate, openaiImage, openaiImageEdit } from './imageSources';
+import { fluxSchnell, openaiImageEdit } from './imageSources';
 import { Resvg } from '@resvg/resvg-js';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -31,6 +31,7 @@ import satori from 'satori';
 
 import { h } from './templates/h';
 import { getIntegrationConfig } from '../lib/integrationConfig';
+import { openaiMaaMitraReferenceImage } from './styleReferences';
 
 // ── Caller auth ─────────────────────────────────────────────────────────────
 async function callerIsMarketingAdmin(
@@ -67,11 +68,8 @@ interface StudioBrand {
   logoUrl: string | null;
 }
 
-// Keep in sync with functions/src/marketing/generator.ts (STYLE_DEFAULT_*)
-// and lib/marketingTypes.ts (DEFAULT_STYLE_PROFILE).
-const DEFAULT_STYLE_ONE_LINER = 'Soft painterly storybook illustration with subtle watercolor texture. Lavender + sage + dusty-pink + cream palette. Indian women (warm brown skin, dark messy-bun hair) in white-chikankari-embroidered lavender kurtas. Single calm scene, generous negative space, warm cream background.';
-const DEFAULT_STYLE_DESCRIPTION = 'A soft, painterly storybook illustration in the spirit of a children\'s-book spread — NOT flat vector. Characters and fabric carry subtle volume, gentle gradients, and a faint watercolor / paper-grain texture. No hard black outlines. Light is warm, ambient and dappled — never harsh shadows. Disciplined pastel palette: warm cream / ivory background, signature soft lavender on hero garments and props, dusty / baby pink, sage / mint green, with golden-honey + peach used sparingly. Characters are Indian women — moms, grandmothers (dadis), with babies and toddlers — warm brown skin, dark messy-bun hair (or long braid / soft waves); grandmothers wear silver-grey hair and a small bindi. Faces are soft and rounded with peaceful or gently-closed eyes, calm half-smile, soft rosy cheeks. Wardrobe: lavender kurta with delicate WHITE CHIKANKARI floral embroidery at neckline and cuffs, white salwar, soft dupatta; grandmothers in pastel sarees; subtle gold jewelry only. Composition is always a SINGLE calm scene; for wide hero formats character sits on the right with generous empty cream space on the left for caption overlay. Recurring motifs: lotus blossoms, marigolds, drifting leaves, potted plants in pastel ceramic pots, round dusty-pink rugs with tasseled fringe, sage-green yoga mats. Never more than 3-4 characters in one frame.';
-const DEFAULT_STYLE_KEYWORDS = 'painterly 2D illustration, watercolor texture, storybook spread, soft pastel palette, lavender + sage + dusty pink + cream, Indian woman, warm brown skin, messy bun, white chikankari embroidery on lavender kurta, soft dupatta, peaceful closed eyes, gentle smile, generous negative space, warm dappled light, lotus, marigold';
+const DEFAULT_STYLE_DESCRIPTION = 'A warm hand-drawn 2D illustration. Flat colours with subtle gradients, no photorealism. Indian characters (brown skin, dark hair). Soft pastels. Rounded organic shapes. Generous negative space. Single-scene composition.';
+const DEFAULT_STYLE_KEYWORDS = 'flat illustration, pastel, Indian, motherhood, gentle, hand-drawn, soft gradient, organic shapes';
 
 async function loadStudioBrand(): Promise<StudioBrand> {
   const snap = await admin.firestore().doc('marketing_brand/main').get();
@@ -86,7 +84,7 @@ async function loadStudioBrand(): Promise<StudioBrand> {
     },
     hashtags: arr(d?.hashtags),
     styleProfile: d?.styleProfile ? {
-      oneLiner: typeof d.styleProfile.oneLiner === 'string' && d.styleProfile.oneLiner ? d.styleProfile.oneLiner : DEFAULT_STYLE_ONE_LINER,
+      oneLiner: typeof d.styleProfile.oneLiner === 'string' ? d.styleProfile.oneLiner : '',
       description: typeof d.styleProfile.description === 'string' ? d.styleProfile.description : DEFAULT_STYLE_DESCRIPTION,
       prohibited: arr(d.styleProfile.prohibited),
       artKeywords: typeof d.styleProfile.artKeywords === 'string' ? d.styleProfile.artKeywords : DEFAULT_STYLE_KEYWORDS,
@@ -136,14 +134,54 @@ async function logCost(opts: { source: string; costInr: number; bytes: number; a
 
 // ── Style-locked prompt builder ─────────────────────────────────────────────
 
+function subjectObjectRules(userPrompt: string): string | null {
+  const p = userPrompt.toLowerCase();
+  const required: string[] = [];
+  if (/\b(jenga|zenga|block tower|wooden blocks|stacking blocks)\b/.test(p)) {
+    required.push('Jenga-style wooden stacking blocks or block tower game');
+  }
+  if (/\b(pack|packing|packed|trip|travel|vacation|mountain|mountains|holiday)\b/.test(p)) {
+    required.push('open suitcase or travel bag');
+  }
+  if (/\b(mountain|mountains|hill|hills|winter|woollen|woolen|cold)\b/.test(p)) {
+    required.push('visible winter/mountain-trip context such as folded warm clothes or a subtle mountain cue outside a window');
+  }
+  if (/\b(woollen|woolen|sweater|warm clothes|jacket)\b/.test(p)) required.push('folded woollen sweater or warm clothes');
+  if (/\bglove|gloves\b/.test(p)) required.push('pair of gloves');
+  if (/\bhat|cap|beanie\b/.test(p)) required.push('woollen hat or beanie');
+  if (/\bsnack|snacks|healthy snack|healthy snacks|food\b/.test(p)) required.push('healthy snacks packed for the child');
+  if (/\bswing|jhula|playground|park\b/.test(p)) {
+    required.push('a clearly visible swing or jhula with ropes/chains and seat');
+    required.push('mother and child actively playing on or pushing the swing');
+  }
+  if (/\bplay|playing\b/.test(p) && /\bkid|child|baby|toddler\b/.test(p)) {
+    required.push('clear playful action, not a static seated portrait');
+  }
+  if (!required.length) return null;
+  return `Mandatory subject objects: ${Array.from(new Set(required)).join(', ')}. These objects must be clearly visible and central to the scene; do not replace them with generic sitting, hugging, cup-holding, or chat poses.`;
+}
+
+function characterCountRules(userPrompt: string): string | null {
+  const p = userPrompt.toLowerCase();
+  const roles: string[] = [];
+  if (/\b(mother|mom|mumma|mama|maa)\b/.test(p)) roles.push('one mother');
+  if (/\b(kid|child|baby|toddler|son|daughter)\b/.test(p)) roles.push('one child');
+  if (/\b(grandma|grandmother|dadi|nani)\b/.test(p)) roles.push('one grandmother');
+  if (/\b(father|dad|papa|husband)\b/.test(p)) roles.push('one father');
+
+  const uniqueRoles = Array.from(new Set(roles));
+  if (!uniqueRoles.length) return null;
+
+  return [
+    `Character count is strict: include exactly ${uniqueRoles.length} people total: ${uniqueRoles.join(', ')}.`,
+    'Do not add any extra adult, duplicate mother, duplicate child, sister, aunt, friend, helper, or background person.',
+    'If a grandmother is requested, she is the only older woman; if a mother is requested, she appears only once.',
+  ].join(' ');
+}
+
 function buildStudioPrompt(userPrompt: string, brand: StudioBrand): string {
   const profile = brand.styleProfile;
-  // Imagen 3 caps prompts ~480 tokens. Use the punchy oneLiner as the
-  // visual-style line; description stays in Firestore for admin reference
-  // but isn't piped into the model.
-  const styleLine = profile?.oneLiner?.trim()
-    || profile?.description?.slice(0, 320).trim()
-    || DEFAULT_STYLE_ONE_LINER;
+  const styleDesc = profile?.description ?? DEFAULT_STYLE_DESCRIPTION;
   const keywords = profile?.artKeywords ?? DEFAULT_STYLE_KEYWORDS;
   const negative = (profile?.prohibited ?? []).join(', ');
 
@@ -151,11 +189,15 @@ function buildStudioPrompt(userPrompt: string, brand: StudioBrand): string {
   // the subject, then the negative-style guard. Keeping the positive
   // style block at the front gives the model the strongest steer.
   const parts: string[] = [];
-  parts.push(`Visual style: ${styleLine}`);
-  parts.push(`Art direction keywords: ${keywords}.`);
-  parts.push(`Subject: ${userPrompt.trim()}`);
+  parts.push(`SCENE TO DRAW, FOLLOW EXACTLY: ${userPrompt.trim()}`);
+  const countRules = characterCountRules(userPrompt);
+  if (countRules) parts.push(countRules);
+  const objectRules = subjectObjectRules(userPrompt);
+  if (objectRules) parts.push(objectRules);
+  parts.push(`Visual style: ${styleDesc}`);
+  parts.push(`Art direction keywords: ${keywords}. Premium polished MaaMitra app illustration, crisp edges, refined character art, sharp facial features, clean pastel colour separation.`);
   if (negative) parts.push(`Do NOT include: ${negative}.`);
-  parts.push('Single coherent illustration. No text, no logos, no watermarks.');
+  parts.push('Single coherent lifestyle illustration only. No text, no letters, no readable words, no labels, no infographic panels, no poster/card design, no speech bubbles, no empty speech balloons, no decorative chat bubbles, no logos, no watermarks.');
   return parts.join('\n');
 }
 
@@ -225,10 +267,16 @@ interface GenerateVariantsErr {
 type GenerateVariantsResult = GenerateVariantsOk | GenerateVariantsErr;
 
 const COST_PER_IMAGE: Record<string, number> = {
+  dalle: 15.00,
   imagen: 3.30,
-  dalle: 3.50,
   flux: 0.25,
 };
+
+function openAiSizeForAspectRatio(aspectRatio: '1:1' | '9:16' | '16:9'): '1024x1024' | '1024x1536' | '1536x1024' {
+  if (aspectRatio === '9:16') return '1024x1536';
+  if (aspectRatio === '16:9') return '1536x1024';
+  return '1024x1024';
+}
 
 export function buildGenerateStudioVariants(allowList: ReadonlySet<string>) {
   return functions
@@ -248,13 +296,10 @@ export function buildGenerateStudioVariants(allowList: ReadonlySet<string>) {
       const variantCount = mode === 'carousel'
         ? Math.max(3, Math.min(5, Number.isFinite(requested) ? requested : 3))
         : Math.max(1, Math.min(4, Number.isFinite(requested) ? requested : 4));
-      // Default = gpt-image-1 (dalle) — strongest prompt adherence for our
-      // chikankari + composition + palette specifics. Caller can pass
-      // 'imagen' or 'flux' to override.
-      const model: 'imagen' | 'dalle' | 'flux' =
-        data?.model === 'imagen' ? 'imagen'
-        : data?.model === 'flux' ? 'flux'
-        : 'dalle';
+      // Current and older clients send "imagen" for the Best tier. Treat
+      // every non-Quick request as OpenAI so the default flips immediately
+      // after this callable deploys, even before the next web/OTA bundle.
+      const model: 'dalle' | 'flux' = data?.model === 'flux' ? 'flux' : 'dalle';
       const aspectRatio: '1:1' | '9:16' | '16:9' = (
         data?.aspectRatio === '9:16' ? '9:16' :
         data?.aspectRatio === '16:9' ? '16:9' :
@@ -268,7 +313,8 @@ export function buildGenerateStudioVariants(allowList: ReadonlySet<string>) {
         return { ok: false, code: 'brand-load-failed', message: "Couldn't load your brand. Try again." };
       }
 
-      // Cost cap pre-check.
+      // Cost cap pre-check. "Best" is the OpenAI reference-image path; Quick
+      // stays on FLUX for cheap iteration.
       const perImage = COST_PER_IMAGE[model] ?? 0;
       const plannedSpend = perImage * variantCount;
       const capCheck = await checkDailyCostCap(brand, plannedSpend);
@@ -283,26 +329,10 @@ export function buildGenerateStudioVariants(allowList: ReadonlySet<string>) {
       const ts = new Date().toISOString().replace(/[:.]/g, '-');
       const actor = context.auth?.token?.email ?? context.auth?.uid ?? null;
 
-      // Pre-flight: verify the chosen provider has a key configured so we can
-      // return an actionable error immediately rather than failing all variants
-      // with a generic message.
-      {
-        const cfg = await getIntegrationConfig();
-        if (model === 'dalle' && !cfg.openai.apiKey) {
-          return { ok: false, code: 'missing-api-key', message: 'OpenAI API key is not set. Add it in Admin → Integrations → OpenAI.' };
-        }
-        if (model === 'imagen' && !cfg.gemini.apiKey) {
-          return { ok: false, code: 'missing-api-key', message: 'Gemini API key is not set. Add it in Admin → Integrations → Google Gemini.' };
-        }
-        if (model === 'flux' && !cfg.replicate.apiToken) {
-          return { ok: false, code: 'missing-api-key', message: 'Replicate API token is not set. Add it in Admin → Integrations → Replicate.' };
-        }
-      }
-
       // Fire all variants in parallel. Each provider returns a data: URL or
       // http URL; we upload to Storage and return the public Storage URL so
       // the URL doesn't expire when the API session ends.
-      const tasks: Promise<{ variant: VariantResult | null; hint: string }>[] = [];
+      const tasks: Promise<VariantResult | null>[] = [];
       for (let i = 0; i < variantCount; i++) {
         // For carousels, hint each slide's narrative position so the model
         // gives variation in composition (cover / detail / outro) rather than
@@ -314,53 +344,51 @@ export function buildGenerateStudioVariants(allowList: ReadonlySet<string>) {
         const styledPrompt = buildStudioPrompt(subjectPrompt, brand);
         tasks.push((async () => {
           let imageUrl: string | null = null;
-          let hint = '';
+          let sourceUsed: 'dalle' | 'flux' = model;
           try {
-            if (model === 'imagen') {
-              imageUrl = await imagenGenerate(styledPrompt, { aspectRatio: aspectRatio === '16:9' ? '16:9' : aspectRatio });
-              if (!imageUrl) hint = 'Imagen returned no image. The model endpoint may have changed — check your Gemini API key in Integrations.';
-            } else if (model === 'dalle') {
-              // gpt-image-1 only supports a fixed set of square / portrait /
-              // landscape sizes — pick the closest to the requested aspect.
-              const size: '1024x1024' | '1024x1536' | '1536x1024' =
-                aspectRatio === '9:16' ? '1024x1536'
-                : aspectRatio === '16:9' ? '1536x1024'
-                : '1024x1024';
-              imageUrl = await openaiImage(styledPrompt, { quality: 'medium', size });
-              if (!imageUrl) hint = 'gpt-image-1 returned no image. Check your OpenAI API key in Integrations and ensure your organisation is verified at platform.openai.com.';
+            if (model === 'dalle') {
+              imageUrl = await openaiMaaMitraReferenceImage(styledPrompt, {
+                preset: 'post',
+                quality: 'high',
+                size: openAiSizeForAspectRatio(aspectRatio),
+                maxRefs: 6,
+                timeoutMs: 90_000,
+                fallbackToGeneration: false,
+                extraLines: [
+                  'Scene priority: the requested action, setting, and props above are mandatory and override any familiar sitting, cuddling, cup-holding, portrait, yoga, or floor-mat poses learned from the references.',
+                  'Skin consistency rules: keep skin tones natural, even, clean, and close to the MaaMitra reference characters across outfit colors. Do not darken, redden, spot, freckle, or over-blush faces, hands, or feet.',
+                  'Wardrobe system: rotate tasteful MaaMitra pastel outfits across generations while preserving the same character identity. Use lavender, blush pink, sage green, mint, powder blue, peach, cream, or soft lilac; keep white floral embroidery and delicate Indian fabric details. Do not default every image to purple unless the subject asks for it.',
+                  'The supplied MaaMitra references from the real illustration library must dominate the visual result over generic model priors.',
+                ],
+              });
             } else {
               imageUrl = await fluxSchnell(styledPrompt, { aspectRatio: aspectRatio === '16:9' ? '16:9' : aspectRatio });
-              if (!imageUrl) hint = 'FLUX returned no image. Check your Replicate API token in Integrations.';
+              if (imageUrl) sourceUsed = 'flux';
             }
           } catch (e) {
             console.warn(`[studio] variant ${i} provider threw`, e);
-            hint = (e as any)?.message ?? 'Provider error.';
           }
-          if (!imageUrl) return { variant: null, hint };
+          if (!imageUrl) return null;
 
           const variantId = mode === 'carousel' ? `${ts}-slide${i}` : `${ts}-${i}`;
           const storagePath = `marketing/studio/${variantId}.png`;
           try {
             const { url, bytes } = await uploadToStorage(imageUrl, storagePath);
-            await logCost({ source: model, costInr: perImage, bytes, actor: actor as string | null, meta: { variantId, mode } });
-            return { variant: { variantId, url, storagePath }, hint: '' };
+            await logCost({ source: sourceUsed, costInr: COST_PER_IMAGE[sourceUsed], bytes, actor: actor as string | null, meta: { variantId, mode } });
+            return { variantId, url, storagePath };
           } catch (e) {
             console.warn(`[studio] variant ${i} upload failed`, e);
-            return { variant: null, hint: 'Upload to Storage failed.' };
+            return null;
           }
         })());
       }
 
       const settled = await Promise.all(tasks);
-      const variants = settled.map((s) => s.variant).filter((v): v is VariantResult => v !== null);
+      const variants = settled.filter((v): v is VariantResult => v !== null);
       const failedCount = settled.length - variants.length;
 
       if (variants.length === 0) {
-        const firstHint = settled.find((s) => s.hint)?.hint ?? '';
-        const msg = firstHint
-          ? `Couldn't generate any images. ${firstHint}`
-          : "Couldn't generate any images. Try a different prompt or wait a moment.";
-        return { ok: false, code: 'all-variants-failed', message: msg };
+        return { ok: false, code: 'all-variants-failed', message: "Couldn't generate any images. Try a different prompt or wait a moment." };
       }
 
       return {
@@ -401,10 +429,45 @@ interface CreateDraftErr {
 
 type CreateDraftResult = CreateDraftOk | CreateDraftErr;
 
+function tidyHashtags(brand: StudioBrand): string {
+  const picked = brand.hashtags
+    .filter((h): h is string => typeof h === 'string' && h.trim().startsWith('#'))
+    .slice(0, 5);
+  const tags = picked.length >= 3
+    ? picked
+    : ['#MaaMitra', '#IndianMoms', '#Parenting', '#Motherhood', '#BabyCare'];
+  return Array.from(new Set(tags)).slice(0, 6).join(' ');
+}
+
+function humanizeScene(prompt: string): string {
+  const cleaned = prompt
+    .replace(/\s+/g, ' ')
+    .replace(/\bzenga\b/gi, 'Jenga')
+    .replace(/\bbackgroun\b/gi, 'background')
+    .trim()
+    .replace(/[.。]+$/, '');
+  if (!cleaned) return 'a small everyday parenting moment';
+  return cleaned.charAt(0).toLowerCase() + cleaned.slice(1);
+}
+
+function fallbackStudioCaption(prompt: string, brand: StudioBrand): string {
+  const scene = humanizeScene(prompt);
+  const englishOnly = brand.voice.bilingual === 'english_only';
+  const para2 = englishOnly
+    ? 'Play, patience, and little family rituals can turn an ordinary afternoon into a memory children carry with them.'
+    : 'Khel, patience aur family ke chhote rituals milkar ordinary afternoon ko bhi yaadgaar bana dete hain.';
+
+  return [
+    `Some days, parenting is simply being present for ${scene}.`,
+    para2,
+    tidyHashtags(brand),
+  ].join('\n\n');
+}
+
 async function generateStudioCaption(prompt: string, brand: StudioBrand): Promise<string> {
   const cfg = await getIntegrationConfig();
   if (!cfg.openai.apiKey) {
-    return `${prompt}\n\n${brand.hashtags.slice(0, 5).join(' ')}`;
+    return fallbackStudioCaption(prompt, brand);
   }
   const voiceLine = brand.voice.attributes.length ? brand.voice.attributes.join(', ') : 'warm, gentle';
   const avoid = brand.voice.avoid.length ? `Avoid these words: ${brand.voice.avoid.join(', ')}.` : '';
@@ -415,9 +478,15 @@ async function generateStudioCaption(prompt: string, brand: StudioBrand): Promis
       : 'Use English only.';
 
   const sys = `You are MaaMitra's social media writer. Brand voice: ${voiceLine}. ${bilingual} ${avoid}
-Write a single Instagram + Facebook caption (≤ 2200 chars) for the post described by the admin. Use 2-4 short paragraphs. End with 5-8 hashtags relevant to Indian motherhood. No markdown, no emoji-spam.`;
+Write a single Instagram + Facebook caption (≤ 2200 chars) for the post described by the admin.
+Do not repeat the admin prompt as the caption. Turn the scene into warm, useful, human social copy for Indian parents.
+Use 2-4 short paragraphs. End with 5-8 hashtags relevant to Indian motherhood. No markdown, no emoji-spam.`;
 
-  const userMsg = `Post topic / scene: ${prompt}\n\nWrite the caption now.`;
+  const userMsg = [
+    `Post topic / scene: ${prompt}`,
+    '',
+    'Write the caption now. It should feel like MaaMitra wrote it, not like an image prompt.',
+  ].join('\n');
 
   try {
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -437,10 +506,13 @@ Write a single Instagram + Facebook caption (≤ 2200 chars) for the post descri
     const out = (await res.json()) as { choices?: { message?: { content?: string } }[] };
     const caption = out?.choices?.[0]?.message?.content?.trim();
     if (!caption) throw new Error('empty-caption');
+    if (caption.toLowerCase().startsWith(prompt.toLowerCase().slice(0, 50))) {
+      throw new Error('caption-echoed-prompt');
+    }
     return caption;
   } catch (e) {
     console.warn('[studio] caption gen failed, using fallback', e);
-    return `${prompt}\n\n${brand.hashtags.slice(0, 5).join(' ')}`;
+    return fallbackStudioCaption(prompt, brand);
   }
 }
 

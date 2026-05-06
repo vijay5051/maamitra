@@ -85,9 +85,12 @@ function buildConfig(d) {
         },
         replicate: {
             apiToken: str(d.replicate?.apiToken, process.env.REPLICATE_API_TOKEN),
+            loraModel: str(d.replicate?.loraModel, process.env.REPLICATE_LORA_MODEL),
+            loraTrigger: str(d.replicate?.loraTrigger, process.env.REPLICATE_LORA_TRIGGER) || 'MAAMITRASTYLE',
         },
         gemini: {
             apiKey: str(d.gemini?.apiKey, process.env.GEMINI_API_KEY),
+            imagenModel: str(d.gemini?.imagenModel, process.env.GEMINI_IMAGEN_MODEL) || 'imagen-4.0-generate-001',
         },
         pexels: {
             apiKey: str(d.pexels?.apiKey, process.env.PEXELS_API_KEY),

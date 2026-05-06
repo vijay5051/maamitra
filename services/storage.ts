@@ -120,6 +120,24 @@ export async function uploadKidAvatar(uid: string, kidId: string, dataUrl: strin
   return uploadImage(path, dataUrl);
 }
 
+/** Upload an admin-managed Library image. Returns the Firebase download URL. */
+export async function uploadLibraryImage(kind: 'articles' | 'books' | 'products', data: Blob): Promise<string> {
+  const safeType = data.type && /image\/(jpeg|jpg|png|webp|heic|heif|gif|avif)/i.test(data.type)
+    ? data.type
+    : 'image/jpeg';
+  const ext =
+    safeType.includes('png') ? 'png' :
+    safeType.includes('webp') ? 'webp' :
+    safeType.includes('avif') ? 'avif' :
+    safeType.includes('heic') ? 'heic' :
+    safeType.includes('heif') ? 'heif' :
+    safeType.includes('gif') ? 'gif' :
+    'jpg';
+  const path = `library/${kind}/${uniqueName()}.${ext}`;
+  const typed = data.type === safeType ? data : new Blob([data], { type: safeType });
+  return uploadImage(path, typed);
+}
+
 /** Upload a DM image attachment. Path uses convId + a timestamp so each
  *  conversation's images are grouped, and name collisions are avoided. */
 export async function uploadDMImage(

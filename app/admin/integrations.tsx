@@ -78,9 +78,9 @@ const INTEGRATIONS: IntegrationDef[] = [
     icon: 'sparkles-outline',
     iconBg: '#10a37f',
     category: 'ai',
-    tagline: 'Caption writing, inbox AI, and image editing.',
+    tagline: 'Caption writing, inbox AI, and branded image generation.',
     description:
-      'Three things in the app use OpenAI: (1) GPT-4o-mini writes every marketing caption, classifies inbox threads, and drafts reply suggestions. (2) gpt-image-1 edits studio images when you use the "Edit with AI" brush in Studio Phase 3. The API key is a Bearer token starting with sk-.',
+      'The app uses OpenAI for marketing captions, inbox classification, reply suggestions, and branded post images. Studio "Best" uses gpt-image-1 with your Brand Kit style profile; the edit brush also uses gpt-image-1. The API key is a Bearer token starting with sk-.',
     healthKey: 'openai',
     fields: [
       { path: ['openai', 'apiKey'], label: 'API Key', hint: 'Starts with sk-', sensitive: true, placeholder: 'sk-...' },

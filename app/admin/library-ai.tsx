@@ -11,13 +11,15 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { Stack } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
+import { Stack, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
   Linking,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -35,7 +37,8 @@ import {
   ToolbarButton,
 } from '../../components/admin/ui';
 import { Colors, FontSize, Radius, Shadow, Spacing } from '../../constants/theme';
-import { createContent, deleteContent, updateContent } from '../../services/firebase';
+import { createContent, deleteContent, setContentById, updateContent } from '../../services/firebase';
+import { uploadLibraryImage } from '../../services/storage';
 import {
   archiveLibraryItem,
   DEFAULT_LIBRARY_AI,
@@ -51,6 +54,7 @@ import {
   LibraryAiSettings,
   LibraryContentItem,
   listRecentRuns,
+  sendArticleToMarketingDraft,
   subscribeAllLibraryItems,
   subscribeLibraryAiSettings,
   updateLibraryAiSettings,
@@ -74,6 +78,40 @@ const SECTIONS: { key: Section; label: string; icon: string }[] = [
   { key: 'autopilot',label: 'Autopilot',icon: 'sparkles-outline' },
   { key: 'history',  label: 'History',  icon: 'time-outline'     },
 ];
+
+async function pickWebImageFile(): Promise<File | null> {
+  if (Platform.OS !== 'web' || typeof document === 'undefined') return null;
+  return new Promise((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = (e: Event) => {
+      const target = e.target as HTMLInputElement | null;
+      resolve(target?.files?.[0] ?? null);
+    };
+    input.click();
+  });
+}
+
+function formatLibraryUploadError(error: any): string {
+  const code = typeof error?.code === 'string' ? error.code : '';
+  const message = typeof error?.message === 'string' ? error.message : '';
+  if (message === 'too-large') return 'Image is larger than 8 MB. Choose a smaller image and reupload.';
+  if (code === 'storage/unauthorized') {
+    return 'Upload failed: storage/unauthorized. This signed-in account is blocked by Firebase Storage rules.';
+  }
+  if (code === 'storage/unauthenticated') {
+    return 'Upload failed: storage/unauthenticated. Refresh and sign in again before uploading.';
+  }
+  if (code === 'storage/invalid-format') {
+    return 'Upload failed: storage/invalid-format. Try JPG, PNG, or WEBP.';
+  }
+  if (message.startsWith('image-read-')) {
+    return `Upload failed: ${message}. The browser could not read the selected image.`;
+  }
+  if (code || message) return `Upload failed: ${[code, message].filter(Boolean).join(' · ')}`;
+  return `Upload failed: ${String(error ?? 'unknown error')}`;
+}
 
 // ─── Field schemas for the edit form ─────────────────────────────────────────
 
@@ -245,8 +283,17 @@ export default function LibraryAiAdmin() {
             </View>
           </View>
         }
-        error={globalErr}
       >
+        {globalErr ? (
+          <View style={s.inlineError}>
+            <Ionicons name="alert-circle-outline" size={18} color={Colors.error} />
+            <Text style={s.inlineErrorText}>{globalErr}</Text>
+            <Pressable onPress={() => setGlobalErr(null)} hitSlop={8}>
+              <Ionicons name="close" size={18} color={Colors.textMuted} />
+            </Pressable>
+          </View>
+        ) : null}
+
         {/* ── Section: Library (content CRUD) ── */}
         {section === 'library' && (
           <ContentLibrarySection
@@ -290,14 +337,17 @@ function ContentLibrarySection({ kind, kindSettings, globalPaused, onGoToAutopil
   onGoToAutopilot: () => void;
   onError: (msg: string | null) => void;
 }) {
+  const router = useRouter();
   const [items, setItems] = useState<LibraryContentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [editItem, setEditItem] = useState<LibraryContentItem | null>(null);
+  const [previewItem, setPreviewItem] = useState<LibraryContentItem | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [confirmDel, setConfirmDel] = useState<LibraryContentItem | null>(null);
   const [saving, setSaving] = useState(false);
+  const [sendingArticleId, setSendingArticleId] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -323,7 +373,7 @@ function ContentLibrarySection({ kind, kindSettings, globalPaused, onGoToAutopil
     return rows;
   }, [items, statusFilter, search]);
 
-  async function handleSave(form: Record<string, any>, isNew: boolean, id?: string) {
+  async function handleSave(form: Record<string, any>, isNew: boolean, item?: LibraryContentItem | null) {
     setSaving(true);
     onError(null);
     const schema = SCHEMAS[kind];
@@ -335,8 +385,17 @@ function ContentLibrarySection({ kind, kindSettings, globalPaused, onGoToAutopil
     try {
       if (isNew) {
         await createContent(kind, { ...cleaned, source: 'manual', status: 'draft' });
-      } else if (id) {
-        await updateContent(kind, id, cleaned);
+      } else if (item?.id) {
+        if (item.source === 'static') {
+          await setContentById(kind, item.id, {
+            ...item.raw,
+            ...cleaned,
+            source: 'manual',
+            status: item.status || 'published',
+          });
+        } else {
+          await updateContent(kind, item.id, cleaned);
+        }
       }
       setEditItem(null);
       setAddOpen(false);
@@ -351,6 +410,12 @@ function ContentLibrarySection({ kind, kindSettings, globalPaused, onGoToAutopil
     try {
       if (next === 'archived' && item.source === 'ai') {
         await archiveLibraryItem(kind, item.id);
+      } else if (item.source === 'static') {
+        await setContentById(kind, item.id, {
+          ...item.raw,
+          status: next,
+          source: 'manual',
+        });
       } else {
         await updateContent(kind, item.id, { status: next });
       }
@@ -360,9 +425,32 @@ function ContentLibrarySection({ kind, kindSettings, globalPaused, onGoToAutopil
 
   async function handleDelete(item: LibraryContentItem) {
     try {
-      await deleteContent(kind, item.id);
+      if (item.source === 'static') {
+        await setContentById(kind, item.id, {
+          ...item.raw,
+          status: 'archived',
+          source: 'manual',
+        });
+      } else {
+        await deleteContent(kind, item.id);
+      }
       setConfirmDel(null);
     } catch (e: any) { onError(e?.message ?? String(e)); }
+  }
+
+  async function handleSendToMarketing(item: LibraryContentItem) {
+    if (kind !== 'articles' || sendingArticleId) return;
+    setSendingArticleId(item.id);
+    onError(null);
+    try {
+      const r = await sendArticleToMarketingDraft(item.id);
+      if (!r.ok) throw new Error(r.message);
+      router.push(`/admin/marketing/drafts?open=${r.draftId}` as any);
+    } catch (e: any) {
+      onError(e?.message ?? String(e));
+    } finally {
+      setSendingArticleId(null);
+    }
   }
 
   const meta = KIND_META[kind];
@@ -470,7 +558,10 @@ function ContentLibrarySection({ kind, kindSettings, globalPaused, onGoToAutopil
             <ContentRow
               key={item.id}
               item={item}
+              onPreview={() => setPreviewItem(item)}
               onEdit={() => setEditItem(item)}
+              onSendToMarketing={() => handleSendToMarketing(item)}
+              sendBusy={sendingArticleId === item.id}
               onToggle={() => handleStatus(item, item.status === 'published' ? 'draft' : 'published')}
               onArchive={() => handleStatus(item, 'archived')}
               onRestore={() => handleStatus(item, 'draft')}
@@ -486,8 +577,11 @@ function ContentLibrarySection({ kind, kindSettings, globalPaused, onGoToAutopil
         kind={kind}
         item={editItem}
         saving={saving}
+        sendingToMarketing={sendingArticleId === editItem?.id}
         onClose={() => setEditItem(null)}
-        onSave={(form) => handleSave(form, false, editItem?.id)}
+        onSave={(form) => handleSave(form, false, editItem)}
+        onPreview={editItem ? () => { setPreviewItem(editItem); setEditItem(null); } : undefined}
+        onSendToMarketing={editItem && kind === 'articles' ? () => handleSendToMarketing(editItem) : undefined}
         onToggle={editItem ? () => handleStatus(editItem, editItem.status === 'published' ? 'draft' : 'published') : undefined}
         onArchive={editItem && editItem.status !== 'archived' ? () => handleStatus(editItem, 'archived') : undefined}
         onRestore={editItem && editItem.status === 'archived' ? () => handleStatus(editItem, 'draft') : undefined}
@@ -501,7 +595,14 @@ function ContentLibrarySection({ kind, kindSettings, globalPaused, onGoToAutopil
         item={null}
         saving={saving}
         onClose={() => setAddOpen(false)}
-        onSave={(form) => handleSave(form, true)}
+        onSave={(form) => handleSave(form, true, null)}
+      />
+
+      <ContentPreviewModal
+        visible={!!previewItem}
+        kind={kind}
+        item={previewItem}
+        onClose={() => setPreviewItem(null)}
       />
 
       {/* Delete confirm */}
@@ -520,9 +621,12 @@ function ContentLibrarySection({ kind, kindSettings, globalPaused, onGoToAutopil
 
 // ─── Content row ──────────────────────────────────────────────────────────────
 
-function ContentRow({ item, onEdit, onToggle, onArchive, onRestore, onDelete }: {
+function ContentRow({ item, onPreview, onEdit, onSendToMarketing, sendBusy, onToggle, onArchive, onRestore, onDelete }: {
   item: LibraryContentItem;
+  onPreview: () => void;
   onEdit: () => void;
+  onSendToMarketing: () => void;
+  sendBusy: boolean;
   onToggle: () => void;
   onArchive: () => void;
   onRestore: () => void;
@@ -531,17 +635,44 @@ function ContentRow({ item, onEdit, onToggle, onArchive, onRestore, onDelete }: 
   const ts = item.createdAt?.toDate?.()?.toLocaleDateString?.() ?? '';
   const ageLabel = item.ageMin < 0 ? 'pregnancy' : item.ageMax >= 999 ? 'all ages' : `${item.ageMin}–${item.ageMax}m`;
   const meta = KIND_META[item.kind];
+  const imagePending = item.source === 'ai' && !item.imageUrl && (
+    item.imageStatus === 'pending' ||
+    (item.status === 'draft' && (
+      item.raw?.aiImageStatus === 'pending' ||
+      item.raw?.aiImageSource === 'pending' ||
+      typeof item.raw?.aiRequestedImageModel === 'string'
+    ))
+  );
+  const imageFailed = item.source === 'ai' && !item.imageUrl && (
+    item.imageStatus === 'failed' || item.raw?.aiImageStatus === 'failed'
+  );
 
   return (
     <Pressable style={s.contentRow} onPress={onEdit}>
-      {item.imageUrl ? (
-        <Image source={{ uri: item.imageUrl }} style={s.rowThumb} resizeMode="cover" />
-      ) : (
-        <View style={[s.rowThumb, s.rowThumbEmpty]}>
-          <Text style={{ fontSize: 20 }}>{meta.emoji}</Text>
-        </View>
-      )}
-
+      <View style={s.rowThumbWrap}>
+        {item.imageUrl ? (
+          <Image source={{ uri: item.imageUrl }} style={s.rowThumb} resizeMode="cover" />
+        ) : (
+          <View style={[s.rowThumb, s.rowThumbEmpty]}>
+            <Text style={{ fontSize: 20 }}>{meta.emoji}</Text>
+          </View>
+        )}
+        {imagePending ? (
+          <View style={s.rowThumbLoading}>
+            <ActivityIndicator size="small" color={Colors.primary} />
+            <Text style={s.rowThumbLoadingText}>Generating image…</Text>
+            <View style={s.rowThumbProgressTrack}>
+              <View style={s.rowThumbProgressBar} />
+            </View>
+          </View>
+        ) : null}
+        {imageFailed ? (
+          <View style={s.rowThumbFailed}>
+            <Ionicons name="alert-circle-outline" size={14} color={Colors.error} />
+          </View>
+        ) : null}
+      </View>
+      
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text style={s.rowTitle} numberOfLines={1}>{item.title}</Text>
         <Text style={s.rowSub} numberOfLines={1}>
@@ -553,16 +684,36 @@ function ContentRow({ item, onEdit, onToggle, onArchive, onRestore, onDelete }: 
             color={item.status === 'published' ? Colors.success : item.status === 'archived' ? Colors.textMuted : Colors.warning}
           />
           <StatusBadge
-            label={item.source === 'ai' ? '✨ AI' : '✍️ Manual'}
-            color={item.source === 'ai' ? Colors.primary : Colors.textLight}
+            label={item.source === 'ai' ? 'AI' : item.source === 'static' ? 'Bundled' : 'Manual'}
+            color={item.source === 'ai' ? Colors.primary : item.source === 'static' ? Colors.textMuted : Colors.textLight}
           />
+          {imagePending && (
+            <StatusBadge label="Image loading" color={Colors.primary} />
+          )}
+          {imageFailed && (
+            <StatusBadge label="Image failed" color={Colors.error} />
+          )}
           {item.flags.length > 0 && (
             <StatusBadge label={`⚠ ${item.flags.length} flag`} color={Colors.warning} />
           )}
         </View>
+        {item.kind === 'articles' ? (
+          <Pressable style={s.inlineActionBtn} disabled={sendBusy} onPress={(e) => { e.stopPropagation?.(); onSendToMarketing(); }}>
+            <Ionicons name={sendBusy ? 'hourglass-outline' : 'megaphone-outline'} size={14} color={Colors.primary} />
+            <Text style={s.inlineActionBtnText}>{sendBusy ? 'Sending…' : 'Send to Drafts'}</Text>
+          </Pressable>
+        ) : null}
       </View>
 
       <View style={s.rowActions}>
+        <Pressable hitSlop={8} onPress={(e) => { e.stopPropagation?.(); onPreview(); }}>
+          <Ionicons name="reader-outline" size={18} color={Colors.primary} />
+        </Pressable>
+        {item.kind === 'articles' ? (
+          <Pressable hitSlop={8} disabled={sendBusy} onPress={(e) => { e.stopPropagation?.(); onSendToMarketing(); }}>
+            <Ionicons name={sendBusy ? 'hourglass-outline' : 'megaphone-outline'} size={18} color={Colors.primary} />
+          </Pressable>
+        ) : null}
         {item.url ? (
           <Pressable hitSlop={8} onPress={(e) => { e.stopPropagation?.(); Linking.openURL(item.url!).catch(() => {}); }}>
             <Ionicons name="open-outline" size={18} color={Colors.textLight} />
@@ -593,13 +744,16 @@ function ContentRow({ item, onEdit, onToggle, onArchive, onRestore, onDelete }: 
 
 // ─── Content form modal ───────────────────────────────────────────────────────
 
-function ContentFormModal({ visible, kind, item, saving, onClose, onSave, onToggle, onArchive, onRestore, onDelete }: {
+function ContentFormModal({ visible, kind, item, saving, sendingToMarketing, onClose, onSave, onPreview, onSendToMarketing, onToggle, onArchive, onRestore, onDelete }: {
   visible: boolean;
   kind: Kind;
   item: LibraryContentItem | null;
   saving: boolean;
+  sendingToMarketing?: boolean;
   onClose: () => void;
   onSave: (form: Record<string, any>) => Promise<void>;
+  onPreview?: () => void;
+  onSendToMarketing?: () => void;
   onToggle?: () => void;
   onArchive?: () => void;
   onRestore?: () => void;
@@ -608,6 +762,8 @@ function ContentFormModal({ visible, kind, item, saving, onClose, onSave, onTogg
   const isEdit = !!(item?.id);
   const schema = SCHEMAS[kind];
   const [form, setForm] = useState<Record<string, any>>({});
+  const [imageUploading, setImageUploading] = useState(false);
+  const [imageUploadError, setImageUploadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (visible) {
@@ -618,11 +774,57 @@ function ContentFormModal({ visible, kind, item, saving, onClose, onSave, onTogg
       } else {
         setForm(blankItem(kind));
       }
+      setImageUploading(false);
+      setImageUploadError(null);
     }
   }, [visible, item, kind]);
 
   const primaryKey = kind === 'products' ? 'name' : 'title';
   const isValid = !!(form[primaryKey]?.toString().trim());
+  const imageBlocked = kind === 'articles' && (imageUploading || !!imageUploadError);
+
+  async function pickAndUploadArticleImage() {
+    if (kind !== 'articles' || imageUploading) return;
+    setImageUploadError(null);
+    try {
+      setImageUploading(true);
+      let blob: Blob | null = null;
+      if (Platform.OS === 'web') {
+        const file = await pickWebImageFile();
+        if (!file) return;
+        blob = file;
+      } else {
+        const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!perm.granted) {
+          setImageUploadError('Photo access is needed to upload an article thumbnail.');
+          return;
+        }
+        const picked = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'],
+          allowsEditing: true,
+          aspect: [16, 9],
+          quality: 0.92,
+        });
+        if (picked.canceled || !picked.assets?.[0]?.uri) return;
+        const asset = picked.assets[0];
+        const res = await fetch(asset.uri);
+        if (!res.ok) throw new Error(`image-read-${res.status}`);
+        blob = await res.blob();
+      }
+      if (!blob) throw new Error('image-read-empty');
+      if (blob.size > 8 * 1024 * 1024) {
+        throw new Error('too-large');
+      }
+      const url = await uploadLibraryImage('articles', blob);
+      setForm((f) => ({ ...f, imageUrl: url }));
+      setImageUploadError(null);
+    } catch (e: any) {
+      console.error('[library-ai] article image upload failed', e);
+      setImageUploadError(formatLibraryUploadError(e));
+    } finally {
+      setImageUploading(false);
+    }
+  }
 
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
@@ -656,27 +858,50 @@ function ContentFormModal({ visible, kind, item, saving, onClose, onSave, onTogg
               <View key={field.key} style={{ marginBottom: Spacing.md }}>
                 <Text style={s.fieldLabel}>{field.label}</Text>
                 {field.hint ? <Text style={s.fieldHint}>{field.hint}</Text> : null}
-                <TextInput
-                  style={[
-                    s.fieldInput,
-                    field.multiline && { minHeight: field.key === 'body' ? 200 : 80, textAlignVertical: 'top' },
-                  ]}
-                  value={String(form[field.key] ?? '')}
-                  onChangeText={(v) => setForm((f) => ({ ...f, [field.key]: v }))}
-                  multiline={field.multiline}
-                  keyboardType={field.numeric ? 'decimal-pad' : 'default'}
-                  autoCapitalize={
-                    ['url', 'imageUrl', 'sampleUrl'].includes(field.key) ? 'none' : 'sentences'
-                  }
-                  placeholderTextColor={Colors.textMuted}
-                  placeholder={field.label.replace(' *', '')}
-                  scrollEnabled={false}
-                />
+                {kind === 'articles' && field.key === 'imageUrl' ? (
+                  <ArticleImageUploader
+                    imageUrl={String(form.imageUrl ?? '')}
+                    uploading={imageUploading}
+                    error={imageUploadError}
+                    onPick={pickAndUploadArticleImage}
+                    onClear={() => {
+                      setForm((f) => ({ ...f, imageUrl: '' }));
+                      setImageUploadError(null);
+                    }}
+                  />
+                ) : (
+                  <TextInput
+                    style={[
+                      s.fieldInput,
+                      field.multiline && { minHeight: field.key === 'body' ? 200 : 80, textAlignVertical: 'top' },
+                    ]}
+                    value={String(form[field.key] ?? '')}
+                    onChangeText={(v) => setForm((f) => ({ ...f, [field.key]: v }))}
+                    multiline={field.multiline}
+                    keyboardType={field.numeric ? 'decimal-pad' : 'default'}
+                    autoCapitalize={
+                      ['url', 'imageUrl', 'sampleUrl'].includes(field.key) ? 'none' : 'sentences'
+                    }
+                    placeholderTextColor={Colors.textMuted}
+                    placeholder={field.label.replace(' *', '')}
+                    scrollEnabled={false}
+                  />
+                )}
               </View>
             ))}
           </ScrollView>
 
           <View style={s.modalFooter}>
+            {onPreview && <ToolbarButton label="Preview" icon="reader-outline" variant="secondary" onPress={onPreview} />}
+            {onSendToMarketing && (
+              <ToolbarButton
+                label={sendingToMarketing ? 'Sending…' : 'Send to Marketing Drafts'}
+                icon={sendingToMarketing ? 'hourglass-outline' : 'megaphone-outline'}
+                variant="secondary"
+                onPress={onSendToMarketing}
+                disabled={sendingToMarketing}
+              />
+            )}
             {onDelete    && <ToolbarButton label="Delete"  icon="trash-outline"   variant="danger"     onPress={onDelete}  />}
             {onArchive   && <ToolbarButton label="Archive" icon="archive-outline" variant="secondary"  onPress={onArchive} />}
             {onRestore   && <ToolbarButton label="Restore" icon="refresh-outline" variant="secondary"  onPress={onRestore} />}
@@ -691,17 +916,151 @@ function ContentFormModal({ visible, kind, item, saving, onClose, onSave, onTogg
             <View style={{ flex: 1 }} />
             <ToolbarButton label="Cancel"  variant="ghost"    onPress={onClose}  disabled={saving} />
             <ToolbarButton
-              label={saving ? 'Saving…' : isEdit ? 'Save' : 'Add as draft'}
+              label={saving ? 'Saving…' : imageUploading ? 'Uploading image…' : isEdit ? 'Save' : 'Add as draft'}
               variant="primary"
               icon="save-outline"
-              onPress={async () => { if (isValid) await onSave(form); }}
-              disabled={!isValid || saving}
+              onPress={async () => { if (isValid && !imageBlocked) await onSave(form); }}
+              disabled={!isValid || saving || imageBlocked}
             />
           </View>
         </View>
       </View>
     </Modal>
   );
+}
+
+function ArticleImageUploader({ imageUrl, uploading, error, onPick, onClear }: {
+  imageUrl: string;
+  uploading: boolean;
+  error: string | null;
+  onPick: () => void;
+  onClear: () => void;
+}) {
+  return (
+    <View style={s.imageUploadBox}>
+      {imageUrl ? (
+        <Image source={{ uri: imageUrl }} style={s.imageUploadPreview} resizeMode="cover" />
+      ) : (
+        <View style={[s.imageUploadPreview, s.imageUploadEmpty]}>
+          <Ionicons name="image-outline" size={28} color={Colors.textMuted} />
+          <Text style={s.imageUploadHint}>No Firebase image uploaded yet</Text>
+        </View>
+      )}
+      <View style={s.imageUploadActions}>
+        <ToolbarButton
+          label={uploading ? 'Uploading…' : imageUrl ? 'Replace image' : 'Upload image'}
+          icon={uploading ? 'cloud-upload-outline' : 'image-outline'}
+          variant="secondary"
+          disabled={uploading}
+          onPress={onPick}
+        />
+        {imageUrl ? (
+          <ToolbarButton
+            label="Clear"
+            icon="close-outline"
+            variant="ghost"
+            disabled={uploading}
+            onPress={onClear}
+          />
+        ) : null}
+      </View>
+      <Text style={s.imageUploadNote}>
+        Images are uploaded to Firebase Storage first. Save is disabled if upload fails.
+      </Text>
+      {error ? (
+        <View style={s.imageUploadError}>
+          <Ionicons name="alert-circle-outline" size={15} color={Colors.error} />
+          <Text style={s.imageUploadErrorText}>{error}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function ContentPreviewModal({ visible, kind, item, onClose }: {
+  visible: boolean;
+  kind: Kind;
+  item: LibraryContentItem | null;
+  onClose: () => void;
+}) {
+  const meta = KIND_META[kind];
+  const raw = item?.raw ?? {};
+  const title = item?.title ?? '';
+  const preview = typeof raw.preview === 'string' ? raw.preview : typeof raw.description === 'string' ? raw.description : '';
+  const body = typeof raw.body === 'string' ? raw.body : typeof raw.description === 'string' ? raw.description : '';
+  const tag = typeof raw.tag === 'string' && raw.tag.trim() ? raw.tag : item?.topic ?? '';
+  const readTime = typeof raw.readTime === 'string' ? raw.readTime : '';
+  const ageLabel = item
+    ? item.ageMin < 0 ? 'Pregnancy' : item.ageMax >= 999 ? 'All ages' : `${item.ageMin}-${item.ageMax} months`
+    : '';
+
+  return (
+    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
+      <View style={s.modalBackdrop}>
+        <View style={s.previewCard}>
+          <View style={s.modalHeader}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={s.previewKicker}>{meta.emoji} {meta.label} preview</Text>
+              <Text style={s.previewTitle} numberOfLines={2}>{title || `Untitled ${meta.noun}`}</Text>
+            </View>
+            <Pressable onPress={onClose} style={s.modalClose} hitSlop={6}>
+              <Ionicons name="close" size={20} color={Colors.textDark} />
+            </Pressable>
+          </View>
+
+          <ScrollView contentContainerStyle={s.previewBody}>
+            {item?.imageUrl ? (
+              <Image source={{ uri: item.imageUrl }} style={s.previewHero} resizeMode="cover" />
+            ) : null}
+
+            <View style={s.previewMetaRow}>
+              {[tag, readTime, ageLabel, item?.status].filter(Boolean).map((part) => (
+                <View key={String(part)} style={s.previewPill}>
+                  <Text style={s.previewPillText}>{String(part)}</Text>
+                </View>
+              ))}
+            </View>
+
+            {preview ? <Text style={s.previewDeck}>{preview}</Text> : null}
+            {body ? (
+              body.split(/\n{2,}/).map((para, index) => {
+                const trimmed = para.trim();
+                const heading = trimmed.match(/^\*\*(.+?)\*\*$/)?.[1]?.trim();
+                return heading ? (
+                  <Text key={`${index}-${heading}`} style={s.previewHeading}>
+                    {heading}
+                  </Text>
+                ) : (
+                  <Text key={`${index}-${trimmed.slice(0, 12)}`} style={s.previewPara}>
+                    {renderPreviewInlineBold(trimmed)}
+                  </Text>
+                );
+              })
+            ) : (
+              <Text style={s.mutedText}>No full body has been saved for this {meta.noun}.</Text>
+            )}
+          </ScrollView>
+
+          <View style={s.modalFooter}>
+            {item?.url ? (
+              <ToolbarButton label="Open link" icon="open-outline" variant="secondary" onPress={() => Linking.openURL(item.url!).catch(() => {})} />
+            ) : null}
+            <View style={{ flex: 1 }} />
+            <ToolbarButton label="Close" variant="primary" onPress={onClose} />
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function renderPreviewInlineBold(text: string) {
+  return text.split(/(\*\*[^*]+\*\*)/g).filter(Boolean).map((part, index) => {
+    const m = part.match(/^\*\*(.+)\*\*$/);
+    return m
+      ? <Text key={index} style={s.previewBold}>{m[1]}</Text>
+      : <Text key={index}>{part}</Text>;
+  });
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -893,7 +1252,11 @@ function GenerateCard({ kind, k, onError }: {
         const input: GenArticleInput = { topic: topic.trim() || undefined, ageBucketKey: (bucketKey || undefined) as any, publish: pub as any };
         const r = await generateArticleNow(input);
         if (!r.ok) throw new Error(`${r.code}: ${r.message}`);
-        setLastResult(`✓ "${r.title}" created (${r.status}). Check Library tab.`);
+        setLastResult(
+          r.imageStatus === 'pending'
+            ? `✓ "${r.title}" draft created. Thumbnail is generating in the background. Check Library tab in a bit.`
+            : `✓ "${r.title}" created (${r.status}). Check Library tab.`,
+        );
       } else if (kind === 'books') {
         const input: GenBooksInput = { topic: topic.trim() || undefined, ageBucketKey: (bucketKey || undefined) as any, count: parseInt(count, 10) || k.perRun, publish: pub as any };
         const r = await generateBooksNow(input);
@@ -1142,14 +1505,76 @@ const s = StyleSheet.create({
     backgroundColor: Colors.bgLight, borderRadius: Radius.md,
     padding: Spacing.md,
   },
+  rowThumbWrap: {
+    width: 50, height: 50, flexShrink: 0,
+    borderRadius: Radius.md,
+    overflow: 'hidden',
+    position: 'relative',
+  },
   rowThumb: {
     width: 50, height: 50, borderRadius: Radius.md,
     overflow: 'hidden', borderWidth: 1, borderColor: Colors.borderSoft, flexShrink: 0,
   },
   rowThumbEmpty: { alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.bgLight },
+  rowThumbLoading: {
+    position: 'absolute',
+    inset: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,252,247,0.94)',
+    paddingHorizontal: 4,
+    gap: 3,
+  },
+  rowThumbLoadingText: {
+    fontSize: 7,
+    lineHeight: 9,
+    fontWeight: '700',
+    color: Colors.primary,
+    textAlign: 'center',
+  },
+  rowThumbProgressTrack: {
+    width: 34,
+    height: 4,
+    borderRadius: 999,
+    backgroundColor: Colors.primaryAlpha12,
+    overflow: 'hidden',
+  },
+  rowThumbProgressBar: {
+    width: '65%',
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: Colors.primary,
+  },
+  rowThumbFailed: {
+    position: 'absolute',
+    right: 3,
+    top: 3,
+    width: 18,
+    height: 18,
+    borderRadius: 999,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#fecaca',
+  },
   rowTitle: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textDark },
   rowSub: { fontSize: FontSize.xs, color: Colors.textLight, marginTop: 2 },
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4 },
+  inlineActionBtn: {
+    marginTop: 8,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.primaryAlpha12,
+    backgroundColor: Colors.primarySoft,
+  },
+  inlineActionBtnText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.primary },
   rowActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, flexShrink: 0 },
 
   // Status banner (autopilot section)
@@ -1201,6 +1626,59 @@ const s = StyleSheet.create({
     paddingHorizontal: Spacing.md, paddingVertical: 9,
     fontSize: FontSize.sm, color: Colors.textDark,
     borderWidth: 1, borderColor: Colors.border,
+  },
+  imageUploadBox: {
+    borderWidth: 1,
+    borderColor: Colors.borderSoft,
+    borderRadius: Radius.lg,
+    backgroundColor: Colors.bgLight,
+    padding: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  imageUploadPreview: {
+    width: '100%',
+    height: 180,
+    borderRadius: Radius.md,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: Colors.borderSoft,
+  },
+  imageUploadEmpty: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  imageUploadHint: {
+    fontSize: FontSize.xs,
+    fontWeight: '700',
+    color: Colors.textMuted,
+  },
+  imageUploadActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+  },
+  imageUploadNote: {
+    fontSize: 11,
+    color: Colors.textMuted,
+    lineHeight: 16,
+  },
+  imageUploadError: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: Radius.md,
+    backgroundColor: '#fff1f2',
+    borderWidth: 1,
+    borderColor: '#fecaca',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 8,
+  },
+  imageUploadErrorText: {
+    flex: 1,
+    fontSize: FontSize.xs,
+    fontWeight: '700',
+    color: Colors.error,
   },
   saveRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 6 },
 
@@ -1255,6 +1733,11 @@ const s = StyleSheet.create({
     backgroundColor: Colors.cardBg, borderRadius: Radius.xl,
     overflow: 'hidden', ...Shadow.lg,
   },
+  previewCard: {
+    width: '100%', maxWidth: 760, maxHeight: '92%',
+    backgroundColor: Colors.cardBg, borderRadius: Radius.xl,
+    overflow: 'hidden', ...Shadow.lg,
+  },
   modalHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: Spacing.xl, paddingVertical: Spacing.lg,
@@ -1266,6 +1749,42 @@ const s = StyleSheet.create({
     backgroundColor: Colors.bgLight, alignItems: 'center', justifyContent: 'center',
   },
   modalBody: { padding: Spacing.xl },
+  previewBody: { padding: Spacing.xl, gap: Spacing.md },
+  previewKicker: {
+    fontSize: 10, fontWeight: '800', color: Colors.primary,
+    letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 4,
+  },
+  previewTitle: { fontSize: FontSize.xxl, fontWeight: '800', color: Colors.textDark },
+  previewHero: {
+    width: '100%', height: 260, borderRadius: Radius.lg,
+    borderWidth: 1, borderColor: Colors.borderSoft,
+    backgroundColor: Colors.bgLight,
+  },
+  previewMetaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  previewPill: {
+    paddingHorizontal: 10, paddingVertical: 5,
+    borderRadius: 999, backgroundColor: Colors.bgLight,
+    borderWidth: 1, borderColor: Colors.borderSoft,
+  },
+  previewPillText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textLight },
+  previewDeck: {
+    fontSize: FontSize.md, lineHeight: 23,
+    color: Colors.textDark, fontWeight: '600',
+  },
+  previewPara: {
+    fontSize: FontSize.sm, lineHeight: 23,
+    color: Colors.textDark,
+  },
+  previewHeading: {
+    fontSize: FontSize.md,
+    lineHeight: 23,
+    color: Colors.textDark,
+    fontWeight: '800',
+  },
+  previewBold: {
+    fontWeight: '800',
+    color: Colors.textDark,
+  },
   modalFooter: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
     paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md,
@@ -1312,4 +1831,22 @@ const s = StyleSheet.create({
     backgroundColor: Colors.primary, borderColor: Colors.primary,
   },
   teaserBtnText: { fontSize: 11, fontWeight: '700', color: Colors.primary },
+  inlineError: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    borderWidth: 1,
+    borderColor: '#fecaca',
+    backgroundColor: '#fff1f2',
+    borderRadius: Radius.lg,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 10,
+    marginBottom: Spacing.md,
+  },
+  inlineErrorText: {
+    flex: 1,
+    color: Colors.error,
+    fontSize: FontSize.sm,
+    fontWeight: '700',
+  },
 });

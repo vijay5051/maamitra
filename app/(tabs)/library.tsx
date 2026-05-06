@@ -29,6 +29,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { isAdminEmail } from '../../lib/admin';
 import { PRODUCTS, Product } from '../../data/products';
 import { Article } from '../../data/articles';
+import { BOOKS, type Book } from '../../data/books';
 import { MILESTONES } from '../../data/milestones';
 import { VACCINE_SCHEDULE } from '../../data/vaccines';
 import Card from '../../components/ui/Card';
@@ -43,24 +44,6 @@ type SortMode = 'Featured' | 'Price ↑' | 'Price ↓' | 'Top Rated';
 
 const PRODUCT_CATEGORIES = ['All', 'Feeding', 'Skincare', 'Sleep', 'Development', 'Mother', 'Toddler'];
 const SORT_OPTIONS: SortMode[] = ['Featured', 'Price ↑', 'Price ↓', 'Top Rated'];
-
-interface Book {
-  id: string;
-  emoji: string;
-  title: string;
-  author: string;
-  rating: number;
-  reviews: number;
-  topic: string;
-  brief: string;
-  badge?: string;
-  coverColors: [string, string];
-  url: string;
-  sampleUrl?: string;
-  imageUrl?: string;   // real cover from Google Books (dynamic books)
-  ageMin: number;  // months; -9 = pregnancy
-  ageMax: number;  // months; 999 = always relevant
-}
 
 /** Adapts a DynamicBook from the store to the unified Book display format */
 function dynamicToBook(d: DynamicBook): Book {
@@ -119,159 +102,6 @@ function dynamicToProduct(d: DynamicProduct): Product {
     ageMaxMonths: (d as any).ageMaxMonths ?? 999,
   };
 }
-
-const BOOKS: Book[] = [
-  {
-    id: 'b01',
-    emoji: '🤰',
-    title: "What to Expect When You're Expecting",
-    author: 'Heidi Murkoff',
-    rating: 4.7,
-    reviews: 14200,
-    topic: 'Pregnancy',
-    brief: 'The world\'s bestselling pregnancy guide — week-by-week breakdowns, symptoms, nutrition, and birth prep trusted by millions of Indian mothers.',
-    badge: 'Bestseller',
-    coverColors: [Colors.primary, '#f472b6'],
-    url: 'https://www.amazon.in/dp/0761187480',
-    sampleUrl: 'https://books.google.com/books?id=WhatToExpect',
-    ageMin: -9,
-    ageMax: 0,
-  },
-  {
-    id: 'b02',
-    emoji: '🤱',
-    title: 'The Womanly Art of Breastfeeding',
-    author: 'La Leche League International',
-    rating: 4.7,
-    reviews: 8900,
-    topic: 'Breastfeeding',
-    brief: 'The gold standard breastfeeding guide — latch, supply, pumping, and returning to work, written with warmth and evidence-based care.',
-    badge: 'IAP Recommended',
-    coverColors: [Colors.primary, '#a78bfa'],
-    url: 'https://www.amazon.in/dp/0345518446',
-    sampleUrl: 'https://www.llli.org/breastfeeding-info/',
-    ageMin: -1,
-    ageMax: 24,
-  },
-  {
-    id: 'b03',
-    emoji: '👶',
-    title: 'The Baby Book',
-    author: 'Dr. William & Martha Sears',
-    rating: 4.6,
-    reviews: 11300,
-    topic: 'Newborn Care',
-    brief: 'Comprehensive attachment parenting guide covering feeding, sleep, development, and health in the first two years. A classic for new parents.',
-    badge: "Editor's Pick",
-    coverColors: ['#f59e0b', '#fbbf24'],
-    url: 'https://www.amazon.in/dp/0316779415',
-    sampleUrl: 'https://books.google.com/books?id=BabyBook',
-    ageMin: 0,
-    ageMax: 24,
-  },
-  {
-    id: 'b04',
-    emoji: '🍛',
-    title: 'Indian Baby Food & Recipes',
-    author: 'Tarla Dalal',
-    rating: 4.8,
-    reviews: 6700,
-    topic: 'Nutrition',
-    brief: '200+ easy Indian recipes for babies and toddlers — dal khichdi, ragi porridge, sabzi purees — from weaning to family meals. A must-have.',
-    badge: 'Top Rated',
-    coverColors: ['#22c55e', '#4ade80'],
-    url: 'https://www.amazon.in/s?k=Indian+Baby+Food+Tarla+Dalal',
-    ageMin: 4,
-    ageMax: 36,
-  },
-  {
-    id: 'b05',
-    emoji: '🧘',
-    title: 'Yoga for Pregnancy and Birth',
-    author: 'Uma Dinsmore-Tuli',
-    rating: 4.5,
-    reviews: 3200,
-    topic: 'Yoga & Wellness',
-    brief: 'Gentle yoga sequences designed for every trimester and postpartum recovery — breathing, relaxation, and poses that support your changing body.',
-    coverColors: ['#a855f7', '#c084fc'],
-    url: 'https://www.amazon.in/s?k=Yoga+Pregnancy+Birth+Uma',
-    ageMin: -9,
-    ageMax: 3,
-  },
-  {
-    id: 'b06',
-    emoji: '🌸',
-    title: 'Nurturing the Soul of Your Family',
-    author: 'Renée Peterson Trudeau',
-    rating: 4.3,
-    reviews: 2100,
-    topic: 'Self-Care',
-    brief: 'A powerful guide for overwhelmed mothers on reclaiming balance, setting boundaries, and practising self-care without guilt.',
-    coverColors: [Colors.primary, Colors.primary],
-    url: 'https://www.amazon.in/s?k=Nurturing+Soul+Family+Trudeau',
-    ageMin: 0,
-    ageMax: 999,
-  },
-  {
-    id: 'b07',
-    emoji: '😴',
-    title: 'The No-Cry Sleep Solution',
-    author: 'Elizabeth Pantley',
-    rating: 4.4,
-    reviews: 9800,
-    topic: 'Sleep',
-    brief: 'Gentle, proven strategies to help your baby sleep longer without hours of crying — tailored for co-sleeping families and Indian households.',
-    badge: 'Popular',
-    coverColors: ['#3b82f6', '#60a5fa'],
-    url: 'https://www.amazon.in/s?k=No+Cry+Sleep+Solution+Pantley',
-    ageMin: 0,
-    ageMax: 18,
-  },
-  {
-    id: 'b08',
-    emoji: '🧠',
-    title: 'The Whole-Brain Child',
-    author: 'Dr. Daniel J. Siegel',
-    rating: 4.7,
-    reviews: 13500,
-    topic: 'Development',
-    brief: '12 strategies to nurture your child\'s developing mind — helps parents understand tantrums, emotions, and behaviour through neuroscience.',
-    badge: 'Bestseller',
-    coverColors: ['#6366f1', '#818cf8'],
-    url: 'https://www.amazon.in/dp/0553386697',
-    sampleUrl: 'https://books.google.com/books?id=WholeBrainChild',
-    ageMin: 12,
-    ageMax: 999,
-  },
-  {
-    id: 'b09',
-    emoji: '🍼',
-    title: 'Heading Home with Your Newborn',
-    author: 'Laura A. Jana & Jennifer Shu',
-    rating: 4.5,
-    reviews: 5600,
-    topic: 'Newborn Care',
-    brief: 'Practical AAP-backed guidance for the first weeks — feeding, sleep safety, when to call the doctor, and surviving the fourth trimester.',
-    coverColors: ['#f97316', '#fb923c'],
-    url: 'https://www.amazon.in/s?k=Heading+Home+Newborn+Jana',
-    ageMin: -1,
-    ageMax: 3,
-  },
-  {
-    id: 'b10',
-    emoji: '💪',
-    title: 'Strong Mothers, Strong Sons',
-    author: 'Dr. Meg Meeker',
-    rating: 4.6,
-    reviews: 4300,
-    topic: 'Parenting',
-    brief: 'How mothers shape their sons\' character, confidence, and relationships — warm, research-backed, and deeply relevant for Indian families.',
-    coverColors: ['#10b981', '#34d399'],
-    url: 'https://www.amazon.in/s?k=Strong+Mothers+Strong+Sons+Meeker',
-    ageMin: 0,
-    ageMax: 999,
-  },
-];
 
 // ─── Sub-tab selector ──────────────────────────────────────────────────────────
 
@@ -471,11 +301,7 @@ function ArticleCard({
           )}
         </TouchableOpacity>
 
-        {expanded && (
-          <Text style={[articleStyles.bodyText, Platform.OS === 'web' ? { wordBreak: 'break-word' } as any : {}]}>
-            {article.body}
-          </Text>
-        )}
+        {expanded && <ArticleBody body={article.body} />}
 
         {/* ── Actions ── */}
         <View style={articleStyles.actions}>
@@ -502,6 +328,39 @@ function ArticleCard({
       </View>
     </View>
   );
+}
+
+function ArticleBody({ body }: { body: string }) {
+  const blocks = body.split(/\n{2,}/).map((b) => b.trim()).filter(Boolean);
+  return (
+    <View style={articleStyles.articleBodyWrap}>
+      {blocks.map((block, index) => {
+        const heading = block.match(/^\*\*(.+?)\*\*$/)?.[1]?.trim();
+        if (heading) {
+          return (
+            <Text key={`${index}-${heading}`} style={articleStyles.bodyHeading}>
+              {heading}
+            </Text>
+          );
+        }
+        return (
+          <Text key={`${index}-${block.slice(0, 12)}`} style={[articleStyles.bodyText, Platform.OS === 'web' ? { wordBreak: 'break-word' } as any : {}]}>
+            {renderInlineBold(block, articleStyles.bodyBold)}
+          </Text>
+        );
+      })}
+    </View>
+  );
+}
+
+function renderInlineBold(text: string, boldStyle: any) {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g).filter(Boolean);
+  return parts.map((part, index) => {
+    const m = part.match(/^\*\*(.+)\*\*$/);
+    return m
+      ? <Text key={index} style={boldStyle}>{m[1]}</Text>
+      : <Text key={index}>{part}</Text>;
+  });
 }
 
 const articleStyles = StyleSheet.create({
@@ -588,7 +447,21 @@ const articleStyles = StyleSheet.create({
     fontSize: 14,
     color: '#374151',
     lineHeight: 22,
+  },
+  articleBodyWrap: {
     marginTop: 4,
+    gap: 8,
+  },
+  bodyHeading: {
+    fontSize: 15,
+    color: '#1f2937',
+    fontWeight: '800',
+    lineHeight: 22,
+    marginTop: 4,
+  },
+  bodyBold: {
+    fontWeight: '800',
+    color: '#1f2937',
   },
   actions: {
     flexDirection: 'row',
@@ -1233,7 +1106,8 @@ export default function LibraryScreen() {
     const filtered = dynamicArticles
       .filter((d) => ageMonths === null || (ageMonths >= d.ageMin && ageMonths <= d.ageMax))
       .map(dynamicToArticle);
-    return [...filtered, ...allStaticArticles];
+    const dynamicIds = new Set(filtered.map((a) => a.id));
+    return [...filtered, ...allStaticArticles.filter((a) => !dynamicIds.has(a.id))];
   }, [dynamicArticles, allStaticArticles, activeKid]);
 
   // Apply search + topic filter on top of age-filtered articles
@@ -1267,7 +1141,8 @@ export default function LibraryScreen() {
   // Merge static + dynamic books, personalise by age relevance
   const { personalizedBooks, topBookIds } = useMemo(() => {
     const dynAsBooks = dynamicBooks.map(dynamicToBook);
-    const allBooks = [...dynAsBooks, ...BOOKS]; // dynamic books appear first
+    const dynamicIds = new Set(dynAsBooks.map((b) => b.id));
+    const allBooks = [...dynAsBooks, ...BOOKS.filter((b) => !dynamicIds.has(b.id))];
 
     const ageMonths = activeKid?.isExpecting
       ? -9
@@ -1313,7 +1188,9 @@ export default function LibraryScreen() {
 
   // Filter & sort products with age-based personalisation
   const { filteredProducts, recommendedCount } = useMemo(() => {
-    const allProducts: Product[] = [...dynamicProducts.map(dynamicToProduct), ...PRODUCTS];
+    const dynAsProducts = dynamicProducts.map(dynamicToProduct);
+    const dynamicIds = new Set(dynAsProducts.map((p) => p.id));
+    const allProducts: Product[] = [...dynAsProducts, ...PRODUCTS.filter((p) => !dynamicIds.has(p.id))];
     let list = productCategory === 'All' ? allProducts : allProducts.filter((p) => p.category === productCategory);
 
     if (sortMode === 'Price ↑') {

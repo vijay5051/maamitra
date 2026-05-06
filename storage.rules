@@ -1,6 +1,28 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function adminRoleField(uid) {
+      return firestore.exists(/databases/(default)/documents/users/$(uid))
+        ? firestore.get(/databases/(default)/documents/users/$(uid)).data.adminRole
+        : '';
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.admin == true ||
+        (request.auth.token.email_verified == true && (
+          request.auth.token.email == 'admin@maamitra.app' ||
+          request.auth.token.email == 'vijay@maamitra.app' ||
+          request.auth.token.email == 'rocking.vsr@gmail.com' ||
+          request.auth.token.email == 'divyashekhawat44@yahoo.in'
+        )) ||
+        adminRoleField(request.auth.uid) in ['super', 'moderator', 'support', 'content']
+      );
+    }
 
     // Profile avatars — stored as avatars/{uid}.<ext>
     // Any signed-in user can read (public avatars). Only the owner can write.
@@ -58,6 +80,16 @@ service firebase.storage {
       allow write: if request.auth != null
         && request.resource.size < 8 * 1024 * 1024
         && request.resource.contentType.matches('image/(jpeg|jpg|png|webp|heic|heif)');
+    }
+
+    // Admin-managed Library thumbnails / article hero images.
+    // Stored URLs are used by the public app, so reads are allowed; writes are
+    // restricted to verified admins/content managers.
+    match /library/{kind}/{fileName} {
+      allow read: if true;
+      allow write: if isAdmin()
+        && request.resource.size < 8 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|jpg|png|webp|heic|heif|gif|avif)');
     }
 
     // Deny everything else by default

@@ -290,6 +290,317 @@ never written to Firestore — not recoverable. Authors can re-post.
 
 ---
 
+
+## Last action (2026-05-05) — MaaMitra LoRA trained and wired into Studio
+
+**Replicate FLUX style LoRA trained from the 72 local app illustrations and
+deployed as the first-choice Studio "Best" image path.**
+
+### What changed
+- Built a LoRA training dataset from all 72 `assets/illustrations/*.webp`.
+  - First attempt used WebP files and failed because Replicate trainer did not
+    recognize them as images.
+  - Rebuilt as flat root-level `.png + .txt` caption pairs:
+    `/tmp/maamitra-lora-png.zip`
+  - Trigger word: `MAAMITRASTYLE`
+  - Training type: `style`
+  - Steps: `1200`
+- Uploaded the PNG dataset ZIP to Firebase Storage:
+  `marketing/lora/maamitra-style-png-1777957380557.zip`
+- Created private Replicate model:
+  `vijay5051/maamitra-style-lora`
+- Training succeeded:
+  - Training id: `x3gvj0kqd5rmw0cxyt3tq9wjdc`
+  - Version:
+    `vijay5051/maamitra-style-lora:2062475b5a6f39beae964d257f9f3d0b744c06416a1229b98b145a0103d58c77`
+  - Weights:
+    `https://replicate.delivery/xezq/erSsfBgjE3jMWUYebri5iIyBDHXYqZ8lP9Cagh4sL2kLwlDtA/flux-lora.tar`
+- Set production Integrations doc:
+  - `app_settings/integrations.replicate.loraModel`
+  - `app_settings/integrations.replicate.loraTrigger = MAAMITRASTYLE`
+- `functions/src/marketing/imageSources.ts`
+  - Added `replicateLoraImage()`.
+  - Supports explicit `owner/model:version` routes via `/v1/predictions`.
+- `functions/src/marketing/studio.ts`
+  - Studio **Best** now tries MaaMitra LoRA first.
+  - If LoRA fails, falls back to OpenAI high-fidelity reference edits.
+  - Cost logging uses `source=lora` for LoRA hits.
+- `app/admin/marketing/create.tsx`
+  - Best copy now says: "MaaMitra LoRA brand model. OpenAI fallback."
+
+### What deployed
+- Cloud Function deployed:
+  `generateStudioVariants`
+- Firebase Hosting deployed.
+
+### Verification
+- LoRA sample generation succeeded and wrote:
+  `/tmp/maamitra-lora-smoke.png`
+  This is the best output so far: much closer to app illustrations than
+  prompt-only or OpenAI reference-only.
+- `npm run build` in `functions/` passed.
+- `npm run build:web` passed.
+
+---
+
+## Previous last action (2026-05-05) — Studio Best uses illustration references
+
+**Reference-conditioned Studio generation deployed after prompt-only OpenAI output
+still looked off-brand.**
+
+### What changed
+- Built a compact deployable reference pack from the local MaaMitra illustration
+  library:
+  - `functions/src/marketing/style-refs/all-72-style-mosaic.webp` contains all
+    72 `assets/illustrations/*.webp` files as a packed style sheet.
+  - Six high-detail anchors are included first for face/character fidelity:
+    `community-hero`, `feature-community`, `feature-growth`,
+    `health-cat-mother`, `dadi-ke-nuskhe-hero`, `health-cat-baby`.
+- `functions/package.json` now copies `src/marketing/style-refs/*.webp` into
+  `lib/marketing/style-refs/` during function builds.
+- `functions/src/marketing/studio.ts` now routes Studio **Best** through
+  OpenAI image edits with all 7 references and `input_fidelity=high`, instead
+  of text-only `/images/generations`.
+- `functions/src/marketing/imageSources.ts` supports multiple image buffers for
+  OpenAI edits, sets `input_fidelity`, and asks for PNG output.
+- `app/admin/marketing/create.tsx` copy/cost updated:
+  "Reference-locked ChatGPT image model. ~₹15 per image."
+
+### What deployed
+- Cloud Function deployed:
+  `generateStudioVariants`
+- Firebase Hosting deployed for the refreshed cost/copy label.
+
+### Verification
+- `npm run build` in `functions/` passed.
+- `npm run build:web` passed.
+- Live OpenAI smoke test succeeded and wrote:
+  `/tmp/maamitra-reference-smoke.png`
+  It used the same 7-reference pack and returned a much closer MaaMitra-style
+  mother/baby packing scene.
+
+---
+
+## Previous last action (2026-05-05) — Brand illustration style reinjected
+
+**Live Firestore Brand Kit patched after Studio output looked off-brand.**
+
+### What changed
+- Reviewed the local illustration library count: 72 assets in
+  `assets/illustrations/`.
+- Repacked the visual style into a stricter, efficient Brand Kit profile:
+  recurring MaaMitra mom/baby/dadi character design, lavender chikankari
+  wardrobe, ivory negative space, polished gouache/ink finish, Indian home
+  objects, and hard bans on generic cartoon/blob/photoreal/uncanny outputs.
+- Patched production Firestore doc `marketing_brand/main.styleProfile` via
+  Firestore REST using the Firebase CLI auth token.
+  - Updated at `2026-05-05T04:23:50.966743Z`
+  - Description length: 1308 chars
+  - Art keywords length: 238 chars
+  - Prohibited list: 28 items
+- Synced `lib/marketingTypes.ts` `DEFAULT_STYLE_PROFILE` to the same profile
+  so future Brand Kit resets keep the sharper house style.
+
+### Notes
+- No function deploy was needed for the prompt reinjection because Studio and
+  generators read `marketing_brand/main.styleProfile` at request time.
+- The backend still routes Studio "Best" to OpenAI `gpt-image-1` by default.
+
+---
+
+## Previous last action (2026-05-05) — Marketing image generation switched to OpenAI default
+
+**Functions deployed + web hosting deployed.**
+
+### What changed
+- Fixed the failing Studio image path that was still tied to old Imagen behavior:
+  - `functions/src/marketing/imageSources.ts` now defaults Gemini Imagen fallback
+    to `imagen-4.0-generate-001`, uses `x-goog-api-key`, supports
+    `gemini.imagenModel` / `GEMINI_IMAGEN_MODEL`, and parses multiple image
+    response shapes.
+- Per user request, Marketing Studio **Best** now uses OpenAI `gpt-image-1`
+  as the default image generator while preserving the Brand Kit style lock:
+  - `functions/src/marketing/studio.ts` treats all non-FLUX Studio requests as
+    OpenAI, so old web bundles that still send `model: "imagen"` also route to
+    OpenAI immediately.
+  - `app/admin/marketing/create.tsx` copy now says
+    "ChatGPT image model + your brand theme."
+- Manual/daily marketing draft generation now defaults to `dalle` / OpenAI:
+  - `functions/src/marketing/generator.ts` default image model changed from
+    `imagen` to `dalle`.
+- Template preview defaults its AI model to OpenAI too.
+- Integration Hub OpenAI copy updated to mention branded post image generation.
+
+### What deployed
+- Cloud Functions updated:
+  `generateStudioVariants`, `generateMarketingDraft`, `dailyMarketingDraftCron`,
+  `generateAheadDrafts`.
+- Firebase Hosting updated:
+  https://maa-mitra-7kird8.web.app
+
+### Verification
+- `npm run build` in `functions/` passed.
+- `npm run build:web` passed and deployed.
+- `npx tsc --noEmit` still fails on a pre-existing typed-route issue:
+  `app/admin/community.tsx(303)` rejects `"/admin/safety"` as a route. This is
+  unrelated to the image generation changes.
+
+---
+
+## Previous last action (2026-05-05) — Library admin unified UX (two-tier nav)
+
+**Commit `c383bcc` · hosting deployed · OTA `df8ce8b3` published.**
+
+### What changed
+- `app/admin/library-ai.tsx` — full rewrite: two-tier nav
+  - **Tier 1**: Kind pill chips (📰 Articles / 📚 Books / 🛍️ Products)
+  - **Tier 2**: Section underline tabs (Library | Autopilot | History)
+  - Default section = Library so admin lands on content, not settings
+  - `ContentLibrarySection`: all items (AI + manual), search, status filter,
+    full CRUD — edit opens modal showing entire article body
+  - `AutopilotSection`: compact StatusBanner + SettingsCard + GenerateCard
+  - `HistorySection`: cron run logs
+- `app/admin/content.tsx` — stripped to Schemes & Yoga only
+- `AdminShell.tsx` — nav order: Library (AI+CRUD) first, Schemes & Yoga second
+
+---
+
+## Previous last action (2026-05-05) — Library AI autopilot (Articles · Books · Products)
+
+**Full AI content pipeline for all three Library sections. Fully deployed.**
+
+### What was built
+
+**9 new Cloud Function modules** under `functions/src/library/`:
+- `settings.ts` — `LibraryAiSettings` per-kind config (frequency / topics / tone /
+  age-buckets / autoPublish / expiry) stored in `app_settings/libraryAi`. Admin
+  changes take effect instantly (no cache).
+- `brand.ts` — shares brand voice + compliance + style profile from
+  `marketing_brand/main` (same forbidden-words list, same visual DNA as Studio).
+- `openai.ts` — gpt-4o-mini JSON-mode helper (reuses Firestore-stored API key).
+- `auth.ts` — admin gate (super | content role); mirrors marketing gate.
+- `articles.ts` — AI writes article → Imagen hero image → compliance scan →
+  Firestore `articles` collection. Rotates age buckets and topics by day. De-dupes
+  by scanning recent 60 days of titles.
+- `books.ts` — AI picks 3-5 real book candidates → verifies each against Google
+  Books API (free, no key) → constructs Amazon.in deep links (`/dp/<ISBN13>`) or
+  search URLs. Stores book covers in Firebase Storage.
+- `products.ts` — AI picks brand-name products (Pigeon, Mee Mee, Himalaya…) →
+  constructs Amazon.in + Flipkart search URLs. AI thumbnail via Imagen → Pexels
+  fallback.
+- `cron.ts` — daily 06:30 IST generator (fires each kind if `shouldFireToday()`);
+  daily 03:00 IST stale-archival sweep (flips past-`expiresAt` items to `archived`).
+- `index.ts` — barrel exports.
+
+**6 new Cloud Functions exported from `functions/src/index.ts`:**
+`generateArticleNow`, `generateBooksNow`, `generateProductsNow`,
+`archiveLibraryItem`, `dailyLibraryAiCron`, `expireStaleLibrary`. All created.
+
+**Admin UI** (`app/admin/library-ai.tsx`):
+- Per-kind tabs (Articles / Books / Products) with enable toggle, frequency picker,
+  perRun/expireAfterDays steppers, autoPublish switch, topic catalog textarea,
+  tone editor.
+- Generate-now card: topic override, age bucket chips, count, publish mode → fires
+  callable, shows live result.
+- AI item queue: live onSnapshot feed with thumbnail, title, topic, age range,
+  timestamp, expiry, compliance flags, status badge, link button, archive button.
+- Cron run history table (articles tab).
+- Nav item added: "Library AI autopilot" (sparkles icon, `edit_content` cap) in
+  AdminShell Content group.
+
+**Firestore live sync** (`hooks/useLibraryFirestoreSync.ts`):
+- 3 `onSnapshot` subscriptions on `articles`, `books`, `products`
+  (where `status == 'published'`), mounted from the Library tab.
+- Hydrates Zustand stores (`setArticles`, `setBooks`, `setProducts`) in real time.
+
+**Other files changed:**
+- `store/useArticleStore.ts`, `useBookStore.ts`, `useProductStore.ts` — added
+  `setArticles / setBooks / setProducts` actions.
+- `services/libraryAi.ts` — client callable wrappers + settings subscribe.
+- `firestore.rules` — admin read for `library_ai_log`, `library_ai_runs`.
+- `firestore.indexes.json` — 6 composite indexes
+  (`source+createdAt`, `source+status+expiresAt`) across articles/books/products.
+- `services/audit.ts` — added `library_ai.*` action types.
+
+### What deployed (commit `5a89241`)
+- Firebase Functions: 6 new functions created, 39 existing updated. ✔
+- Firestore rules + indexes deployed. ✔
+- Web hosting updated. ✔
+- EAS OTA published (update group `4366c8b3`). ✔
+
+---
+
+## Previous last action (2026-05-05) — Auto-scheduler visibility & control
+
+**Phase 5 — Admin can now see and control what the 6 AM cron will generate.**
+
+Root cause of the user's concern: the cron ran silently every morning and
+the admin had no way to know what it would generate or skip a date.
+
+Three layers shipped in one commit (`4372c06` + lib compile `bad5387`):
+
+### Layer 1 — Tomorrow's preview card (pure-client)
+- New `previewScheduledSlot(brand: BrandKit, targetDate: Date): ScheduledSlotPreview`
+  in `services/marketing.ts`. Pure computation — reads enabled personas/pillars/
+  cultural calendar/themeCalendar from the brand kit snapshot + cronOverrides.
+  Mirrors the exact same round-robin / event-hint logic the cron uses.
+- **Today tab** (`app/admin/marketing/index.tsx`): when `cronEnabled=true`, a
+  "Tomorrow's auto-post" section appears below the KPI tiles. Shows a date box
+  (day abbrev + date), theme label, persona chip, pillar chip with emoji, event
+  chip (if any matching cultural calendar event). Two action buttons:
+  - "Skip tomorrow" — toggles the per-date skip override
+  - "Queue 7 days" — fires `generateAheadDrafts` callable
+- Subscribes to brand kit via `subscribeBrandKit` so the slot recomputes
+  live when overrides change.
+
+### Layer 2 — Per-date cron overrides
+- New `CronOverride` / `CronOverrides` types added to `lib/marketingTypes.ts`
+  and `BrandKit` interface.
+- Stored at `marketing_brand/main.cronOverrides[YYYY-MM-DD]` with fields
+  `{ skip?, promptOverride?, personaId?, pillarId? }`.
+- `buildDailyMarketingDraftCron` now reads today's override before running:
+  - `skip: true` → logs + returns null (no draft)
+  - Override fields (personaId / pillarId / promptOverride) are merged into
+    the `GenerateInput` passed to `runGenerator`.
+- `saveCronOverride(actor, dateIso, override | null)` in `services/marketing.ts`
+  writes a dot-notation Firestore update (`cronOverrides.YYYY-MM-DD = {...}`)
+  so only that one key is touched. Pass `null` to delete the override.
+  Audit-logged as `marketing.cron.override`.
+- **Settings page** (`app/admin/marketing/settings.tsx`): new "Upcoming auto-posts"
+  card under Daily knobs (only visible when `cronEnabled=true`). Shows next 3 IST
+  dates with skip/un-skip toggle buttons. "Queue 7 days" on the card head. Stale
+  override immediately reflected in the preview card when brand kit subscription
+  fires back.
+
+### Layer 3 — Ahead-generate callable
+- `buildGenerateAheadDrafts(allowList)` in `generator.ts` — iterates tomorrow
+  through +days (1–7). For each date: checks `cronOverrides[date].skip` → skips;
+  queries `marketing_drafts` where `generatedForDate == date AND status in
+  [pending_review, approved, scheduled, posted]` → skips if already exists;
+  else runs `runGenerator({ forDateIso: date, ...overrides }, actorEmail)`.
+- `runGenerator` extended with `forDateIso?` and `promptOverride?` inputs.
+  `forDateIso` resolves the IST weekday key for any future date; `promptOverride`
+  is injected as an "Admin override for today" line in the AI caption prompt.
+- Every new draft now records `generatedForDate: YYYY-MM-DD` so the cron can
+  detect and skip pre-generated dates via `draftExistsForDate(isoDate)`.
+- Exported as `generateAheadDrafts` Cloud Function. Deployed.
+- Client wrapper `generateAheadDrafts(days)` in `services/marketing.ts`.
+
+### What deployed
+- `functions:generateAheadDrafts` — created (new callable)
+- `functions:generateMarketingDraft` — updated (forDateIso + promptOverride inputs)
+- `functions:dailyMarketingDraftCron` — updated (override check + skip-if-exists)
+- Web hosting — updated
+- OTA — in-flight (publishing at time of handoff; will succeed once complete)
+
+### Merge notes
+Codex had landed `Integration Hub` (commit `dc1724e`) while this session was
+running. Integration merged cleanly via `git pull --rebase`. Only conflict was
+`services/audit.ts` — resolved to include both `integration.update` (Codex)
+and `marketing.cron.override` (this session).
+
+---
+
 ## Last action (2026-05-05) — Brand visual style + Generate cover button
 
 **Two commits shipped:**

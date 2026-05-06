@@ -19,10 +19,11 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions/v1';
 
-import { fluxSchnell, imagenGenerate, openaiImage, pexelsSearch } from './imageSources';
+import { fluxSchnell, imagenGenerate, pexelsSearch } from './imageSources';
 import { renderTemplate } from './renderer';
 import { BrandSnapshot } from './templates';
 import { getIntegrationConfig } from '../lib/integrationConfig';
+import { openaiMaaMitraReferenceImage } from './styleReferences';
 
 interface GenerateInput {
   personaId?: unknown;
@@ -110,24 +111,17 @@ interface BrandKitData {
    *  for image-gen so daily-cron drafts share the brand-locked look of
    *  any Studio variant. */
   styleProfile: {
-    /** Long-form admin-facing description. Preserved for documentation but
-     *  NOT piped into image-gen — Imagen 3 caps prompts ~480 tokens. */
     description: string;
-    /** Tight ~280 char fingerprint. THIS is what flows into the model
-     *  prompt; falls back to description.slice when missing. */
-    oneLiner: string;
     artKeywords: string;
     prohibited: string[];
   } | null;
 }
 
-// Studio v2 defaults — kept identical to functions/src/marketing/studio.ts AND
-// lib/marketingTypes.ts (DEFAULT_STYLE_PROFILE) so the cron generator, the
-// Studio canvas and the client all produce visually consistent drafts. Update
-// all three when tweaking the brand visual DNA.
-const STYLE_DEFAULT_ONE_LINER = 'Soft painterly storybook illustration with subtle watercolor texture. Lavender + sage + dusty-pink + cream palette. Indian women (warm brown skin, dark messy-bun hair) in white-chikankari-embroidered lavender kurtas. Single calm scene, generous negative space, warm cream background.';
-const STYLE_DEFAULT_DESCRIPTION = 'A soft, painterly storybook illustration in the spirit of a children\'s-book spread — NOT flat vector. Characters and fabric carry subtle volume, gentle gradients, and a faint watercolor / paper-grain texture. No hard black outlines. Light is warm, ambient and dappled — never harsh shadows. Disciplined pastel palette: warm cream / ivory background, signature soft lavender on hero garments and props, dusty / baby pink, sage / mint green, with golden-honey + peach used sparingly. Characters are Indian women — moms, grandmothers (dadis), with babies and toddlers — warm brown skin, dark messy-bun hair (or long braid / soft waves); grandmothers wear silver-grey hair and a small bindi. Faces are soft and rounded with peaceful or gently-closed eyes, calm half-smile, soft rosy cheeks. Wardrobe: lavender kurta with delicate WHITE CHIKANKARI floral embroidery at neckline and cuffs, white salwar, soft dupatta; grandmothers in pastel sarees; subtle gold jewelry only. Composition is always a SINGLE calm scene; for wide hero formats character sits on the right with generous empty cream space on the left for caption overlay. Recurring motifs: lotus blossoms, marigolds, drifting leaves, potted plants in pastel ceramic pots, round dusty-pink rugs with tasseled fringe, sage-green yoga mats. Never more than 3-4 characters in one frame.';
-const STYLE_DEFAULT_KEYWORDS = 'painterly 2D illustration, watercolor texture, storybook spread, soft pastel palette, lavender + sage + dusty pink + cream, Indian woman, warm brown skin, messy bun, white chikankari embroidery on lavender kurta, soft dupatta, peaceful closed eyes, gentle smile, generous negative space, warm dappled light, lotus, marigold';
+// Studio v2 defaults — kept identical to functions/src/marketing/studio.ts so
+// the cron generator and the Studio canvas produce visually consistent
+// drafts. Update both when tweaking the brand visual DNA.
+const STYLE_DEFAULT_DESCRIPTION = 'A warm hand-drawn 2D illustration. Flat colours with subtle gradients, no photorealism. Indian characters (brown skin, dark hair). Soft pastels. Rounded organic shapes. Generous negative space. Single-scene composition.';
+const STYLE_DEFAULT_KEYWORDS = 'flat illustration, pastel, Indian, motherhood, gentle, hand-drawn, soft gradient, organic shapes';
 
 async function loadBrandKit(): Promise<BrandKitData> {
   const snap = await admin.firestore().doc('marketing_brand/main').get();
@@ -164,7 +158,6 @@ async function loadBrandKit(): Promise<BrandKitData> {
     logoUrl: typeof d?.logoUrl === 'string' ? d.logoUrl : null,
     styleProfile: d?.styleProfile ? {
       description: typeof d.styleProfile.description === 'string' ? d.styleProfile.description : STYLE_DEFAULT_DESCRIPTION,
-      oneLiner: typeof d.styleProfile.oneLiner === 'string' ? d.styleProfile.oneLiner : STYLE_DEFAULT_ONE_LINER,
       artKeywords: typeof d.styleProfile.artKeywords === 'string' ? d.styleProfile.artKeywords : STYLE_DEFAULT_KEYWORDS,
       prohibited: arr(d.styleProfile.prohibited).filter((s: any): s is string => typeof s === 'string'),
     } : null,
@@ -173,21 +166,14 @@ async function loadBrandKit(): Promise<BrandKitData> {
 
 /** Wrap the LLM-supplied imagePrompt with the brand's visual DNA so daily
  *  cron drafts match Studio variants. Mirrors buildStudioPrompt in studio.ts;
- *  keep the structure aligned when tweaking either.
- *
- *  Imagen 3 caps prompts at ~480 tokens (~1920 chars) and behaves better with
- *  concise prompts. Use the punchy oneLiner as the visual-style line; the
- *  long description stays in Firestore for admin reference but isn't piped
- *  into the model. */
+ *  keep the structure aligned when tweaking either. */
 function buildStyleLockedImagePrompt(subject: string, brand: BrandKitData): string {
   const profile = brand.styleProfile;
-  const styleLine = profile?.oneLiner?.trim()
-    || profile?.description?.slice(0, 320).trim()
-    || STYLE_DEFAULT_ONE_LINER;
+  const desc = profile?.description ?? STYLE_DEFAULT_DESCRIPTION;
   const keywords = profile?.artKeywords ?? STYLE_DEFAULT_KEYWORDS;
   const negative = profile?.prohibited?.length ? profile.prohibited.join(', ') : '';
   const parts: string[] = [
-    `Visual style: ${styleLine}`,
+    `Visual style: ${desc}`,
     `Art direction keywords: ${keywords}.`,
     `Subject: ${subject.trim()}`,
   ];
@@ -534,6 +520,57 @@ function trim(v: unknown, max: number): string {
   return typeof v === 'string' ? v.trim().slice(0, max) : '';
 }
 
+function titleCase(s: string): string {
+  return s
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ')
+    .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w))
+    .join(' ');
+}
+
+function fallbackCaption(brand: BrandKitData, slot: PickedSlot): CaptionOutput {
+  const pillar = slot.pillar?.label || 'Parenting';
+  const persona = slot.persona?.label || 'Indian moms';
+  const hint = slot.promptOverride || slot.event?.promptHint || slot.themePrompt || slot.pillar?.description || pillar;
+  const topic = titleCase((slot.event?.label || pillar).replace(/[^\w\s&-]/g, '').slice(0, 42)) || 'Parenting Moment';
+  const englishOnly = brand.voice.bilingual === 'english_only';
+  const body = englishOnly
+    ? `A gentle reminder for ${persona.toLowerCase()}: small, practical moments matter. ${hint} Keep it simple, stay present, and choose what works for your family today.`
+    : `A gentle reminder for ${persona.toLowerCase()}: chhote, practical moments matter. ${hint} Simple rakho, present raho, aur aaj apni family ke liye jo workable hai wahi choose karo.`;
+  const baseTags = [
+    'MaaMitra',
+    'IndianMoms',
+    'Parenting',
+    pillar.replace(/[^A-Za-z0-9]/g, ''),
+    'Motherhood',
+    'BabyCare',
+  ].filter(Boolean);
+
+  return {
+    headline: topic.slice(0, 80),
+    body: body.slice(0, 1800),
+    hashtags: Array.from(new Set(baseTags)).slice(0, 8),
+    template: 'tipCard',
+    imagePrompt: `Warm MaaMitra illustration for ${pillar}: ${hint}`.slice(0, 600),
+    templateProps: {
+      eyebrow: slot.themeLabel || 'MaaMitra',
+      title: topic.slice(0, 80),
+      tips: englishOnly
+        ? [
+            'Pause and notice what your child needs right now.',
+            'Keep the next step small, calm, and doable.',
+            'Trust your judgement and ask for help when needed.',
+          ]
+        : [
+            'Pause karke dekho bachche ko abhi kya chahiye.',
+            'Next step small, calm aur doable rakho.',
+            'Apne judgement par trust karo, help maangna bhi okay hai.',
+          ],
+    },
+  };
+}
+
 // ── Compliance screen (regex, mirrors scoring.ts) ──────────────────────────
 
 interface ComplianceFlag {
@@ -591,7 +628,19 @@ async function renderDraftImage(
     : imageModel === 'imagen'
       ? await imagenGenerate(styleLockedPrompt, { aspectRatio: '1:1' })
       : imageModel === 'dalle'
-        ? await openaiImage(styleLockedPrompt, { quality: 'medium', size: '1024x1024' })
+        ? await openaiMaaMitraReferenceImage(styleLockedPrompt, {
+            preset: 'post',
+            quality: 'medium',
+            size: '1024x1024',
+            maxRefs: 6,
+            timeoutMs: 90_000,
+            fallbackToGeneration: false,
+            extraLines: [
+              'Treat the supplied MaaMitra mosaic reference as the master house-style anchor for this post image, with the other supplied illustrations reinforcing the same family.',
+              'These post visuals must stay inside the real MaaMitra illustration family from assets/illustrations, not drift into generic editorial, watercolor, or stock-illustration styles.',
+              'The supplied MaaMitra references should dominate palette, face design, negative space, and wardrobe language.',
+            ],
+          })
         : await fluxSchnell(styleLockedPrompt, { aspectRatio: '1:1' });
 
   // If AI failed, fall back to Pexels with the (un-styled) subject prompt as
@@ -710,19 +759,16 @@ export async function runGenerator(
   try {
     captionOut = await generateCaption(brand, slot, stats);
   } catch (e: any) {
-    return { ok: false, code: 'caption-failed', message: e?.message ?? String(e) };
+    console.warn('[generator] caption AI failed, using local fallback', e?.message ?? e);
+    captionOut = fallbackCaption(brand, slot);
   }
 
   const requestedTemplate = ['tipCard', 'quoteCard', 'milestoneCard'].includes(input.template as string)
     ? (input.template as TemplateName)
     : captionOut.template;
-  // Default = gpt-image-1 (dalle path) — strongest prompt adherence for the
-  // composition + chikankari + palette specifics in the brand StyleProfile.
-  // ~₹3.50/render at medium quality. Admin can override per-call from the
-  // Studio create UI; the daily cron uses this default.
   const requestedModel: AiImageModel = (['imagen', 'dalle', 'flux'] as AiImageModel[]).includes(input.imageModel as AiImageModel)
     ? (input.imageModel as AiImageModel)
-    : 'dalle';
+    : 'flux';
 
   let render: { url: string; storagePath: string; bytes: number; source: string; costInr: number };
   try {

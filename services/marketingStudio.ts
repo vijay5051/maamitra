@@ -39,6 +39,7 @@ export async function generateStudioVariants(
   const fn = httpsCallable<GenerateStudioVariantsInput, GenerateStudioVariantsResult>(
     getFunctions(app),
     'generateStudioVariants',
+    { timeout: 180000 },
   );
   try {
     const r = await fn(input);
@@ -99,6 +100,7 @@ export async function editStudioImage(
   const fn = httpsCallable<EditStudioImageInput, EditStudioImageResult>(
     getFunctions(app),
     'editStudioImage',
+    { timeout: 180000 },
   );
   try {
     const r = await fn(input);
@@ -152,6 +154,7 @@ export async function composeStudioLogo(
   const fn = httpsCallable<ComposeStudioLogoInput, ComposeStudioLogoResult>(
     getFunctions(app),
     'composeStudioLogo',
+    { timeout: 120000 },
   );
   try {
     const r = await fn(input);

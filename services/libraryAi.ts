@@ -21,6 +21,9 @@ import {
 
 import { app, db } from './firebase';
 import { logAdminAction } from './audit';
+import { ARTICLES } from '../data/articles';
+import { PRODUCTS } from '../data/products';
+import { BOOKS } from '../data/books';
 
 // ── Settings shape (mirrors functions/src/library/settings.ts) ─────────────
 
@@ -192,7 +195,9 @@ function clamp(v: any, lo: number, hi: number, fallback: number): number {
 export interface GenArticleInput {
   topic?: string;
   ageBucketKey?: AgeBucketKey;
-  imageModel?: 'imagen' | 'flux' | 'dalle' | 'pexels' | 'none';
+  /** `lora` is kept as a backward-compatible alias for the premium
+   *  MaaMitra reference-image path. */
+  imageModel?: 'lora' | 'imagen' | 'flux' | 'dalle' | 'pexels' | 'none';
   publish?: 'published' | 'draft';
 }
 export interface GenArticleOk {
@@ -205,9 +210,20 @@ export interface GenArticleOk {
   imageSource: string;
   status: 'published' | 'draft';
   costInr: number;
+  imageStatus?: 'pending' | 'ready' | 'failed';
   flags: { type: string; phrase: string }[];
 }
 export interface GenErr { ok: false; code: string; message: string }
+export interface RetryArticleImageOk {
+  ok: true;
+  articleId: string;
+  imageStatus: 'pending' | 'ready' | 'failed';
+}
+export interface SendArticleToMarketingDraftOk {
+  ok: true;
+  articleId: string;
+  draftId: string;
+}
 
 export async function generateArticleNow(input: GenArticleInput = {}): Promise<GenArticleOk | GenErr> {
   if (!app) return { ok: false, code: 'no-app', message: 'Firebase not configured' };
@@ -215,6 +231,24 @@ export async function generateArticleNow(input: GenArticleInput = {}): Promise<G
   const fns = getFunctions(app, 'us-central1');
   const call = httpsCallable<GenArticleInput, GenArticleOk | GenErr>(fns, 'generateArticleNow');
   const r = await call(input);
+  return r.data;
+}
+
+export async function retryArticleImage(articleId: string): Promise<RetryArticleImageOk | GenErr> {
+  if (!app) return { ok: false, code: 'no-app', message: 'Firebase not configured' };
+  const { getFunctions, httpsCallable } = await import('firebase/functions');
+  const fns = getFunctions(app, 'us-central1');
+  const call = httpsCallable<{ articleId: string }, RetryArticleImageOk | GenErr>(fns, 'retryArticleImage');
+  const r = await call({ articleId });
+  return r.data;
+}
+
+export async function sendArticleToMarketingDraft(articleId: string): Promise<SendArticleToMarketingDraftOk | GenErr> {
+  if (!app) return { ok: false, code: 'no-app', message: 'Firebase not configured' };
+  const { getFunctions, httpsCallable } = await import('firebase/functions');
+  const fns = getFunctions(app, 'us-central1');
+  const call = httpsCallable<{ articleId: string }, SendArticleToMarketingDraftOk | GenErr>(fns, 'sendArticleToMarketingDraft');
+  const r = await call({ articleId });
   return r.data;
 }
 
@@ -245,7 +279,7 @@ export interface GenProductsInput {
   ageBucketKey?: AgeBucketKey;
   count?: number;
   publish?: 'published' | 'draft';
-  imageModel?: 'imagen' | 'flux' | 'pexels' | 'none';
+  imageModel?: 'imagen' | 'flux' | 'dalle' | 'pexels' | 'none';
   preferredStore?: 'amazon' | 'flipkart' | 'both';
 }
 export interface GenProductsOk {
@@ -290,26 +324,37 @@ export interface LibraryContentItem {
   url: string | null;
   createdAt: Timestamp | null;
   expiresAt: Timestamp | null;
-  source: 'ai' | 'manual';
+  source: 'ai' | 'manual' | 'static';
+  imageStatus: 'pending' | 'ready' | 'failed' | null;
   flags: string[];
   raw: Record<string, any>; // full doc data for editing
+}
+
+function inferLibraryItemSource(data: any): 'ai' | 'manual' | 'static' {
+  if (data?.source === 'static') return 'static';
+  if (data?.source === 'manual') return 'manual';
+  if (
+    data?.source === 'ai' ||
+    typeof data?.aiModel === 'string' ||
+    typeof data?.aiGeneratedBy === 'string' ||
+    typeof data?.aiImagePrompt === 'string' ||
+    Array.isArray(data?.aiFlags)
+  ) {
+    return 'ai';
+  }
+  return 'manual';
 }
 
 export function subscribeAllLibraryItems(
   kind: 'articles' | 'books' | 'products',
   cb: (rows: LibraryContentItem[]) => void,
-  limitN = 100,
+  limitN = 500,
 ): () => void {
   if (!db) { cb([]); return () => {}; }
-  const q = query(
-    collection(db, kind),
-    orderBy('createdAt', 'desc'),
-    fbLimit(limitN),
-  );
   return onSnapshot(
-    q,
+    collection(db, kind),
     (snap) => {
-      const rows: LibraryContentItem[] = snap.docs.map((d) => {
+      const firestoreRows: LibraryContentItem[] = snap.docs.map((d) => {
         const data = d.data() as any;
         const titleField = kind === 'products' ? 'name' : 'title';
         return {
@@ -327,16 +372,117 @@ export function subscribeAllLibraryItems(
           url: typeof data.url === 'string' ? data.url : null,
           createdAt: data.createdAt ?? null,
           expiresAt: data.expiresAt ?? null,
-          source: data.source === 'manual' ? 'manual' : 'ai',
+          source: inferLibraryItemSource(data),
+          imageStatus: data.aiImageStatus === 'pending' || data.aiImageStatus === 'ready' || data.aiImageStatus === 'failed'
+            ? data.aiImageStatus
+            : null,
           flags: Array.isArray(data.aiFlags)
             ? data.aiFlags.filter((f: any) => typeof f === 'string') : [],
           raw: { ...data, id: d.id },
         };
       });
-      cb(rows);
+      const merged = new Map<string, LibraryContentItem>();
+      for (const row of staticLibraryItems(kind)) merged.set(row.id, row);
+      for (const row of firestoreRows) merged.set(row.id, row);
+      const rows = Array.from(merged.values()).sort((a, b) => timestampMillis(b.createdAt) - timestampMillis(a.createdAt));
+      cb(rows.slice(0, limitN));
     },
     () => cb([]),
   );
+}
+
+function timestampMillis(v: Timestamp | null): number {
+  return v?.toMillis?.() ?? v?.toDate?.()?.getTime?.() ?? 0;
+}
+
+function staticLibraryItems(kind: 'articles' | 'books' | 'products'): LibraryContentItem[] {
+  if (kind === 'articles') {
+    return ARTICLES.map((a) => ({
+      id: a.id,
+      kind,
+      title: a.title,
+      topic: a.topic,
+      ageMin: a.ageMin,
+      ageMax: a.ageMax,
+      status: 'published' as const,
+      imageUrl: a.imageUrl ?? null,
+      url: a.url ?? null,
+      createdAt: null,
+      expiresAt: null,
+      source: 'static' as const,
+      imageStatus: null,
+      flags: [],
+      raw: { ...a, status: 'published', source: 'static', id: a.id },
+    }));
+  }
+  if (kind === 'books') {
+    return BOOKS.map((b) => ({
+      id: b.id,
+      kind,
+      title: b.title,
+      topic: b.topic,
+      ageMin: b.ageMin,
+      ageMax: b.ageMax,
+      status: 'published' as const,
+      imageUrl: b.imageUrl ?? null,
+      url: b.url ?? null,
+      createdAt: null,
+      expiresAt: null,
+      source: 'static' as const,
+      imageStatus: null,
+      flags: [],
+      raw: {
+        id: b.id,
+        title: b.title,
+        author: b.author,
+        description: b.brief,
+        topic: b.topic,
+        rating: b.rating,
+        reviews: b.reviews,
+        url: b.url,
+        sampleUrl: b.sampleUrl,
+        imageUrl: b.imageUrl,
+        ageMin: b.ageMin,
+        ageMax: b.ageMax,
+        status: 'published',
+        source: 'static',
+      },
+    }));
+  }
+  return PRODUCTS.map((p) => ({
+    id: p.id,
+    kind,
+    title: p.name,
+    topic: p.category,
+    ageMin: p.ageMinMonths,
+    ageMax: p.ageMaxMonths,
+    status: 'published' as const,
+    imageUrl: p.imageUrl ?? null,
+    url: p.url ?? null,
+    createdAt: null,
+    expiresAt: null,
+    source: 'static' as const,
+    imageStatus: null,
+    flags: [],
+    raw: {
+      id: p.id,
+      name: p.name,
+      category: p.category,
+      price: p.price,
+      originalPrice: p.originalPrice,
+      rating: p.rating,
+      reviews: p.reviews,
+      badge: p.badge,
+      emoji: p.emoji,
+      description: p.description,
+      url: p.url,
+      imageUrl: p.imageUrl,
+      ageMin: p.ageMinMonths,
+      ageMax: p.ageMaxMonths,
+      status: 'published',
+      source: 'static',
+    },
+  }));
 }
 
 // ── Recent AI items (for the admin queue) ───────────────────────────────────

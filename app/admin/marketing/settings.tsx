@@ -304,8 +304,8 @@ export default function MarketingSettingsScreen() {
         <NavCard
           icon="receipt-outline"
           title="Cost log"
-          body={`Daily cap ₹${brand?.costCaps?.dailyInr ?? 0} • monthly ₹${brand?.costCaps?.monthlyInr ?? 0}.`}
-          onPress={() => router.push('/admin/marketing/preview' as any)}
+          body={`Daily cap ₹${brand?.costCaps?.dailyInr ?? 0} • monthly ₹${brand?.costCaps?.monthlyInr ?? 0}. Tap to edit cost caps in Strategy.`}
+          onPress={() => router.push('/admin/marketing/strategy' as any)}
         />
       </ScrollView>
     </>
@@ -526,6 +526,13 @@ function StyleProfileEditor({
     setProhibited(profile.prohibited.join(', '));
   }, [profile.oneLiner, profile.description, profile.artKeywords, profile.prohibited]);
 
+  function fillDefaultStyle() {
+    setOneLiner(DEFAULT_STYLE_PROFILE.oneLiner);
+    setDescription(DEFAULT_STYLE_PROFILE.description);
+    setKeywords(DEFAULT_STYLE_PROFILE.artKeywords);
+    setProhibited(DEFAULT_STYLE_PROFILE.prohibited.join(', '));
+  }
+
   return (
     <Card>
       <View style={styles.cardHead}>
@@ -547,22 +554,21 @@ function StyleProfileEditor({
       {editing ? (
         <View style={{ gap: Spacing.sm, marginTop: Spacing.sm }}>
           <Field label="One-line summary">
-            <Text style={styles.fieldHint}>Fed to AI image-gen as the visual-style line. Keep it punchy.</Text>
             <TextInput
               value={oneLiner}
               onChangeText={setOneLiner}
               style={styles.input}
-              maxLength={320}
+              maxLength={240}
               multiline
             />
           </Field>
           <Field label="Detailed description">
-            <Text style={styles.fieldHint}>Long-form admin reference. Imagen prompt limits mean the model gets the one-liner, not this — but write the full fingerprint here.</Text>
+            <Text style={styles.fieldHint}>Fed to AI image-gen as a style preamble.</Text>
             <TextInput
               value={description}
               onChangeText={setDescription}
               style={[styles.input, { minHeight: 80 }]}
-              maxLength={2500}
+              maxLength={1500}
               multiline
             />
           </Field>
@@ -572,7 +578,7 @@ function StyleProfileEditor({
               value={keywords}
               onChangeText={setKeywords}
               style={styles.input}
-              maxLength={400}
+              maxLength={240}
             />
           </Field>
           <Field label="Things to avoid">
@@ -584,21 +590,14 @@ function StyleProfileEditor({
               multiline
             />
           </Field>
-          <View style={styles.styleFooterRow}>
+          <View style={styles.styleActionRow}>
             <Pressable
               disabled={loading}
-              style={[styles.resetBtn, loading && { opacity: 0.6 }]}
-              onPress={async () => {
-                const d = DEFAULT_STYLE_PROFILE;
-                setOneLiner(d.oneLiner);
-                setDescription(d.description);
-                setKeywords(d.artKeywords);
-                setProhibited(d.prohibited.join(', '));
-                await onSave(d);
-                setEditing(false);
-              }}
+              style={[styles.resetPillBtn, loading && { opacity: 0.6 }]}
+              onPress={fillDefaultStyle}
             >
-              <Text style={styles.resetBtnLabel}>{loading ? '…' : 'Reset to defaults'}</Text>
+              <Ionicons name="refresh" size={14} color={Colors.primary} />
+              <Text style={styles.resetPillBtnLabel}>Reset to MaaMitra default</Text>
             </Pressable>
             <Pressable
               disabled={loading}
@@ -608,7 +607,7 @@ function StyleProfileEditor({
                   oneLiner: oneLiner.trim(),
                   description: description.trim(),
                   artKeywords: keywords.trim(),
-                  prohibited: prohibited.split(',').map((s) => s.trim()).filter(Boolean).slice(0, 40),
+                  prohibited: prohibited.split(',').map((s) => s.trim()).filter(Boolean).slice(0, 30),
                 });
                 setEditing(false);
               }}
@@ -723,20 +722,28 @@ const styles = StyleSheet.create({
     minHeight: 36,
     outlineStyle: 'none' as any,
   },
-  styleFooterRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' },
   savePillBtn: {
+    alignSelf: 'flex-start',
     paddingHorizontal: 14, paddingVertical: 8,
     backgroundColor: Colors.primary,
     borderRadius: 999,
+    marginTop: 4,
   },
   savePillBtnLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.white },
-  resetBtn: {
-    paddingHorizontal: 14, paddingVertical: 8,
+  styleActionRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flexWrap: 'wrap', marginTop: 4 },
+  resetPillBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    backgroundColor: Colors.primarySoft,
     borderRadius: 999,
-    borderWidth: 1, borderColor: Colors.border,
-    backgroundColor: Colors.bgLight,
+    borderWidth: 1,
+    borderColor: Colors.primary,
   },
-  resetBtnLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textMuted },
+  resetPillBtnLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.primary },
 
   // Scheduler slot rows
   slotRow: {

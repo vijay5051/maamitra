@@ -283,7 +283,7 @@ export interface GenerateDraftInput {
   eventId?: string;
   /** Force a specific template; otherwise model picks. */
   template?: 'tipCard' | 'quoteCard' | 'milestoneCard';
-  /** Image generation model. Default 'imagen' for Indian-context fidelity. */
+  /** Image generation model. Default 'dalle' (OpenAI gpt-image-1) for brand-theme adherence. */
   imageModel?: 'imagen' | 'dalle' | 'flux';
 }
 

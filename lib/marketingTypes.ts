@@ -195,9 +195,9 @@ export type CronOverrides = Record<string, CronOverride>;
  *
  * Codifies what "MaaMitra style" actually means so AI image generation
  * can produce on-brand output. The plain-English fields are concatenated
- * into image-gen prompts as a style preamble. Once a custom LoRA is
- * trained on the curated references, this profile becomes the prompt-
- * engineering fallback layer.
+ * into image-gen prompts as a style preamble, while curated illustration
+ * references are passed directly into premium image-generation calls.
+ * This profile remains the text fallback layer around those references.
  */
 export interface StyleProfile {
   /** One-line distillation: "flat 2D illustration, pastel palette,
@@ -337,19 +337,6 @@ export const DEFAULT_ILLUSTRATIONS: BrandIllustration[] = [
   { path: 'assets/illustrations/home-hero-afternoon.webp', label: 'Home hero',     pillarIds: [] },
 ];
 
-// Six canonical style teachers — the strongest examples of each axis of the
-// MaaMitra style (composition, character archetype, palette, motifs). Image-
-// gen passes these as visual references so generations stay on-brand even
-// when the StyleProfile prose drifts. Admin can override from settings.tsx.
-export const DEFAULT_STYLE_REFERENCES: string[] = [
-  'assets/illustrations/home-hero-morning.webp',     // hero composition + signature lavender chikankari
-  'assets/illustrations/health-hero.webp',           // sage mat + character archetype
-  'assets/illustrations/dadi-ke-nuskhe-hero.webp',   // grandmother archetype + cultural prop set
-  'assets/illustrations/community-hero.webp',        // multi-character community scene
-  'assets/illustrations/feature-india.webp',         // pan-India motif set (lotus, marigold, watercolor map)
-  'assets/illustrations/topic-pregnancy.webp',       // solo composition + sun disc + drifting leaves
-];
-
 export function defaultBrandKit(brandName = 'MaaMitra'): BrandKit {
   return {
     brandName,
@@ -371,35 +358,30 @@ export function defaultBrandKit(brandName = 'MaaMitra'): BrandKit {
     crisisPauseReason: null,
     onboardedAt: null,
     styleProfile: DEFAULT_STYLE_PROFILE,
-    styleReferences: DEFAULT_STYLE_REFERENCES,
+    styleReferences: [],
     cronOverrides: {},
     updatedAt: null,
     updatedBy: null,
   };
 }
 
-// Codified from the in-app illustration library (assets/illustrations/*.webp).
-// Audit: 2026-05-05. The bank is painterly storybook, NOT flat — the previous
-// "flat 2D" wording was producing off-brand outputs. Mirror any change here in
-// functions/src/marketing/generator.ts and functions/src/marketing/studio.ts
-// so daily-cron and Studio canvas drafts share the same visual DNA.
 export const DEFAULT_STYLE_PROFILE: StyleProfile = {
-  oneLiner: 'Soft painterly storybook illustration with subtle watercolor texture. Lavender + sage + dusty-pink + cream palette. Indian women (warm brown skin, dark messy-bun hair) in white-chikankari-embroidered lavender kurtas. Single calm scene, generous negative space, warm cream background.',
-  description: 'A soft, painterly storybook illustration in the spirit of a children\'s-book spread — NOT flat vector. Characters and fabric carry subtle volume, gentle gradients, and a faint watercolor / paper-grain texture. No hard black outlines (or barely-there color-blended ones). Light is warm, ambient and dappled — never harsh shadows. Disciplined pastel palette: warm cream / ivory background (#FFF6EE), signature soft lavender (#B79EE6) on hero garments and props, dusty / baby pink, sage / mint green (yoga mats, plants, leaves), with golden-honey + peach used sparingly for sun discs, marigolds and hearts. Characters are Indian women — moms, grandmothers (dadis), with babies and toddlers — warm brown skin in a range of tones, dark brown to black hair styled as a messy bun with loose escaping curls, a long braid, or soft waves; grandmothers wear silver-grey hair and a small bindi. Faces are soft and rounded with peaceful or gently-closed eyes, a calm half-smile, and soft rosy cheeks. Wardrobe is iconic: lavender kurta / kurti with delicate WHITE CHIKANKARI floral embroidery at neckline and cuffs, white salwar / churidar, soft dupatta; grandmothers in pastel sarees; subtle gold jewelry only — small studs, thin bangles, a thin chain. Composition is always a SINGLE calm scene with one focal moment; for wide hero formats the character sits on the right with generous empty cream space on the left so captions can overlay. Recurring motifs to lean on: lotus blossoms, marigolds and drifting leaves; potted plants in lavender or pink ceramic pots; round dusty-pink rugs with tasseled fringe; sage-green yoga mats with leaf accents in the corners; pastel speech bubbles for community scenes; a pale-yellow sun disc; chai cups; bolster cushions; small wooden side-tables. Never more than 3-4 characters in one frame. Never any baked-in text, logos or watermarks.',
+  oneLiner: 'MaaMitra house style: crisp pastel Indian mom/baby/dadi illustrations with consistent warm Indian skin, rotating pastel chikankari wardrobe, clear prompt props, polished gouache-ink finish, no text or speech bubbles.',
+  description: 'Match the best MaaMitra mother, baby, and dadi character illustrations. Premium hand-drawn Indian editorial illustration, not generic cartoon. Recurring young mother: consistent warm medium-brown Indian skin with soft peach undertones, soft oval face, almond brown eyes, delicate nose/lips, tiny bindi when visible, gold studs/bangles, thick dark brown hair in loose high bun or braid with wisps. Recurring baby/toddler: clean even warm Indian skin, round cheeks, big bright brown eyes, tiny dark curls, joyful curious expression, soft pastel clothes. Dadi/elder: kind silver-haired Indian grandmother in low bun, pastel saree/kurta, gentle smile. Wardrobe language: rotating pastel kurta, saree, baby clothes or dupatta in lavender, blush pink, sage green, mint, powder blue, peach, cream, or soft lilac with fine white chikankari/floral embroidery and soft fabric folds. Finish: crisp clean ink contours, refined face anatomy, smooth gouache/watercolor pastel fills, subtle paper grain, polished high-resolution edges, controlled soft shadows, premium children-book/editorial quality. Palette: ivory/cream background, lavender, blush pink, sage green, mint, powder blue, peach, warm terracotta, muted gold. Scene language: airy Indian home, floor cushions, rugs, plants/tulsi, teacups, wooden tables, yoga mats, wellness objects, and clearly visible props matching the prompt. Use generous negative space, balanced focal characters, clear readable action, no written text, no labels, no speech bubbles, no infographic panels.',
   prohibited: [
-    'photorealism', 'photographs', 'photo-illustration', 'photo collage',
-    '3D renders', 'CGI', 'claymation', 'glossy 3D puffy icon style',
-    'flat vector', 'flat geometric shapes', 'hard black outlines', 'comic-book ink lines',
-    'harsh shadows', 'high contrast', 'neon colours', 'saturated primary colours',
-    'anime', 'manga', 'pixel art', 'Cartoon Network style', 'Disney-Pixar style',
-    'Western-default characters (light skin, blonde or red hair)',
-    'cluttered backgrounds', 'busy collages', 'more than 4 characters in one frame',
-    'baked-in text', 'captions inside the image', 'logos', 'watermarks',
-    'readable signage', 'speech bubbles containing words',
-    'cleavage', 'tight or revealing clothing', 'bare midriff',
-    'Western dress (jeans + t-shirts as the default look)',
+    'photorealism', 'photographs', '3D renders', 'CGI',
+    'harsh shadows', 'high contrast', 'muddy colors', 'neon colors',
+    'Western-only character traits', 'generic cartoon style', 'western stock look',
+    'anime', 'manga', 'pixel art',
+    'flat blob characters', 'low-detail doodles',
+    'distorted hands', 'extra fingers', 'deformed faces',
+    'skin blemishes', 'red patches on faces', 'plastic skin', 'airbrushed glamour',
+    'cluttered backgrounds', 'busy compositions',
+    'text', 'written text', 'labels', 'speech bubbles', 'empty speech balloons', 'infographic panels',
+    'poster/card layout', 'logos', 'watermarks',
+    'cropped faces', 'uncanny eyes', 'random character design',
   ],
-  artKeywords: 'painterly 2D illustration, watercolor texture, storybook spread, soft pastel palette, lavender + sage + dusty pink + cream, Indian woman, warm brown skin, messy bun, white chikankari embroidery on lavender kurta, soft dupatta, peaceful closed eyes, gentle smile, generous negative space, warm dappled light, lotus, marigold',
+  artKeywords: 'MaaMitra house style, Indian mother baby dadi, rotating pastel chikankari wardrobe, warm medium-brown Indian skin, clean baby skin, cream dupatta, crisp ink contours, polished gouache watercolor, pastel editorial, almond eyes, soft paper texture, ivory negative space, sage plants, blush cushions, visible prompt props, no text, no speech bubbles',
 };
 
 // ── Connections (Phase 4) ───────────────────────────────────────────────────

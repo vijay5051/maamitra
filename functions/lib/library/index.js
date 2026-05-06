@@ -1,9 +1,13 @@
 "use strict";
 // Library AI — barrel exports for index.ts.
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.buildArchiveLibraryItem = exports.buildExpireStaleLibrary = exports.buildDailyLibraryAiCron = exports.runProductGenerator = exports.buildGenerateProductsNow = exports.runBookGenerator = exports.buildGenerateBooksNow = exports.runArticleGenerator = exports.buildGenerateArticleNow = void 0;
+exports.buildArchiveLibraryItem = exports.buildExpireStaleLibrary = exports.buildDailyLibraryAiCron = exports.runProductGenerator = exports.buildGenerateProductsNow = exports.runBookGenerator = exports.buildGenerateBooksNow = exports.runArticleGenerator = exports.buildSyncPublishedArticleToMarketingDraft = exports.buildSendArticleToMarketingDraft = exports.buildRetryArticleImage = exports.buildProcessPendingArticleImage = exports.buildGenerateArticleNow = void 0;
 var articles_1 = require("./articles");
 Object.defineProperty(exports, "buildGenerateArticleNow", { enumerable: true, get: function () { return articles_1.buildGenerateArticleNow; } });
+Object.defineProperty(exports, "buildProcessPendingArticleImage", { enumerable: true, get: function () { return articles_1.buildProcessPendingArticleImage; } });
+Object.defineProperty(exports, "buildRetryArticleImage", { enumerable: true, get: function () { return articles_1.buildRetryArticleImage; } });
+Object.defineProperty(exports, "buildSendArticleToMarketingDraft", { enumerable: true, get: function () { return articles_1.buildSendArticleToMarketingDraft; } });
+Object.defineProperty(exports, "buildSyncPublishedArticleToMarketingDraft", { enumerable: true, get: function () { return articles_1.buildSyncPublishedArticleToMarketingDraft; } });
 Object.defineProperty(exports, "runArticleGenerator", { enumerable: true, get: function () { return articles_1.runArticleGenerator; } });
 var books_1 = require("./books");
 Object.defineProperty(exports, "buildGenerateBooksNow", { enumerable: true, get: function () { return books_1.buildGenerateBooksNow; } });

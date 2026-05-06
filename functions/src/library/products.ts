@@ -10,8 +10,9 @@
 //        - Flipkart search URL (`/search?q=<...>`)
 //      Both open the right product list — the same pattern as the existing
 //      curated PRODUCTS in data/products.ts so this matches the live app.
-//   4. Generate a thumbnail via Imagen (style-locked product illustration)
-//      so cards aren't blank — falls back to Pexels if AI fails.
+//   4. Generate a thumbnail via OpenAI / ChatGPT Images (style-locked product
+//      illustration) so cards keep the MaaMitra brand theme. Pexels is used
+//      only when explicitly selected.
 //   5. Skip names already present in `products` collection.
 //   6. Write each row at status='published' (or 'draft') depending on
 //      settings.autoPublish.
@@ -28,6 +29,7 @@ import { buildStyleLockedImagePrompt, buildSystemVoiceHeader, loadLibraryBrand, 
 import { chatJson } from './openai';
 import { AgeBucket, KindSettings, loadLibraryAiSettings } from './settings';
 import { callerIsContentAdmin } from './auth';
+import { openaiMaaMitraReferenceImage } from '../marketing/styleReferences';
 
 interface ProductInput {
   category?: unknown;
@@ -155,33 +157,41 @@ function flipkartSearchUrl(p: AiProduct): string {
 
 // ── Thumbnail generator ─────────────────────────────────────────────────────
 
-async function renderThumbnail(p: AiProduct, preferred: 'imagen' | 'flux' | 'pexels' | 'none'): Promise<string | null> {
-  if (preferred === 'none') return null;
+type ProductImageModel = 'imagen' | 'flux' | 'dalle' | 'pexels' | 'none';
+
+async function renderThumbnail(p: AiProduct, preferred: ProductImageModel): Promise<{ url: string | null; source: string }> {
+  if (preferred === 'none') return { url: null, source: 'none' };
   const brand = await loadLibraryBrand();
-  const subject = `Studio product photograph of a ${p.name} (${p.brand}). Soft Indian-context lighting, on a clean pastel background. High product clarity. No text, no watermark.`;
+  const subject = `Style-locked product thumbnail illustration for ${p.name} (${p.brand}). Show the product clearly in a warm Indian parenting context on a clean pastel background. No text, no watermark.`;
   const styled = buildStyleLockedImagePrompt(subject, brand);
 
   let aiUrl: string | null = null;
   let source: string = preferred;
   if (preferred === 'imagen') {
     aiUrl = await imagenGenerate(styled, { aspectRatio: '1:1' }).catch(() => null);
+  } else if (preferred === 'dalle') {
+    aiUrl = await openaiMaaMitraReferenceImage(styled, {
+      quality: 'medium',
+      size: '1024x1024',
+      maxRefs: 4,
+      timeoutMs: 70_000,
+      extraLines: [
+        'Product-card requirement: the product should stay clearly legible while still living inside a warm MaaMitra parenting scene.',
+        'Do not turn this into a plain ecommerce packshot or a poster layout.',
+      ],
+    }).catch(() => null);
   } else if (preferred === 'flux') {
     aiUrl = await fluxSchnell(styled, { aspectRatio: '1:1' }).catch(() => null);
-  }
-  if (!aiUrl && preferred !== 'pexels') {
-    // Last-resort stock.
-    const stock = await pexelsSearch(p.searchKeywords.split(' ').slice(0, 4).join(' '), { orientation: 'square' }).catch(() => null);
-    if (stock) { aiUrl = stock.url; source = 'pexels'; }
   }
   if (!aiUrl && preferred === 'pexels') {
     const stock = await pexelsSearch(p.searchKeywords.split(' ').slice(0, 4).join(' '), { orientation: 'square' }).catch(() => null);
     if (stock) { aiUrl = stock.url; source = 'pexels'; }
   }
-  if (!aiUrl) return null;
+  if (!aiUrl) return { url: null, source: 'none' };
 
   try {
     const res = await fetch(aiUrl);
-    if (!res.ok) return aiUrl;
+    if (!res.ok) return { url: aiUrl, source };
     const buf = Buffer.from(await res.arrayBuffer());
     const ts = new Date().toISOString().replace(/[:.]/g, '-');
     const path = `library/products/${ts}-${source}.jpg`;
@@ -191,10 +201,10 @@ async function renderThumbnail(p: AiProduct, preferred: 'imagen' | 'flux' | 'pex
       metadata: { metadata: { source, kind: 'library-product' } },
     });
     await file.makePublic();
-    return `https://storage.googleapis.com/${admin.storage().bucket().name}/${path}`;
+    return { url: `https://storage.googleapis.com/${admin.storage().bucket().name}/${path}`, source };
   } catch (e) {
     console.warn('[library/products] persist thumbnail failed', e);
-    return aiUrl;
+    return { url: aiUrl, source };
   }
 }
 
@@ -256,9 +266,9 @@ export async function runProductGenerator(input: ProductInput, actorEmail: strin
   const inserted: ProductGenOk['inserted'] = [];
   const skipped: ProductGenOk['skipped'] = [];
   const explicit = input.publish === 'published' || input.publish === 'draft' ? input.publish : null;
-  const preferred = (['imagen', 'flux', 'pexels', 'none'] as const).includes(input.imageModel as any)
-    ? (input.imageModel as 'imagen' | 'flux' | 'pexels' | 'none')
-    : 'imagen';
+  const preferred: ProductImageModel = (['imagen', 'dalle', 'flux', 'pexels', 'none'] as ProductImageModel[]).includes(input.imageModel as any)
+    ? (input.imageModel as ProductImageModel)
+    : 'dalle';
   const store = input.preferredStore === 'flipkart' ? 'flipkart'
     : input.preferredStore === 'both' ? 'both' : 'amazon';
 
@@ -277,8 +287,8 @@ export async function runProductGenerator(input: ProductInput, actorEmail: strin
         : flags.length > 0 ? 'draft'
           : k.autoPublish ? 'published' : 'draft';
 
-    const thumbnailUrl = await renderThumbnail(c, preferred);
-    const thumbCost = preferred === 'imagen' ? 3.30 : preferred === 'flux' ? 0.25 : 0;
+    const thumbnail = await renderThumbnail(c, preferred);
+    const thumbCost = thumbnail.source === 'imagen' ? 3.30 : thumbnail.source === 'dalle' ? 3.50 : thumbnail.source === 'flux' ? 0.25 : 0;
     totalCost += thumbCost;
 
     const url = store === 'flipkart' ? flipkartSearchUrl(c) : amazonSearchUrl(c);
@@ -301,7 +311,7 @@ export async function runProductGenerator(input: ProductInput, actorEmail: strin
       description: c.description,
       url,
       altUrl, // alternative store
-      imageUrl: thumbnailUrl ?? null,
+      imageUrl: thumbnail.url ?? null,
       ageMinMonths: c.ageMinMonths,
       ageMaxMonths: c.ageMaxMonths,
       status,
@@ -311,7 +321,7 @@ export async function runProductGenerator(input: ProductInput, actorEmail: strin
       aiSearchKeywords: c.searchKeywords,
       aiStorePreferred: store,
       aiFlags: flags.map((f) => `${f.type}:${f.phrase}`),
-      aiThumbnailSource: thumbnailUrl ? preferred : 'none',
+      aiThumbnailSource: thumbnail.source,
       aiCostInr: thumbCost + 0.05,
       aiGeneratedBy: actorEmail ?? 'cron',
       expiresAt,
@@ -328,7 +338,7 @@ export async function runProductGenerator(input: ProductInput, actorEmail: strin
         itemId: ref.id,
         topic: category,
         ageBucketKey: ageBucket.key,
-        imageSource: thumbnailUrl ? preferred : 'none',
+        imageSource: thumbnail.source,
         costInr: thumbCost + 0.05,
         status,
         flags: flags.length,
