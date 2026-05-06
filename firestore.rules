@@ -6,11 +6,21 @@ service cloud.firestore {
     function isSignedIn() {
       return request.auth != null;
     }
-    // Verified = signed in AND email_verified (true for Google sign-in automatically,
-    // requires explicit verification for email/password sign-ups). Use this for any
-    // write that touches other users: community posts, DMs, follows, blocks, etc.
+    // Verified = signed in AND identity confirmed via email or phone.
+    //   - Google sign-in: email_verified is true automatically.
+    //   - Email/password: requires explicit verification before isVerified() flips.
+    //   - Phone OTP: firebase.sign_in_provider == 'phone' — completing the SMS
+    //     code IS the verification, so phone users count as verified too.
+    // Without the phone branch, every write by a phone-OTP user (post, comment,
+    // follow, DM) was rejected with PERMISSION_DENIED — which the client
+    // swallowed, so the author saw their own post locally but no one else did.
+    // Use this for any write that touches other users: community posts, DMs,
+    // follows, blocks, etc.
     function isVerified() {
-      return isSignedIn() && request.auth.token.email_verified == true;
+      return isSignedIn() && (
+        request.auth.token.email_verified == true ||
+        request.auth.token.firebase.sign_in_provider == 'phone'
+      );
     }
     function isOwner(uid) {
       return isSignedIn() && request.auth.uid == uid;

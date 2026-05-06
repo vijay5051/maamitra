@@ -38,6 +38,7 @@ const { getReactNativePersistence } = require('firebase/auth');
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   getFirestore,
+  initializeFirestore,
   Firestore,
   doc,
   setDoc,
@@ -135,7 +136,23 @@ if (isFirebaseConfigured()) {
       console.warn('setPersistence(native) failed:', err);
     }
   }
-  db = getFirestore(app);
+  // ignoreUndefinedProperties: any object passed to setDoc/addDoc/updateDoc
+  // gets `undefined` fields stripped instead of throwing. Without this, a
+  // single `field: maybeValue ?? undefined` anywhere in the codebase makes
+  // the entire write throw "Unsupported field value: undefined" — which
+  // services/social.ts's createPost was hitting on every post (hideReason,
+  // flaggedPII, flaggedCrisis are all undefined for a clean post). The
+  // catch silently dropped the post, so authors saw their optimistic
+  // local entry while no one else ever did. Must use initializeFirestore
+  // (not getFirestore) and it must run before any other call against the
+  // app's Firestore handle.
+  try {
+    db = initializeFirestore(app, { ignoreUndefinedProperties: true });
+  } catch (_) {
+    // Fast-refresh / re-import path: initializeFirestore throws if
+    // settings are already locked. Fall back to the existing instance.
+    db = getFirestore(app);
+  }
   storage = getStorage(app);
 }
 

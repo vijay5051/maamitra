@@ -11,6 +11,46 @@ No active coding task.
 
 ---
 
+## Last action (2026-05-06) — Community posts vanishing (P0 fix)
+
+**Hotfix for "posts of members not visible to other members" reported live.**
+
+### Root cause
+Wave 4 safety commit `fda72d4` (2026-05-03) added three fields to the
+`addDoc` payload in `services/social.ts` `createPost` that are
+`undefined` for clean posts — `hideReason`, `flaggedPII`, `flaggedCrisis`.
+The default Firestore Web SDK instance from `getFirestore()` rejects any
+`undefined` field with `FirebaseError: Function addDoc() called with
+invalid data. Unsupported field value: undefined`. The throw was swallowed
+inside `createPost` (`return ''`), so the optimistic local store entry
+showed the post to the author while NOTHING was written to Firestore —
+no other member ever saw it, and on refresh the post vanished.
+
+Comments kept working because `addPostComment`'s payload doesn't have any
+`undefined` fields — the spread (`...data`) only contains required strings.
+
+### What changed (3 files)
+
+- **`services/firebase.ts`** — switched `getFirestore(app)` →
+  `initializeFirestore(app, { ignoreUndefinedProperties: true })`. Strips
+  `undefined` fields automatically; immunizes the entire codebase from
+  this class of bug. Falls back to `getFirestore()` if init throws (fast
+  refresh re-import path).
+- **`services/social.ts`** — `createPost` and `addPostComment` now
+  rethrow on failure instead of silently returning `''` / fake objects.
+  The existing `.catch()` handlers in `community.tsx` and `PostCard.tsx`
+  surface real alerts when a write actually fails.
+- **`firestore.rules`** — `isVerified()` now also accepts
+  `firebase.sign_in_provider == 'phone'` so phone-OTP users (no
+  `email_verified` claim) can post / comment / follow / DM. Was a latent
+  bug — phone users would have been blocked even after the SDK fix.
+
+### Recovery for affected users
+Posts that "vanished" between 2026-05-03 OTA and 2026-05-06 fix were
+never written to Firestore — not recoverable. Authors can re-post.
+
+---
+
 ## Last action (2026-05-06) — Studio mobile layout fixes
 
 **Commit `2c8c7cf` · hosting deployed · OTA `34c10318` published.**

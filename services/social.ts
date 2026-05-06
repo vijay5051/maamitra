@@ -450,7 +450,12 @@ export async function createPost(data: {
       deleteStoredImage(data.imageUri).catch(() => {});
     }
     console.error('createPost error:', error);
-    return '';
+    // Re-throw so the caller (store) surfaces the failure to the UI.
+    // Returning '' silently caused phone-OTP users (whose writes were
+    // rejected by the old isVerified() rule) to see their own post
+    // locally while it never reached Firestore — so no other member
+    // ever saw it.
+    throw error;
   }
 }
 
@@ -862,15 +867,12 @@ export async function addPostComment(
     };
   } catch (error) {
     console.error('addPostComment error:', error);
-    return {
-      id: '',
-      authorUid: data.authorUid,
-      authorName: data.authorName,
-      authorInitial: data.authorInitial,
-      authorPhotoUrl: data.authorPhotoUrl,
-      text: data.text,
-      createdAt: new Date(),
-    };
+    // Re-throw so the caller (store) rolls back the optimistic comment
+    // and surfaces the failure. Returning a fake { id: '' } comment let
+    // permission-denied writes look successful to the author while the
+    // comment was never actually saved — same class of bug that hid
+    // posts from other members.
+    throw error;
   }
 }
 
