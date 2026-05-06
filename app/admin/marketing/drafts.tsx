@@ -1130,7 +1130,10 @@ const styles = StyleSheet.create({
   metaTag: { fontSize: 11, color: Colors.textMuted, fontWeight: '600' },
   metaSub: { fontSize: FontSize.xs, color: Colors.textMuted, fontWeight: '600' },
 
-  previewWrap: { borderRadius: Radius.lg, overflow: 'hidden', backgroundColor: Colors.bgLight },
+  // width:'100%' ensures the wrapper fills the ScrollView content column so the
+  // Image's own width:'100%' resolves to the panel width (without it the View
+  // collapses and the image renders at 0 height inside the ScrollView body).
+  previewWrap: { width: '100%', borderRadius: Radius.lg, overflow: 'hidden', backgroundColor: Colors.bgLight },
   preview: { width: '100%', aspectRatio: 1 },
 
   // Carousel thumbnails (Phase 4 item 1)
