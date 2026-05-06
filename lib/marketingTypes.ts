@@ -9,6 +9,7 @@
 // are defined here up-front so other phases can wire to a stable shape.
 
 export type MarketingPlatform = 'instagram' | 'facebook';
+export type AutomationTemplate = 'auto' | 'tipCard' | 'quoteCard' | 'milestoneCard' | 'realStoryCard';
 
 // ── Brand kit ───────────────────────────────────────────────────────────────
 // Single Firestore doc at marketing_brand/main. Drives every rendered post:
@@ -123,6 +124,23 @@ export interface BrandIllustration {
   pillarIds: string[];
 }
 
+export interface AutomationSlot {
+  /** Stable key used for generatedForKey and UI edits. */
+  id: string;
+  /** Human-readable label shown in Settings. */
+  label: string;
+  /** IST 24h time, e.g. "09:00". */
+  time: string;
+  /** Which template this slot should generate. "auto" lets the model pick. */
+  template: AutomationTemplate;
+  /** Platforms to publish on when this slot auto-schedules. */
+  platforms: MarketingPlatform[];
+  /** When false, cron skips this slot entirely. */
+  enabled: boolean;
+  /** True = create the draft directly as scheduled. False = create for review. */
+  autoSchedule: boolean;
+}
+
 export interface BrandKit {
   /** Display name shown on rendered posts (usually "MaaMitra"). */
   brandName: string;
@@ -137,6 +155,8 @@ export interface BrandKit {
   hashtags: string[];
   /** Default posting time IST (24h "HH:mm"). */
   defaultPostTime: string;
+  /** Multi-slot automation plan for cron-generated drafts. */
+  automationSlots: AutomationSlot[];
   /** M1 strategic foundation. */
   personas: AudiencePersona[];
   pillars: ContentPillar[];
@@ -173,8 +193,7 @@ export interface BrandKit {
 
 // ── Scheduler overrides (Layer 2) ─────────────────────────────────────────────
 
-/** Per-date control for the 6 AM IST cron. Stored at
- *  `marketing_brand/main.cronOverrides[YYYY-MM-DD]`. */
+/** Per-date control for automation. Can apply to the whole day or a single slot. */
 export interface CronOverride {
   /** When true the cron silently skips this date — no draft is created. */
   skip?: boolean;
@@ -185,10 +204,19 @@ export interface CronOverride {
   personaId?: string;
   /** Force a specific pillar id for this date, overriding the weighted pick. */
   pillarId?: string;
+  /** Optional extra hint that applies across all slots for this date. */
+  template?: AutomationTemplate;
+}
+
+export interface CronDayOverride {
+  /** Optional date-wide fallback override. */
+  default?: CronOverride;
+  /** Optional slot-specific overrides keyed by automation slot id. */
+  slots?: Record<string, CronOverride>;
 }
 
 /** YYYY-MM-DD → override data. Stored on marketing_brand/main. */
-export type CronOverrides = Record<string, CronOverride>;
+export type CronOverrides = Record<string, CronDayOverride>;
 
 /**
  * Studio v2 — Brand Style Profile.
@@ -247,6 +275,18 @@ export const DEFAULT_THEME_CALENDAR: Record<WeekDay, ThemeForDay> = {
 export const DEFAULT_HASHTAGS = [
   '#MaaMitra', '#IndianMoms', '#Parenting', '#NewMom',
   '#BabyCare', '#PregnancyJourney', '#MomLife',
+];
+
+export const DEFAULT_AUTOMATION_SLOTS: AutomationSlot[] = [
+  {
+    id: 'morning_auto',
+    label: 'Morning post',
+    time: '09:00',
+    template: 'auto',
+    platforms: ['instagram', 'facebook'],
+    enabled: true,
+    autoSchedule: false,
+  },
 ];
 
 // ── M1 defaults — Indian-mom focused ────────────────────────────────────────
@@ -347,6 +387,7 @@ export function defaultBrandKit(brandName = 'MaaMitra'): BrandKit {
     themeCalendar: DEFAULT_THEME_CALENDAR,
     hashtags: DEFAULT_HASHTAGS,
     defaultPostTime: '09:00',
+    automationSlots: DEFAULT_AUTOMATION_SLOTS,
     personas: DEFAULT_PERSONAS,
     pillars: DEFAULT_PILLARS,
     culturalCalendar: DEFAULT_CULTURAL_CALENDAR,

@@ -26,6 +26,7 @@ export default function AdminLayout() {
     function bounce() {
       requestAnimationFrame(() => router.replace('/(auth)/welcome'));
     }
+    if (isLoading) return;
     if (!user) {
       // Extra grace period: onAuthStateChanged's null debounce (700ms in
       // useAuthStore) keeps isLoading:true while the timer is running, so
@@ -47,7 +48,11 @@ export default function AdminLayout() {
       return () => clearTimeout(t);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, role, isLoading]);
+  }, [isLoading, user, role]);
+
+  if (isLoading) {
+    return <View style={{ flex: 1, backgroundColor: Colors.bgLight }} />;
+  }
 
   // Resolve effective role for the shell (founder bootstrap → 'super').
   const effectiveRole: AdminRole | null = isAdminEmail(user?.email) ? 'super' : role;

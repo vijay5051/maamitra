@@ -2,8 +2,8 @@
  * MarketingShell — chrome wrapping every /admin/marketing/* screen.
  *
  * Studio v2 redesign: replaces the 9-route admin-y layout with a calm
- * pill-tab nav matched to non-techie mental models (Today / Posts /
- * Replies / Insights / Settings). Greeting on the left, system-health
+ * pill-tab nav matched to non-techie mental models (Home / Posts /
+ * Content Planner / Inbox / Settings). Greeting on the left, system-health
  * chip on the right. Sub-screens render in the body slot.
  *
  * Active tab detection uses pathname matching, which keeps existing
@@ -57,7 +57,7 @@ interface Tab {
 const TABS: Tab[] = [
   {
     key: 'today',
-    label: 'Today',
+    label: 'Home',
     icon: 'sunny-outline',
     href: '/admin/marketing',
     match: (p) => p === '/admin/marketing' || p === '/admin/marketing/' || p === '/admin/marketing/today',
@@ -70,23 +70,24 @@ const TABS: Tab[] = [
     match: (p) =>
       p.startsWith('/admin/marketing/posts') ||
       p.startsWith('/admin/marketing/drafts') ||
-      p.startsWith('/admin/marketing/calendar') ||
       p.startsWith('/admin/marketing/ugc') ||
       p.startsWith('/admin/marketing/create'),
   },
   {
-    key: 'replies',
-    label: 'Replies',
+    key: 'planner',
+    label: 'Content Planner',
+    icon: 'calendar-clear-outline',
+    href: '/admin/marketing/planner',
+    match: (p) =>
+      p.startsWith('/admin/marketing/planner') ||
+      p.startsWith('/admin/marketing/calendar'),
+  },
+  {
+    key: 'inbox',
+    label: 'Inbox',
     icon: 'chatbubbles-outline',
     href: '/admin/marketing/inbox',
     match: (p) => p.startsWith('/admin/marketing/inbox') || p.startsWith('/admin/marketing/replies'),
-  },
-  {
-    key: 'insights',
-    label: 'Insights',
-    icon: 'stats-chart-outline',
-    href: '/admin/marketing/analytics',
-    match: (p) => p.startsWith('/admin/marketing/analytics') || p.startsWith('/admin/marketing/insights'),
   },
 ];
 
@@ -99,7 +100,8 @@ const SETTINGS_TAB: Tab = {
     p.startsWith('/admin/marketing/settings') ||
     p.startsWith('/admin/marketing/brand-kit') ||
     p.startsWith('/admin/marketing/strategy') ||
-    p.startsWith('/admin/marketing/preview'),
+    p.startsWith('/admin/marketing/preview') ||
+    p.startsWith('/admin/marketing/analytics'),
 };
 
 interface Props {

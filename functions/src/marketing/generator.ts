@@ -36,6 +36,12 @@ interface GenerateInput {
   /** Scheduler Layer 3: explicit IST date (YYYY-MM-DD) to generate for.
    *  Used by generateAheadDrafts to pre-generate future dates. */
   forDateIso?: unknown;
+  /** Automation slot metadata for multi-slot auto posting. */
+  slotId?: unknown;
+  slotLabel?: unknown;
+  slotTime?: unknown;
+  slotPlatforms?: unknown;
+  autoSchedule?: unknown;
 }
 
 interface GenerateAheadInput {
@@ -64,7 +70,8 @@ interface GenerateErr {
 type GenerateResult = GenerateOk | GenerateErr;
 
 type AiImageModel = 'imagen' | 'dalle' | 'flux';
-type TemplateName = 'tipCard' | 'quoteCard' | 'milestoneCard';
+type TemplateName = 'tipCard' | 'quoteCard' | 'milestoneCard' | 'realStoryCard';
+type MarketingPlatform = 'instagram' | 'facebook';
 
 // ── Caller auth ────────────────────────────────────────────────────────────
 
@@ -99,6 +106,15 @@ interface BrandKitData {
   culturalCalendar: CalEvent[];
   hashtags: string[];
   themeCalendar: Record<string, { label: string; prompt: string; enabled: boolean }>;
+  automationSlots: Array<{
+    id: string;
+    label: string;
+    time: string;
+    template: 'auto' | TemplateName;
+    platforms: MarketingPlatform[];
+    enabled: boolean;
+    autoSchedule: boolean;
+  }>;
   compliance: {
     medicalForbiddenWords: string[];
     requiredDisclaimers: { trigger: string; text: string }[];
@@ -139,6 +155,31 @@ async function loadBrandKit(): Promise<BrandKitData> {
     culturalCalendar: arr(d?.culturalCalendar),
     hashtags: arr(d?.hashtags),
     themeCalendar: d?.themeCalendar ?? {},
+    automationSlots: Array.isArray(d?.automationSlots)
+      ? d.automationSlots
+          .map((slot: any, i: number) => ({
+            id: typeof slot?.id === 'string' ? slot.id : `slot_${i}`,
+            label: typeof slot?.label === 'string' ? slot.label : `Slot ${i + 1}`,
+            time: typeof slot?.time === 'string' ? slot.time : (typeof d?.defaultPostTime === 'string' ? d.defaultPostTime : '09:00'),
+            template: ['auto', 'tipCard', 'quoteCard', 'milestoneCard', 'realStoryCard'].includes(slot?.template)
+              ? slot.template
+              : 'auto',
+            platforms: Array.isArray(slot?.platforms)
+              ? slot.platforms.filter((p: any) => p === 'instagram' || p === 'facebook')
+              : ['instagram', 'facebook'],
+            enabled: slot?.enabled !== false,
+            autoSchedule: slot?.autoSchedule === true,
+          }))
+          .slice(0, 8)
+      : [{
+          id: 'morning_auto',
+          label: 'Morning post',
+          time: typeof d?.defaultPostTime === 'string' ? d.defaultPostTime : '09:00',
+          template: 'auto',
+          platforms: ['instagram', 'facebook'],
+          enabled: true,
+          autoSchedule: false,
+        }],
     compliance: {
       medicalForbiddenWords: arr(d?.compliance?.medicalForbiddenWords),
       requiredDisclaimers: arr(d?.compliance?.requiredDisclaimers),
@@ -203,13 +244,23 @@ function istDateOffset(daysFromNow: number): { weekdayKey: string; isoDate: stri
   return dateInIst(new Date(Date.now() + daysFromNow * 24 * 3600 * 1000));
 }
 
+function hasCulturalEventOnIsoDate(events: unknown, isoDate: string): boolean {
+  if (!Array.isArray(events)) return false;
+  const md = isoDate.slice(5);
+  return events.some((event) => {
+    const date = typeof (event as any)?.date === 'string' ? (event as any).date : '';
+    if (!date) return false;
+    return date === isoDate || date.slice(5) === md;
+  });
+}
+
 /** Does a draft already exist for the given IST date? Checks pending_review,
  *  approved, scheduled, and posted statuses — all mean "cron should skip". */
-async function draftExistsForDate(isoDate: string): Promise<boolean> {
+async function draftExistsForKey(generatedForKey: string): Promise<boolean> {
   try {
     const snap = await admin.firestore()
       .collection('marketing_drafts')
-      .where('generatedForDate', '==', isoDate)
+      .where('generatedForKey', '==', generatedForKey)
       .where('status', 'in', ['pending_review', 'approved', 'scheduled', 'posted'])
       .limit(1)
       .get();
@@ -228,6 +279,33 @@ interface PickedSlot {
   themePrompt: string;
   /** Optional per-date admin prompt hint (from cronOverrides or manual input). */
   promptOverride: string | null;
+  templateOverride: 'auto' | TemplateName | null;
+}
+
+function parseCronOverride(raw: any): {
+  skip?: boolean;
+  promptOverride?: string;
+  personaId?: string;
+  pillarId?: string;
+  template?: 'auto' | TemplateName;
+} {
+  if (!raw || typeof raw !== 'object') return {};
+  const out: any = {};
+  if (raw.skip === true) out.skip = true;
+  if (typeof raw.promptOverride === 'string') out.promptOverride = raw.promptOverride;
+  if (typeof raw.personaId === 'string') out.personaId = raw.personaId;
+  if (typeof raw.pillarId === 'string') out.pillarId = raw.pillarId;
+  if (['auto', 'tipCard', 'quoteCard', 'milestoneCard', 'realStoryCard'].includes(raw.template)) out.template = raw.template;
+  return out;
+}
+
+function resolveSlotOverride(overrides: Record<string, any>, dateIso: string, slotId?: string) {
+  const raw = overrides?.[dateIso];
+  if (!raw || typeof raw !== 'object') return {};
+  const hasNested = 'default' in raw || 'slots' in raw;
+  const dateOverride = hasNested ? parseCronOverride(raw.default) : parseCronOverride(raw);
+  const slotOverride = hasNested && slotId ? parseCronOverride(raw.slots?.[slotId]) : {};
+  return { ...dateOverride, ...slotOverride };
 }
 
 // ── Feedback-loop stats (M5) ───────────────────────────────────────────────
@@ -361,6 +439,9 @@ function pickSlot(brand: BrandKitData, override: GenerateInput, today: { weekday
     themeLabel: theme?.label ?? today.weekdayKey,
     themePrompt: theme?.prompt ?? '',
     promptOverride: typeof promptOverride === 'string' && promptOverride.trim() ? promptOverride.trim() : null,
+    templateOverride: ['auto', 'tipCard', 'quoteCard', 'milestoneCard', 'realStoryCard'].includes(override.template as string)
+      ? (override.template as 'auto' | TemplateName)
+      : null,
   };
 }
 
@@ -450,13 +531,14 @@ async function generateCaption(brand: BrandKitData, slot: PickedSlot, stats: Per
     '- "tipCard" — a numbered list of 3 short practical tips (use for advice / safety / how-to)',
     '- "quoteCard" — a single short quote with attribution (use for inspiration / wisdom / cultural)',
     '- "milestoneCard" — an age + bulleted developmental milestones list (use for milestones / development)',
+    '- "realStoryCard" — a first-person mini story with attribution (use for relatable community moments)',
     '',
     'Return JSON with exactly these keys:',
     '{',
     '  "headline": "≤80 chars, the on-image headline",',
     '  "body": "the IG caption body (3–6 sentences, no headline duplication, no hashtags, no disclaimers)",',
     '  "hashtags": ["array", "of", "5-10", "hashtags", "without # prefix"],',
-    '  "template": "tipCard" | "quoteCard" | "milestoneCard",',
+    '  "template": "tipCard" | "quoteCard" | "milestoneCard" | "realStoryCard",',
     '  "imagePrompt": "specific prompt for an AI image generator — describe an Indian-context scene with lighting, mood, palette",',
     '  "templateProps": { /* per-template fields */ }',
     '}',
@@ -465,6 +547,7 @@ async function generateCaption(brand: BrandKitData, slot: PickedSlot, stats: Per
     '  tipCard:        { eyebrow: string (≤30c), title: string (≤80c), tips: string[3-4] (each ≤120c) }',
     '  quoteCard:      { quote: string (≤200c), attribution: string (≤40c) }',
     '  milestoneCard:  { age: string (≤20c), title: string (≤60c), milestones: string[3-5] (each ≤120c) }',
+    '  realStoryCard:  { eyebrow: string (≤30c), story: string (≤320c), attribution: string (≤40c) }',
   ].join('\n');
 
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -497,7 +580,7 @@ async function generateCaption(brand: BrandKitData, slot: PickedSlot, stats: Per
     throw new Error(`OpenAI returned non-JSON content: ${raw.slice(0, 200)}…`);
   }
 
-  const template = (['tipCard', 'quoteCard', 'milestoneCard'] as TemplateName[]).includes(parsed?.template)
+  const template = (['tipCard', 'quoteCard', 'milestoneCard', 'realStoryCard'] as TemplateName[]).includes(parsed?.template)
     ? (parsed.template as TemplateName)
     : 'tipCard';
 
@@ -618,7 +701,7 @@ async function renderDraftImage(
   imageModel: AiImageModel,
   brand: BrandKitData,
 ): Promise<{ url: string; storagePath: string; bytes: number; source: string; costInr: number }> {
-  // Tip Card never takes a background; Quote / Milestone do.
+  // Tip Card never takes a background; Quote / Milestone / Real Story do.
   // For AI providers, wrap the LLM-supplied subject prompt in the brand's
   // style preamble so cron-generated images share the Studio look. Pexels
   // is keyword-search, so it gets the raw subject prompt only.
@@ -663,7 +746,7 @@ async function renderDraftImage(
   const propsForRender: Record<string, any> = { ...templateProps };
   if (resolvedBg) {
     if (template === 'quoteCard') propsForRender.backgroundUrl = resolvedBg;
-    if (template === 'milestoneCard') propsForRender.photoUrl = resolvedBg;
+    if (template === 'milestoneCard' || template === 'realStoryCard') propsForRender.photoUrl = resolvedBg;
   }
 
   const brandSnap: BrandSnapshot = {
@@ -711,6 +794,20 @@ function imageSourceCostInr(source: string): number {
     case 'flux':   return 0.25;
     default:       return 0;
   }
+}
+
+function parsePlatforms(input: unknown): MarketingPlatform[] {
+  const out = Array.isArray(input)
+    ? input.filter((p): p is MarketingPlatform => p === 'instagram' || p === 'facebook')
+    : [];
+  return out.length ? Array.from(new Set(out)).slice(0, 2) : ['instagram', 'facebook'];
+}
+
+function scheduleIsoForSlot(dateIso: string, slotTime: string): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateIso)) return null;
+  if (!/^[0-2]\d:[0-5]\d$/.test(slotTime)) return null;
+  const d = new Date(`${dateIso}T${slotTime}:00+05:30`);
+  return Number.isFinite(d.getTime()) ? d.toISOString() : null;
 }
 
 // ── Caption assembly (body + hashtags + disclaimers) ───────────────────────
@@ -763,12 +860,21 @@ export async function runGenerator(
     captionOut = fallbackCaption(brand, slot);
   }
 
-  const requestedTemplate = ['tipCard', 'quoteCard', 'milestoneCard'].includes(input.template as string)
+  const requestedTemplate = ['tipCard', 'quoteCard', 'milestoneCard', 'realStoryCard'].includes(input.template as string)
     ? (input.template as TemplateName)
-    : captionOut.template;
+    : slot.templateOverride && slot.templateOverride !== 'auto'
+      ? slot.templateOverride
+      : captionOut.template;
   const requestedModel: AiImageModel = (['imagen', 'dalle', 'flux'] as AiImageModel[]).includes(input.imageModel as AiImageModel)
     ? (input.imageModel as AiImageModel)
     : 'flux';
+  const slotId = typeof input.slotId === 'string' && input.slotId.trim() ? input.slotId.trim() : 'default';
+  const slotLabel = typeof input.slotLabel === 'string' && input.slotLabel.trim() ? input.slotLabel.trim() : 'Daily slot';
+  const slotTime = typeof input.slotTime === 'string' && /^[0-2]\d:[0-5]\d$/.test(input.slotTime) ? input.slotTime : null;
+  const autoSchedule = input.autoSchedule === true;
+  const scheduledAt = autoSchedule && slotTime ? scheduleIsoForSlot(today.isoDate, slotTime) : null;
+  const generatedForKey = `${today.isoDate}:${slotId}`;
+  const platforms = parsePlatforms(input.slotPlatforms);
 
   let render: { url: string; storagePath: string; bytes: number; source: string; costInr: number };
   try {
@@ -791,15 +897,18 @@ export async function runGenerator(
   // Write the draft.
   const draftRef = admin.firestore().collection('marketing_drafts').doc();
   const draft = {
-    status: 'pending_review',
+    status: scheduledAt ? 'scheduled' : 'pending_review',
     kind: 'image',
     themeKey: today.weekdayKey,
     themeLabel: slot.themeLabel,
+    slotId,
+    slotLabel,
+    slotTime,
     caption,
     headline: captionOut.headline,
     assets: [{ url: render.url, index: 0, template: requestedTemplate, storagePath: render.storagePath }],
-    platforms: ['instagram', 'facebook'],
-    scheduledAt: null,
+    platforms,
+    scheduledAt,
     postedAt: null,
     postPermalinks: {},
     publishError: null,
@@ -816,6 +925,7 @@ export async function runGenerator(
     costInr: totalCost,
     generatedAt: admin.firestore.FieldValue.serverTimestamp(),
     generatedForDate: today.isoDate,
+    generatedForKey,
     generatedBy: actorEmail ?? 'cron',
     approvedAt: null,
     approvedBy: null,
@@ -878,34 +988,113 @@ export function buildDailyMarketingDraftCron() {
         return null;
       }
 
-      const { isoDate: todayIso } = todayInIst();
+      const { isoDate: todayIso, weekdayKey } = todayInIst();
 
       // Layer 2: check per-date override for today.
       const overrides = (data?.cronOverrides ?? {}) as Record<string, any>;
-      const todayOverride = overrides[todayIso] ?? {};
-      if (todayOverride.skip === true) {
+      const dayDefaultOverride = resolveSlotOverride(overrides, todayIso);
+      if (dayDefaultOverride.skip === true) {
         console.log('[dailyMarketingDraftCron] skip override active for', todayIso);
         return null;
       }
 
-      // Layer 3: skip if a draft was already pre-generated (via generateAheadDrafts).
-      if (await draftExistsForDate(todayIso)) {
-        console.log('[dailyMarketingDraftCron] draft already exists for', todayIso, '— skipping cron');
+      const theme = data?.themeCalendar?.[weekdayKey];
+      if (theme?.enabled === false) {
+        console.log('[dailyMarketingDraftCron] theme disabled for', todayIso, '— skipping day');
         return null;
       }
 
-      // Build input — merge any per-date override fields.
-      const genInput: GenerateInput = {};
-      if (typeof todayOverride.personaId === 'string') genInput.personaId = todayOverride.personaId;
-      if (typeof todayOverride.pillarId === 'string') genInput.pillarId = todayOverride.pillarId;
-      if (typeof todayOverride.promptOverride === 'string') genInput.promptOverride = todayOverride.promptOverride;
-      genInput.forDateIso = todayIso;
+      const slots = Array.isArray(data?.automationSlots) && data.automationSlots.length
+        ? data.automationSlots
+        : [{ id: 'morning_auto', label: 'Morning post', time: data?.defaultPostTime ?? '09:00', template: 'auto', platforms: ['instagram', 'facebook'], enabled: true, autoSchedule: false }];
 
-      const result = await runGenerator(genInput, null);
-      if (result.ok) {
-        console.log('[dailyMarketingDraftCron] generated draft', result.draftId, 'for', todayIso);
-      } else {
-        console.error('[dailyMarketingDraftCron] failed for', todayIso, result);
+      for (const rawSlot of slots) {
+        if (rawSlot?.enabled === false) continue;
+        const slotId = typeof rawSlot?.id === 'string' ? rawSlot.id : 'default';
+        const generatedForKey = `${todayIso}:${slotId}`;
+        if (await draftExistsForKey(generatedForKey)) {
+          console.log('[dailyMarketingDraftCron] draft already exists for', generatedForKey, '— skipping slot');
+          continue;
+        }
+        const genInput: GenerateInput = {
+          forDateIso: todayIso,
+          slotId,
+          slotLabel: typeof rawSlot?.label === 'string' ? rawSlot.label : 'Daily slot',
+          slotTime: typeof rawSlot?.time === 'string' ? rawSlot.time : (data?.defaultPostTime ?? '09:00'),
+          slotPlatforms: rawSlot?.platforms,
+          autoSchedule: rawSlot?.autoSchedule === true,
+        };
+        const slotOverride = resolveSlotOverride(overrides, todayIso, slotId);
+        if (slotOverride.skip === true) {
+          console.log('[dailyMarketingDraftCron] slot skip override active for', generatedForKey);
+          continue;
+        }
+        if (typeof slotOverride.personaId === 'string') genInput.personaId = slotOverride.personaId;
+        if (typeof slotOverride.pillarId === 'string') genInput.pillarId = slotOverride.pillarId;
+        if (typeof slotOverride.promptOverride === 'string') genInput.promptOverride = slotOverride.promptOverride;
+        if (typeof slotOverride.template === 'string') genInput.template = slotOverride.template;
+        else if (typeof rawSlot?.template === 'string') genInput.template = rawSlot.template;
+
+        const result = await runGenerator(genInput, null);
+        if (result.ok) {
+          console.log('[dailyMarketingDraftCron] generated draft', result.draftId, 'for', generatedForKey);
+        } else {
+          console.error('[dailyMarketingDraftCron] failed for', generatedForKey, result);
+        }
+      }
+
+      const tomorrow = istDateOffset(1);
+      if (!hasCulturalEventOnIsoDate(data?.culturalCalendar, tomorrow.isoDate)) {
+        return null;
+      }
+
+      const tomorrowDefaultOverride = resolveSlotOverride(overrides, tomorrow.isoDate);
+      if (tomorrowDefaultOverride.skip === true) {
+        console.log('[dailyMarketingDraftCron] tomorrow event pre-draft skipped by override for', tomorrow.isoDate);
+        return null;
+      }
+
+      const tomorrowTheme = data?.themeCalendar?.[tomorrow.weekdayKey];
+      if (tomorrowTheme?.enabled === false) {
+        console.log('[dailyMarketingDraftCron] tomorrow event pre-draft skipped because theme is disabled for', tomorrow.isoDate);
+        return null;
+      }
+
+      for (const rawSlot of slots) {
+        if (rawSlot?.enabled === false) continue;
+        const slotId = typeof rawSlot?.id === 'string' ? rawSlot.id : 'default';
+        const generatedForKey = `${tomorrow.isoDate}:${slotId}`;
+        if (await draftExistsForKey(generatedForKey)) {
+          console.log('[dailyMarketingDraftCron] tomorrow event draft already exists for', generatedForKey, '— skipping pre-draft');
+          continue;
+        }
+
+        const slotOverride = resolveSlotOverride(overrides, tomorrow.isoDate, slotId);
+        if (slotOverride.skip === true) {
+          console.log('[dailyMarketingDraftCron] tomorrow event slot skip override active for', generatedForKey);
+          continue;
+        }
+
+        const genInput: GenerateInput = {
+          forDateIso: tomorrow.isoDate,
+          slotId,
+          slotLabel: typeof rawSlot?.label === 'string' ? rawSlot.label : 'Daily slot',
+          slotTime: typeof rawSlot?.time === 'string' ? rawSlot.time : (data?.defaultPostTime ?? '09:00'),
+          slotPlatforms: rawSlot?.platforms,
+          autoSchedule: rawSlot?.autoSchedule === true,
+        };
+        if (typeof slotOverride.personaId === 'string') genInput.personaId = slotOverride.personaId;
+        if (typeof slotOverride.pillarId === 'string') genInput.pillarId = slotOverride.pillarId;
+        if (typeof slotOverride.promptOverride === 'string') genInput.promptOverride = slotOverride.promptOverride;
+        if (typeof slotOverride.template === 'string') genInput.template = slotOverride.template;
+        else if (typeof rawSlot?.template === 'string') genInput.template = rawSlot.template;
+
+        const result = await runGenerator(genInput, null);
+        if (result.ok) {
+          console.log('[dailyMarketingDraftCron] pre-generated tomorrow event draft', result.draftId, 'for', generatedForKey);
+        } else {
+          console.error('[dailyMarketingDraftCron] tomorrow event pre-draft failed for', generatedForKey, result);
+        }
       }
       return null;
     });
@@ -936,37 +1125,63 @@ export function buildGenerateAheadDrafts(allowList: ReadonlySet<string>) {
       const rawDays = typeof data?.days === 'number' ? Math.min(7, Math.max(1, Math.round(data.days))) : 7;
       const actorEmail = context.auth?.token?.email ?? null;
       const overrides = (brandData?.cronOverrides ?? {}) as Record<string, any>;
+      const slots = Array.isArray(brandData?.automationSlots) && brandData.automationSlots.length
+        ? brandData.automationSlots
+        : [{ id: 'morning_auto', label: 'Morning post', time: brandData?.defaultPostTime ?? '09:00', template: 'auto', platforms: ['instagram', 'facebook'], enabled: true, autoSchedule: false }];
 
       const results: { date: string; ok: boolean; draftId?: string; skipped?: string }[] = [];
 
       for (let i = 1; i <= rawDays; i++) {
-        const { isoDate } = istDateOffset(i);
-        const dayOverride = overrides[isoDate] ?? {};
+        const { isoDate, weekdayKey } = istDateOffset(i);
+        const dayDefaultOverride = resolveSlotOverride(overrides, isoDate);
 
         // Skip this date if admin marked it.
-        if (dayOverride.skip === true) {
+        if (dayDefaultOverride.skip === true) {
           results.push({ date: isoDate, ok: true, skipped: 'override-skip' });
           continue;
         }
-        // Skip if a draft already exists for this date.
-        if (await draftExistsForDate(isoDate)) {
-          results.push({ date: isoDate, ok: true, skipped: 'already-exists' });
+        const theme = brandData?.themeCalendar?.[weekdayKey];
+        if (theme?.enabled === false) {
+          results.push({ date: isoDate, ok: true, skipped: 'theme-disabled' });
           continue;
         }
 
-        // Build per-date input, merging any override fields.
-        const genInput: GenerateInput = { forDateIso: isoDate };
-        if (typeof dayOverride.personaId === 'string') genInput.personaId = dayOverride.personaId;
-        if (typeof dayOverride.pillarId === 'string') genInput.pillarId = dayOverride.pillarId;
-        if (typeof dayOverride.promptOverride === 'string') genInput.promptOverride = dayOverride.promptOverride;
+        for (const rawSlot of slots) {
+          if (rawSlot?.enabled === false) continue;
+          const slotId = typeof rawSlot?.id === 'string' ? rawSlot.id : 'default';
+          const generatedForKey = `${isoDate}:${slotId}`;
+          if (await draftExistsForKey(generatedForKey)) {
+            results.push({ date: generatedForKey, ok: true, skipped: 'already-exists' });
+            continue;
+          }
 
-        const r = await runGenerator(genInput, actorEmail);
-        if (r.ok) {
-          results.push({ date: isoDate, ok: true, draftId: r.draftId });
-          console.log('[generateAheadDrafts] generated', r.draftId, 'for', isoDate);
-        } else {
-          results.push({ date: isoDate, ok: false, skipped: r.message });
-          console.error('[generateAheadDrafts] failed for', isoDate, r);
+          const genInput: GenerateInput = {
+            forDateIso: isoDate,
+            slotId,
+            slotLabel: typeof rawSlot?.label === 'string' ? rawSlot.label : 'Daily slot',
+            slotTime: typeof rawSlot?.time === 'string' ? rawSlot.time : (brandData?.defaultPostTime ?? '09:00'),
+            slotPlatforms: rawSlot?.platforms,
+            autoSchedule: rawSlot?.autoSchedule === true,
+          };
+          const slotOverride = resolveSlotOverride(overrides, isoDate, slotId);
+          if (slotOverride.skip === true) {
+            results.push({ date: generatedForKey, ok: true, skipped: 'slot-override-skip' });
+            continue;
+          }
+          if (typeof slotOverride.personaId === 'string') genInput.personaId = slotOverride.personaId;
+          if (typeof slotOverride.pillarId === 'string') genInput.pillarId = slotOverride.pillarId;
+          if (typeof slotOverride.promptOverride === 'string') genInput.promptOverride = slotOverride.promptOverride;
+          if (typeof slotOverride.template === 'string') genInput.template = slotOverride.template;
+          else if (typeof rawSlot?.template === 'string') genInput.template = rawSlot.template;
+
+          const r = await runGenerator(genInput, actorEmail);
+          if (r.ok) {
+            results.push({ date: generatedForKey, ok: true, draftId: r.draftId });
+            console.log('[generateAheadDrafts] generated', r.draftId, 'for', generatedForKey);
+          } else {
+            results.push({ date: generatedForKey, ok: false, skipped: r.message });
+            console.error('[generateAheadDrafts] failed for', generatedForKey, r);
+          }
         }
       }
 

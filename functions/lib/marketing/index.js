@@ -52,11 +52,13 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildProbeMarketingHealthNow = exports.buildProbeMarketingHealth = exports.buildComposeStudioLogo = exports.buildUploadStudioImage = exports.buildEditStudioImage = exports.buildCreateStudioDraft = exports.buildGenerateStudioVariants = exports.buildBoostMarketingDraft = exports.buildRenderUgcAsDraft = exports.buildGenerateWeeklyInsightDigest = exports.buildPollMarketingAccountInsights = exports.buildPollMarketingInsights = exports.buildPublishMarketingDraftNow = exports.buildScheduledMarketingPublisher = exports.buildMetaInboxReplyPublisher = exports.buildClassifyInboxThread = exports.buildGenerateInboxReplies = exports.buildMetaWebhookReceiver = exports.buildGenerateAheadDrafts = exports.buildDailyMarketingDraftCron = exports.buildGenerateMarketingDraft = exports.buildScoreMarketingDraft = void 0;
 exports.buildRenderMarketingTemplate = buildRenderMarketingTemplate;
+exports.buildGenerateTemplatePrefill = buildGenerateTemplatePrefill;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions/v1"));
 const imageSources_1 = require("./imageSources");
 const renderer_1 = require("./renderer");
 const templates_1 = require("./templates");
+const integrationConfig_1 = require("../lib/integrationConfig");
 var scoring_1 = require("./scoring");
 Object.defineProperty(exports, "buildScoreMarketingDraft", { enumerable: true, get: function () { return scoring_1.buildScoreMarketingDraft; } });
 var generator_1 = require("./generator");
@@ -179,10 +181,12 @@ function buildRenderMarketingTemplate(allowList) {
                 backgroundUrl = url;
         }
         // Templates that take a backgroundUrl key it explicitly.
-        if (backgroundUrl && (templateName === 'quoteCard' || templateName === 'milestoneCard')) {
+        if (backgroundUrl && (templateName === 'quoteCard' || templateName === 'milestoneCard' || templateName === 'realStoryCard')) {
             if (templateName === 'quoteCard')
                 props.backgroundUrl = backgroundUrl;
             if (templateName === 'milestoneCard')
+                props.photoUrl = backgroundUrl;
+            if (templateName === 'realStoryCard')
                 props.photoUrl = backgroundUrl;
         }
         // ── Fetch brand kit ───────────────────────────────────────────────
@@ -255,6 +259,131 @@ function buildRenderMarketingTemplate(allowList) {
             bytes: result.png.length,
         };
     });
+}
+function buildGenerateTemplatePrefill(allowList) {
+    return functions
+        .runWith({ memory: '512MB', timeoutSeconds: 60 })
+        .https.onCall(async (data, context) => {
+        if (!(await callerIsMarketingAdmin(context.auth?.token, allowList))) {
+            throw new functions.https.HttpsError('permission-denied', 'Only admins with marketing access can prefill templates.');
+        }
+        const template = String(data?.template ?? '').trim();
+        if (!templates_1.TEMPLATE_NAMES.includes(template)) {
+            return { ok: false, code: 'invalid-template', message: `Unknown template "${template}".` };
+        }
+        const cfg = await (0, integrationConfig_1.getIntegrationConfig)();
+        if (!cfg.openai.apiKey) {
+            return { ok: false, code: 'missing-openai', message: 'OpenAI key is not configured.' };
+        }
+        const brandSnap = await admin.firestore().doc('marketing_brand/main').get();
+        const bd = brandSnap.exists ? brandSnap.data() : {};
+        const voiceAttrs = Array.isArray(bd?.voice?.attributes) ? bd.voice.attributes.join(', ') : 'warm, honest, judgement-free';
+        const avoid = Array.isArray(bd?.voice?.avoid) ? bd.voice.avoid.join(', ') : '';
+        const bilingual = typeof bd?.voice?.bilingual === 'string' ? bd.voice.bilingual : 'hinglish';
+        const contextText = String(data?.context ?? '').trim();
+        const current = data?.current && typeof data.current === 'object' ? JSON.stringify(data.current).slice(0, 1200) : 'none';
+        const system = [
+            `You are MaaMitra's content planner for social post templates.`,
+            `Brand voice: ${voiceAttrs}.`,
+            avoid ? `Avoid these tones/words: ${avoid}.` : '',
+            bilingual === 'hinglish'
+                ? 'Write in natural Indian English; light Hinglish is welcome where natural.'
+                : 'Write in clear English.',
+            'Return strict JSON only.',
+        ].filter(Boolean).join('\n');
+        const user = [
+            `Prepare structured content for template "${template}".`,
+            `Topic/context from admin: ${contextText || 'Use a sensible MaaMitra motherhood topic and make it specific.'}`,
+            `Current values to improve or regenerate: ${current}`,
+            '',
+            'Return JSON with keys:',
+            '{',
+            '  "props": { /* exact template props */ },',
+            '  "backgroundPrompt": "optional background prompt, empty for none"',
+            '}',
+            '',
+            'Use these prop shapes exactly:',
+            'tipCard: { "eyebrow": string<=30, "title": string<=80, "tips": string[3-4] }',
+            'quoteCard: { "quote": string<=200, "attribution": string<=40 }',
+            'milestoneCard: { "age": string<=20, "title": string<=60, "milestones": string[3-5] }',
+            'realStoryCard: { "eyebrow": string<=30, "story": string<=240, "attribution": string<=40 }',
+            '',
+            'Rules:',
+            '- Keep it crisp and render-friendly.',
+            '- If the template benefits from a background image, include a short Indian-context backgroundPrompt.',
+            '- Never include markdown.',
+        ].join('\n');
+        const res = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${cfg.openai.apiKey}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                model: 'gpt-4o-mini',
+                response_format: { type: 'json_object' },
+                temperature: 0.85,
+                max_tokens: 700,
+                messages: [
+                    { role: 'system', content: system },
+                    { role: 'user', content: user },
+                ],
+            }),
+        });
+        if (!res.ok) {
+            return { ok: false, code: 'openai-error', message: `${res.status}: ${await res.text()}` };
+        }
+        const out = await res.json();
+        const raw = out?.choices?.[0]?.message?.content ?? '';
+        let parsed;
+        try {
+            parsed = JSON.parse(raw);
+        }
+        catch {
+            return { ok: false, code: 'bad-json', message: 'AI returned invalid JSON.' };
+        }
+        return {
+            ok: true,
+            template,
+            props: sanitizeTemplateProps(template, parsed?.props ?? {}),
+            backgroundPrompt: trimText(parsed?.backgroundPrompt, 240),
+        };
+    });
+}
+function trimText(v, max) {
+    return typeof v === 'string' ? v.trim().slice(0, max) : '';
+}
+function listText(v, maxItems, maxChars) {
+    return Array.isArray(v)
+        ? v.map((x) => trimText(x, maxChars)).filter(Boolean).slice(0, maxItems)
+        : [];
+}
+function sanitizeTemplateProps(template, props) {
+    if (template === 'tipCard') {
+        return {
+            eyebrow: trimText(props.eyebrow, 30),
+            title: trimText(props.title, 80),
+            tips: listText(props.tips, 4, 120),
+        };
+    }
+    if (template === 'quoteCard') {
+        return {
+            quote: trimText(props.quote, 200),
+            attribution: trimText(props.attribution, 40),
+        };
+    }
+    if (template === 'milestoneCard') {
+        return {
+            age: trimText(props.age, 20),
+            title: trimText(props.title, 60),
+            milestones: listText(props.milestones, 5, 120),
+        };
+    }
+    return {
+        eyebrow: trimText(props.eyebrow, 30),
+        story: trimText(props.story, 240),
+        attribution: trimText(props.attribution, 40),
+    };
 }
 /** Estimated cost (₹) per render by image-source provider. May-2026 rates. */
 function imageSourceCostInr(source) {

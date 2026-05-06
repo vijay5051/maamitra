@@ -22,6 +22,7 @@ import * as functions from 'firebase-functions/v1';
 import { fluxSchnell, imagenGenerate, openaiImage, pexelsSearch } from './imageSources';
 import { renderTemplate } from './renderer';
 import { BrandSnapshot, TEMPLATE_NAMES } from './templates';
+import { getIntegrationConfig } from '../lib/integrationConfig';
 
 export { buildScoreMarketingDraft } from './scoring';
 export { buildGenerateMarketingDraft, buildDailyMarketingDraftCron, buildGenerateAheadDrafts } from './generator';
@@ -103,6 +104,27 @@ interface RenderResponseErr {
 }
 type RenderResponse = RenderResponseOk | RenderResponseErr;
 
+interface TemplatePrefillPayload {
+  template?: unknown;
+  context?: unknown;
+  current?: unknown;
+}
+
+interface TemplatePrefillOk {
+  ok: true;
+  template: string;
+  props: Record<string, any>;
+  backgroundPrompt: string;
+}
+
+interface TemplatePrefillErr {
+  ok: false;
+  code: string;
+  message: string;
+}
+
+type TemplatePrefillResponse = TemplatePrefillOk | TemplatePrefillErr;
+
 /**
  * Admin-callable HTTPS function. Reads brand kit from Firestore, optionally
  * fetches a stock or AI background, renders via Satori, uploads PNG to
@@ -167,9 +189,10 @@ export function buildRenderMarketingTemplate(allowList: ReadonlySet<string>) {
       }
 
       // Templates that take a backgroundUrl key it explicitly.
-      if (backgroundUrl && (templateName === 'quoteCard' || templateName === 'milestoneCard')) {
+      if (backgroundUrl && (templateName === 'quoteCard' || templateName === 'milestoneCard' || templateName === 'realStoryCard')) {
         if (templateName === 'quoteCard') props.backgroundUrl = backgroundUrl;
         if (templateName === 'milestoneCard') props.photoUrl = backgroundUrl;
+        if (templateName === 'realStoryCard') props.photoUrl = backgroundUrl;
       }
 
       // ── Fetch brand kit ───────────────────────────────────────────────
@@ -243,6 +266,142 @@ export function buildRenderMarketingTemplate(allowList: ReadonlySet<string>) {
         bytes: result.png.length,
       };
     });
+}
+
+export function buildGenerateTemplatePrefill(allowList: ReadonlySet<string>) {
+  return functions
+    .runWith({ memory: '512MB', timeoutSeconds: 60 })
+    .https.onCall(async (data: TemplatePrefillPayload, context): Promise<TemplatePrefillResponse> => {
+      if (!(await callerIsMarketingAdmin(context.auth?.token, allowList))) {
+        throw new functions.https.HttpsError('permission-denied', 'Only admins with marketing access can prefill templates.');
+      }
+
+      const template = String(data?.template ?? '').trim();
+      if (!TEMPLATE_NAMES.includes(template as any)) {
+        return { ok: false, code: 'invalid-template', message: `Unknown template "${template}".` };
+      }
+
+      const cfg = await getIntegrationConfig();
+      if (!cfg.openai.apiKey) {
+        return { ok: false, code: 'missing-openai', message: 'OpenAI key is not configured.' };
+      }
+
+      const brandSnap = await admin.firestore().doc('marketing_brand/main').get();
+      const bd: any = brandSnap.exists ? brandSnap.data() : {};
+      const voiceAttrs = Array.isArray(bd?.voice?.attributes) ? bd.voice.attributes.join(', ') : 'warm, honest, judgement-free';
+      const avoid = Array.isArray(bd?.voice?.avoid) ? bd.voice.avoid.join(', ') : '';
+      const bilingual = typeof bd?.voice?.bilingual === 'string' ? bd.voice.bilingual : 'hinglish';
+      const contextText = String(data?.context ?? '').trim();
+      const current = data?.current && typeof data.current === 'object' ? JSON.stringify(data.current).slice(0, 1200) : 'none';
+
+      const system = [
+        `You are MaaMitra's content planner for social post templates.`,
+        `Brand voice: ${voiceAttrs}.`,
+        avoid ? `Avoid these tones/words: ${avoid}.` : '',
+        bilingual === 'hinglish'
+          ? 'Write in natural Indian English; light Hinglish is welcome where natural.'
+          : 'Write in clear English.',
+        'Return strict JSON only.',
+      ].filter(Boolean).join('\n');
+
+      const user = [
+        `Prepare structured content for template "${template}".`,
+        `Topic/context from admin: ${contextText || 'Use a sensible MaaMitra motherhood topic and make it specific.'}`,
+        `Current values to improve or regenerate: ${current}`,
+        '',
+        'Return JSON with keys:',
+        '{',
+        '  "props": { /* exact template props */ },',
+        '  "backgroundPrompt": "optional background prompt, empty for none"',
+        '}',
+        '',
+        'Use these prop shapes exactly:',
+        'tipCard: { "eyebrow": string<=30, "title": string<=80, "tips": string[3-4] }',
+        'quoteCard: { "quote": string<=200, "attribution": string<=40 }',
+        'milestoneCard: { "age": string<=20, "title": string<=60, "milestones": string[3-5] }',
+        'realStoryCard: { "eyebrow": string<=30, "story": string<=240, "attribution": string<=40 }',
+        '',
+        'Rules:',
+        '- Keep it crisp and render-friendly.',
+        '- If the template benefits from a background image, include a short Indian-context backgroundPrompt.',
+        '- Never include markdown.',
+      ].join('\n');
+
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${cfg.openai.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          response_format: { type: 'json_object' },
+          temperature: 0.85,
+          max_tokens: 700,
+          messages: [
+            { role: 'system', content: system },
+            { role: 'user', content: user },
+          ],
+        }),
+      });
+      if (!res.ok) {
+        return { ok: false, code: 'openai-error', message: `${res.status}: ${await res.text()}` };
+      }
+
+      const out = await res.json() as { choices?: { message?: { content?: string } }[] };
+      const raw = out?.choices?.[0]?.message?.content ?? '';
+      let parsed: any;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        return { ok: false, code: 'bad-json', message: 'AI returned invalid JSON.' };
+      }
+
+      return {
+        ok: true,
+        template,
+        props: sanitizeTemplateProps(template, parsed?.props ?? {}),
+        backgroundPrompt: trimText(parsed?.backgroundPrompt, 240),
+      };
+    });
+}
+
+function trimText(v: unknown, max: number): string {
+  return typeof v === 'string' ? v.trim().slice(0, max) : '';
+}
+
+function listText(v: unknown, maxItems: number, maxChars: number): string[] {
+  return Array.isArray(v)
+    ? v.map((x) => trimText(x, maxChars)).filter(Boolean).slice(0, maxItems)
+    : [];
+}
+
+function sanitizeTemplateProps(template: string, props: Record<string, any>): Record<string, any> {
+  if (template === 'tipCard') {
+    return {
+      eyebrow: trimText(props.eyebrow, 30),
+      title: trimText(props.title, 80),
+      tips: listText(props.tips, 4, 120),
+    };
+  }
+  if (template === 'quoteCard') {
+    return {
+      quote: trimText(props.quote, 200),
+      attribution: trimText(props.attribution, 40),
+    };
+  }
+  if (template === 'milestoneCard') {
+    return {
+      age: trimText(props.age, 20),
+      title: trimText(props.title, 60),
+      milestones: listText(props.milestones, 5, 120),
+    };
+  }
+  return {
+    eyebrow: trimText(props.eyebrow, 30),
+    story: trimText(props.story, 240),
+    attribution: trimText(props.attribution, 40),
+  };
 }
 
 /** Estimated cost (₹) per render by image-source provider. May-2026 rates. */

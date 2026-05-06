@@ -33,7 +33,7 @@ import { countByStatus as countInboxByStatus } from '../../../services/marketing
 import { countDraftsByStatus, listDrafts } from '../../../services/marketingDrafts';
 import {
   generateAheadDrafts,
-  previewScheduledSlot,
+  previewScheduledSlots,
   saveCronOverride,
   subscribeBrandKit,
   ScheduledSlotPreview,
@@ -43,7 +43,7 @@ import { BrandKit, MarketingDraft } from '../../../lib/marketingTypes';
 import { useAuthStore } from '../../../store/useAuthStore';
 
 interface State {
-  scheduledNext: MarketingDraft | null;
+  scheduledDrafts: MarketingDraft[];
   recentPosted: MarketingDraft[];
   postsThisWeek: number;
   reachThisWeek: number;
@@ -58,7 +58,7 @@ export default function MarketingTodayScreen() {
   const isWide = Platform.OS === 'web' && width >= 900;
 
   const [state, setState] = useState<State>({
-    scheduledNext: null,
+    scheduledDrafts: [],
     recentPosted: [],
     postsThisWeek: 0,
     reachThisWeek: 0,
@@ -66,10 +66,10 @@ export default function MarketingTodayScreen() {
     loading: true,
   });
 
-  // Brand kit — needed for tomorrow's slot preview + cron-enabled gate.
+  // Brand kit — needed for automation preview + cron-enabled gate.
   const [brand, setBrand] = useState<BrandKit | null>(null);
-  const [tomorrowSlot, setTomorrowSlot] = useState<ScheduledSlotPreview | null>(null);
-  const [skipBusy, setSkipBusy] = useState(false);
+  const [upcomingSlots, setUpcomingSlots] = useState<ScheduledSlotPreview[]>([]);
+  const [skipBusy, setSkipBusy] = useState<string | null>(null);
   const [aheadBusy, setAheadBusy] = useState(false);
   const [aheadBanner, setAheadBanner] = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -77,10 +77,13 @@ export default function MarketingTodayScreen() {
     const unsub = subscribeBrandKit((k) => {
       setBrand(k);
       if (k) {
-        const tomorrow = new Date(Date.now() + 24 * 3600 * 1000);
-        setTomorrowSlot(previewScheduledSlot(k, tomorrow));
+        const slots: ScheduledSlotPreview[] = [];
+        for (let i = 0; i < 7; i++) {
+          slots.push(...previewScheduledSlots(k, new Date(Date.now() + i * 24 * 3600 * 1000)));
+        }
+        setUpcomingSlots(slots);
       } else {
-        setTomorrowSlot(null);
+        setUpcomingSlots([]);
       }
     });
     return unsub;
@@ -110,7 +113,11 @@ export default function MarketingTodayScreen() {
         const tb = b.scheduledAt ?? '';
         return ta.localeCompare(tb);
       });
-      const next = sortedScheduled.find((d) => !!d.scheduledAt) ?? null;
+      const next7Cutoff = Date.now() + 7 * 24 * 3600 * 1000;
+      const upcomingScheduled = sortedScheduled.filter((d) => {
+        const t = d.scheduledAt ? new Date(d.scheduledAt).getTime() : 0;
+        return t >= Date.now() && t <= next7Cutoff;
+      });
       const reach = posts.reduce((a, p) => a + (p.metrics?.reach ?? 0), 0);
 
       // "Posts this week" = posted in last 7d. Count off the snapshot, not
@@ -122,7 +129,7 @@ export default function MarketingTodayScreen() {
       }).length;
 
       setState({
-        scheduledNext: next,
+        scheduledDrafts: upcomingScheduled,
         recentPosted: posted,
         postsThisWeek,
         reachThisWeek: reach,
@@ -191,29 +198,34 @@ export default function MarketingTodayScreen() {
           />
         </View>
 
-        {/* Tomorrow's auto-post — only shown when cron is enabled */}
-        {brand?.cronEnabled && tomorrowSlot ? (
-          <Section title="Tomorrow's auto-post">
-            <TomorrowCard
-              slot={tomorrowSlot}
+        <Section title="Next 7 days" right={
+          state.loading ? <ActivityIndicator size="small" color={Colors.primary} /> :
+          <Pressable onPress={onRefresh} hitSlop={8}><Ionicons name="refresh" size={16} color={Colors.textLight} /></Pressable>
+        }>
+          {state.scheduledDrafts.length > 0 || (brand?.cronEnabled && upcomingSlots.length > 0) ? (
+            <UpcomingWeekCard
+              scheduledDrafts={state.scheduledDrafts}
+              previewSlots={brand?.cronEnabled ? upcomingSlots : []}
               skipBusy={skipBusy}
               aheadBusy={aheadBusy}
               banner={aheadBanner}
-              onSkip={async () => {
-                if (!user || !tomorrowSlot) return;
-                setSkipBusy(true);
+              onOpenDraft={(id) => router.push(`/admin/marketing/drafts?open=${id}` as any)}
+              onSkip={async (slot) => {
+                if (!user) return;
+                const busyKey = `${slot.dateIso}:${slot.slotId}`;
+                setSkipBusy(busyKey);
                 try {
-                  const newSkip = !tomorrowSlot.skipped;
+                  const newSkip = !slot.skipped;
                   await saveCronOverride(
                     { uid: user.uid, email: user.email },
-                    tomorrowSlot.dateIso,
+                    slot.dateIso,
                     newSkip ? { skip: true } : null,
+                    slot.slotId,
                   );
-                  // The subscribeBrandKit callback will update tomorrowSlot.
                 } catch (e: any) {
                   setAheadBanner({ ok: false, text: friendlyError('Skip', e) });
                 } finally {
-                  setSkipBusy(false);
+                  setSkipBusy(null);
                 }
               }}
               onPreGenerate={async () => {
@@ -238,21 +250,11 @@ export default function MarketingTodayScreen() {
                 }
               }}
             />
-          </Section>
-        ) : null}
-
-        {/* Going out next */}
-        <Section title="Going out next" right={
-          state.loading ? <ActivityIndicator size="small" color={Colors.primary} /> :
-          <Pressable onPress={onRefresh} hitSlop={8}><Ionicons name="refresh" size={16} color={Colors.textLight} /></Pressable>
-        }>
-          {state.scheduledNext ? (
-            <NextPostCard draft={state.scheduledNext} onOpen={(id) => router.push(`/admin/marketing/drafts?open=${id}` as any)} />
           ) : (
             <EmptyCard
               icon="calendar-outline"
-              title="Nothing scheduled"
-              body="Want to put something on the calendar?"
+              title="Nothing lined up"
+              body="No scheduled posts or automation previews in the next 7 days."
               ctaLabel="Plan a post"
               onPress={() => router.push('/admin/marketing/create' as any)}
             />
@@ -327,33 +329,107 @@ function KpiTile({
   return <View style={{ flex: 1 }}>{inner}</View>;
 }
 
-// ── Next post card ──────────────────────────────────────────────────────────
+// ── Upcoming week planner ──────────────────────────────────────────────────
 
-function NextPostCard({ draft, onOpen }: { draft: MarketingDraft; onOpen: (id: string) => void }) {
-  const when = formatScheduledTime(draft.scheduledAt);
-  const platforms = draft.platforms.length ? draft.platforms.join(' + ').toUpperCase() : 'IG + FB';
+function UpcomingWeekCard({
+  scheduledDrafts,
+  previewSlots,
+  skipBusy,
+  aheadBusy,
+  banner,
+  onOpenDraft,
+  onSkip,
+  onPreGenerate,
+}: {
+  scheduledDrafts: MarketingDraft[];
+  previewSlots: ScheduledSlotPreview[];
+  skipBusy: string | null;
+  aheadBusy: boolean;
+  banner: { ok: boolean; text: string } | null;
+  onOpenDraft: (id: string) => void;
+  onSkip: (slot: ScheduledSlotPreview) => void;
+  onPreGenerate: () => void;
+}) {
+  const days = buildUpcomingDays(scheduledDrafts, previewSlots);
   return (
-    <Pressable onPress={() => onOpen(draft.id)} style={styles.nextCard}>
-      {draft.assets[0]?.url ? (
-        <Image source={{ uri: draft.assets[0].url }} style={styles.nextImage} resizeMode="cover" />
-      ) : (
-        <View style={[styles.nextImage, styles.nextImageEmpty]}>
-          <Ionicons name="image-outline" size={28} color={Colors.textMuted} />
+    <View style={styles.weekCard}>
+      <View style={styles.weekHeader}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.weekTitle}>Scheduled posts and automation previews</Text>
+          <Text style={styles.weekHint}>One view for what is already scheduled and what automation is expected to generate next.</Text>
         </View>
-      )}
-      <View style={{ flex: 1, gap: 4 }}>
-        <View style={styles.nextMeta}>
-          <Ionicons name="time-outline" size={14} color={Colors.primary} />
-          <Text style={styles.nextWhen}>{when}</Text>
-          <View style={styles.nextDivider} />
-          <Text style={styles.nextPlatforms}>{platforms}</Text>
-        </View>
-        <Text style={styles.nextTitle} numberOfLines={2}>
-          {draft.headline ?? draft.caption.slice(0, 80)}
-        </Text>
-        <Text style={styles.nextOpen}>Tap to edit or reschedule →</Text>
+        <Pressable onPress={onPreGenerate} disabled={aheadBusy} style={styles.weekPrimaryBtn}>
+          {aheadBusy ? <ActivityIndicator size="small" color={Colors.white} /> : <Ionicons name="flash-outline" size={13} color={Colors.white} />}
+          <Text style={styles.weekPrimaryBtnLabel}>Queue 7 days</Text>
+        </Pressable>
       </View>
-    </Pressable>
+
+      {banner ? (
+        <View style={[styles.tomorrowBanner, !banner.ok && styles.tomorrowBannerErr]}>
+          <Ionicons name={banner.ok ? 'checkmark-circle-outline' : 'alert-circle-outline'} size={13} color={banner.ok ? Colors.success : Colors.error} />
+          <Text style={[styles.tomorrowBannerText, !banner.ok && { color: Colors.error }]}>{banner.text}</Text>
+        </View>
+      ) : null}
+
+      <View style={styles.weekList}>
+        {days.map((day) => (
+          <View key={day.dateIso} style={styles.weekDayCard}>
+            <View style={styles.weekDayHead}>
+              <Text style={styles.weekDayTitle}>{day.label}</Text>
+              <Text style={styles.weekDaySub}>{day.items.length} item{day.items.length === 1 ? '' : 's'}</Text>
+            </View>
+            <View style={styles.weekDayItems}>
+              {day.items.map((item, idx) => item.kind === 'scheduled' ? (
+                <Pressable key={`scheduled-${idx}-${item.draft.id}`} onPress={() => onOpenDraft(item.draft.id)} style={styles.weekScheduledRow}>
+                  {item.draft.assets[0]?.url ? (
+                    <Image source={{ uri: item.draft.assets[0].url }} style={styles.weekScheduledThumb} resizeMode="cover" />
+                  ) : (
+                    <View style={[styles.weekScheduledThumb, styles.nextImageEmpty]}>
+                      <Ionicons name="image-outline" size={18} color={Colors.textMuted} />
+                    </View>
+                  )}
+                  <View style={{ flex: 1, gap: 3 }}>
+                    <View style={styles.weekMeta}>
+                      <Text style={styles.weekTime}>{formatTimeOnly(item.draft.scheduledAt)}</Text>
+                      <Text style={styles.weekPill}>Scheduled</Text>
+                      <Text style={styles.weekPill}>{(item.draft.platforms.length ? item.draft.platforms : ['instagram', 'facebook']).join(' + ').toUpperCase()}</Text>
+                    </View>
+                    <Text style={styles.weekScheduledTitle} numberOfLines={2}>{item.draft.headline ?? item.draft.caption.slice(0, 80)}</Text>
+                  </View>
+                </Pressable>
+              ) : (
+                <View key={`preview-${idx}-${item.slot.dateIso}-${item.slot.slotId}`} style={styles.weekPreviewRow}>
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <View style={styles.weekMeta}>
+                      <Text style={styles.weekTime}>{item.slot.slotTime}</Text>
+                      <Text style={styles.weekPill}>{item.slot.slotTemplate === 'auto' ? 'AI pick' : item.slot.slotTemplate}</Text>
+                      <Text style={styles.weekPill}>{item.slot.slotPlatforms.join(' + ').toUpperCase()}</Text>
+                    </View>
+                    <Text style={styles.weekPreviewTitle}>{item.slot.slotLabel} · {item.slot.themeLabel}</Text>
+                    <Text style={styles.weekPreviewSub}>
+                      {item.slot.skipped ? 'Skipped for this slot.' : item.slot.autoSchedule ? 'Will auto-schedule if generated.' : 'Will land for review.'}
+                    </Text>
+                  </View>
+                  <Pressable
+                    onPress={() => onSkip(item.slot)}
+                    disabled={skipBusy === `${item.slot.dateIso}:${item.slot.slotId}`}
+                    style={[styles.weekSkipBtn, item.slot.skipped && styles.weekSkipBtnActive]}
+                  >
+                    {skipBusy === `${item.slot.dateIso}:${item.slot.slotId}` ? (
+                      <ActivityIndicator size="small" color={item.slot.skipped ? Colors.white : Colors.warning} />
+                    ) : (
+                      <Text style={[styles.weekSkipBtnLabel, item.slot.skipped && { color: Colors.white }]}>
+                        {item.slot.skipped ? 'Un-skip' : 'Skip'}
+                      </Text>
+                    )}
+                  </Pressable>
+                </View>
+              ))}
+            </View>
+          </View>
+        ))}
+      </View>
+    </View>
   );
 }
 
@@ -555,6 +631,45 @@ function formatRelativeShort(iso: string | null): string {
   }
 }
 
+function formatTimeOnly(iso: string | null): string {
+  if (!iso) return 'Time TBD';
+  try {
+    return new Date(iso).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
+  } catch {
+    return 'Time TBD';
+  }
+}
+
+function buildUpcomingDays(scheduledDrafts: MarketingDraft[], previewSlots: ScheduledSlotPreview[]) {
+  const now = new Date();
+  const out: Array<{
+    dateIso: string;
+    label: string;
+    items: Array<
+      | { kind: 'scheduled'; draft: MarketingDraft }
+      | { kind: 'preview'; slot: ScheduledSlotPreview }
+    >;
+  }> = [];
+
+  for (let i = 0; i < 7; i++) {
+    const date = new Date(now.getTime() + i * 24 * 3600 * 1000);
+    const isoDate = new Date(date.getTime() + 5.5 * 3600 * 1000).toISOString().slice(0, 10);
+    const scheduled = scheduledDrafts
+      .filter((d) => d.scheduledAt && new Date(d.scheduledAt).toISOString().slice(0, 10) === isoDate)
+      .map((draft) => ({ kind: 'scheduled' as const, draft }));
+    const previews = previewSlots
+      .filter((slot) => slot.dateIso === isoDate)
+      .map((slot) => ({ kind: 'preview' as const, slot }));
+    const label = i === 0
+      ? 'Today'
+      : i === 1
+        ? 'Tomorrow'
+        : date.toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' });
+    out.push({ dateIso: isoDate, label, items: [...scheduled, ...previews] });
+  }
+  return out.filter((day) => day.items.length > 0);
+}
+
 const styles = StyleSheet.create({
   body: { padding: Spacing.md, gap: Spacing.lg, paddingBottom: 80 },
   bodyWide: { paddingHorizontal: Spacing.xxxl, paddingTop: Spacing.md },
@@ -605,24 +720,80 @@ const styles = StyleSheet.create({
   sectionBody: {},
   seeAll: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.primary },
 
-  // Next post card
-  nextCard: {
-    flexDirection: 'row',
-    gap: Spacing.md,
+  // Upcoming week card
+  weekCard: {
     backgroundColor: Colors.cardBg,
     borderRadius: Radius.lg,
-    padding: Spacing.md,
     borderWidth: 1, borderColor: Colors.borderSoft,
     ...Shadow.sm,
   },
+  weekHeader: {
+    flexDirection: 'row',
+    gap: Spacing.md,
+    alignItems: 'center',
+    padding: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderSoft,
+  },
+  weekTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textDark },
+  weekHint: { fontSize: FontSize.xs, color: Colors.textLight, marginTop: 2, lineHeight: 16 },
+  weekPrimaryBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 12, paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: Colors.primary,
+  },
+  weekPrimaryBtnLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.white },
+  weekList: { padding: Spacing.md, gap: Spacing.sm },
+  weekDayCard: {
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.borderSoft,
+    backgroundColor: Colors.bgLight,
+    overflow: 'hidden',
+  },
+  weekDayHead: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 8,
+    backgroundColor: Colors.cardBg,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderSoft,
+  },
+  weekDayTitle: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textDark },
+  weekDaySub: { fontSize: 11, color: Colors.textMuted, fontWeight: '600' },
+  weekDayItems: { gap: 8, padding: Spacing.sm },
+  weekScheduledRow: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' },
+  weekScheduledThumb: { width: 54, height: 54, borderRadius: Radius.sm, backgroundColor: Colors.bgTint },
   nextImage: { width: 76, height: 76, borderRadius: Radius.md, backgroundColor: Colors.bgTint },
   nextImageEmpty: { alignItems: 'center', justifyContent: 'center' },
-  nextMeta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  nextWhen: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.primary },
-  nextDivider: { width: 1, height: 10, backgroundColor: Colors.border },
-  nextPlatforms: { fontSize: 10, fontWeight: '700', color: Colors.textMuted, letterSpacing: 0.4 },
-  nextTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textDark, lineHeight: 20 },
-  nextOpen: { fontSize: FontSize.xs, color: Colors.primary, fontWeight: '600' },
+  weekMeta: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4 },
+  weekTime: { fontSize: 11, fontWeight: '700', color: Colors.primary },
+  weekPill: {
+    fontSize: 10, fontWeight: '700', color: Colors.textMuted,
+    backgroundColor: Colors.cardBg,
+    borderRadius: 999,
+    paddingHorizontal: 6, paddingVertical: 2,
+  },
+  weekScheduledTitle: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textDark, lineHeight: 18 },
+  weekPreviewRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    alignItems: 'center',
+    paddingTop: 2,
+  },
+  weekPreviewTitle: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textDark },
+  weekPreviewSub: { fontSize: 11, color: Colors.textLight, lineHeight: 15 },
+  weekSkipBtn: {
+    paddingHorizontal: 10, paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1, borderColor: Colors.warning,
+    minWidth: 66, alignItems: 'center',
+  },
+  weekSkipBtnActive: { backgroundColor: Colors.warning, borderColor: Colors.warning },
+  weekSkipBtnLabel: { fontSize: 10, fontWeight: '700', color: Colors.warning },
 
   // Empty card
   emptyCard: {

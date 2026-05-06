@@ -20,6 +20,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -81,6 +82,7 @@ const URGENCY_TONE: Record<string, string> = { low: Colors.textMuted, medium: Co
 
 export default function MarketingInboxScreen() {
   const user = useAuthStore((s) => s.user);
+  const { width } = useWindowDimensions();
   const [filter, setFilter] = useState<InboxStatus | 'all'>('unread');
   const [threads, setThreads] = useState<InboxThread[]>([]);
   const [messages, setMessages] = useState<InboxMessage[]>([]);
@@ -134,6 +136,9 @@ export default function MarketingInboxScreen() {
   }, [threads]);
 
   const openThread = openId ? threads.find((t) => t.id === openId) ?? null : null;
+  const isNarrow = width < 960;
+  const showThreadList = !isNarrow || !openThread;
+  const showConversation = !isNarrow || !!openThread;
 
   async function handleInjectTest() {
     if (!user) return;
@@ -193,8 +198,9 @@ export default function MarketingInboxScreen() {
           </Text>
         </View>
 
-        <View style={styles.split}>
-          <View style={styles.leftRail}>
+        <View style={[styles.split, isNarrow && styles.splitStack]}>
+          {showThreadList ? (
+            <View style={[styles.leftRail, isNarrow && styles.leftRailMobile]}>
             <View style={styles.filterBar}>
               {STATUS_FILTERS.map((f) => (
                 <Pressable
@@ -227,15 +233,18 @@ export default function MarketingInboxScreen() {
                 ))}
               </View>
             )}
-          </View>
+            </View>
+          ) : null}
 
-          <View style={styles.rightPane}>
+          {showConversation ? (
+            <View style={[styles.rightPane, isNarrow && styles.rightPaneMobile]}>
             {openThread ? (
               <ConversationPane
                 thread={openThread}
                 messages={messages}
                 actor={user ? { uid: user.uid, email: user.email } : null}
                 onClose={() => setOpenId(null)}
+                isCompact={isNarrow}
               />
             ) : (
               <View style={styles.placeholder}>
@@ -244,7 +253,8 @@ export default function MarketingInboxScreen() {
                 <Text style={styles.placeholderBody}>The conversation appears here. Click a row on the left.</Text>
               </View>
             )}
-          </View>
+            </View>
+          ) : null}
         </View>
       </AdminPage>
     </>
@@ -291,11 +301,13 @@ function ConversationPane({
   messages,
   actor,
   onClose,
+  isCompact,
 }: {
   thread: InboxThread;
   messages: InboxMessage[];
   actor: { uid: string; email: string | null | undefined } | null;
   onClose: () => void;
+  isCompact: boolean;
 }) {
   const [reply, setReply] = useState('');
   const [sending, setSending] = useState(false);
@@ -389,7 +401,13 @@ function ConversationPane({
   return (
     <View style={styles.convo}>
       <View style={styles.convoHeader}>
-        <View style={{ flex: 1 }}>
+        <View style={styles.convoHeaderMain}>
+          {isCompact ? (
+            <Pressable onPress={onClose} style={[styles.headerBtn, styles.btnGhost, styles.backBtn]}>
+              <Ionicons name="arrow-back" size={14} color={Colors.textDark} />
+              <Text style={[styles.headerBtnLabel, styles.backBtnLabel]}>Back to threads</Text>
+            </Pressable>
+          ) : null}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             <Text style={styles.convoAuthor}>{thread.authorName}</Text>
             {thread.isSynthetic ? <Text style={styles.testBadge}>TEST</Text> : null}
@@ -402,7 +420,7 @@ function ConversationPane({
             <Text style={styles.metaInline}>External: {thread.authorExternalId.slice(0, 16)}…</Text>
           </View>
         </View>
-        <View style={{ flexDirection: 'row', gap: 6 }}>
+        <View style={styles.convoActions}>
           <Pressable
             onPress={handleClassify}
             disabled={classifying}
@@ -562,10 +580,14 @@ const styles = StyleSheet.create({
   gatedNoteText: { flex: 1, fontSize: FontSize.xs, color: Colors.textMuted, lineHeight: 18 },
 
   split: { flexDirection: 'row', gap: Spacing.md, alignItems: 'flex-start' },
+  splitStack: { flexDirection: 'column' },
   leftRail: {
     width: 360,
     flexShrink: 0,
     gap: Spacing.sm,
+  },
+  leftRailMobile: {
+    width: '100%',
   },
   rightPane: {
     flex: 1,
@@ -577,6 +599,11 @@ const styles = StyleSheet.create({
     minHeight: 500,
     overflow: 'hidden',
     ...Shadow.sm,
+  },
+  rightPaneMobile: {
+    width: '100%',
+    minWidth: 0,
+    minHeight: 0,
   },
 
   filterBar: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', marginBottom: 4 },
@@ -650,6 +677,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: Colors.borderSoft,
     backgroundColor: Colors.bgLight,
   },
+  convoHeaderMain: { flex: 1, gap: 8 },
+  convoActions: { flexDirection: 'row', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' },
   convoAuthor: { fontSize: FontSize.lg, fontWeight: '800', color: Colors.textDark },
   convoChannel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textMuted, textTransform: 'uppercase' },
   convoMeta: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 4 },
@@ -658,6 +687,8 @@ const styles = StyleSheet.create({
   headerBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 6, borderRadius: Radius.sm },
   headerBtnLabel: { fontSize: 11, fontWeight: '700', color: Colors.textMuted },
   btnGhost: { backgroundColor: Colors.bgLight, borderWidth: 1, borderColor: Colors.border },
+  backBtn: { alignSelf: 'flex-start' },
+  backBtnLabel: { color: Colors.textDark },
 
   timeline: { padding: Spacing.md, gap: 8, minHeight: 240, maxHeight: 460 },
   empty: { color: Colors.textMuted, textAlign: 'center', padding: Spacing.lg },

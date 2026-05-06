@@ -43,6 +43,7 @@ import {
   buildGenerateAheadDrafts,
   buildGenerateInboxReplies,
   buildGenerateMarketingDraft,
+  buildGenerateTemplatePrefill,
   buildGenerateStudioVariants,
   buildGenerateWeeklyInsightDigest,
   buildMetaInboxReplyPublisher,
@@ -1435,6 +1436,7 @@ export const boostMarketingDraft = buildBoostMarketingDraft(ADMIN_EMAILS);
 // caption via gpt-4o-mini if admin didn't write one.
 export const generateStudioVariants = buildGenerateStudioVariants(ADMIN_EMAILS);
 export const createStudioDraft = buildCreateStudioDraft(ADMIN_EMAILS);
+export const generateTemplatePrefill = buildGenerateTemplatePrefill(ADMIN_EMAILS);
 
 // Studio v2 Phase 3 — text-edit a picked variant via gpt-image-1 edits API.
 // Downloads from Storage, sends to OpenAI with brand-style guard, uploads

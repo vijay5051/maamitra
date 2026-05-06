@@ -33,10 +33,12 @@ import {
 
 import { Colors, FontSize, Radius, Shadow, Spacing } from '../../../constants/theme';
 import { friendlyError } from '../../../services/marketingErrors';
+import { renderMarketingTemplate, RenderableTemplateName } from '../../../services/marketing';
 import {
   composeStudioLogo,
   createStudioDraft,
   editStudioImage,
+  generateTemplatePrefill,
   generateStudioVariants,
   LogoPosition,
   uploadStudioImage,
@@ -52,10 +54,31 @@ interface Variant {
 type Quality = 'best' | 'quick';
 type Step = 1 | 2 | 3;
 type StudioAspectRatio = '1:1' | '9:16' | '16:9';
+type CreateMode = 'ai' | 'template';
+type TemplateKind = RenderableTemplateName;
 
 const QUALITY_INFO: Record<Quality, { label: string; sub: string; provider: 'dalle' | 'imagen' | 'flux'; perVariantInr: number }> = {
   best:  { label: 'Best',  sub: 'ChatGPT with MaaMitra illustration references.', provider: 'dalle', perVariantInr: 15.00 },
   quick: { label: 'Quick', sub: 'Fast, ~₹0.25 per image. Use for iteration.', provider: 'flux',   perVariantInr: 0.25 },
+};
+
+const TEMPLATE_META: Record<TemplateKind, { label: string; sub: string }> = {
+  tipCard: { label: 'Tip card', sub: 'Numbered tips on a clean editorial card.' },
+  quoteCard: { label: 'Quote card', sub: 'Pull quote with optional soft background.' },
+  milestoneCard: { label: 'Milestone card', sub: 'Age-based checklist with optional photo.' },
+  realStoryCard: { label: 'Real story', sub: 'Story-led post with optional portrait-style image.' },
+};
+
+type TemplateForm = {
+  eyebrow: string;
+  title: string;
+  tipsText: string;
+  quote: string;
+  attribution: string;
+  age: string;
+  milestonesText: string;
+  story: string;
+  backgroundPrompt: string;
 };
 
 export default function StudioCanvasScreen() {
@@ -66,6 +89,19 @@ export default function StudioCanvasScreen() {
 
   const [step, setStep] = useState<Step>(1);
   const [prompt, setPrompt] = useState(typeof params.prompt === 'string' ? params.prompt : '');
+  const [createMode, setCreateMode] = useState<CreateMode>('ai');
+  const [templateKind, setTemplateKind] = useState<TemplateKind>('tipCard');
+  const [templateForm, setTemplateForm] = useState<TemplateForm>({
+    eyebrow: 'MaaMitra',
+    title: '',
+    tipsText: '',
+    quote: '',
+    attribution: '',
+    age: '',
+    milestonesText: '',
+    story: '',
+    backgroundPrompt: '',
+  });
   const [quality, setQuality] = useState<Quality>('best');
   // Carousel mode (Phase 4 item 1) — when true, generate N slides instead
   // of picker variants; no picking step, all slides go into the draft.
@@ -81,6 +117,7 @@ export default function StudioCanvasScreen() {
 
   const [caption, setCaption] = useState('');
   const [captionGenerating, setCaptionGenerating] = useState(false);
+  const [prefillingTemplate, setPrefillingTemplate] = useState(false);
   const [scheduleAt, setScheduleAt] = useState<string>('');
 
   const [saving, setSaving] = useState(false);
@@ -139,40 +176,61 @@ export default function StudioCanvasScreen() {
   }, []);
 
   const picked = useMemo(() => variants.find((v) => v.variantId === pickedId) ?? null, [variants, pickedId]);
-  const estCost = QUALITY_INFO[quality].perVariantInr * variantCount;
+  const estCost = createMode === 'template'
+    ? estimateTemplateCost(templateKind, templateForm, quality)
+    : QUALITY_INFO[quality].perVariantInr * variantCount;
+  const promptSummary = createMode === 'template'
+    ? buildTemplateDraftPrompt(templateKind, templateForm, prompt)
+    : prompt;
 
   async function handleGenerate() {
-    if (!prompt.trim()) {
-      setError('Tell me what to make first.');
-      return;
-    }
     setError(null);
     setVariants([]);
     setPickedId(null);
     setGenerating(true);
     setStep(2);
     try {
-      const r = await generateStudioVariants({
-        prompt: prompt.trim(),
-        variantCount,
-        model: QUALITY_INFO[quality].provider,
-        aspectRatio,
-        mode: carouselMode ? 'carousel' : 'single',
-      });
-      if (!r.ok) {
-        setError(friendlyError('Generate', r));
-        setStep(1);
-      } else {
-        setVariants(r.variants);
-        if (r.failedCount > 0) {
-          const noun = carouselMode ? 'slides' : 'variants';
-          setOkBanner(`${r.variants.length} of ${variantCount} ${noun} made it. ${r.failedCount} skipped — try Generate again to fill in.`);
+      if (createMode === 'template') {
+        const request = buildTemplateRenderRequest(templateKind, templateForm, prompt, quality);
+        if (!request) {
+          setError('Fill the required template fields first.');
+          setStep(1);
+          return;
         }
-        // In carousel mode there's no picking — all slides go into the draft.
-        // Auto-select the first to satisfy the picked-required guards in
-        // Step 3, but the save path uses the full variants array.
-        if (carouselMode && r.variants.length > 0) {
-          setPickedId(r.variants[0].variantId);
+        const r = await renderMarketingTemplate(request);
+        if (!r.ok) {
+          setError(friendlyError('Render', r));
+          setStep(1);
+        } else {
+          const only: Variant = { variantId: 'template-preview', url: r.url, storagePath: r.storagePath };
+          setVariants([only]);
+          setPickedId(only.variantId);
+        }
+      } else {
+        if (!prompt.trim()) {
+          setError('Tell me what to make first.');
+          setStep(1);
+          return;
+        }
+        const r = await generateStudioVariants({
+          prompt: prompt.trim(),
+          variantCount,
+          model: QUALITY_INFO[quality].provider,
+          aspectRatio: '1:1',
+          mode: carouselMode ? 'carousel' : 'single',
+        });
+        if (!r.ok) {
+          setError(friendlyError('Generate', r));
+          setStep(1);
+        } else {
+          setVariants(r.variants);
+          if (r.failedCount > 0) {
+            const noun = carouselMode ? 'slides' : 'variants';
+            setOkBanner(`${r.variants.length} of ${variantCount} ${noun} made it. ${r.failedCount} skipped — try Generate again to fill in.`);
+          }
+          if (carouselMode && r.variants.length > 0) {
+            setPickedId(r.variants[0].variantId);
+          }
         }
       }
     } catch (e) {
@@ -203,6 +261,29 @@ export default function StudioCanvasScreen() {
       setError(friendlyError('Crop', e));
     } finally {
       setCropApplying(false);
+    }
+  }
+
+  async function handleTemplatePrefill() {
+    setError(null);
+    setPrefillingTemplate(true);
+    try {
+      const r = await generateTemplatePrefill({
+        template: templateKind,
+        context: prompt.trim(),
+        current: templateFormToPrefillCurrent(templateKind, templateForm),
+      });
+      if (!r.ok) {
+        setError(friendlyError('Prefill', r));
+        return;
+      }
+      setTemplateForm(applyTemplatePrefill(templateKind, templateForm, r.props, r.backgroundPrompt));
+      setOkBanner('AI filled the template. Edit anything you want, then render.');
+      setTimeout(() => setOkBanner(null), 2500);
+    } catch (e) {
+      setError(friendlyError('Prefill', e));
+    } finally {
+      setPrefillingTemplate(false);
     }
   }
 
@@ -359,10 +440,13 @@ export default function StudioCanvasScreen() {
     setSaving(true);
     setError(null);
     try {
+      const draftPrompt = createMode === 'template'
+        ? buildTemplateDraftPrompt(templateKind, templateForm, prompt)
+        : prompt.trim();
       const r = await createStudioDraft({
-        prompt: prompt.trim(),
+        prompt: draftPrompt,
         // Carousel: send all slides as assets[]. Single: use the picked one.
-        ...(carouselMode && variants.length > 1
+        ...(createMode === 'ai' && carouselMode && variants.length > 1
           ? { assets: variants.map((v) => ({ url: v.url, storagePath: v.storagePath })) }
           : { imageUrl: picked.url, imageStoragePath: picked.storagePath }),
         caption: caption.trim() || undefined,
@@ -423,6 +507,11 @@ export default function StudioCanvasScreen() {
         {step === 1 ? (
           <Step1Prompt
             prompt={prompt} setPrompt={setPrompt}
+            createMode={createMode} setCreateMode={setCreateMode}
+            templateKind={templateKind} setTemplateKind={setTemplateKind}
+            templateForm={templateForm} setTemplateForm={setTemplateForm}
+            onTemplatePrefill={handleTemplatePrefill}
+            prefillingTemplate={prefillingTemplate}
             quality={quality} setQuality={setQuality}
             estCost={estCost}
             onGenerate={handleGenerate}
@@ -443,12 +532,13 @@ export default function StudioCanvasScreen() {
             setSlideCount={setSlideCount}
             aspectRatio={aspectRatio}
             setAspectRatio={setAspectRatio}
+            isWide={isWide}
           />
         ) : step === 2 ? (
           <Step2Pick
-            prompt={prompt}
+            prompt={promptSummary}
             variants={variants}
-            variantCount={variantCount}
+            variantCount={createMode === 'template' ? 1 : variantCount}
             generating={generating}
             pickedId={pickedId}
             onPick={handlePick}
@@ -463,7 +553,7 @@ export default function StudioCanvasScreen() {
             onEnterEdit={handleEnterEdit}
             onApplyEdit={handleApplyEdit}
             onCancelEdit={handleCancelEdit}
-            carouselMode={carouselMode}
+            carouselMode={createMode === 'ai' && carouselMode}
             maskDataUrl={maskDataUrl}
             setMaskDataUrl={setMaskDataUrl}
             brushOpen={brushOpen}
@@ -483,7 +573,7 @@ export default function StudioCanvasScreen() {
           />
         ) : (
           <Step3Save
-            prompt={prompt}
+            prompt={promptSummary}
             picked={picked}
             caption={caption}
             setCaption={setCaption}
@@ -497,7 +587,7 @@ export default function StudioCanvasScreen() {
             logoApplying={logoApplying}
             logoApplied={logoApplied}
             onApplyLogo={handleApplyLogo}
-            carouselMode={carouselMode}
+            carouselMode={createMode === 'ai' && carouselMode}
             slides={variants}
             onDownload={() => handleDownloadOutputs(carouselMode ? variants : picked ? [picked] : [])}
             aspectRatio={aspectRatio}
@@ -511,12 +601,19 @@ export default function StudioCanvasScreen() {
 // ── Step 1: Prompt ──────────────────────────────────────────────────────────
 
 function Step1Prompt({
-  prompt, setPrompt, quality, setQuality, estCost, onGenerate, generating,
+  prompt, setPrompt, createMode, setCreateMode, templateKind, setTemplateKind, templateForm, setTemplateForm,
+  onTemplatePrefill, prefillingTemplate,
+  quality, setQuality, estCost, onGenerate, generating,
   winner, winnerLoaded, onReuseWinner, onUploadFile,
   carouselMode, setCarouselMode, singleVariantCount, setSingleVariantCount, slideCount, setSlideCount,
-  aspectRatio, setAspectRatio,
+  aspectRatio, setAspectRatio, isWide,
 }: {
   prompt: string; setPrompt: (v: string) => void;
+  createMode: CreateMode; setCreateMode: (v: CreateMode) => void;
+  templateKind: TemplateKind; setTemplateKind: (v: TemplateKind) => void;
+  templateForm: TemplateForm; setTemplateForm: (v: TemplateForm) => void;
+  onTemplatePrefill: () => void;
+  prefillingTemplate: boolean;
   quality: Quality; setQuality: (q: Quality) => void;
   estCost: number;
   onGenerate: () => void; generating: boolean;
@@ -533,207 +630,369 @@ function Step1Prompt({
   setSlideCount: (n: 3 | 5) => void;
   aspectRatio: StudioAspectRatio;
   setAspectRatio: (v: StudioAspectRatio) => void;
+  isWide: boolean;
 }) {
-  const valid = prompt.trim().length >= 3;
+  const valid = createMode === 'template'
+    ? templateFormIsValid(templateKind, templateForm, prompt)
+    : prompt.trim().length >= 3;
   // Only surface the chip when there's a real winner with a usable prompt
   // — silence is honest when no posted draft has cleared the noise floor.
   const showWinner = winnerLoaded && winner && (winner.imagePrompt || winner.headline);
   return (
     <View style={styles.card}>
-      <Text style={styles.cardTitle}>What's this post about?</Text>
-      <Text style={styles.cardHint}>Describe the scene or topic in 1-2 sentences. We'll keep it on-brand for you.</Text>
-      {showWinner ? (
-        <Pressable onPress={onReuseWinner} style={styles.winnerChip}>
-          <Ionicons name="trophy-outline" size={14} color={Colors.success} />
-          <Text style={styles.winnerLabel}>Reuse a winning prompt</Text>
-          <Text style={styles.winnerSub} numberOfLines={1}>
-            "{(winner!.headline || winner!.imagePrompt || '').slice(0, 50)}…" — {(winner!.engagementRate * 100).toFixed(1)}% ER
-          </Text>
-        </Pressable>
-      ) : null}
-      <TextInput
-        value={prompt}
-        onChangeText={setPrompt}
-        placeholder="e.g. A mom and her toddler enjoying healthy snacks together"
-        placeholderTextColor={Colors.textMuted}
-        style={styles.promptInput}
-        multiline
-        maxLength={500}
-        autoFocus
-      />
-      <Text style={styles.charCount}>{prompt.length} / 500</Text>
-
-      <Text style={[styles.cardTitle, { marginTop: Spacing.lg }]}>Format</Text>
-      <View style={styles.qualityRow}>
-        <Pressable
-          onPress={() => setCarouselMode(false)}
-          style={[styles.qualityCard, !carouselMode && styles.qualityCardSelected]}
-        >
-          <View style={styles.qualityHead}>
-            <Text style={[styles.qualityLabel, !carouselMode && { color: Colors.primary }]}>Single image</Text>
-            {!carouselMode ? <Ionicons name="checkmark-circle" size={16} color={Colors.primary} /> : null}
-          </View>
-          <Text style={styles.qualitySub}>Choose 1–4 variants before generating.</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => setCarouselMode(true)}
-          style={[styles.qualityCard, carouselMode && styles.qualityCardSelected]}
-        >
-          <View style={styles.qualityHead}>
-            <Text style={[styles.qualityLabel, carouselMode && { color: Colors.primary }]}>Carousel</Text>
-            {carouselMode ? <Ionicons name="checkmark-circle" size={16} color={Colors.primary} /> : null}
-          </View>
-          <Text style={styles.qualitySub}>3–5 slides, on-brand. IG carousel post.</Text>
-        </Pressable>
+      <View style={styles.step1Header}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.cardTitle}>Generate post</Text>
+          <Text style={styles.cardHint}>Keep the idea short. We’ll shape it into a post or template card without changing the working Studio flow.</Text>
+        </View>
+        <View style={styles.step1CostChip}>
+          <Ionicons name="pricetag-outline" size={14} color={Colors.primary} />
+          <Text style={styles.step1CostChipLabel}>≈ ₹{estCost.toFixed(2)}</Text>
+        </View>
       </View>
 
-      {!carouselMode ? (
-        <View style={[styles.qualityRow, { marginTop: Spacing.sm }]}>
-          {([1, 2, 3, 4] as const).map((n) => (
-            <Pressable
-              key={n}
-              onPress={() => setSingleVariantCount(n)}
-              style={[styles.countCard, singleVariantCount === n && styles.qualityCardSelected]}
-            >
-              <View style={styles.qualityHead}>
-                <Text style={[styles.qualityLabel, singleVariantCount === n && { color: Colors.primary }]}>{n}</Text>
-                {singleVariantCount === n ? <Ionicons name="checkmark-circle" size={16} color={Colors.primary} /> : null}
-              </View>
-              <Text style={styles.qualitySub}>{n === 1 ? 'Lowest cost' : `${n} options`}</Text>
-            </Pressable>
-          ))}
-        </View>
-      ) : (
-        <View style={[styles.qualityRow, { marginTop: Spacing.sm }]}>
-          {([3, 5] as const).map((n) => (
-            <Pressable
-              key={n}
-              onPress={() => setSlideCount(n)}
-              style={[styles.qualityCard, slideCount === n && styles.qualityCardSelected]}
-            >
-              <View style={styles.qualityHead}>
-                <Text style={[styles.qualityLabel, slideCount === n && { color: Colors.primary }]}>{n} slides</Text>
-                {slideCount === n ? <Ionicons name="checkmark-circle" size={16} color={Colors.primary} /> : null}
-              </View>
-            </Pressable>
-          ))}
-        </View>
-      )}
-
-      <Text style={[styles.cardTitle, { marginTop: Spacing.lg }]}>Aspect ratio</Text>
-      <View style={[styles.qualityRow, { marginTop: Spacing.sm }]}>
-        {([
-          { value: '1:1', label: '1:1', sub: 'Square' },
-          { value: '9:16', label: '9:16', sub: 'Story/Reel' },
-          { value: '16:9', label: '16:9', sub: 'Wide' },
-        ] as const).map((r) => (
-          <Pressable
-            key={r.value}
-            onPress={() => setAspectRatio(r.value)}
-            style={[styles.qualityCard, aspectRatio === r.value && styles.qualityCardSelected]}
-          >
-            <View style={styles.qualityHead}>
-              <Text style={[styles.qualityLabel, aspectRatio === r.value && { color: Colors.primary }]}>{r.label}</Text>
-              {aspectRatio === r.value ? <Ionicons name="checkmark-circle" size={16} color={Colors.primary} /> : null}
+      <View style={[styles.step1Layout, isWide && styles.step1LayoutWide]}>
+        <View style={styles.step1MainCol}>
+          <View style={styles.sectionBlock}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Idea</Text>
+              <Text style={styles.sectionHint}>1-2 lines is enough.</Text>
             </View>
-            <Text style={styles.qualitySub}>{r.sub}</Text>
-          </Pressable>
-        ))}
-      </View>
+            {showWinner ? (
+              <Pressable onPress={onReuseWinner} style={styles.winnerChip}>
+                <Ionicons name="trophy-outline" size={14} color={Colors.success} />
+                <Text style={styles.winnerLabel}>Reuse a winning prompt</Text>
+                <Text style={styles.winnerSub} numberOfLines={1}>
+                  "{(winner!.headline || winner!.imagePrompt || '').slice(0, 50)}…" — {(winner!.engagementRate * 100).toFixed(1)}% ER
+                </Text>
+              </Pressable>
+            ) : null}
+            <TextInput
+              value={prompt}
+              onChangeText={setPrompt}
+              placeholder={createMode === 'template'
+                ? 'Optional context for tone, audience, or CTA'
+                : 'e.g. A mom and her toddler enjoying healthy snacks together'}
+              placeholderTextColor={Colors.textMuted}
+              style={styles.promptInput}
+              multiline
+              maxLength={500}
+              autoFocus
+            />
+            <Text style={styles.charCount}>{prompt.length} / 500</Text>
+          </View>
 
-      <Text style={[styles.cardTitle, { marginTop: Spacing.lg }]}>Quality</Text>
-      <View style={styles.qualityRow}>
-        {(['best', 'quick'] as Quality[]).map((q) => {
-          const info = QUALITY_INFO[q];
-          const selected = q === quality;
-          return (
-            <Pressable
-              key={q}
-              onPress={() => setQuality(q)}
-              style={[styles.qualityCard, selected && styles.qualityCardSelected]}
-            >
-              <View style={styles.qualityHead}>
-                <Text style={[styles.qualityLabel, selected && { color: Colors.primary }]}>{info.label}</Text>
-                {selected ? <Ionicons name="checkmark-circle" size={16} color={Colors.primary} /> : null}
+          {createMode === 'template' ? (
+            <TemplateFields
+              templateKind={templateKind}
+              setTemplateKind={setTemplateKind}
+              form={templateForm}
+              setForm={setTemplateForm}
+              onTemplatePrefill={onTemplatePrefill}
+              prefillingTemplate={prefillingTemplate}
+              isWide={isWide}
+            />
+          ) : null}
+
+          {Platform.OS === 'web' && createMode === 'ai' ? (
+            <View style={styles.uploadRowCompact}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sectionTitle}>Use your own photo</Text>
+                <Text style={styles.sectionHint}>PNG, JPG, or WEBP up to 8 MB. No AI cost.</Text>
               </View>
-              <Text style={styles.qualitySub}>{info.sub}</Text>
+              <label
+                htmlFor="studio-upload-input"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  padding: '10px 14px',
+                  borderRadius: 10,
+                  backgroundColor: Colors.cardBg,
+                  border: `1px solid ${Colors.borderSoft}`,
+                  color: Colors.textDark,
+                  fontSize: FontSize.sm, fontWeight: 700,
+                  cursor: generating ? 'not-allowed' : 'pointer',
+                  opacity: generating ? 0.6 : 1,
+                }}
+              >
+                <Ionicons name="cloud-upload-outline" size={16} color={Colors.textDark} />
+                <span>Upload image</span>
+              </label>
+              <input
+                id="studio-upload-input"
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                disabled={generating}
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const f = e.currentTarget.files?.[0];
+                  if (f) onUploadFile(f);
+                  e.currentTarget.value = '';
+                }}
+              />
+            </View>
+          ) : null}
+        </View>
+
+        <View style={styles.step1SideCol}>
+          <View style={styles.sectionBlockCompact}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Mode</Text>
+              <Text style={styles.sectionHint}>Pick how this post starts.</Text>
+            </View>
+            <View style={styles.optionGrid}>
+              <Pressable
+                onPress={() => setCreateMode('ai')}
+                style={[styles.optionCardCompact, createMode === 'ai' && styles.qualityCardSelected]}
+              >
+                <View style={styles.qualityHead}>
+                  <Text style={[styles.optionLabel, createMode === 'ai' && { color: Colors.primary }]}>AI image</Text>
+                  {createMode === 'ai' ? <Ionicons name="checkmark-circle" size={16} color={Colors.primary} /> : null}
+                </View>
+                <Text style={styles.optionSub}>Prompt to visual.</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setCreateMode('template')}
+                style={[styles.optionCardCompact, createMode === 'template' && styles.qualityCardSelected]}
+              >
+                <View style={styles.qualityHead}>
+                  <Text style={[styles.optionLabel, createMode === 'template' && { color: Colors.primary }]}>Template</Text>
+                  {createMode === 'template' ? <Ionicons name="checkmark-circle" size={16} color={Colors.primary} /> : null}
+                </View>
+                <Text style={styles.optionSub}>Tip, quote, story.</Text>
+              </Pressable>
+            </View>
+          </View>
+
+          {createMode === 'ai' ? (
+            <View style={styles.sectionBlockCompact}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Format</Text>
+                <Text style={styles.sectionHint}>Single image or carousel.</Text>
+              </View>
+              <View style={styles.optionGrid}>
+                <Pressable
+                  onPress={() => setCarouselMode(false)}
+                  style={[styles.optionCardCompact, !carouselMode && styles.qualityCardSelected]}
+                >
+                  <View style={styles.qualityHead}>
+                    <Text style={[styles.optionLabel, !carouselMode && { color: Colors.primary }]}>Single image</Text>
+                    {!carouselMode ? <Ionicons name="checkmark-circle" size={16} color={Colors.primary} /> : null}
+                  </View>
+                  <Text style={styles.optionSub}>4 variants to choose from.</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => setCarouselMode(true)}
+                  style={[styles.optionCardCompact, carouselMode && styles.qualityCardSelected]}
+                >
+                  <View style={styles.qualityHead}>
+                    <Text style={[styles.optionLabel, carouselMode && { color: Colors.primary }]}>Carousel</Text>
+                    {carouselMode ? <Ionicons name="checkmark-circle" size={16} color={Colors.primary} /> : null}
+                  </View>
+                  <Text style={styles.optionSub}>3-5 slides for Instagram.</Text>
+                </Pressable>
+              </View>
+
+              {carouselMode ? (
+                <View style={styles.miniOptionRow}>
+                  {([3, 5] as const).map((n) => (
+                    <Pressable
+                      key={n}
+                      onPress={() => setSlideCount(n)}
+                      style={[styles.miniOptionChip, slideCount === n && styles.miniOptionChipActive]}
+                    >
+                      <Text style={[styles.miniOptionChipLabel, slideCount === n && { color: Colors.primary }]}>{n} slides</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : null}
+            </View>
+          ) : null}
+
+          <View style={styles.sectionBlockCompact}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Quality</Text>
+              <Text style={styles.sectionHint}>Use quick for iteration, best for final output.</Text>
+            </View>
+            <View style={styles.qualityStackCompact}>
+              {(['best', 'quick'] as Quality[]).map((q) => {
+                const info = QUALITY_INFO[q];
+                const selected = q === quality;
+                return (
+                  <Pressable
+                    key={q}
+                    onPress={() => setQuality(q)}
+                    style={[styles.optionCardCompact, selected && styles.qualityCardSelected]}
+                  >
+                    <View style={styles.qualityHead}>
+                      <Text style={[styles.optionLabel, selected && { color: Colors.primary }]}>{info.label}</Text>
+                      {selected ? <Ionicons name="checkmark-circle" size={16} color={Colors.primary} /> : null}
+                    </View>
+                    <Text style={styles.optionSub}>{info.sub}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
+          <View style={styles.generateRail}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.generateRailTitle}>
+                {createMode === 'template'
+                  ? `Render ${TEMPLATE_META[templateKind].label}`
+                  : carouselMode ? `Generate ${slideCount} slides` : 'Generate 4 variants'}
+              </Text>
+              <Text style={styles.generateRailHint}>
+                {createMode === 'template'
+                  ? 'AI can prefill, you edit, then render.'
+                  : carouselMode ? 'Build all slides in one pass.' : 'You’ll pick the strongest result next.'}
+              </Text>
+            </View>
+            <Pressable
+              onPress={valid && !generating ? onGenerate : undefined}
+              disabled={!valid || generating}
+              style={[styles.primaryBtn, styles.generateRailBtn, (!valid || generating) && styles.primaryBtnDisabled]}
+            >
+              {generating ? (
+                <>
+                  <ActivityIndicator size="small" color={Colors.white} />
+                  <Text style={styles.primaryBtnLabel}>Generating…</Text>
+                </>
+              ) : (
+                <>
+                  <Ionicons name="sparkles" size={16} color={Colors.white} />
+                  <Text style={styles.primaryBtnLabel}>Continue</Text>
+                </>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function TemplateFields({
+  templateKind,
+  setTemplateKind,
+  form,
+  setForm,
+  onTemplatePrefill,
+  prefillingTemplate,
+  isWide,
+}: {
+  templateKind: TemplateKind;
+  setTemplateKind: (v: TemplateKind) => void;
+  form: TemplateForm;
+  setForm: (v: TemplateForm) => void;
+  onTemplatePrefill: () => void;
+  prefillingTemplate: boolean;
+  isWide: boolean;
+}) {
+  const patch = (key: keyof TemplateForm, value: string) => setForm({ ...form, [key]: value });
+  return (
+    <View style={styles.sectionBlock}>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Template content</Text>
+        <Text style={styles.sectionHint}>Pick a structure, let AI draft it, then edit freely.</Text>
+      </View>
+      <View style={styles.templateGrid}>
+        {(Object.keys(TEMPLATE_META) as TemplateKind[]).map((key) => {
+          const meta = TEMPLATE_META[key];
+          const selected = key === templateKind;
+          return (
+            <Pressable key={key} onPress={() => setTemplateKind(key)} style={[styles.templateCard, selected && styles.templateCardSelected]}>
+              <Text style={[styles.templateLabel, selected && { color: Colors.primary }]}>{meta.label}</Text>
+              <Text style={styles.templateSub}>{meta.sub}</Text>
             </Pressable>
           );
         })}
       </View>
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.md, marginTop: Spacing.lg }}>
-        <Text style={styles.estCost}>
-          ≈ ₹{estCost.toFixed(2)} for {carouselMode ? `${slideCount} slides` : `${singleVariantCount} ${singleVariantCount === 1 ? 'variant' : 'variants'}`}
-        </Text>
-        <View style={{ flex: 1 }} />
+      <View style={styles.templateAiRow}>
         <Pressable
-          onPress={valid && !generating ? onGenerate : undefined}
-          disabled={!valid || generating}
-          style={[styles.primaryBtn, (!valid || generating) && styles.primaryBtnDisabled]}
+          onPress={prefillingTemplate ? undefined : onTemplatePrefill}
+          disabled={prefillingTemplate}
+          style={[styles.secondaryBtn, prefillingTemplate && styles.primaryBtnDisabled]}
         >
-          {generating ? (
-            <>
-              <ActivityIndicator size="small" color={Colors.white} />
-              <Text style={styles.primaryBtnLabel}>Generating…</Text>
-            </>
-          ) : (
-            <>
-              <Ionicons name="sparkles" size={16} color={Colors.white} />
-              <Text style={styles.primaryBtnLabel}>
-                {carouselMode ? `Generate ${slideCount} slides` : `Generate ${singleVariantCount} ${singleVariantCount === 1 ? 'variant' : 'variants'}`}
-              </Text>
-            </>
-          )}
+          {prefillingTemplate
+            ? <ActivityIndicator size="small" color={Colors.primary} />
+            : <Ionicons name="sparkles-outline" size={16} color={Colors.primary} />}
+          <Text style={styles.secondaryBtnLabel}>{hasTemplateContent(templateKind, form) ? 'Regenerate with AI' : 'Prefill with AI'}</Text>
         </Pressable>
+        <Text style={styles.templateAiHint}>AI drafts the card fields. You can edit them, then render and rerender.</Text>
       </View>
 
-      {Platform.OS === 'web' ? (
-        <View style={styles.uploadDivider}>
-          <View style={styles.uploadDividerLine} />
-          <Text style={styles.uploadDividerLabel}>OR</Text>
-          <View style={styles.uploadDividerLine} />
+      <View style={[styles.templateFieldsGrid, isWide && styles.templateFieldsGridWide]}>
+      {(templateKind === 'tipCard' || templateKind === 'realStoryCard') ? (
+        <View style={styles.fieldBlock}>
+          <Text style={styles.fieldLabel}>Eyebrow</Text>
+          <TextInput value={form.eyebrow} onChangeText={(v) => patch('eyebrow', v)} placeholder="e.g. Tip Tuesday" placeholderTextColor={Colors.textMuted} style={styles.fieldInput} />
         </View>
       ) : null}
 
-      {Platform.OS === 'web' ? (
-        <View style={styles.uploadRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.cardTitle}>Use your own photo</Text>
-            <Text style={styles.cardHint}>PNG, JPG, or WEBP up to 8 MB. Skips AI generation — no cost.</Text>
+      {templateKind === 'tipCard' ? (
+        <>
+          <View style={styles.fieldBlock}>
+            <Text style={styles.fieldLabel}>Title</Text>
+            <TextInput value={form.title} onChangeText={(v) => patch('title', v)} placeholder="e.g. Calm teething support" placeholderTextColor={Colors.textMuted} style={styles.fieldInput} />
           </View>
-          {/* Hidden native file input + visible label that triggers it. */}
-          <label
-            htmlFor="studio-upload-input"
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              padding: '10px 14px',
-              borderRadius: 10,
-              backgroundColor: Colors.cardBg,
-              border: `1px solid ${Colors.borderSoft}`,
-              color: Colors.textDark,
-              fontSize: FontSize.sm, fontWeight: 700,
-              cursor: generating ? 'not-allowed' : 'pointer',
-              opacity: generating ? 0.6 : 1,
-            }}
-          >
-            <Ionicons name="cloud-upload-outline" size={16} color={Colors.textDark} />
-            <span>Upload image</span>
-          </label>
-          <input
-            id="studio-upload-input"
-            type="file"
-            accept="image/png,image/jpeg,image/webp"
-            disabled={generating}
-            style={{ display: 'none' }}
-            onChange={(e) => {
-              const f = e.currentTarget.files?.[0];
-              if (f) onUploadFile(f);
-              e.currentTarget.value = '';
-            }}
-          />
+          <View style={[styles.fieldBlock, styles.fieldBlockFull]}>
+            <Text style={styles.fieldLabel}>Tips</Text>
+            <TextInput value={form.tipsText} onChangeText={(v) => patch('tipsText', v)} placeholder={'One tip per line'} placeholderTextColor={Colors.textMuted} style={[styles.fieldInput, styles.fieldTextArea]} multiline />
+          </View>
+        </>
+      ) : null}
+
+      {templateKind === 'quoteCard' ? (
+        <>
+          <View style={[styles.fieldBlock, styles.fieldBlockFull]}>
+            <Text style={styles.fieldLabel}>Quote</Text>
+            <TextInput value={form.quote} onChangeText={(v) => patch('quote', v)} placeholder="The quote to feature" placeholderTextColor={Colors.textMuted} style={[styles.fieldInput, styles.fieldTextArea]} multiline />
+          </View>
+          <View style={styles.fieldBlock}>
+            <Text style={styles.fieldLabel}>Attribution</Text>
+            <TextInput value={form.attribution} onChangeText={(v) => patch('attribution', v)} placeholder="Optional name or source" placeholderTextColor={Colors.textMuted} style={styles.fieldInput} />
+          </View>
+        </>
+      ) : null}
+
+      {templateKind === 'milestoneCard' ? (
+        <>
+          <View style={styles.fieldBlock}>
+            <Text style={styles.fieldLabel}>Age label</Text>
+            <TextInput value={form.age} onChangeText={(v) => patch('age', v)} placeholder="e.g. 18 months" placeholderTextColor={Colors.textMuted} style={styles.fieldInput} />
+          </View>
+          <View style={styles.fieldBlock}>
+            <Text style={styles.fieldLabel}>Title</Text>
+            <TextInput value={form.title} onChangeText={(v) => patch('title', v)} placeholder="e.g. Teething signs to notice" placeholderTextColor={Colors.textMuted} style={styles.fieldInput} />
+          </View>
+          <View style={[styles.fieldBlock, styles.fieldBlockFull]}>
+            <Text style={styles.fieldLabel}>Milestones / points</Text>
+            <TextInput value={form.milestonesText} onChangeText={(v) => patch('milestonesText', v)} placeholder={'One bullet per line'} placeholderTextColor={Colors.textMuted} style={[styles.fieldInput, styles.fieldTextArea]} multiline />
+          </View>
+        </>
+      ) : null}
+
+      {templateKind === 'realStoryCard' ? (
+        <>
+          <View style={[styles.fieldBlock, styles.fieldBlockFull]}>
+            <Text style={styles.fieldLabel}>Story</Text>
+            <TextInput value={form.story} onChangeText={(v) => patch('story', v)} placeholder="1-3 sentences from the parent’s point of view" placeholderTextColor={Colors.textMuted} style={[styles.fieldInput, styles.fieldTextArea]} multiline />
+          </View>
+          <View style={styles.fieldBlock}>
+            <Text style={styles.fieldLabel}>Attribution</Text>
+            <TextInput value={form.attribution} onChangeText={(v) => patch('attribution', v)} placeholder="e.g. A MaaMitra mom" placeholderTextColor={Colors.textMuted} style={styles.fieldInput} />
+          </View>
+        </>
+      ) : null}
+
+      {(templateKind === 'quoteCard' || templateKind === 'milestoneCard' || templateKind === 'realStoryCard') ? (
+        <View style={[styles.fieldBlock, styles.fieldBlockFull]}>
+          <Text style={styles.fieldLabel}>Optional background image prompt</Text>
+          <TextInput value={form.backgroundPrompt} onChangeText={(v) => patch('backgroundPrompt', v)} placeholder="e.g. warm Indian home scene with soft natural light" placeholderTextColor={Colors.textMuted} style={[styles.fieldInput, styles.fieldTextAreaSmall]} multiline />
         </View>
       ) : null}
+      </View>
     </View>
   );
 }
@@ -1608,6 +1867,137 @@ function scheduleInputToIso(input: string): string {
   return ist.toISOString();
 }
 
+function splitLines(value: string, max: number): string[] {
+  return value
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, max);
+}
+
+function templateFormIsValid(kind: TemplateKind, form: TemplateForm, prompt: string): boolean {
+  if (kind === 'tipCard') return !!((form.title.trim() || prompt.trim()) && splitLines(form.tipsText, 4).length >= 2);
+  if (kind === 'quoteCard') return !!(form.quote.trim() || prompt.trim());
+  if (kind === 'milestoneCard') return !!(form.age.trim() && (form.title.trim() || prompt.trim()) && splitLines(form.milestonesText, 6).length >= 3);
+  return !!(form.story.trim() && form.attribution.trim());
+}
+
+function buildTemplateDraftPrompt(kind: TemplateKind, form: TemplateForm, prompt: string): string {
+  if (kind === 'tipCard') {
+    return [form.eyebrow || 'MaaMitra tip', form.title || prompt, ...splitLines(form.tipsText, 4)].filter(Boolean).join(' · ');
+  }
+  if (kind === 'quoteCard') {
+    return ['Quote card', form.quote || prompt, form.attribution].filter(Boolean).join(' · ');
+  }
+  if (kind === 'milestoneCard') {
+    return [form.age, form.title || prompt, ...splitLines(form.milestonesText, 6)].filter(Boolean).join(' · ');
+  }
+  return [form.eyebrow || 'Real story', form.story, form.attribution, prompt].filter(Boolean).join(' · ');
+}
+
+function estimateTemplateCost(kind: TemplateKind, form: TemplateForm, quality: Quality): number {
+  const usesBackground = (kind === 'quoteCard' || kind === 'milestoneCard' || kind === 'realStoryCard') && !!form.backgroundPrompt.trim();
+  return usesBackground ? QUALITY_INFO[quality].perVariantInr : 0;
+}
+
+function buildTemplateRenderRequest(
+  kind: TemplateKind,
+  form: TemplateForm,
+  prompt: string,
+  quality: Quality,
+) {
+  if (!templateFormIsValid(kind, form, prompt)) return null;
+
+  const background = form.backgroundPrompt.trim()
+    ? { type: 'ai' as const, model: QUALITY_INFO[quality].provider, prompt: form.backgroundPrompt.trim() }
+    : undefined;
+
+  if (kind === 'tipCard') {
+    return {
+      template: kind,
+      props: {
+        eyebrow: form.eyebrow.trim() || 'MaaMitra Tip',
+        title: form.title.trim() || prompt.trim(),
+        tips: splitLines(form.tipsText, 4),
+      },
+    };
+  }
+  if (kind === 'quoteCard') {
+    return {
+      template: kind,
+      props: {
+        quote: form.quote.trim() || prompt.trim(),
+        attribution: form.attribution.trim(),
+      },
+      background,
+    };
+  }
+  if (kind === 'milestoneCard') {
+    return {
+      template: kind,
+      props: {
+        age: form.age.trim(),
+        title: form.title.trim() || prompt.trim(),
+        milestones: splitLines(form.milestonesText, 6),
+      },
+      background,
+    };
+  }
+  return {
+    template: kind,
+    props: {
+      eyebrow: form.eyebrow.trim() || 'MaaMitra Story',
+      story: form.story.trim(),
+      attribution: form.attribution.trim(),
+    },
+    background,
+  };
+}
+
+function templateFormToPrefillCurrent(kind: TemplateKind, form: TemplateForm): Record<string, any> {
+  if (kind === 'tipCard') return { eyebrow: form.eyebrow, title: form.title, tips: splitLines(form.tipsText, 4) };
+  if (kind === 'quoteCard') return { quote: form.quote, attribution: form.attribution };
+  if (kind === 'milestoneCard') return { age: form.age, title: form.title, milestones: splitLines(form.milestonesText, 6) };
+  return { eyebrow: form.eyebrow, story: form.story, attribution: form.attribution };
+}
+
+function applyTemplatePrefill(
+  kind: TemplateKind,
+  form: TemplateForm,
+  props: Record<string, any>,
+  backgroundPrompt: string,
+): TemplateForm {
+  const next: TemplateForm = { ...form, backgroundPrompt: backgroundPrompt || form.backgroundPrompt };
+  if (kind === 'tipCard') {
+    next.eyebrow = typeof props.eyebrow === 'string' ? props.eyebrow : next.eyebrow;
+    next.title = typeof props.title === 'string' ? props.title : next.title;
+    next.tipsText = Array.isArray(props.tips) ? props.tips.filter((x: unknown) => typeof x === 'string').join('\n') : next.tipsText;
+    return next;
+  }
+  if (kind === 'quoteCard') {
+    next.quote = typeof props.quote === 'string' ? props.quote : next.quote;
+    next.attribution = typeof props.attribution === 'string' ? props.attribution : next.attribution;
+    return next;
+  }
+  if (kind === 'milestoneCard') {
+    next.age = typeof props.age === 'string' ? props.age : next.age;
+    next.title = typeof props.title === 'string' ? props.title : next.title;
+    next.milestonesText = Array.isArray(props.milestones) ? props.milestones.filter((x: unknown) => typeof x === 'string').join('\n') : next.milestonesText;
+    return next;
+  }
+  next.eyebrow = typeof props.eyebrow === 'string' ? props.eyebrow : next.eyebrow;
+  next.story = typeof props.story === 'string' ? props.story : next.story;
+  next.attribution = typeof props.attribution === 'string' ? props.attribution : next.attribution;
+  return next;
+}
+
+function hasTemplateContent(kind: TemplateKind, form: TemplateForm): boolean {
+  if (kind === 'tipCard') return !!(form.title.trim() || form.tipsText.trim());
+  if (kind === 'quoteCard') return !!(form.quote.trim() || form.attribution.trim());
+  if (kind === 'milestoneCard') return !!(form.age.trim() || form.title.trim() || form.milestonesText.trim());
+  return !!(form.story.trim() || form.attribution.trim());
+}
+
 const styles = StyleSheet.create({
   body: { padding: Spacing.md, gap: Spacing.md, paddingBottom: 80 },
   bodyWide: { paddingHorizontal: Spacing.xxxl, paddingTop: Spacing.md },
@@ -1651,22 +2041,53 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
     padding: Spacing.lg,
     borderWidth: 1, borderColor: Colors.borderSoft,
-    gap: 6,
+    gap: Spacing.md,
     ...Shadow.sm,
   },
   cardTitle: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textDark },
   cardHint: { fontSize: FontSize.xs, color: Colors.textLight, lineHeight: 18 },
 
   // Step 1
+  step1Header: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.md, justifyContent: 'space-between' },
+  step1CostChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 10, paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: Colors.primarySoft,
+    borderWidth: 1, borderColor: Colors.primary,
+  },
+  step1CostChipLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.primary },
+  step1Layout: { gap: Spacing.md },
+  step1LayoutWide: { flexDirection: 'row', alignItems: 'flex-start' },
+  step1MainCol: { flex: 1.35, gap: Spacing.md },
+  step1SideCol: { flex: 0.95, gap: Spacing.sm },
+  sectionBlock: {
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.bgTint,
+    borderWidth: 1,
+    borderColor: Colors.borderSoft,
+  },
+  sectionBlockCompact: {
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.bgTint,
+    borderWidth: 1,
+    borderColor: Colors.borderSoft,
+  },
+  sectionHeader: { gap: 2 },
+  sectionTitle: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textDark },
+  sectionHint: { fontSize: FontSize.xs, color: Colors.textLight, lineHeight: 16 },
   promptInput: {
     backgroundColor: Colors.bgLight,
     borderWidth: 1, borderColor: Colors.borderSoft,
     borderRadius: Radius.md,
     padding: Spacing.md,
     fontSize: FontSize.md, color: Colors.textDark,
-    minHeight: 88, textAlignVertical: 'top',
+    minHeight: 96, textAlignVertical: 'top',
     outlineStyle: 'none' as any,
-    marginTop: 8,
   },
   charCount: { fontSize: 11, color: Colors.textMuted, textAlign: 'right' },
 
@@ -1683,6 +2104,16 @@ const styles = StyleSheet.create({
   winnerSub: { flex: 1, fontSize: 11, color: Colors.textLight, fontStyle: 'italic' },
 
   // Upload-your-own (Phase 4 item 4)
+  uploadRowCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    padding: Spacing.md,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.borderSoft,
+    backgroundColor: Colors.bgTint,
+  },
   uploadDivider: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: Spacing.md },
   uploadDividerLine: { flex: 1, height: 1, backgroundColor: Colors.borderSoft },
   uploadDividerLabel: { fontSize: 10, fontWeight: '700', color: Colors.textMuted, letterSpacing: 1.2 },
@@ -1789,8 +2220,82 @@ const styles = StyleSheet.create({
   qualityHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   qualityLabel: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textDark },
   qualitySub: { fontSize: FontSize.xs, color: Colors.textLight, lineHeight: 16 },
+  optionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+  optionCardCompact: {
+    flexBasis: '48%',
+    flexGrow: 1,
+    minWidth: 150,
+    padding: Spacing.sm,
+    backgroundColor: Colors.bgLight,
+    borderRadius: Radius.md,
+    borderWidth: 1.5,
+    borderColor: Colors.borderSoft,
+    gap: 4,
+  },
+  optionLabel: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textDark },
+  optionSub: { fontSize: FontSize.xs, color: Colors.textLight, lineHeight: 16 },
+  miniOptionRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  miniOptionChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: Colors.borderSoft,
+    backgroundColor: Colors.cardBg,
+  },
+  miniOptionChipActive: { borderColor: Colors.primary, backgroundColor: Colors.primarySoft },
+  miniOptionChipLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textDark },
+  qualityStackCompact: { gap: Spacing.sm },
+  templateGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+  templateCard: {
+    flexBasis: '48%',
+    flexGrow: 1,
+    minWidth: 180,
+    padding: Spacing.sm,
+    backgroundColor: Colors.bgLight,
+    borderRadius: Radius.md,
+    borderWidth: 1.5,
+    borderColor: Colors.borderSoft,
+    gap: 4,
+  },
+  templateCardSelected: { borderColor: Colors.primary, backgroundColor: Colors.primarySoft },
+  templateLabel: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textDark },
+  templateSub: { fontSize: FontSize.xs, color: Colors.textLight, lineHeight: 16 },
+  templateAiRow: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
+  templateAiHint: { fontSize: FontSize.xs, color: Colors.textLight, lineHeight: 16 },
+  templateFieldsGrid: { gap: Spacing.sm },
+  templateFieldsGridWide: { flexDirection: 'row', flexWrap: 'wrap' },
+  fieldBlock: { gap: 6, flexBasis: '48%', flexGrow: 1, minWidth: 180 },
+  fieldBlockFull: { width: '100%' },
+  fieldLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textDark, marginBottom: 6 },
+  fieldInput: {
+    backgroundColor: Colors.bgLight,
+    borderWidth: 1,
+    borderColor: Colors.borderSoft,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 12,
+    fontSize: FontSize.sm,
+    color: Colors.textDark,
+    outlineStyle: 'none' as any,
+  },
+  fieldTextArea: { minHeight: 100, textAlignVertical: 'top' as any },
+  fieldTextAreaSmall: { minHeight: 72, textAlignVertical: 'top' as any },
 
   estCost: { fontSize: FontSize.xs, color: Colors.textLight, fontWeight: '600' },
+  generateRail: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    padding: Spacing.md,
+    borderRadius: Radius.md,
+    backgroundColor: Colors.primarySoft,
+    borderWidth: 1,
+    borderColor: Colors.primary,
+  },
+  generateRailTitle: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textDark },
+  generateRailHint: { fontSize: FontSize.xs, color: Colors.textLight, lineHeight: 16, marginTop: 2 },
+  generateRailBtn: { minWidth: 132, justifyContent: 'center' },
 
   // Buttons
   primaryBtn: {

@@ -60,6 +60,32 @@ export interface CreateStudioDraftInput {
   scheduledAt?: string | null;
 }
 
+export interface GenerateTemplatePrefillInput {
+  template: 'tipCard' | 'quoteCard' | 'milestoneCard' | 'realStoryCard';
+  context?: string;
+  current?: Record<string, any>;
+}
+
+export type GenerateTemplatePrefillResult =
+  | { ok: true; template: string; props: Record<string, any>; backgroundPrompt: string }
+  | { ok: false; code: string; message: string };
+
+export async function generateTemplatePrefill(
+  input: GenerateTemplatePrefillInput,
+): Promise<GenerateTemplatePrefillResult> {
+  if (!app) return { ok: false, code: 'no-firebase', message: 'Not connected.' };
+  const fn = httpsCallable<GenerateTemplatePrefillInput, GenerateTemplatePrefillResult>(
+    getFunctions(app),
+    'generateTemplatePrefill',
+  );
+  try {
+    const r = await fn(input);
+    return r.data;
+  } catch (e: any) {
+    return { ok: false, code: e?.code ?? 'callable-failed', message: e?.message ?? String(e) };
+  }
+}
+
 export type CreateStudioDraftResult =
   | { ok: true; draftId: string; caption: string }
   | { ok: false; code: string; message: string };

@@ -11,6 +11,8 @@ import { doc, getDoc, onSnapshot, serverTimestamp, setDoc, Unsubscribe } from 'f
 
 import {
   AudiencePersona,
+  AutomationSlot,
+  AutomationTemplate,
   BrandIllustration,
   BrandKit,
   ChannelHealth,
@@ -19,6 +21,7 @@ import {
   CostCaps,
   CronOverride,
   CronOverrides,
+  CronDayOverride,
   CulturalEvent,
   DisclaimerRule,
   defaultBrandKit,
@@ -28,6 +31,7 @@ import {
   DEFAULT_FONTS,
   DEFAULT_HASHTAGS,
   DEFAULT_ILLUSTRATIONS,
+  DEFAULT_AUTOMATION_SLOTS,
   DEFAULT_PALETTE,
   DEFAULT_PERSONAS,
   DEFAULT_PILLARS,
@@ -82,6 +86,7 @@ export async function saveBrandKit(
   if (patch.themeCalendar) sanitised.themeCalendar = sanitiseThemeCalendar(patch.themeCalendar);
   if (patch.hashtags) sanitised.hashtags = sanitiseHashtags(patch.hashtags);
   if (patch.defaultPostTime !== undefined) sanitised.defaultPostTime = sanitiseTime(patch.defaultPostTime);
+  if (patch.automationSlots) sanitised.automationSlots = sanitiseAutomationSlots(patch.automationSlots);
   if (patch.personas) sanitised.personas = sanitisePersonas(patch.personas);
   if (patch.pillars) sanitised.pillars = sanitisePillars(patch.pillars);
   if (patch.culturalCalendar) sanitised.culturalCalendar = sanitiseCulturalCalendar(patch.culturalCalendar);
@@ -185,6 +190,42 @@ function sanitiseHashtags(tags: string[]): string[] {
 
 function sanitiseTime(t: string): string {
   return /^[0-2]\d:[0-5]\d$/.test(t) ? t : '09:00';
+}
+
+function sanitiseAutomationTemplate(value: unknown): AutomationTemplate {
+  return ['auto', 'tipCard', 'quoteCard', 'milestoneCard', 'realStoryCard'].includes(value as string)
+    ? (value as AutomationTemplate)
+    : 'auto';
+}
+
+function sanitisePlatforms(input: unknown): ('instagram' | 'facebook')[] {
+  const out = Array.isArray(input)
+    ? input.filter((p): p is 'instagram' | 'facebook' => p === 'instagram' || p === 'facebook')
+    : [];
+  return out.length ? Array.from(new Set(out)).slice(0, 2) : ['instagram', 'facebook'];
+}
+
+function sanitiseAutomationSlots(input: unknown): AutomationSlot[] {
+  if (!Array.isArray(input)) return DEFAULT_AUTOMATION_SLOTS;
+  const slots = input
+    .map((slot, i): AutomationSlot | null => {
+      if (!slot || typeof slot !== 'object') return null;
+      const obj = slot as Record<string, unknown>;
+      const id = sanitiseId(obj.id, `slot_${i}`);
+      const label = typeof obj.label === 'string' ? obj.label.trim().slice(0, 40) : '';
+      return {
+        id,
+        label: label || `Slot ${i + 1}`,
+        time: sanitiseTime(typeof obj.time === 'string' ? obj.time : '09:00'),
+        template: sanitiseAutomationTemplate(obj.template),
+        platforms: sanitisePlatforms(obj.platforms),
+        enabled: obj.enabled !== false,
+        autoSchedule: obj.autoSchedule === true,
+      };
+    })
+    .filter((slot): slot is AutomationSlot => slot !== null)
+    .slice(0, 8);
+  return slots.length ? slots : DEFAULT_AUTOMATION_SLOTS;
 }
 
 // ── M1: strategic foundation sanitisers ─────────────────────────────────────
@@ -338,7 +379,7 @@ function sanitiseIllustrations(input: unknown): BrandIllustration[] {
 // Calls the renderMarketingTemplate Cloud Function with template name + props
 // + an optional background spec. The Phase-3 cron uses the same payload.
 
-export type RenderableTemplateName = 'tipCard' | 'quoteCard' | 'milestoneCard';
+export type RenderableTemplateName = 'tipCard' | 'quoteCard' | 'milestoneCard' | 'realStoryCard';
 export type AiImageModel = 'flux' | 'imagen' | 'dalle';
 export type ImageSourceTag = 'pexels' | 'flux' | 'imagen' | 'dalle' | 'caller-supplied' | 'none';
 
@@ -499,6 +540,15 @@ function normaliseBrandKit(data: any): BrandKit {
     themeCalendar: sanitiseThemeCalendar(data?.themeCalendar ?? DEFAULT_THEME_CALENDAR),
     hashtags: Array.isArray(data?.hashtags) ? sanitiseHashtags(data.hashtags) : DEFAULT_HASHTAGS,
     defaultPostTime: typeof data?.defaultPostTime === 'string' ? sanitiseTime(data.defaultPostTime) : '09:00',
+    automationSlots: sanitiseAutomationSlots(data?.automationSlots ?? [{
+      id: 'morning_auto',
+      label: 'Morning post',
+      time: typeof data?.defaultPostTime === 'string' ? sanitiseTime(data.defaultPostTime) : '09:00',
+      template: 'auto',
+      platforms: ['instagram', 'facebook'],
+      enabled: true,
+      autoSchedule: false,
+    }]),
     personas: sanitisePersonas(data?.personas),
     pillars: sanitisePillars(data?.pillars),
     culturalCalendar: sanitiseCulturalCalendar(data?.culturalCalendar),
@@ -525,19 +575,41 @@ function normaliseCronOverrides(raw: unknown): CronOverrides {
   for (const [key, val] of Object.entries(raw as Record<string, unknown>)) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) continue;
     if (!val || typeof val !== 'object') continue;
-    const v = val as Record<string, unknown>;
-    const override: CronOverride = {};
-    if (v.skip === true) override.skip = true;
-    if (typeof v.promptOverride === 'string' && v.promptOverride.trim()) {
-      override.promptOverride = v.promptOverride.trim().slice(0, 400);
+    const day = val as Record<string, unknown>;
+    const parseOverride = (input: Record<string, unknown>): CronOverride => {
+      const override: CronOverride = {};
+      if (input.skip === true) override.skip = true;
+      if (typeof input.promptOverride === 'string' && input.promptOverride.trim()) {
+        override.promptOverride = input.promptOverride.trim().slice(0, 400);
+      }
+      if (typeof input.personaId === 'string' && input.personaId.trim()) {
+        override.personaId = input.personaId.trim().slice(0, 40);
+      }
+      if (typeof input.pillarId === 'string' && input.pillarId.trim()) {
+        override.pillarId = input.pillarId.trim().slice(0, 40);
+      }
+      if (typeof input.template === 'string') {
+        override.template = sanitiseAutomationTemplate(input.template);
+      }
+      return override;
+    };
+    const normalized: CronDayOverride = {};
+    if ('default' in day || 'slots' in day) {
+      if (day.default && typeof day.default === 'object' && !Array.isArray(day.default)) {
+        normalized.default = parseOverride(day.default as Record<string, unknown>);
+      }
+      if (day.slots && typeof day.slots === 'object' && !Array.isArray(day.slots)) {
+        const slots: Record<string, CronOverride> = {};
+        for (const [slotId, slotVal] of Object.entries(day.slots as Record<string, unknown>)) {
+          if (!slotVal || typeof slotVal !== 'object' || Array.isArray(slotVal)) continue;
+          slots[slotId] = parseOverride(slotVal as Record<string, unknown>);
+        }
+        if (Object.keys(slots).length) normalized.slots = slots;
+      }
+    } else {
+      normalized.default = parseOverride(day);
     }
-    if (typeof v.personaId === 'string' && v.personaId.trim()) {
-      override.personaId = v.personaId.trim().slice(0, 40);
-    }
-    if (typeof v.pillarId === 'string' && v.pillarId.trim()) {
-      override.pillarId = v.pillarId.trim().slice(0, 40);
-    }
-    result[key] = override;
+    result[key] = normalized;
   }
   return result;
 }
@@ -638,10 +710,11 @@ export async function saveCronOverride(
   actor: { uid: string; email: string | null | undefined },
   dateIso: string,
   override: CronOverride | null,
+  slotId?: string | null,
 ): Promise<void> {
   if (!db) throw new Error('Firestore not ready');
   const { updateDoc } = await import('firebase/firestore');
-  const field = `cronOverrides.${dateIso}`;
+  const field = slotId ? `cronOverrides.${dateIso}.slots.${slotId}` : `cronOverrides.${dateIso}.default`;
   if (override === null) {
     const { deleteField } = await import('firebase/firestore');
     await updateDoc(doc(db, BRAND_PATH), { [field]: deleteField() });
@@ -657,13 +730,16 @@ export async function saveCronOverride(
     if (typeof override.pillarId === 'string' && override.pillarId.trim()) {
       sanitised.pillarId = override.pillarId.trim().slice(0, 40);
     }
+    if (typeof override.template === 'string') {
+      sanitised.template = sanitiseAutomationTemplate(override.template);
+    }
     await updateDoc(doc(db, BRAND_PATH), { [field]: sanitised });
   }
   await logAdminAction(
     actor,
     'marketing.cron.override',
     { docId: 'main', label: `cron override ${dateIso}` },
-    { dateIso, action: override === null ? 'clear' : override.skip ? 'skip' : 'override' },
+    { dateIso, slotId: slotId ?? null, action: override === null ? 'clear' : override.skip ? 'skip' : 'override' },
   );
 }
 
@@ -671,6 +747,12 @@ export async function saveCronOverride(
 
 export interface ScheduledSlotPreview {
   dateIso: string;
+  slotId: string;
+  slotLabel: string;
+  slotTime: string;
+  slotTemplate: AutomationTemplate;
+  slotPlatforms: ('instagram' | 'facebook')[];
+  autoSchedule: boolean;
   /** Weekday name, e.g. "Tuesday". */
   weekdayName: string;
   /** Theme label from the brand kit, e.g. "Tip Tuesday". */
@@ -684,7 +766,11 @@ export interface ScheduledSlotPreview {
   eventLabel: string | null;
   /** True when skip override is set for this date. */
   skipped: boolean;
-  /** The active override (if any) for this date. */
+  /** Date-wide fallback override. */
+  dateOverride: CronOverride | null;
+  /** Slot-specific override. */
+  slotOverride: CronOverride | null;
+  /** The merged override currently affecting this slot. */
   override: CronOverride | null;
 }
 
@@ -699,14 +785,14 @@ function toIstDate(d: Date): { isoDate: string; weekdayIdx: number } {
   };
 }
 
-/** Pure-client simulation of what the 6 AM cron will pick for `targetDate`.
- *  No server round-trip — reads from the already-fetched BrandKit snapshot. */
-export function previewScheduledSlot(brand: BrandKit, targetDate: Date): ScheduledSlotPreview {
+/** Pure-client simulation of the enabled automation slots for `targetDate`. */
+export function previewScheduledSlots(brand: BrandKit, targetDate: Date): ScheduledSlotPreview[] {
   const { isoDate, weekdayIdx } = toIstDate(targetDate);
   const weekdayKey = WEEKDAY_KEYS[weekdayIdx];
   const weekdayName = WEEKDAY_NAMES[weekdayIdx];
-  const override = brand.cronOverrides?.[isoDate] ?? null;
-  const skipped = override?.skip === true;
+  const dayOverride = brand.cronOverrides?.[isoDate] ?? null;
+  const theme = (brand.themeCalendar as any)?.[weekdayKey];
+  if (theme?.enabled === false) return [];
 
   const enabledPersonas = brand.personas.filter((p) => p.enabled !== false);
   const enabledPillars = brand.pillars.filter((p) => p.enabled !== false);
@@ -737,21 +823,43 @@ export function previewScheduledSlot(brand: BrandKit, targetDate: Date): Schedul
     persona = enabledPersonas[(dayOfMonth - 1) % enabledPersonas.length];
   }
 
-  const theme = (brand.themeCalendar as any)?.[weekdayKey];
-  return {
-    dateIso: isoDate,
-    weekdayName,
-    themeLabel: theme?.label ?? weekdayKey,
-    personaId: persona?.id ?? null,
-    personaLabel: persona?.label ?? null,
-    pillarId: pillar?.id ?? null,
-    pillarLabel: pillar?.label ?? null,
-    pillarEmoji: pillar?.emoji ?? null,
-    eventId: event?.id ?? null,
-    eventLabel: event?.label ?? null,
-    skipped,
-    override,
-  };
+  return brand.automationSlots
+    .filter((slot) => slot.enabled !== false)
+    .map((slot) => {
+      const dateOverride = dayOverride?.default ?? null;
+      const slotOverride = dayOverride?.slots?.[slot.id] ?? null;
+      const override: CronOverride | null = {
+        ...(dateOverride ?? {}),
+        ...(slotOverride ?? {}),
+      };
+      const hasOverride = Object.keys(override).length > 0;
+      return {
+      dateIso: isoDate,
+      slotId: slot.id,
+      slotLabel: slot.label,
+      slotTime: slot.time,
+      slotTemplate: override?.template ?? slot.template,
+      slotPlatforms: slot.platforms,
+      autoSchedule: slot.autoSchedule,
+      weekdayName,
+      themeLabel: theme?.label ?? weekdayKey,
+      personaId: persona?.id ?? null,
+      personaLabel: persona?.label ?? null,
+      pillarId: pillar?.id ?? null,
+      pillarLabel: pillar?.label ?? null,
+      pillarEmoji: pillar?.emoji ?? null,
+      eventId: event?.id ?? null,
+      eventLabel: event?.label ?? null,
+      skipped: override.skip === true,
+      dateOverride,
+      slotOverride,
+      override: hasOverride ? override : null,
+    };});
+}
+
+/** Back-compat helper for screens that only want the first upcoming slot. */
+export function previewScheduledSlot(brand: BrandKit, targetDate: Date): ScheduledSlotPreview | null {
+  return previewScheduledSlots(brand, targetDate)[0] ?? null;
 }
 
 // ── Ahead-generate callable wrapper ──────────────────────────────────────────

@@ -11,7 +11,7 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { Link, Stack, useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -19,7 +19,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -27,14 +26,10 @@ import {
 import { Colors, FontSize, Radius, Shadow, Spacing } from '../../../constants/theme';
 import {
   fetchBrandKit,
-  generateAheadDrafts,
-  previewScheduledSlot,
   probeMarketingHealthNow,
   saveBrandKit,
-  saveCronOverride,
   subscribeBrandKit,
   subscribeMarketingHealth,
-  ScheduledSlotPreview,
 } from '../../../services/marketing';
 import { friendlyError } from '../../../services/marketingErrors';
 import {
@@ -59,26 +54,10 @@ export default function MarketingSettingsScreen() {
   const [saving, setSaving] = useState<string | null>(null);
   const [banner, setBanner] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null);
 
-  // Scheduler preview — upcoming 3 days
-  const [upcomingSlots, setUpcomingSlots] = useState<ScheduledSlotPreview[]>([]);
-  const [skipBusy, setSkipBusy] = useState<string | null>(null); // dateIso being toggled
-  const [aheadBusy, setAheadBusy] = useState(false);
-
   useEffect(() => {
     setLoading(true);
     void fetchBrandKit().then((k) => { setBrand(k); setLoading(false); });
-    const unsubBrand = subscribeBrandKit((k) => {
-      setBrand(k);
-      if (k) {
-        const slots: ScheduledSlotPreview[] = [];
-        for (let i = 1; i <= 3; i++) {
-          slots.push(previewScheduledSlot(k, new Date(Date.now() + i * 24 * 3600 * 1000)));
-        }
-        setUpcomingSlots(slots);
-      } else {
-        setUpcomingSlots([]);
-      }
-    });
+    const unsubBrand = subscribeBrandKit(setBrand);
     const unsubHealth = subscribeMarketingHealth(setHealth);
     return () => { unsubBrand(); unsubHealth(); };
   }, []);
@@ -119,103 +98,37 @@ export default function MarketingSettingsScreen() {
           </View>
         ) : null}
 
-        {/* ── Daily knobs ──────────────────────────────────────────────── */}
-        <SectionHead title="Daily" subtitle="The toggles you'll actually touch." />
-
-        <ToggleRow
-          icon="alarm-outline"
-          title="Auto-post each morning"
-          body={brand?.cronEnabled
-            ? 'A fresh draft lands in your To-Review inbox every day at 6 AM IST.'
-            : 'Off — drafts only happen when you click Generate now.'}
-          on={brand?.cronEnabled ?? false}
-          loading={saving === 'cron'}
-          disabled={loading}
-          onToggle={(v) => update('cron', { cronEnabled: v })}
-        />
-
-        {/* Scheduler preview — next 3 days. Only shown when cron is on. */}
-        {brand?.cronEnabled && upcomingSlots.length > 0 ? (
-          <Card>
-            <View style={styles.cardHead}>
-              <View style={styles.cardIcon}>
-                <Ionicons name="calendar-clear-outline" size={16} color={Colors.primary} />
-              </View>
-              <Text style={styles.cardTitle}>Upcoming auto-posts</Text>
-              <Pressable
-                disabled={aheadBusy}
-                onPress={async () => {
-                  if (!user || aheadBusy) return;
-                  setAheadBusy(true);
-                  try {
-                    const r = await generateAheadDrafts(7);
-                    if (r.ok) {
-                      showBanner('ok', r.generated > 0
-                        ? `${r.generated} draft${r.generated === 1 ? '' : 's'} queued for review`
-                        : 'All upcoming dates already have drafts');
-                    } else {
-                      showBanner('err', r.message);
-                    }
-                  } catch (e: any) {
-                    showBanner('err', friendlyError('Pre-generate', e));
-                  } finally {
-                    setAheadBusy(false);
-                  }
-                }}
-                style={styles.editLink}
-              >
-                {aheadBusy ? (
-                  <ActivityIndicator size="small" color={Colors.primary} />
-                ) : (
-                  <Text style={styles.editLinkLabel}>Queue 7 days</Text>
-                )}
-              </Pressable>
+        <Card>
+          <View style={styles.cardHead}>
+            <View style={styles.cardIcon}>
+              <Ionicons name="settings-outline" size={16} color={Colors.primary} />
             </View>
-            <Text style={styles.cardHint}>What the 6 AM cron will generate. Skip a day or queue drafts early for review.</Text>
-            {upcomingSlots.map((slot) => (
-              <SchedulerSlotRow
-                key={slot.dateIso}
-                slot={slot}
-                skipBusy={skipBusy === slot.dateIso}
-                onSkipToggle={async () => {
-                  if (!user) return;
-                  setSkipBusy(slot.dateIso);
-                  try {
-                    const newSkip = !slot.skipped;
-                    await saveCronOverride(
-                      { uid: user.uid, email: user.email },
-                      slot.dateIso,
-                      newSkip ? { skip: true } : null,
-                    );
-                    showBanner('ok', newSkip ? `${slot.weekdayName} skipped` : `${slot.weekdayName} un-skipped`);
-                  } catch (e: any) {
-                    showBanner('err', friendlyError('Skip', e));
-                  } finally {
-                    setSkipBusy(null);
-                  }
-                }}
-              />
-            ))}
-          </Card>
-        ) : null}
+            <Text style={styles.cardTitle}>Workspace settings</Text>
+          </View>
+          <Text style={styles.cardBody}>
+            Keep planning in Content Planner. Use Settings for brand setup, connected accounts, visual direction, templates, and spend controls.
+          </Text>
+          <View style={styles.settingsQuickRow}>
+            <MiniNavPill
+              icon="calendar-clear-outline"
+              label="Open planner"
+              onPress={() => router.push('/admin/marketing/planner' as any)}
+            />
+            <MiniNavPill
+              icon="stats-chart-outline"
+              label="View analytics"
+              onPress={() => router.push('/admin/marketing/analytics' as any)}
+            />
+          </View>
+        </Card>
 
-        <ToggleRow
-          icon="pause-circle-outline"
-          title="Crisis pause"
-          body={brand?.crisisPaused
-            ? `Active${brand.crisisPauseReason ? ` — ${brand.crisisPauseReason}` : ''}. Nothing auto-publishes while paused.`
-            : 'Halt scheduled posts during outages or sensitive news.'}
-          on={brand?.crisisPaused ?? false}
-          loading={saving === 'crisis'}
-          disabled={loading}
-          onToggle={async (v) => {
-            let reason: string | null = brand?.crisisPauseReason ?? null;
-            if (v && typeof window !== 'undefined') {
-              reason = window.prompt('Reason for the pause (optional):', '') ?? null;
-            }
-            await update('crisis', { crisisPaused: v, crisisPauseReason: v ? reason : null });
-          }}
-          tone={brand?.crisisPaused ? 'warn' : 'default'}
+        <SectionHead title="Core setup" subtitle="The essentials that shape every post." />
+
+        <NavCard
+          icon="calendar-clear-outline"
+          title="Content Planner"
+          body="Auto scheduler, slot timings, weekly rhythm, cultural calendar, and crisis pause now live in one place."
+          onPress={() => router.push('/admin/marketing/planner' as any)}
         />
 
         <Card>
@@ -262,9 +175,6 @@ export default function MarketingSettingsScreen() {
           </Text>
         </Card>
 
-        {/* ── Setup ───────────────────────────────────────────────────── */}
-        <SectionHead title="Setup" subtitle="Configure once, change rarely." />
-
         <NavCard
           icon="color-palette-outline"
           title="Brand kit"
@@ -275,7 +185,7 @@ export default function MarketingSettingsScreen() {
 
         <NavCard
           icon="people-outline"
-          title="Strategy"
+          title="Strategy and calendar"
           body={
             (brand?.personas?.length ?? 0) > 0
               ? `${brand?.personas.length} personas • ${brand?.pillars.length} pillars • ${brand?.culturalCalendar.length} events`
@@ -291,13 +201,12 @@ export default function MarketingSettingsScreen() {
           onSave={async (next) => update('style', { styleProfile: next })}
         />
 
-        {/* ── Advanced ────────────────────────────────────────────────── */}
-        <SectionHead title="Advanced" subtitle="Power tools and diagnostics." />
+        <SectionHead title="Production tools" subtitle="The supporting controls your team may need occasionally." />
 
         <NavCard
           icon="image-outline"
-          title="Template preview"
-          body="Render a single post with custom inputs — useful for tuning brand voice or testing layouts."
+          title="Templates and preview"
+          body="Add or test template-driven posts before they go into the team’s manual or automated workflow."
           onPress={() => router.push('/admin/marketing/preview' as any)}
         />
 
@@ -306,6 +215,13 @@ export default function MarketingSettingsScreen() {
           title="Cost log"
           body={`Daily cap ₹${brand?.costCaps?.dailyInr ?? 0} • monthly ₹${brand?.costCaps?.monthlyInr ?? 0}. Tap to edit cost caps in Strategy.`}
           onPress={() => router.push('/admin/marketing/strategy' as any)}
+        />
+
+        <NavCard
+          icon="bar-chart-outline"
+          title="Analytics"
+          body="Review reach, post performance, and trends without cluttering the main workflow."
+          onPress={() => router.push('/admin/marketing/analytics' as any)}
         />
       </ScrollView>
     </>
@@ -335,6 +251,23 @@ function CardHead({ icon, title }: { icon: keyof typeof Ionicons.glyphMap; title
       </View>
       <Text style={styles.cardTitle}>{title}</Text>
     </View>
+  );
+}
+
+function MiniNavPill({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable onPress={onPress} style={styles.settingsMiniPill}>
+      <Ionicons name={icon} size={14} color={Colors.primary} />
+      <Text style={styles.settingsMiniPillLabel}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -370,6 +303,127 @@ function ToggleRow({
         )}
       </View>
     </Pressable>
+  );
+}
+
+function AutomationSchedulerSection({
+  brand,
+  upcomingSlots,
+  cronSaving,
+  slotsSaving,
+  loading,
+  aheadBusy,
+  skipBusy,
+  onToggleCron,
+  onChangeSlots,
+  onGenerateAhead,
+  onSkipToggle,
+}: {
+  brand: BrandKit;
+  upcomingSlots: ScheduledSlotPreview[];
+  cronSaving: boolean;
+  slotsSaving: boolean;
+  loading: boolean;
+  aheadBusy: boolean;
+  skipBusy: string | null;
+  onToggleCron: (next: boolean) => void;
+  onChangeSlots: (slots: AutomationSlot[]) => void;
+  onGenerateAhead: () => void;
+  onSkipToggle: (slot: ScheduledSlotPreview) => void;
+}) {
+  return (
+    <Card>
+      <View style={styles.schedulerShell}>
+        <View style={styles.schedulerHeader}>
+          <View style={styles.schedulerTitleWrap}>
+            <View style={styles.cardIcon}>
+              <Ionicons name="calendar-outline" size={16} color={Colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.cardTitle}>Auto scheduler</Text>
+              <Text style={styles.cardBody}>
+                Run multiple daily post slots with template, platform, review, and timing controls in one place.
+              </Text>
+            </View>
+          </View>
+          <View style={styles.schedulerHeaderActions}>
+            <Pressable
+              onPress={aheadBusy ? undefined : onGenerateAhead}
+              disabled={aheadBusy}
+              style={[styles.schedulerActionBtn, aheadBusy && { opacity: 0.6 }]}
+            >
+              {aheadBusy ? <ActivityIndicator size="small" color={Colors.primary} /> : <Ionicons name="flash-outline" size={14} color={Colors.primary} />}
+              <Text style={styles.schedulerActionLabel}>Queue 7 days</Text>
+            </Pressable>
+            <View style={[styles.schedulerToggle, brand.cronEnabled && styles.schedulerToggleOn]}>
+              <Text style={[styles.schedulerToggleLabel, brand.cronEnabled && { color: Colors.white }]}>
+                {brand.cronEnabled ? 'Automation on' : 'Automation off'}
+              </Text>
+              <Pressable
+                onPress={() => !loading && !cronSaving && onToggleCron(!brand.cronEnabled)}
+                style={styles.schedulerSwitchTap}
+                disabled={loading || cronSaving}
+              >
+                <View style={[styles.switch, brand.cronEnabled && { backgroundColor: Colors.white }]}>
+                  {cronSaving ? (
+                    <ActivityIndicator size="small" color={brand.cronEnabled ? Colors.primary : Colors.textMuted} />
+                  ) : (
+                    <View style={[styles.switchKnob, brand.cronEnabled && styles.switchKnobOn]} />
+                  )}
+                </View>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.schedulerSummaryRow}>
+          <View style={styles.schedulerMetric}>
+            <Text style={styles.schedulerMetricValue}>{brand.automationSlots.filter((slot) => slot.enabled).length}</Text>
+            <Text style={styles.schedulerMetricLabel}>enabled slots</Text>
+          </View>
+          <View style={styles.schedulerMetric}>
+            <Text style={styles.schedulerMetricValue}>{brand.automationSlots.length}</Text>
+            <Text style={styles.schedulerMetricLabel}>total slots</Text>
+          </View>
+          <View style={styles.schedulerMetricWide}>
+            <Text style={styles.schedulerMetricValue}>{brand.cronEnabled ? 'Live' : 'Paused'}</Text>
+            <Text style={styles.schedulerMetricLabel}>
+              {brand.cronEnabled ? 'Upcoming slots can generate or auto-schedule.' : 'Slots are configured but generation is paused.'}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.schedulerSection}>
+          <View style={styles.schedulerSectionHead}>
+            <Text style={styles.schedulerSectionTitle}>Slot plan</Text>
+            <Text style={styles.schedulerSectionHint}>Each slot controls time, template, platforms, and whether it goes straight to schedule or waits for review.</Text>
+          </View>
+          <AutomationSlotsCard slots={brand.automationSlots} saving={slotsSaving} onChange={onChangeSlots} embedded />
+        </View>
+
+        <View style={styles.schedulerSection}>
+          <View style={styles.schedulerSectionHead}>
+            <Text style={styles.schedulerSectionTitle}>Upcoming runs</Text>
+            <Text style={styles.schedulerSectionHint}>Overrides now apply per slot. Skipping one slot won’t mute the rest of that day.</Text>
+          </View>
+          <View style={styles.schedulerPreviewList}>
+            {brand.cronEnabled && upcomingSlots.length > 0 ? upcomingSlots.map((slot) => (
+              <SchedulerSlotRow
+                key={`${slot.dateIso}-${slot.slotId}`}
+                slot={slot}
+                skipBusy={skipBusy === `${slot.dateIso}:${slot.slotId}`}
+                onSkipToggle={() => onSkipToggle(slot)}
+              />
+            )) : (
+              <View style={styles.schedulerEmpty}>
+                <Ionicons name="pause-circle-outline" size={16} color={Colors.textMuted} />
+                <Text style={styles.cardHint}>Turn automation on to start generating upcoming slot previews.</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </View>
+    </Card>
   );
 }
 
@@ -423,9 +477,15 @@ function SchedulerSlotRow({
       {/* Slot details */}
       <View style={{ flex: 1, gap: 3 }}>
         <Text style={[styles.slotTheme, slot.skipped && { color: Colors.textMuted, textDecorationLine: 'line-through' }]}>
-          {slot.themeLabel}
+          {slot.slotLabel} · {slot.themeLabel}
         </Text>
         <View style={styles.slotChips}>
+          <Text style={styles.slotChip}>{slot.slotTime}</Text>
+          <Text style={[styles.slotChip, styles.slotChipSecondary]}>{slot.slotTemplate === 'auto' ? 'AI pick' : slot.slotTemplate}</Text>
+          <Text style={[styles.slotChip, slot.autoSchedule ? styles.slotChipEvent : styles.slotChipSecondary]}>
+            {slot.autoSchedule ? 'Auto schedule' : 'Needs review'}
+          </Text>
+          <Text style={styles.slotChip}>{slot.slotPlatforms.join(' + ').toUpperCase()}</Text>
           {slot.pillarLabel ? (
             <Text style={styles.slotChip}>{slot.pillarEmoji ? `${slot.pillarEmoji} ` : ''}{slot.pillarLabel}</Text>
           ) : null}
@@ -434,6 +494,11 @@ function SchedulerSlotRow({
           ) : null}
           {slot.eventLabel ? (
             <Text style={[styles.slotChip, styles.slotChipEvent]}>📅 {slot.eventLabel}</Text>
+          ) : null}
+          {slot.slotOverride ? (
+            <Text style={[styles.slotChip, styles.slotChipOverride]}>slot override</Text>
+          ) : slot.dateOverride ? (
+            <Text style={[styles.slotChip, styles.slotChipSecondary]}>date override</Text>
           ) : null}
         </View>
       </View>
@@ -451,6 +516,154 @@ function SchedulerSlotRow({
             {slot.skipped ? 'Un-skip' : 'Skip'}
           </Text>
         )}
+      </Pressable>
+    </View>
+  );
+}
+
+function AutomationSlotsCard({
+  slots,
+  saving,
+  onChange,
+  embedded = false,
+}: {
+  slots: AutomationSlot[];
+  saving: boolean;
+  onChange: (slots: AutomationSlot[]) => void;
+  embedded?: boolean;
+}) {
+  const patch = (id: string, updater: (slot: AutomationSlot) => AutomationSlot) => {
+    onChange(slots.map((slot) => (slot.id === id ? updater(slot) : slot)));
+  };
+  const addSlot = () => {
+    const nextIndex = slots.length + 1;
+    onChange([
+      ...slots,
+      {
+        id: `slot_${Date.now()}`,
+        label: `Slot ${nextIndex}`,
+        time: '18:00',
+        template: 'auto',
+        platforms: ['instagram', 'facebook'],
+        enabled: true,
+        autoSchedule: false,
+      },
+    ]);
+  };
+  return (
+    <View style={embedded ? styles.slotEditorEmbedded : undefined}>
+      {!embedded ? (
+      <View style={styles.cardHead}>
+        <View style={styles.cardIcon}>
+          <Ionicons name="albums-outline" size={16} color={Colors.primary} />
+        </View>
+        <Text style={styles.cardTitle}>Automation slots</Text>
+      </View>
+      ) : null}
+      {!embedded ? <Text style={styles.cardHint}>Add multiple post windows, choose a template per slot, and decide whether each one auto-schedules or lands for review first.</Text> : null}
+      <View style={styles.slotEditorList}>
+        {slots.map((slot, index) => (
+          <View key={slot.id} style={styles.slotEditorCard}>
+            <View style={styles.slotEditorHead}>
+              <TextInput
+                value={slot.label}
+                onChangeText={(label) => patch(slot.id, (current) => ({ ...current, label: label.slice(0, 40) }))}
+                placeholder={`Slot ${index + 1}`}
+                placeholderTextColor={Colors.textMuted}
+                style={styles.slotEditorLabelInput}
+              />
+              <Pressable onPress={() => patch(slot.id, (current) => ({ ...current, enabled: !current.enabled }))} style={[styles.miniToggle, slot.enabled && styles.miniToggleOn]}>
+                <Text style={[styles.miniToggleLabel, slot.enabled && { color: Colors.white }]}>{slot.enabled ? 'On' : 'Off'}</Text>
+              </Pressable>
+              {slots.length > 1 ? (
+                <Pressable onPress={() => onChange(slots.filter((item) => item.id !== slot.id))} style={styles.slotDeleteBtn}>
+                  <Ionicons name="trash-outline" size={14} color={Colors.error} />
+                </Pressable>
+              ) : null}
+            </View>
+
+            <View style={styles.slotEditorGrid}>
+              <View style={styles.slotEditorField}>
+                <Text style={styles.slotEditorLabel}>Time (IST)</Text>
+                <TextInput
+                  value={slot.time}
+                  onChangeText={(time) => patch(slot.id, (current) => ({ ...current, time: time.slice(0, 5) }))}
+                  placeholder="09:00"
+                  placeholderTextColor={Colors.textMuted}
+                  style={styles.slotEditorInput}
+                />
+              </View>
+
+              <View style={styles.slotEditorFieldWide}>
+                <Text style={styles.slotEditorLabel}>Template</Text>
+                <View style={styles.slotChoiceRow}>
+                  {(['auto', 'tipCard', 'quoteCard', 'milestoneCard', 'realStoryCard'] as const).map((template) => {
+                    const active = slot.template === template;
+                    return (
+                      <Pressable
+                        key={template}
+                        onPress={() => patch(slot.id, (current) => ({ ...current, template }))}
+                        style={[styles.slotChoiceChip, active && styles.slotChoiceChipActive]}
+                      >
+                        <Text style={[styles.slotChoiceLabel, active && { color: Colors.primary }]}>
+                          {template === 'auto' ? 'AI pick' : template.replace('Card', '')}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+
+              <View style={styles.slotEditorFieldWide}>
+                <Text style={styles.slotEditorLabel}>Platforms</Text>
+                <View style={styles.slotChoiceRow}>
+                  {(['instagram', 'facebook'] as const).map((platform) => {
+                    const active = slot.platforms.includes(platform);
+                    return (
+                      <Pressable
+                        key={platform}
+                        onPress={() => patch(slot.id, (current) => {
+                          const next = active
+                            ? current.platforms.filter((item) => item !== platform)
+                            : [...current.platforms, platform];
+                          return { ...current, platforms: next.length ? next : current.platforms };
+                        })}
+                        style={[styles.slotChoiceChip, active && styles.slotChoiceChipActive]}
+                      >
+                        <Text style={[styles.slotChoiceLabel, active && { color: Colors.primary }]}>{platform === 'instagram' ? 'Instagram' : 'Facebook'}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+
+              <View style={styles.slotEditorFieldWide}>
+                <Text style={styles.slotEditorLabel}>Delivery</Text>
+                <View style={styles.slotChoiceRow}>
+                  {[
+                    { label: 'Needs review', value: false },
+                    { label: 'Auto schedule', value: true },
+                  ].map((mode) => {
+                    const active = slot.autoSchedule === mode.value;
+                    return (
+                      <Pressable
+                        key={mode.label}
+                        onPress={() => patch(slot.id, (current) => ({ ...current, autoSchedule: mode.value }))}
+                        style={[styles.slotChoiceChip, active && styles.slotChoiceChipActive]}
+                      >
+                        <Text style={[styles.slotChoiceLabel, active && { color: Colors.primary }]}>{mode.label}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            </View>
+          </View>
+        ))}
+      </View>
+      <Pressable onPress={addSlot} disabled={saving || slots.length >= 8} style={styles.editLink}>
+        <Ionicons name="add-circle-outline" size={16} color={Colors.primary} />
+        <Text style={styles.editLinkLabel}>{saving ? 'Saving…' : 'Add slot'}</Text>
       </Pressable>
     </View>
   );
@@ -709,6 +922,19 @@ const styles = StyleSheet.create({
 
   editLink: { paddingHorizontal: 8, paddingVertical: 4 },
   editLinkLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.primary },
+  settingsQuickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginTop: Spacing.sm },
+  settingsMiniPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: Colors.primarySoft,
+    borderWidth: 1,
+    borderColor: Colors.borderSoft,
+  },
+  settingsMiniPillLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.primary },
 
   // Form fields (style profile)
   fieldLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textDark },
@@ -745,6 +971,149 @@ const styles = StyleSheet.create({
   },
   resetPillBtnLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.primary },
 
+  schedulerShell: { gap: Spacing.md },
+  schedulerHeader: { gap: Spacing.md },
+  schedulerTitleWrap: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
+  schedulerHeaderActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flexWrap: 'wrap' },
+  schedulerActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primarySoft,
+  },
+  schedulerActionLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.primary },
+  schedulerToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: Colors.bgTint,
+    borderWidth: 1,
+    borderColor: Colors.borderSoft,
+  },
+  schedulerToggleOn: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  schedulerToggleLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textDark },
+  schedulerSwitchTap: { padding: 0 },
+  schedulerSummaryRow: { flexDirection: 'row', gap: Spacing.sm, flexWrap: 'wrap' },
+  schedulerMetric: {
+    minWidth: 110,
+    padding: Spacing.sm,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.borderSoft,
+    backgroundColor: Colors.bgTint,
+    gap: 3,
+  },
+  schedulerMetricWide: {
+    flex: 1,
+    minWidth: 220,
+    padding: Spacing.sm,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.borderSoft,
+    backgroundColor: Colors.bgTint,
+    gap: 3,
+  },
+  schedulerMetricValue: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textDark },
+  schedulerMetricLabel: { fontSize: 11, color: Colors.textLight, lineHeight: 15 },
+  schedulerSection: {
+    gap: Spacing.sm,
+    padding: Spacing.sm,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.borderSoft,
+    backgroundColor: Colors.bgTint,
+  },
+  schedulerSectionHead: { gap: 2 },
+  schedulerSectionTitle: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textDark },
+  schedulerSectionHint: { fontSize: 11, color: Colors.textLight, lineHeight: 15 },
+  schedulerPreviewList: {
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.borderSoft,
+    backgroundColor: Colors.cardBg,
+    overflow: 'hidden',
+  },
+  schedulerEmpty: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: Spacing.sm },
+
+  // Automation slots editor
+  slotEditorEmbedded: { gap: Spacing.sm },
+  slotEditorList: { gap: Spacing.sm, marginTop: Spacing.sm },
+  slotEditorCard: {
+    padding: Spacing.sm,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.borderSoft,
+    backgroundColor: Colors.bgLight,
+    gap: Spacing.sm,
+  },
+  slotEditorHead: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  slotEditorLabelInput: {
+    flex: 1,
+    backgroundColor: Colors.cardBg,
+    borderWidth: 1,
+    borderColor: Colors.borderSoft,
+    borderRadius: Radius.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: FontSize.sm,
+    color: Colors.textDark,
+    outlineStyle: 'none' as any,
+  },
+  miniToggle: {
+    minWidth: 44,
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: Colors.borderSoft,
+    backgroundColor: Colors.cardBg,
+  },
+  miniToggleOn: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  miniToggleLabel: { fontSize: 11, fontWeight: '700', color: Colors.textMuted },
+  slotDeleteBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(239,68,68,0.08)',
+  },
+  slotEditorGrid: { gap: Spacing.sm },
+  slotEditorField: { gap: 4 },
+  slotEditorFieldWide: { gap: 4 },
+  slotEditorLabel: { fontSize: 11, fontWeight: '700', color: Colors.textLight },
+  slotEditorInput: {
+    backgroundColor: Colors.cardBg,
+    borderWidth: 1,
+    borderColor: Colors.borderSoft,
+    borderRadius: Radius.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: FontSize.xs,
+    color: Colors.textDark,
+    outlineStyle: 'none' as any,
+  },
+  slotChoiceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  slotChoiceChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: Colors.borderSoft,
+    backgroundColor: Colors.cardBg,
+  },
+  slotChoiceChipActive: { borderColor: Colors.primary, backgroundColor: Colors.primarySoft },
+  slotChoiceLabel: { fontSize: 11, fontWeight: '700', color: Colors.textDark },
+
   // Scheduler slot rows
   slotRow: {
     flexDirection: 'row', alignItems: 'center', gap: Spacing.sm,
@@ -767,6 +1136,7 @@ const styles = StyleSheet.create({
   },
   slotChipSecondary: { color: Colors.textMuted, backgroundColor: Colors.bgTint },
   slotChipEvent: { color: Colors.primary, backgroundColor: Colors.primarySoft },
+  slotChipOverride: { color: Colors.white, backgroundColor: Colors.primary },
   slotSkipBtn: {
     paddingHorizontal: 10, paddingVertical: 5,
     borderRadius: 999,
