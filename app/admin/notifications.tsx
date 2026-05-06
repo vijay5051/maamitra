@@ -908,6 +908,7 @@ function OutboxList({
   onRefresh: () => Promise<void>;
 }) {
   const insets = useSafeAreaInsets();
+  const { user: actor } = useAuthStore();
   const [reportOpen, setReportOpen] = useState(false);
   const [reportLoading, setReportLoading] = useState(false);
   const [reportRows, setReportRows] = useState<PushDeliveryEntry[]>([]);
@@ -925,6 +926,117 @@ function OutboxList({
     }
   }
 
+  // Split into 3 buckets
+  const failedEntries  = outbox.filter((e) => e.status === 'failed');
+  const pendingEntries = outbox.filter((e) => e.status === 'pending' || e.status === 'scheduled' || e.status === 'skipped');
+  const sentEntries    = outbox.filter((e) => e.status === 'sent');
+
+  function renderCard(e: PushQueueEntry) {
+    const typeOpt = TYPE_OPTIONS.find((t) => t.key === (e.pushType as NotifType)) ?? TYPE_OPTIONS[0];
+
+    // To whom — audience label for broadcast, user short-ID for personal
+    const audienceLabel = e.kind === 'broadcast'
+      ? (AUDIENCE_OPTIONS.find((a) => a.key === e.audience)?.label ?? e.audience ?? 'All Users')
+      : e.toUid
+        ? `User ···${e.toUid.slice(-6)}`
+        : 'Custom recipients';
+
+    // Total recipient count derived from whichever fields exist
+    const recipientTotal =
+      e.recipientCount ??
+      (typeof e.successCount === 'number'
+        ? e.successCount + (e.failureCount ?? 0) + (e.skippedRecipientCount ?? 0)
+        : undefined);
+
+    // Sender — compare with current admin uid
+    const senderLabel = e.fromUid
+      ? (e.fromUid === actor?.uid ? 'you' : `admin ···${e.fromUid.slice(-5)}`)
+      : 'admin';
+
+    const displayTime = (e.sentAt
+      ? new Date(e.sentAt)
+      : new Date(e.createdAt || Date.now())
+    ).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+    return (
+      <TouchableOpacity
+        key={e.id}
+        style={styles.outboxCard}
+        activeOpacity={0.82}
+        onPress={() => openReport(e)}
+      >
+        {/* Row 1: Type badge · Title · Time */}
+        <View style={styles.outboxCardHead}>
+          <View style={[styles.outboxTypeBadge, { backgroundColor: typeOpt.color + '18', borderColor: typeOpt.color + '55' }]}>
+            <Text style={[styles.outboxTypeBadgeText, { color: typeOpt.color }]}>{typeOpt.label}</Text>
+          </View>
+          <Text style={styles.outboxTitle} numberOfLines={1}>{e.title || '(no title)'}</Text>
+          <Text style={styles.outboxTime}>{displayTime}</Text>
+        </View>
+
+        {/* Row 2: → To whom · by sender */}
+        <View style={styles.outboxDirectionRow}>
+          <Ionicons name="arrow-forward-circle-outline" size={13} color="#8B5CF6" />
+          <Text style={styles.outboxDirectionTo} numberOfLines={1}>
+            {audienceLabel}
+            {recipientTotal != null ? ` · ${recipientTotal} recipient${recipientTotal === 1 ? '' : 's'}` : ''}
+          </Text>
+          <Text style={styles.outboxDirectionBy}>by {senderLabel}</Text>
+        </View>
+
+        {/* Row 3: Body preview */}
+        <Text style={styles.outboxBody} numberOfLines={2}>{e.body}</Text>
+
+        {/* Row 4: Delivery stats + hint */}
+        <View style={styles.outboxFoot}>
+          {typeof e.successCount === 'number' ? (
+            <View style={[styles.outboxStatPill, { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' }]}>
+              <Ionicons name="checkmark-circle" size={11} color="#10B981" />
+              <Text style={[styles.outboxStatText, { color: '#10B981' }]}>{e.successCount} delivered</Text>
+            </View>
+          ) : null}
+          {typeof e.failureCount === 'number' && e.failureCount > 0 ? (
+            <View style={[styles.outboxStatPill, { backgroundColor: '#FEF2F2', borderColor: '#FECACA' }]}>
+              <Ionicons name="close-circle" size={11} color="#EF4444" />
+              <Text style={[styles.outboxStatText, { color: '#EF4444' }]}>{e.failureCount} failed</Text>
+            </View>
+          ) : null}
+          {typeof e.skippedRecipientCount === 'number' && e.skippedRecipientCount > 0 ? (
+            <View style={[styles.outboxStatPill, { backgroundColor: '#F9FAFB', borderColor: '#E5E7EB' }]}>
+              <Ionicons name="remove-circle-outline" size={11} color="#6B7280" />
+              <Text style={[styles.outboxStatText, { color: '#6B7280' }]}>{e.skippedRecipientCount} skipped</Text>
+            </View>
+          ) : null}
+          <View style={{ flex: 1 }} />
+          <Text style={styles.outboxHint}>View report →</Text>
+        </View>
+      </TouchableOpacity>
+    );
+  }
+
+  function renderSection(
+    label: string,
+    items: PushQueueEntry[],
+    color: string,
+    bg: string,
+    emptyText: string,
+  ) {
+    return (
+      <View key={label} style={styles.outboxSection}>
+        <View style={[styles.outboxSectionHeader, { backgroundColor: bg }]}>
+          <View style={[styles.statusDot, { backgroundColor: color }]} />
+          <Text style={[styles.outboxSectionTitle, { color }]}>{label}</Text>
+          <View style={[styles.outboxSectionBadge, { backgroundColor: color + '25' }]}>
+            <Text style={[styles.outboxSectionBadgeText, { color }]}>{items.length}</Text>
+          </View>
+        </View>
+        {items.length === 0 ? (
+          <Text style={styles.outboxSectionEmptyText}>{emptyText}</Text>
+        ) : items.map((e) => renderCard(e))}
+      </View>
+    );
+  }
+
   return (
     <>
       <ScrollView
@@ -937,31 +1049,16 @@ function OutboxList({
             <Ionicons name="paper-plane-outline" size={40} color="#D1D5DB" />
             <Text style={styles.emptyText}>No pushes have been sent yet.</Text>
           </View>
-        ) : outbox.map((e) => (
-          <TouchableOpacity
-            key={e.id}
-            style={styles.outboxCard}
-            activeOpacity={0.82}
-            onPress={() => openReport(e)}
-          >
-            <View style={styles.outboxHead}>
-              <View style={[styles.statusDot, { backgroundColor: STATUS_COLOR[e.status] }]} />
-              <Text style={styles.outboxTitle} numberOfLines={1}>{e.title || '(no title)'}</Text>
-              <Text style={styles.outboxTime}>{e.sentAt ? new Date(e.sentAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : new Date(e.createdAt || Date.now()).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</Text>
-            </View>
-            <Text style={styles.outboxBody} numberOfLines={2}>{e.body}</Text>
-            <View style={styles.outboxFoot}>
-              <Chip label={e.kind === 'broadcast' ? `audience: ${e.audience ?? 'all'}` : 'personal'} />
-              <Chip label={`status: ${e.status}`} tint={STATUS_COLOR[e.status]} />
-              {typeof e.successCount === 'number' ? <Chip label={`✓ ${e.successCount}`} tint="#10B981" /> : null}
-              {typeof e.failureCount === 'number' && e.failureCount > 0 ? <Chip label={`✗ ${e.failureCount}`} tint="#EF4444" /> : null}
-              {typeof e.skippedRecipientCount === 'number' && e.skippedRecipientCount > 0 ? <Chip label={`skip ${e.skippedRecipientCount}`} tint="#6B7280" /> : null}
-            </View>
-            <Text style={styles.outboxHint}>Tap to view recipient report</Text>
-          </TouchableOpacity>
-        ))}
+        ) : (
+          <>
+            {renderSection('Failed', failedEntries, '#EF4444', '#FEF2F2', 'No failed pushes.')}
+            {renderSection('Pending / Processing', pendingEntries, '#F59E0B', '#FFFBEB', 'Nothing in queue.')}
+            {renderSection('Sent', sentEntries, '#10B981', '#ECFDF5', 'No delivered pushes yet.')}
+          </>
+        )}
       </ScrollView>
 
+      {/* Per-recipient delivery report modal */}
       <Modal
         visible={reportOpen}
         transparent
@@ -1197,17 +1294,46 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', padding: 30, gap: 8 },
   emptyText: { fontSize: 13, color: '#9ca3af' },
 
+  // Outbox section grouping
+  outboxSection: { gap: 8, marginBottom: 14 },
+  outboxSectionHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8,
+  },
+  outboxSectionTitle: { flex: 1, fontSize: 12, fontWeight: '800', letterSpacing: 0.2 },
+  outboxSectionBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 },
+  outboxSectionBadgeText: { fontSize: 11, fontWeight: '800' },
+  outboxSectionEmptyText: { fontSize: 12, color: '#9CA3AF', paddingHorizontal: 4, paddingVertical: 4 },
+
   outboxCard: {
-    backgroundColor: '#fff', borderRadius: 12, padding: 12, marginBottom: 8,
+    backgroundColor: '#fff', borderRadius: 12, padding: 12, marginBottom: 0,
     borderWidth: 1, borderColor: '#F0EDF5', gap: 6,
   },
+  // New card header row (type badge + title + time)
+  outboxCardHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  outboxTypeBadge: {
+    paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6, borderWidth: 1,
+  },
+  outboxTypeBadgeText: { fontSize: 10, fontWeight: '800' },
+  // Direction row (→ audience · by sender)
+  outboxDirectionRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  outboxDirectionTo: { flex: 1, fontSize: 12, fontWeight: '600', color: '#374151' },
+  outboxDirectionBy: { fontSize: 11, color: '#9CA3AF' },
+  // Delivery stat pills
+  outboxStatPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8, borderWidth: 1,
+  },
+  outboxStatText: { fontSize: 11, fontWeight: '700' },
+
+  // Kept for ScheduleList which still uses outboxHead
   outboxHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   statusDot: { width: 8, height: 8, borderRadius: 4 },
   outboxTitle: { flex: 1, fontSize: 13, fontWeight: '800', color: '#1a1a2e' },
   outboxTime: { fontSize: 10, color: '#9CA3AF' },
   outboxBody: { fontSize: 12, color: '#4B5563', lineHeight: 17 },
-  outboxFoot: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4, alignItems: 'center' },
-  outboxHint: { fontSize: 11, color: '#8B5CF6', fontWeight: '700', marginTop: 2 },
+  outboxFoot: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 2, alignItems: 'center' },
+  outboxHint: { fontSize: 11, color: '#8B5CF6', fontWeight: '700' },
   outboxChip: {
     flexDirection: 'row', gap: 4, alignItems: 'center',
     paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8,

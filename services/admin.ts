@@ -580,6 +580,10 @@ export interface PushQueueEntry {
   audience?: string;
   toUid?: string;
   fromUid?: string;
+  /** Notification type: info | reminder | alert | celebration */
+  pushType?: string;
+  /** Email of the admin who queued this push (stored at write time). */
+  fromEmail?: string;
   title: string;
   body: string;
   status: 'pending' | 'sent' | 'failed' | 'skipped' | 'scheduled';
@@ -626,6 +630,8 @@ export async function listPushOutbox(limitN = 50): Promise<PushQueueEntry[]> {
         audience: data.audience,
         toUid: data.toUid,
         fromUid: data.fromUid,
+        pushType: data.pushType,
+        fromEmail: data.fromEmail ?? data.byEmail,
         title: data.title ?? '',
         body: data.body ?? '',
         status: data.status ?? 'pending',
