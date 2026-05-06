@@ -39,6 +39,14 @@ import { useDMStore } from './useDMStore';
 const getSocialStore = () => require('./useSocialStore').useSocialStore;
 const getCommunityStore = () => require('./useCommunityStore').useCommunityStore;
 
+// Belt-and-suspenders guard against transient null callbacks from onAuthStateChanged.
+// Firebase can fire null briefly (e.g. during its internal persistence setup), then
+// immediately fire again with the real user. Without this debounce the admin layout
+// guard would see isLoading:false + user:null and bounce to /welcome.
+// We hold the null for 700ms: if a real user arrives, the timeout is cancelled.
+// If 700ms pass with no user, this is a genuine sign-out / fresh visitor.
+let _nullSignOutTimer: ReturnType<typeof setTimeout> | null = null;
+
 // Tracks in-flight hydration promises per uid so concurrent callers (the
 // sign-in path + the onAuthStateChanged listener) both await the SAME
 // result instead of timing out and returning stale state. This used to be
@@ -493,6 +501,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
         if (firebaseUser) {
+          // Cancel any pending null-sign-out debounce — real user arrived.
+          if (_nullSignOutTimer) { clearTimeout(_nullSignOutTimer); _nullSignOutTimer = null; }
+
           const existing = get().user;
           if (existing && existing.uid === firebaseUser.uid) {
             if (get().isLoading) set({ isLoading: false });
@@ -542,8 +553,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             });
           }
         } else {
-          useProfileStore.getState().resetProfile();
-          set({ user: null, isAuthenticated: false, isLoading: false });
+          // Null callback — may be transient (Firebase briefly re-evaluates
+          // auth during persistence confirmation) or a genuine sign-out.
+          // Debounce 700ms: if a real user fires within that window, the
+          // timer above cancels this. If 700ms pass with no user, treat
+          // it as genuine (sign-out / new visitor / session truly expired).
+          if (_nullSignOutTimer) clearTimeout(_nullSignOutTimer);
+          _nullSignOutTimer = setTimeout(() => {
+            _nullSignOutTimer = null;
+            // Double-check auth.currentUser: if Firebase silently refreshed
+            // the token and now has a user, don't sign out.
+            if (auth?.currentUser) return;
+            useProfileStore.getState().resetProfile();
+            set({ user: null, isAuthenticated: false, isLoading: false });
+          }, 700);
         }
       });
     })();

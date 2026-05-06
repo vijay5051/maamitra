@@ -11,6 +11,7 @@ import {
   Auth,
   browserLocalPersistence,
   browserSessionPersistence,
+  indexedDBLocalPersistence,
   deleteUser,
   GoogleAuthProvider,
   inMemoryPersistence,
@@ -163,8 +164,17 @@ let _webAuthPersistenceReady: Promise<void> | null = null;
 /**
  * On privacy-restricted browsers / incognito, Firebase's default web auth
  * persistence can fail or fall back unpredictably. Establish it explicitly
- * before route guards start reading auth state:
- *   1. Prefer local persistence for normal browsers
+ * before route guards start reading auth state.
+ *
+ * IMPORTANT — use indexedDBLocalPersistence (the same as Firebase's default)
+ * rather than browserLocalPersistence (localStorage). Calling
+ * setPersistence(browserLocalPersistence) migrated auth state from IndexedDB
+ * to localStorage on every page load, which caused onAuthStateChanged to fire
+ * with null during the migration and bounced the admin guard even though the
+ * session was valid. Re-affirming indexedDBLocalPersistence is a true no-op
+ * for normal browsers (no migration, no null callback, no bounce).
+ *
+ *   1. Prefer IndexedDB (same as Firebase default — no migration, no disruption)
  *   2. Fall back to session persistence for incognito/private windows
  *   3. Fall back to in-memory only as a last resort
  */
@@ -174,10 +184,13 @@ export async function ensureWebAuthPersistence(): Promise<void> {
 
   _webAuthPersistenceReady = (async () => {
     try {
-      await setPersistence(auth, browserLocalPersistence);
+      // indexedDBLocalPersistence === Firebase's default — this is a no-op
+      // for normal browsers but confirms the preference before we subscribe
+      // to onAuthStateChanged. No migration happens, so no null callback.
+      await setPersistence(auth, indexedDBLocalPersistence);
       return;
-    } catch (localErr) {
-      console.warn('browserLocalPersistence unavailable, trying session persistence:', localErr);
+    } catch (idbErr) {
+      console.warn('indexedDBLocalPersistence unavailable (likely incognito), trying session:', idbErr);
     }
 
     try {

@@ -27,8 +27,16 @@ export default function AdminLayout() {
       requestAnimationFrame(() => router.replace('/(auth)/welcome'));
     }
     if (!user) {
-      bounce();
-      return;
+      // Extra grace period: onAuthStateChanged's null debounce (700ms in
+      // useAuthStore) keeps isLoading:true while the timer is running, so
+      // we normally never reach here with a transient null. But as a final
+      // safety net, wait an additional 800ms before bouncing — this absorbs
+      // any edge-case where isLoading settles to false before the debounce
+      // fires (e.g. very fast null→user cycle that the timer misses).
+      const t = setTimeout(() => {
+        if (!useAuthStore.getState().user) bounce();
+      }, 800);
+      return () => clearTimeout(t);
     }
     // isAdminEmail resolves synchronously for allow-listed emails, so the
     // 1500 ms delay is only needed for Firestore-role non-allow-listed admins.
