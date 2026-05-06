@@ -292,7 +292,13 @@ export function buildGenerateTemplatePrefill(allowList: ReadonlySet<string>) {
       const avoid = Array.isArray(bd?.voice?.avoid) ? bd.voice.avoid.join(', ') : '';
       const bilingual = typeof bd?.voice?.bilingual === 'string' ? bd.voice.bilingual : 'hinglish';
       const contextText = String(data?.context ?? '').trim();
-      const current = data?.current && typeof data.current === 'object' ? JSON.stringify(data.current).slice(0, 1200) : 'none';
+      const hasCurrent = !!(data?.current && typeof data.current === 'object' && Object.keys(data.current).length > 0);
+      const current = hasCurrent ? JSON.stringify(data.current).slice(0, 1200) : 'none';
+      // Variation seed — when admin re-clicks "Regenerate with AI", the same
+      // (template, context, current) tuple would otherwise re-prompt the
+      // model and produce nearly-identical output. Seed forces a different
+      // angle each click.
+      const variationSeed = Math.random().toString(36).slice(2, 10);
 
       const system = [
         `You are MaaMitra's content planner for social post templates.`,
@@ -301,13 +307,17 @@ export function buildGenerateTemplatePrefill(allowList: ReadonlySet<string>) {
         bilingual === 'hinglish'
           ? 'Write in natural Indian English; light Hinglish is welcome where natural.'
           : 'Write in clear English.',
+        'Always write for an Indian motherhood audience — Indian names, Indian cities, Indian food, Indian family contexts.',
         'Return strict JSON only.',
       ].filter(Boolean).join('\n');
 
       const user = [
         `Prepare structured content for template "${template}".`,
         `Topic/context from admin: ${contextText || 'Use a sensible MaaMitra motherhood topic and make it specific.'}`,
-        `Current values to improve or regenerate: ${current}`,
+        hasCurrent
+          ? `Current values (admin clicked Regenerate — produce a NOTICEABLY DIFFERENT angle, story, or list. Different example, different opening, different attribution name. Do NOT just rephrase): ${current}`
+          : `No current values yet — produce a fresh draft.`,
+        `Variation seed (use to vary the angle, do not echo): ${variationSeed}`,
         '',
         'Return JSON with keys:',
         '{',
@@ -319,11 +329,12 @@ export function buildGenerateTemplatePrefill(allowList: ReadonlySet<string>) {
         'tipCard: { "eyebrow": string<=30, "title": string<=80, "tips": string[3-4] }',
         'quoteCard: { "quote": string<=200, "attribution": string<=40 }',
         'milestoneCard: { "age": string<=20, "title": string<=60, "milestones": string[3-5] }',
-        'realStoryCard: { "eyebrow": string<=30, "story": string<=240, "attribution": string<=40 }',
+        'realStoryCard: { "eyebrow": string<=30, "story": string<=240 chars (count carefully — must finish a sentence with a period inside the limit), "attribution": string<=40 (Indian first name + city or relation, e.g. "Priya, Pune · mom of Aanya") }',
         '',
         'Rules:',
         '- Keep it crisp and render-friendly.',
-        '- If the template benefits from a background image, include a short Indian-context backgroundPrompt.',
+        '- For realStoryCard: write the story as ONE complete thought ending in a period inside 240 characters. Never leave a trailing comma or incomplete clause.',
+        '- If the template benefits from a background image, include a backgroundPrompt that ALWAYS depicts an Indian mother / Indian family / Indian home in soft warm light. Specify ethnicity explicitly ("Indian woman", "Indian mom"). Add: "no text, no letters, no typography, no signage, no logos in image".',
         '- Never include markdown.',
       ].join('\n');
 
@@ -336,7 +347,7 @@ export function buildGenerateTemplatePrefill(allowList: ReadonlySet<string>) {
         body: JSON.stringify({
           model: 'gpt-4o-mini',
           response_format: { type: 'json_object' },
-          temperature: 0.85,
+          temperature: 1.05,
           max_tokens: 700,
           messages: [
             { role: 'system', content: system },
@@ -370,6 +381,25 @@ function trimText(v: unknown, max: number): string {
   return typeof v === 'string' ? v.trim().slice(0, max) : '';
 }
 
+/** Trim long body text at a sentence boundary inside `max` chars, falling
+ *  back to a word boundary with an ellipsis. Avoids the mid-word slice that
+ *  produced "...questioning my decisions about feeding and caring for my
+ *  baby. Then, I found a community of moms who shared their experiences,
+ *  fears" — i.e. a story cut off mid-sentence. */
+function trimStory(v: unknown, max: number): string {
+  if (typeof v !== 'string') return '';
+  const cleaned = v.trim().replace(/\s+/g, ' ');
+  if (cleaned.length <= max) return cleaned;
+  // Prefer the last sentence boundary (. ! ?) inside the budget.
+  const window = cleaned.slice(0, max);
+  const sentenceEnd = Math.max(window.lastIndexOf('. '), window.lastIndexOf('! '), window.lastIndexOf('? '));
+  if (sentenceEnd > Math.floor(max * 0.5)) {
+    return cleaned.slice(0, sentenceEnd + 1).trim();
+  }
+  // Fall back: drop the trailing partial word and append an ellipsis.
+  return window.replace(/[\s,;:]+\S*$/, '').trim() + '…';
+}
+
 function listText(v: unknown, maxItems: number, maxChars: number): string[] {
   return Array.isArray(v)
     ? v.map((x) => trimText(x, maxChars)).filter(Boolean).slice(0, maxItems)
@@ -399,7 +429,7 @@ function sanitizeTemplateProps(template: string, props: Record<string, any>): Re
   }
   return {
     eyebrow: trimText(props.eyebrow, 30),
-    story: trimText(props.story, 240),
+    story: trimStory(props.story, 240),
     attribution: trimText(props.attribution, 40),
   };
 }

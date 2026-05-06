@@ -155,6 +155,7 @@ function buildRenderUgcAsDraft(allowList) {
             themeLabel: 'Real Story (UGC)',
             caption,
             headline: `Real story · ${eyebrow}`,
+            templateProps: { eyebrow, story, attribution: displayName },
             assets: [{ url, index: 0, template: 'realStoryCard', storagePath }],
             platforms: ['instagram', 'facebook'],
             scheduledAt: null,

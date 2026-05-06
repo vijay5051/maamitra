@@ -222,7 +222,10 @@ function buildStyleLockedImagePrompt(subject: string, brand: BrandKitData): stri
     `Subject: ${subject.trim()}`,
   ];
   if (negative) parts.push(`Do NOT include: ${negative}.`);
-  parts.push('Single coherent illustration. No text, no logos, no watermarks.');
+  parts.push(
+    'Single coherent illustration with Indian-context subjects (Indian woman / Indian family / Indian home, warm soft natural light).',
+    'STRICT: no text, no letters, no words, no typography, no captions, no signage, no logos, no watermarks anywhere in the image — the image must contain ZERO readable characters.',
+  );
   return parts.join('\n');
 }
 
@@ -529,7 +532,7 @@ async function generateCaption(
     ? [
         `MUST use template: "${forcedTemplate}" — do not pick another. The post is going into a slot pre-configured for this template.`,
         forcedTemplate === 'realStoryCard'
-          ? 'Write a relatable first-person mini story (≤320 chars) from the POV of an Indian mom, with a believable name attribution like "Priya, Pune" or "Anjali, mom of 2". Do NOT preface with "I am ...".'
+          ? 'Write a relatable first-person mini story (≤320 chars, MUST end with a period inside the limit — never leave a clause hanging mid-sentence) from the POV of an Indian mom, with a believable Indian name attribution like "Priya, Pune" or "Anjali, mom of 2". Do NOT preface with "I am ...".'
           : forcedTemplate === 'quoteCard'
             ? 'Write a single short inspirational quote (≤200 chars) suited to Indian motherhood, with a short attribution.'
             : forcedTemplate === 'milestoneCard'
@@ -562,7 +565,7 @@ async function generateCaption(
     '  "body": "the IG caption body (3–6 sentences, no headline duplication, no hashtags, no disclaimers)",',
     '  "hashtags": ["array", "of", "5-10", "hashtags", "without # prefix"],',
     '  "template": "tipCard" | "quoteCard" | "milestoneCard" | "realStoryCard",',
-    '  "imagePrompt": "specific prompt for an AI image generator — describe an Indian-context scene with lighting, mood, palette",',
+    '  "imagePrompt": "specific prompt for an AI image generator — MUST describe Indian people (Indian woman / Indian mother / Indian family / Indian home), warm soft natural light, palette. Append the literal phrase: \\"no text, no letters, no typography, no signage anywhere in the image\\".",',
     '  "templateProps": { /* per-template fields */ }',
     '}',
     '',
