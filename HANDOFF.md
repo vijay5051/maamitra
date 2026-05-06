@@ -11,6 +11,26 @@ No active coding task.
 
 ---
 
+## Last action (2026-05-06) — Notifications outbox rebuild
+
+**Commit `ca9f3ff` · hosting deployed · OTA `0a030d18` published.**
+
+### What changed (`app/admin/notifications.tsx` + `services/admin.ts`)
+- **Outbox now groups by status** — three colour-coded section headers:
+  - **Failed** (red) — shown first so failures are never buried
+  - **Pending / Processing** (amber) — pending, scheduled, skipped
+  - **Sent** (green) — successfully delivered pushes
+- **Each outbox card** now clearly shows:
+  - **Type badge** (Info / Reminder / Alert / Celebrate) — from `pushType`
+  - **Direction row** `→ Audience · N recipients · by you / by admin ···xxxxx`
+  - **Delivery stat pills** — ✓ delivered / ✗ failed / ⟳ skipped inline
+  - "View report →" hint to the per-recipient modal
+- **`PushQueueEntry` interface** (`services/admin.ts`) — added `pushType?` and
+  `fromEmail?` fields; `listPushOutbox` mapper surfaces them from Firestore.
+- ScheduleList and delivery report modal untouched (still work correctly).
+
+---
+
 ## Last action (2026-05-06) — Admin dashboard mobile redesign
 
 **Commit `2792c07` · hosting deployed · OTA `179c824b` published.**
