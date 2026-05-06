@@ -246,43 +246,34 @@ export default function AdminDashboard() {
           </ScrollView>
         ) : null}
 
-        {/* ─── Two-column body on wide ─────────────────────────── */}
-        <View style={[styles.cols, twoCol && styles.colsWide]}>
-          <View style={[styles.col, twoCol && styles.colHalf]}>
-            <Card label="Signups · last 7 days" compact={narrow}>
-              <Sparkline points={snap?.signupTrend ?? []} />
-              <View style={styles.sparkFooter}>
-                <Text style={styles.muted}>
-                  {snap?.newSignups7d ?? 0} new this week · {snap?.newSignups30d ?? 0} in 30d
-                </Text>
-              </View>
-            </Card>
-          </View>
-
-          <View style={[styles.col, twoCol && styles.colHalf]}>
-            <Card label="Where users live" compact={narrow}>
-              {snap?.topStates.length ? snap.topStates.map((row) => (
-                <View key={row.state} style={styles.stateRow}>
-                  <Ionicons name="location-outline" size={14} color={Colors.primary} />
-                  <Text style={styles.stateName}>{row.state}</Text>
-                  <Text style={styles.stateCount}>{row.count.toLocaleString('en-IN')}</Text>
+        {/* ─── Live activity — first on mobile, last on desktop ── */}
+        {!twoCol ? (
+          <Card label="Live activity" compact={narrow}>
+            {activity.length === 0 ? (
+              <EmptyState kind="empty" title="No activity yet"
+                body="Signups, posts, support tickets, and admin actions will stream in here." compact />
+            ) : activity.slice(0, 8).map((a) => (
+              <Pressable key={`${a.kind}_${a.id}`} disabled={!a.href}
+                onPress={() => a.href && router.push(a.href as any)} style={styles.activityRow}>
+                <View style={[styles.activityIcon, { backgroundColor: activityTint(a.kind) }]}>
+                  <Ionicons name={a.kind === 'signup' ? 'person-add-outline' : a.kind === 'post' ? 'chatbubble-outline' : a.kind === 'support' ? 'help-buoy-outline' : 'shield-outline'} size={13} color={Colors.textDark} />
                 </View>
-              )) : (
-                <Text style={styles.muted}>No state data yet.</Text>
-              )}
-            </Card>
-          </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.signupName} numberOfLines={1}>{a.title}</Text>
+                  {a.sub ? <Text style={styles.signupEmail} numberOfLines={1}>{a.sub}</Text> : null}
+                </View>
+                <Text style={styles.signupDate}>
+                  {new Date(a.at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                </Text>
+              </Pressable>
+            ))}
+          </Card>
+        ) : null}
 
-          <View style={[styles.col, twoCol && styles.colHalf]}>
-            <Card label="Feature adoption" hint="% of users who've used each feature at least once." compact={narrow}>
-              {snap?.featureAdoption.length ? snap.featureAdoption.map((item) => (
-                <AdoptionRow key={item.label} item={item} />
-              )) : (
-                <Text style={styles.muted}>No adoption data yet.</Text>
-              )}
-            </Card>
-          </View>
+        {/* ─── Actionable cards (all viewports) ────────────────── */}
+        <View style={[styles.cols, twoCol && styles.colsWide]}>
 
+          {/* Pending posts — always visible */}
           <View style={[styles.col, twoCol && styles.colHalf]}>
             <Card label="Pending posts" compact={narrow}>
               <View style={styles.vigilanceRow}>
@@ -324,6 +315,7 @@ export default function AdminDashboard() {
             </Card>
           </View>
 
+          {/* Recent signups — always visible */}
           <View style={[styles.col, twoCol && styles.colHalf]}>
             <Card label="Recent signups" compact={narrow}>
               {snap?.recentSignups.length ? snap.recentSignups.slice(0, narrow ? 3 : 6).map((u) => (
@@ -350,95 +342,117 @@ export default function AdminDashboard() {
             </Card>
           </View>
 
+          {/* Signups trend — always visible */}
           <View style={[styles.col, twoCol && styles.colHalf]}>
-            <Card label="Activation funnel" compact={narrow}>
-              {funnel.length === 0 ? (
-                <Text style={styles.muted}>Nothing to show yet.</Text>
-              ) : funnel.map((step, i) => {
-                const w = `${Math.min(100, step.pct)}%` as const;
-                return (
-                  <View key={step.key} style={{ marginBottom: i === funnel.length - 1 ? 0 : 8 }}>
-                    <View style={styles.adoptionLabelRow}>
-                      <Text style={styles.adoptionLabel}>{step.label}</Text>
-                      <Text style={styles.adoptionStat}>{step.users} · {step.pct}%</Text>
-                    </View>
-                    <View style={styles.adoptionBarTrack}>
-                      <View style={[styles.adoptionBarFill, { width: w, backgroundColor: Colors.primary }]} />
-                    </View>
-                  </View>
-                );
-              })}
+            <Card label="Signups · last 7 days" compact={narrow}>
+              <Sparkline points={snap?.signupTrend ?? []} />
+              <View style={styles.sparkFooter}>
+                <Text style={styles.muted}>
+                  {snap?.newSignups7d ?? 0} new this week · {snap?.newSignups30d ?? 0} in 30d
+                </Text>
+              </View>
             </Card>
           </View>
 
-          <View style={[styles.col, twoCol && styles.colHalf]}>
-            <Card label="Weekly cohort retention" compact={narrow}>
-              {retention.length === 0 ? (
-                <Text style={styles.muted}>No cohort data yet.</Text>
-              ) : (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  <View style={styles.cohortTable}>
-                    <View style={[styles.cohortRow, { borderBottomWidth: 1, borderBottomColor: Colors.borderSoft }]}>
-                      <Text style={[styles.cohortName, styles.cohortNameCol]}>Cohort</Text>
-                      <Text style={styles.cohortCell}>Size</Text>
-                      <Text style={styles.cohortCell}>D1</Text>
-                      <Text style={styles.cohortCell}>D7</Text>
-                      <Text style={styles.cohortCell}>D30</Text>
+          {/* ── Desktop-only analytics (hidden on mobile) ── */}
+          {twoCol ? (
+            <>
+              <View style={styles.colHalf}>
+                <Card label="Where users live">
+                  {snap?.topStates.length ? snap.topStates.map((row) => (
+                    <View key={row.state} style={styles.stateRow}>
+                      <Ionicons name="location-outline" size={14} color={Colors.primary} />
+                      <Text style={styles.stateName}>{row.state}</Text>
+                      <Text style={styles.stateCount}>{row.count.toLocaleString('en-IN')}</Text>
                     </View>
-                    {retention.map((c) => (
-                      <View key={c.cohort} style={styles.cohortRow}>
-                        <Text style={[styles.cohortName, styles.cohortNameCol]}>{c.cohort}</Text>
-                        <Text style={styles.cohortCell}>{c.size}</Text>
-                        <Text style={styles.cohortCell}>{c.d1}</Text>
-                        <Text style={styles.cohortCell}>{c.d7}</Text>
-                        <Text style={styles.cohortCell}>{c.d30}</Text>
+                  )) : <Text style={styles.muted}>No state data yet.</Text>}
+                </Card>
+              </View>
+
+              <View style={styles.colHalf}>
+                <Card label="Feature adoption" hint="% of users who've used each feature at least once.">
+                  {snap?.featureAdoption.length ? snap.featureAdoption.map((item) => (
+                    <AdoptionRow key={item.label} item={item} />
+                  )) : <Text style={styles.muted}>No adoption data yet.</Text>}
+                </Card>
+              </View>
+
+              <View style={styles.colHalf}>
+                <Card label="Activation funnel">
+                  {funnel.length === 0 ? (
+                    <Text style={styles.muted}>Nothing to show yet.</Text>
+                  ) : funnel.map((step, i) => {
+                    const w = `${Math.min(100, step.pct)}%` as const;
+                    return (
+                      <View key={step.key} style={{ marginBottom: i === funnel.length - 1 ? 0 : 8 }}>
+                        <View style={styles.adoptionLabelRow}>
+                          <Text style={styles.adoptionLabel}>{step.label}</Text>
+                          <Text style={styles.adoptionStat}>{step.users} · {step.pct}%</Text>
+                        </View>
+                        <View style={styles.adoptionBarTrack}>
+                          <View style={[styles.adoptionBarFill, { width: w, backgroundColor: Colors.primary }]} />
+                        </View>
                       </View>
-                    ))}
-                  </View>
-                </ScrollView>
-              )}
-            </Card>
-          </View>
+                    );
+                  })}
+                </Card>
+              </View>
+
+              <View style={styles.colHalf}>
+                <Card label="Weekly cohort retention">
+                  {retention.length === 0 ? (
+                    <Text style={styles.muted}>No cohort data yet.</Text>
+                  ) : (
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                      <View style={styles.cohortTable}>
+                        <View style={[styles.cohortRow, { borderBottomWidth: 1, borderBottomColor: Colors.borderSoft }]}>
+                          <Text style={[styles.cohortName, styles.cohortNameCol]}>Cohort</Text>
+                          <Text style={styles.cohortCell}>Size</Text>
+                          <Text style={styles.cohortCell}>D1</Text>
+                          <Text style={styles.cohortCell}>D7</Text>
+                          <Text style={styles.cohortCell}>D30</Text>
+                        </View>
+                        {retention.map((c) => (
+                          <View key={c.cohort} style={styles.cohortRow}>
+                            <Text style={[styles.cohortName, styles.cohortNameCol]}>{c.cohort}</Text>
+                            <Text style={styles.cohortCell}>{c.size}</Text>
+                            <Text style={styles.cohortCell}>{c.d1}</Text>
+                            <Text style={styles.cohortCell}>{c.d7}</Text>
+                            <Text style={styles.cohortCell}>{c.d30}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </ScrollView>
+                  )}
+                </Card>
+              </View>
+            </>
+          ) : null}
         </View>
 
-        {/* ─── Live activity (full width) ───────────────────────── */}
-        <Card label="Live activity" compact={narrow}>
-          {activity.length === 0 ? (
-            <EmptyState
-              kind="empty"
-              title="No activity yet"
-              body="Signups, posts, support tickets, and admin actions will stream in here."
-              compact
-            />
-          ) : activity.slice(0, narrow ? 8 : 12).map((a) => (
-            <Pressable
-              key={`${a.kind}_${a.id}`}
-              disabled={!a.href}
-              onPress={() => a.href && router.push(a.href as any)}
-              style={styles.activityRow}
-            >
-              <View style={[styles.activityIcon, { backgroundColor: activityTint(a.kind) }]}>
-                <Ionicons
-                  name={
-                    a.kind === 'signup' ? 'person-add-outline'
-                    : a.kind === 'post' ? 'chatbubble-outline'
-                    : a.kind === 'support' ? 'help-buoy-outline'
-                    : 'shield-outline'
-                  }
-                  size={13}
-                  color={Colors.textDark}
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.signupName} numberOfLines={1}>{a.title}</Text>
-                {a.sub ? <Text style={styles.signupEmail} numberOfLines={1}>{a.sub}</Text> : null}
-              </View>
-              <Text style={styles.signupDate}>
-                {new Date(a.at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-              </Text>
-            </Pressable>
-          ))}
-        </Card>
+        {/* ─── Live activity — desktop position (bottom, full width) ── */}
+        {twoCol ? (
+          <Card label="Live activity">
+            {activity.length === 0 ? (
+              <EmptyState kind="empty" title="No activity yet"
+                body="Signups, posts, support tickets, and admin actions will stream in here." compact />
+            ) : activity.slice(0, 12).map((a) => (
+              <Pressable key={`${a.kind}_${a.id}`} disabled={!a.href}
+                onPress={() => a.href && router.push(a.href as any)} style={styles.activityRow}>
+                <View style={[styles.activityIcon, { backgroundColor: activityTint(a.kind) }]}>
+                  <Ionicons name={a.kind === 'signup' ? 'person-add-outline' : a.kind === 'post' ? 'chatbubble-outline' : a.kind === 'support' ? 'help-buoy-outline' : 'shield-outline'} size={13} color={Colors.textDark} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.signupName} numberOfLines={1}>{a.title}</Text>
+                  {a.sub ? <Text style={styles.signupEmail} numberOfLines={1}>{a.sub}</Text> : null}
+                </View>
+                <Text style={styles.signupDate}>
+                  {new Date(a.at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                </Text>
+              </Pressable>
+            ))}
+          </Card>
+        ) : null}
       </AdminPage>
     </>
   );
