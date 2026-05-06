@@ -66,7 +66,7 @@ const TEMPLATE_META: Record<TemplateKind, { label: string; sub: string }> = {
   tipCard: { label: 'Tip card', sub: 'Numbered tips on a clean editorial card.' },
   quoteCard: { label: 'Quote card', sub: 'Pull quote with optional soft background.' },
   milestoneCard: { label: 'Milestone card', sub: 'Age-based checklist with optional photo.' },
-  realStoryCard: { label: 'Real story', sub: 'Story-led post with optional portrait-style image.' },
+  realStoryCard: { label: 'Inspired story', sub: 'Story-led post with optional portrait-style image.' },
 };
 
 type TemplateForm = {
@@ -1915,7 +1915,7 @@ function buildTemplateDraftPrompt(kind: TemplateKind, form: TemplateForm, prompt
   if (kind === 'milestoneCard') {
     return [form.age, form.title || prompt, ...splitLines(form.milestonesText, 6)].filter(Boolean).join(' · ');
   }
-  return [form.eyebrow || 'Real story', form.story, form.attribution, prompt].filter(Boolean).join(' · ');
+  return [form.eyebrow || 'Inspired story', form.story, form.attribution, prompt].filter(Boolean).join(' · ');
 }
 
 function estimateTemplateCost(kind: TemplateKind, form: TemplateForm, quality: Quality): number {

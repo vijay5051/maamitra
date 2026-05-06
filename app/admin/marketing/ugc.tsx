@@ -2,7 +2,7 @@
  * Admin · UGC review queue (M6).
  *
  * Real moms submit photo + story from inside the app; this is where admin
- * reviews them. Approve → call renderUgcAsDraft → a Real Story marketing
+ * reviews them. Approve → call renderUgcAsDraft → an Inspired Story marketing
  * draft drops into the regular queue, ready to schedule/publish/boost.
  */
 
@@ -75,7 +75,7 @@ export default function MarketingUgcScreen() {
       <Stack.Screen options={{ title: 'UGC' }} />
       <AdminPage
         title="Real-mom stories (UGC)"
-        description="Submissions from real moms via the app's Share Your Story flow. Approve → render as a Real Story draft → schedule + publish + boost like any other post."
+        description="Submissions from real moms via the app's Share Your Story flow. Approve → render as an Inspired Story draft → schedule + publish + boost like any other post."
         crumbs={[
           { label: 'Admin', href: '/admin' },
           { label: 'Marketing', href: '/admin/marketing' },
@@ -278,7 +278,7 @@ function UgcSlideOver({
               {isApproved ? (
                 <Pressable onPress={handleRender} disabled={busy === 'render'} style={[styles.btn, styles.btnPrimary]}>
                   <Ionicons name="sparkles" size={16} color="#fff" />
-                  <Text style={styles.btnLabel}>{busy === 'render' ? 'Rendering…' : 'Render as Real Story draft'}</Text>
+                  <Text style={styles.btnLabel}>{busy === 'render' ? 'Rendering…' : 'Render as Inspired Story draft'}</Text>
                 </Pressable>
               ) : null}
               {submission.renderedDraftId ? (

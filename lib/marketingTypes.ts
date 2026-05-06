@@ -353,7 +353,7 @@ export const DEFAULT_PILLARS: ContentPillar[] = [
   { id: 'milestones',      label: 'Milestones & Development', description: 'Age-appropriate milestones, "what to expect this month", normal-vs-flag developmental cues.',                    emoji: '🌱', enabled: true },
   { id: 'mom_wellness',    label: 'Mom Wellness',             description: 'Postpartum recovery, mental health, body image, sleep, nutrition for the mother.',                                 emoji: '🌸', enabled: true },
   { id: 'cultural_wisdom', label: 'Cultural Wisdom',          description: 'Indian traditions through a modern, evidence-checked lens. Honour what helps; gently update what doesn\'t.',     emoji: '🪔', enabled: true },
-  { id: 'real_stories',    label: 'Real Stories',             description: 'Real Indian moms sharing real moments, with consent. Quotes, photos, mini case-studies.',                          emoji: '💬', enabled: true },
+  { id: 'real_stories',    label: 'Inspired Stories',         description: 'Relatable Indian-motherhood moments — composed, attributed first-person stories. Real-mom UGC drops in here when approved.', emoji: '💬', enabled: true },
   { id: 'qa',              label: 'Q&A',                      description: 'Real questions from the app + DMs, answered crisply in 3 lines or less.',                                          emoji: '❓', enabled: true },
   { id: 'community',       label: 'Community',                description: 'Spotlights, group experiences, polls, events. Builds the "we" feeling.',                                            emoji: '🤝', enabled: true },
 ];
@@ -572,7 +572,7 @@ export interface MarketingDraft {
 
 // ── UGC (M6) ────────────────────────────────────────────────────────────────
 // User-generated content: real moms submit a photo + story from inside the
-// app. Admin reviews + approves → renders as a Real Story draft. Consent is
+// app. Admin reviews + approves → renders as an Inspired Story draft. Consent is
 // captured at submission and recorded in consent_ledger (DPDP).
 
 export type UgcStatus = 'pending_review' | 'approved' | 'rejected' | 'rendered' | 'deleted';

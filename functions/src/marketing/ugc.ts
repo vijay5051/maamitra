@@ -1,7 +1,8 @@
 // UGC pipeline (M6).
 //
 // renderUgcAsDraft (admin callable). Reads an approved ugc_submissions/{id},
-// renders the realStoryCard template with the submitted photo + story,
+// renders the realStoryCard template (now labeled "Inspired Story" in UI)
+// with the submitted photo + story,
 // uploads the PNG, writes a marketing_drafts/{newId} with status='approved'
 // (skips pending_review since the admin already vetted the source UGC), and
 // flips the submission status to 'rendered' so it leaves the queue.
@@ -134,9 +135,9 @@ export function buildRenderUgcAsDraft(allowList: ReadonlySet<string>) {
         status: 'approved',
         kind: 'image',
         themeKey: weekdayKey,
-        themeLabel: 'Real Story (UGC)',
+        themeLabel: 'Inspired Story (UGC)',
         caption,
-        headline: `Real story · ${eyebrow}`,
+        headline: `Inspired story · ${eyebrow}`,
         templateProps: { eyebrow, story, attribution: displayName },
         assets: [{ url, index: 0, template: 'realStoryCard', storagePath }],
         platforms: ['instagram', 'facebook'],
@@ -148,7 +149,7 @@ export function buildRenderUgcAsDraft(allowList: ReadonlySet<string>) {
         personaId: null,
         personaLabel: null,
         pillarId: typeof sub?.pillarId === 'string' ? sub.pillarId : 'real_stories',
-        pillarLabel: 'Real Stories',
+        pillarLabel: 'Inspired Stories',
         eventId: null,
         eventLabel: null,
         locale: null,
@@ -184,5 +185,5 @@ async function loadBrandHashtags(): Promise<string[]> {
       return d.hashtags.filter((h: unknown): h is string => typeof h === 'string').slice(0, 8);
     }
   } catch { /* fall through */ }
-  return ['MaaMitra', 'IndianMoms', 'RealStories'];
+  return ['MaaMitra', 'IndianMoms', 'InspiredStories'];
 }

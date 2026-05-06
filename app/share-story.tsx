@@ -4,7 +4,7 @@
  * Real moms reach this screen via the in-app entry point on community
  * (TODO: wire that link). They submit a photo + story + display name with
  * explicit consent; admin reviews in /admin/marketing/ugc; once rendered
- * the story goes out as a Real Story IG post with attribution.
+ * the story goes out as an Inspired Story IG post with attribution.
  *
  * Consent flow:
  *  - Required checkbox before submit

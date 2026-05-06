@@ -83,9 +83,9 @@ const TEMPLATE_PRESETS: Record<RenderableTemplateName, TemplatePreset> = {
       'cheerful indian baby around 4 months old exploring on a soft pastel mat at home, bright natural light, marigold accents, joyful expression, lifestyle photography, warm tones',
   },
   realStoryCard: {
-    label: 'Real Story',
+    label: 'Inspired Story',
     props: {
-      eyebrow: 'Real story',
+      eyebrow: 'Inspired story',
       story:
         'My 6-month-old refused every spoon I tried — until I let her grab the dal-rice with her hands. She giggled and ate a full bowl. Sometimes the mess IS the milestone.',
       attribution: 'Priya, Pune · mom of Aanya',

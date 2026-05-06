@@ -57,7 +57,7 @@ export interface MilestoneCardProps {
 }
 
 export interface RealStoryCardProps {
-  /** Bottom-of-image short heading, e.g. "Real Story · Anaya, 8 months". */
+  /** Bottom-of-image short heading, e.g. "Inspired Story · Anaya, 8 months". */
   eyebrow: string;
   /** The mom's words — 1-3 sentences, ≤ 240 chars after sanitisation. */
   story: string;

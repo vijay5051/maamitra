@@ -1,4 +1,4 @@
-// Real Story Card — UGC-driven post (M6).
+// Inspired Story Card — UGC-driven post (M6).
 //
 // Layout (1080×1080):
 //   ┌─────────────────────────────┐
@@ -7,7 +7,7 @@
 //   │                             │
 //   │  ── soft fade ──            │
 //   ├─────────────────────────────┤
-//   │ REAL STORY · {eyebrow}      │  ← small caps eyebrow
+//   │ INSPIRED STORY · {eyebrow}  │  ← small caps eyebrow
 //   │                             │
 //   │ "Story body in big quoted   │  ← serif-ish, italic-ish via weight
 //   │  type, ~3 lines max."       │
@@ -93,7 +93,7 @@ export function realStoryCard(props: RealStoryCardProps, brand: BrandSnapshot): 
             marginBottom: '16px',
           },
         },
-        `Real Story · ${props.eyebrow}`,
+        `Inspired Story · ${props.eyebrow}`,
       ),
       // Quote
       h(
