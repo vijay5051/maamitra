@@ -367,7 +367,7 @@ function pickSlot(brand, override, today, stats, promptOverride) {
             : null,
     };
 }
-async function generateCaption(brand, slot, stats) {
+async function generateCaption(brand, slot, stats, forcedTemplate) {
     const cfg = await (0, integrationConfig_1.getIntegrationConfig)();
     if (!cfg.openai.apiKey)
         throw new Error('openai.apiKey not set — configure it in the Integration Hub');
@@ -417,6 +417,24 @@ async function generateCaption(brand, slot, stats) {
         'Always respect Indian cultural context — clothing (sari/kurta), names, food, traditions. Default to inclusive / non-prescriptive language.',
         'Output STRICT JSON only. No prose outside the JSON object.',
     ].join('\n');
+    const templateDirective = forcedTemplate
+        ? [
+            `MUST use template: "${forcedTemplate}" — do not pick another. The post is going into a slot pre-configured for this template.`,
+            forcedTemplate === 'realStoryCard'
+                ? 'Write a relatable first-person mini story (≤320 chars) from the POV of an Indian mom, with a believable name attribution like "Priya, Pune" or "Anjali, mom of 2". Do NOT preface with "I am ...".'
+                : forcedTemplate === 'quoteCard'
+                    ? 'Write a single short inspirational quote (≤200 chars) suited to Indian motherhood, with a short attribution.'
+                    : forcedTemplate === 'milestoneCard'
+                        ? 'Write 3-5 developmental milestones tied to a baby age (e.g. "0-3 months", "6 months").'
+                        : 'Write 3-4 short practical tips on the topic.',
+        ].join('\n')
+        : [
+            'Pick the most appropriate template:',
+            '- "tipCard" — a numbered list of 3 short practical tips (use for advice / safety / how-to)',
+            '- "quoteCard" — a single short quote with attribution (use for inspiration / wisdom / cultural)',
+            '- "milestoneCard" — an age + bulleted developmental milestones list (use for milestones / development)',
+            '- "realStoryCard" — a first-person mini story with attribution (use for relatable community moments)',
+        ].join('\n');
     const user = [
         `Generate ONE Instagram-square post.`,
         eventLine,
@@ -427,11 +445,7 @@ async function generateCaption(brand, slot, stats) {
         templateHint,
         inspirationLine,
         '',
-        'Pick the most appropriate template:',
-        '- "tipCard" — a numbered list of 3 short practical tips (use for advice / safety / how-to)',
-        '- "quoteCard" — a single short quote with attribution (use for inspiration / wisdom / cultural)',
-        '- "milestoneCard" — an age + bulleted developmental milestones list (use for milestones / development)',
-        '- "realStoryCard" — a first-person mini story with attribution (use for relatable community moments)',
+        templateDirective,
         '',
         'Return JSON with exactly these keys:',
         '{',
@@ -478,9 +492,11 @@ async function generateCaption(brand, slot, stats) {
     catch (e) {
         throw new Error(`OpenAI returned non-JSON content: ${raw.slice(0, 200)}…`);
     }
-    const template = ['tipCard', 'quoteCard', 'milestoneCard', 'realStoryCard'].includes(parsed?.template)
-        ? parsed.template
-        : 'tipCard';
+    const template = forcedTemplate
+        ? forcedTemplate
+        : ['tipCard', 'quoteCard', 'milestoneCard', 'realStoryCard'].includes(parsed?.template)
+            ? parsed.template
+            : 'tipCard';
     return {
         headline: trim(parsed?.headline, 80),
         body: trim(parsed?.body, 1800),
@@ -506,7 +522,7 @@ function titleCase(s) {
         .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w))
         .join(' ');
 }
-function fallbackCaption(brand, slot) {
+function fallbackCaption(brand, slot, forcedTemplate) {
     const pillar = slot.pillar?.label || 'Parenting';
     const persona = slot.persona?.label || 'Indian moms';
     const hint = slot.promptOverride || slot.event?.promptHint || slot.themePrompt || slot.pillar?.description || pillar;
@@ -523,6 +539,8 @@ function fallbackCaption(brand, slot) {
         'Motherhood',
         'BabyCare',
     ].filter(Boolean);
+    // Fallback never fabricates a "real story" or attributed quote — when the
+    // slot wants those, downgrade to tipCard so we don't ship invented bylines.
     return {
         headline: topic.slice(0, 80),
         body: body.slice(0, 1800),
@@ -545,6 +563,27 @@ function fallbackCaption(brand, slot) {
                 ],
         },
     };
+}
+// Returns true if the AI-supplied templateProps actually has the fields the
+// chosen template renderer reads. If false, we downgrade to tipCard rather
+// than rendering "undefined" into the image.
+function templatePropsValid(template, props) {
+    if (!props || typeof props !== 'object')
+        return false;
+    const str = (v) => typeof v === 'string' && v.trim().length > 0;
+    const arr = (v, min) => Array.isArray(v) && v.length >= min && v.every((x) => str(x));
+    switch (template) {
+        case 'tipCard':
+            return str(props.title) && arr(props.tips, 2);
+        case 'quoteCard':
+            return str(props.quote) && str(props.attribution);
+        case 'milestoneCard':
+            return str(props.title) && arr(props.milestones, 2);
+        case 'realStoryCard':
+            return str(props.story) && str(props.attribution);
+        default:
+            return false;
+    }
 }
 function escapeRegex(s) {
     return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -712,19 +751,39 @@ async function runGenerator(input, actorEmail) {
         : null;
     const stats = await loadPerformanceStats();
     const slot = pickSlot(brand, input, today, stats, promptOverrideMerged);
+    // Resolve the forced template BEFORE generating the caption so the AI is
+    // told exactly which shape to write — otherwise it free-picks tipCard and
+    // leaves story/attribution undefined when the slot wants realStoryCard.
+    const inputTemplate = ['tipCard', 'quoteCard', 'milestoneCard', 'realStoryCard'].includes(input.template)
+        ? input.template
+        : null;
+    const forcedTemplate = inputTemplate ?? (slot.templateOverride && slot.templateOverride !== 'auto' ? slot.templateOverride : null);
     let captionOut;
     try {
-        captionOut = await generateCaption(brand, slot, stats);
+        captionOut = await generateCaption(brand, slot, stats, forcedTemplate ?? undefined);
     }
     catch (e) {
         console.warn('[generator] caption AI failed, using local fallback', e?.message ?? e);
-        captionOut = fallbackCaption(brand, slot);
+        captionOut = fallbackCaption(brand, slot, forcedTemplate ?? undefined);
     }
-    const requestedTemplate = ['tipCard', 'quoteCard', 'milestoneCard', 'realStoryCard'].includes(input.template)
-        ? input.template
-        : slot.templateOverride && slot.templateOverride !== 'auto'
-            ? slot.templateOverride
-            : captionOut.template;
+    // Guard: if the AI returned the forced template name but didn't include
+    // the props the renderer needs (e.g. realStoryCard without story /
+    // attribution), downgrade to tipCard with safe content so we never bake
+    // the literal word "undefined" into a published image.
+    let requestedTemplate = forcedTemplate ?? captionOut.template;
+    if (!templatePropsValid(requestedTemplate, captionOut.templateProps)) {
+        console.warn(`[generator] templateProps invalid for ${requestedTemplate}; downgrading to tipCard`, { keys: Object.keys(captionOut.templateProps || {}) });
+        const safe = fallbackCaption(brand, slot);
+        captionOut = {
+            ...captionOut,
+            template: 'tipCard',
+            templateProps: safe.templateProps,
+            // Keep the AI body/headline if they exist; only swap props.
+            headline: captionOut.headline || safe.headline,
+            body: captionOut.body || safe.body,
+        };
+        requestedTemplate = 'tipCard';
+    }
     const requestedModel = ['imagen', 'dalle', 'flux'].includes(input.imageModel)
         ? input.imageModel
         : 'flux';
@@ -762,6 +821,7 @@ async function runGenerator(input, actorEmail) {
         slotTime,
         caption,
         headline: captionOut.headline,
+        templateProps: captionOut.templateProps,
         assets: [{ url: render.url, index: 0, template: requestedTemplate, storagePath: render.storagePath }],
         platforms,
         scheduledAt,
