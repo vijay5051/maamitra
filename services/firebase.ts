@@ -249,6 +249,7 @@ export async function saveUserProfile(uid: string, data: Record<string, any>): P
     await setDoc(doc(db, 'users', uid), { ...data, updatedAt: serverTimestamp() }, { merge: true });
   } catch (error) {
     console.error('saveUserProfile error:', error);
+    throw error;
   }
 }
 
@@ -483,12 +484,18 @@ export async function loadFullProfile(uid: string): Promise<FullProfileData | nu
   return res.status === 'ok' ? res.data! : null;
 }
 
+// All sync* helpers below rethrow on failure. Callers MUST either
+// `await` and handle errors, or use `.catch(...)` to acknowledge they're
+// fire-and-forget. The previous silent-swallow pattern caused every
+// permission-denied / undefined-field write to look successful — the
+// same bug class that hid the post-vanishing and follow-accept bugs.
 export async function syncCompletedVaccines(uid: string, completedVaccines: Record<string, any>): Promise<void> {
   if (!db) return;
   try {
     await setDoc(doc(db, 'users', uid), { completedVaccines, updatedAt: serverTimestamp() }, { merge: true });
   } catch (error) {
     console.error('syncCompletedVaccines error:', error);
+    throw error;
   }
 }
 
@@ -499,6 +506,7 @@ export async function syncHealthTracking(uid: string, data: Record<string, strin
     await setDoc(doc(db, 'users', uid), { healthTracking: data, updatedAt: serverTimestamp() }, { merge: true });
   } catch (error) {
     console.error('syncHealthTracking error:', error);
+    throw error;
   }
 }
 
@@ -509,6 +517,7 @@ export async function syncTeethTracking(uid: string, byKid: Record<string, Recor
     await setDoc(doc(db, 'users', uid), { teethTracking: byKid, updatedAt: serverTimestamp() }, { merge: true });
   } catch (error) {
     console.error('syncTeethTracking error:', error);
+    throw error;
   }
 }
 
@@ -519,6 +528,7 @@ export async function syncFoodTracking(uid: string, byKid: Record<string, Record
     await setDoc(doc(db, 'users', uid), { foodTracking: byKid, updatedAt: serverTimestamp() }, { merge: true });
   } catch (error) {
     console.error('syncFoodTracking error:', error);
+    throw error;
   }
 }
 
@@ -529,6 +539,7 @@ export async function syncGrowthTracking(uid: string, byKid: Record<string, Reco
     await setDoc(doc(db, 'users', uid), { growthTracking: byKid, updatedAt: serverTimestamp() }, { merge: true });
   } catch (error) {
     console.error('syncGrowthTracking error:', error);
+    throw error;
   }
 }
 
@@ -543,6 +554,7 @@ export async function syncWellnessData(uid: string, moodHistory: any[], healthCo
     }, { merge: true });
   } catch (error) {
     console.error('syncWellnessData error:', error);
+    throw error;
   }
 }
 
@@ -553,6 +565,7 @@ export async function syncAllergies(uid: string, allergies: string[]): Promise<v
     await setDoc(doc(db, 'users', uid), { allergies, updatedAt: serverTimestamp() }, { merge: true });
   } catch (error) {
     console.error('syncAllergies error:', error);
+    throw error;
   }
 }
 

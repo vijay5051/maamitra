@@ -1576,7 +1576,9 @@ export default function HealthScreen() {
     const updated = { ...lastDone, [id]: new Date().toISOString() };
     setLastDone(updated);
     AsyncStorage.setItem(healthKey, JSON.stringify(updated));
-    if (user?.uid) syncHealthTracking(user.uid, updated);
+    // Fire-and-forget: AsyncStorage above is the local source of truth;
+    // Firestore is a best-effort mirror that next sync will reconcile.
+    if (user?.uid) syncHealthTracking(user.uid, updated).catch((err) => console.warn('syncHealthTracking failed:', err));
   };
 
   const undoDone = (id: string) => {
@@ -1584,7 +1586,7 @@ export default function HealthScreen() {
     delete updated[id];
     setLastDone(updated);
     AsyncStorage.setItem(healthKey, JSON.stringify(updated));
-    if (user?.uid) syncHealthTracking(user.uid, updated);
+    if (user?.uid) syncHealthTracking(user.uid, updated).catch((err) => console.warn('syncHealthTracking failed:', err));
   };
 
   const upToDateCount = HEALTH_ITEMS.filter(

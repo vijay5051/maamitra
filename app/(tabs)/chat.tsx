@@ -413,7 +413,8 @@ export default function ChatScreen() {
   const handleAllergyDone = useCallback(
     async (selected: string[]) => {
       setAllergies(selected);
-      if (user?.uid) syncAllergies(user.uid, selected);
+      if (user?.uid) syncAllergies(user.uid, selected)
+        .catch((err) => console.warn('syncAllergies failed:', err));
       setAllergyModalVisible(false);
       if (pendingMessage) {
         await sendMessage(pendingMessage, { ...buildContext(), allergies: selected });

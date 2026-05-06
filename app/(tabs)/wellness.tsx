@@ -1211,7 +1211,10 @@ export default function WellnessScreen() {
     logMood(score);
     if (user?.uid) {
       const { moodHistory: latest } = useWellnessStore.getState();
-      syncWellnessData(user.uid, latest, healthConditions);
+      // Fire-and-forget: local Zustand is the source of truth; Firestore
+      // mirror reconciles on next sync. .catch() prevents unhandled rejection.
+      syncWellnessData(user.uid, latest, healthConditions)
+        .catch((err) => console.warn('syncWellnessData failed:', err));
     }
     if (isFirstLogToday) {
       setShowMoodConfetti(true);
@@ -1417,7 +1420,8 @@ export default function WellnessScreen() {
           setShowCondModal(false);
           if (user?.uid) {
             const { moodHistory } = useWellnessStore.getState();
-            syncWellnessData(user.uid, moodHistory, conditions);
+            syncWellnessData(user.uid, moodHistory, conditions)
+              .catch((err) => console.warn('syncWellnessData failed:', err));
           }
         }}
       />

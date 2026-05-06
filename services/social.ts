@@ -161,7 +161,12 @@ export async function incrementPublicProfilePostCount(uid: string, delta: number
     if (snap.exists()) {
       await updateDoc(ref, { postsCount: increment(delta) });
     } else {
-      await setDoc(ref, { uid, postsCount: Math.max(0, delta), followersCount: 0, followingCount: 0 }, { merge: true });
+      // Don't pre-set followersCount / followingCount here — they're
+      // server-managed by onFollowCreate / onFollowDelete. Writing 0
+      // would race with a concurrent follow trigger and zero out the
+      // increment. (onUserCreated normally bootstraps the doc; this
+      // else branch is the rare fallback when that trigger missed.)
+      await setDoc(ref, { uid, postsCount: Math.max(0, delta) }, { merge: true });
     }
   } catch (error) {
     console.error('incrementPublicProfilePostCount error:', error);
@@ -1068,6 +1073,7 @@ export async function cancelFollowRequest(
     await deleteDoc(doc(db, 'followRequests', requestId));
   } catch (error) {
     console.error('cancelFollowRequest error:', error);
+    throw error;
   }
 }
 
@@ -1087,6 +1093,7 @@ export async function unfollowUser(myUid: string, targetUid: string): Promise<vo
     await deleteDoc(followRef);
   } catch (error) {
     console.error('unfollowUser error:', error);
+    throw error;
   }
 }
 
@@ -1416,6 +1423,7 @@ export async function markNotificationRead(uid: string, notifId: string): Promis
     await updateDoc(doc(db, 'notifications', uid, 'items', notifId), { read: true });
   } catch (error) {
     console.error('markNotificationRead error:', error);
+    throw error;
   }
 }
 
@@ -1442,6 +1450,7 @@ export async function markNotificationRequestStatus(
     await batch.commit();
   } catch (error) {
     console.error('markNotificationRequestStatus error:', error);
+    throw error;
   }
 }
 
@@ -1457,6 +1466,7 @@ export async function deleteNotification(uid: string, notifId: string): Promise<
     await deleteDoc(doc(db, 'notifications', uid, 'items', notifId));
   } catch (error) {
     console.error('deleteNotification error:', error);
+    throw error;
   }
 }
 
@@ -1474,6 +1484,7 @@ export async function deleteNotifications(uid: string, notifIds: string[]): Prom
     await batch.commit();
   } catch (error) {
     console.error('deleteNotifications error:', error);
+    throw error;
   }
 }
 
@@ -1493,6 +1504,7 @@ export async function markAllNotificationsRead(uid: string): Promise<void> {
     await batch.commit();
   } catch (error) {
     console.error('markAllNotificationsRead error:', error);
+    throw error;
   }
 }
 

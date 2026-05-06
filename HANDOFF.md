@@ -11,6 +11,71 @@ No active coding task.
 
 ---
 
+## Last action (2026-05-06) — Silent-swallow sweep + field-ownership doc
+
+Companion cleanup to today's three social-flow bugs (post vanishing,
+follow-accept reverting, follower-counter wiping). Removes the bug
+class structurally — every write path now surfaces real errors instead
+of silently lying about success.
+
+### Silent-swallow rethrows (was: catch → console.error → return void)
+
+- **`services/firebase.ts`** — `saveUserProfile`, `syncCompletedVaccines`,
+  `syncHealthTracking`, `syncTeethTracking`, `syncFoodTracking`,
+  `syncGrowthTracking`, `syncWellnessData`, `syncAllergies` now rethrow
+  on failure. Awaited callers (SettingsModal, phone.tsx, useThemeStore,
+  index.tsx) already had try/catch — no caller change required.
+- **`services/social.ts`** — `cancelFollowRequest`, `unfollowUser`,
+  `markNotificationRead`, `markNotificationRequestStatus`,
+  `deleteNotification`, `deleteNotifications`, `markAllNotificationsRead`
+  now rethrow. Store callers already had try/catch around them.
+
+### Fire-and-forget call sites that lacked `.catch()` — wired up
+
+Without `.catch()`, the new rethrows would become unhandled promise
+rejections. Added explicit `.catch(err => console.warn(...))` at:
+
+- `app/(tabs)/health.tsx:1579, 1587` — `syncHealthTracking`
+- `app/(tabs)/wellness.tsx:1214, 1420` — `syncWellnessData`
+- `app/(tabs)/chat.tsx:416` — `syncAllergies`
+
+These are the truly fire-and-forget sites (AsyncStorage / Zustand is
+the local source of truth; Firestore is a best-effort mirror). They
+acknowledge errors instead of silently dropping them.
+
+### Functions intentionally left as silent-swallow
+
+- `incrementPublicProfilePostCount` — fire-and-forget by design;
+  cloud-function `onPostDelete` is the authoritative decrementer. Worth
+  adding a matching `onPostCreate` cloud function in a future cleanup
+  to make `postsCount` server-only like the follow counters.
+- `createNotification` — fire-and-forget; loss of a single notification
+  is not user-visible (in-app bell still works because notifications
+  are created from many surfaces).
+- `markConversationRead`, `unregisterFcmToken` — eventual consistency;
+  next subscription tick reconciles.
+- Read functions (`getFollowers`, `getMessages`, etc) — correctly
+  return `[]` / `null` on read failure; UI handles the empty case.
+
+### New documentation
+
+- **`docs/firestore-fields.md`** — collection-by-collection table of
+  every field with its single source of truth. Codifies the rule "every
+  Firestore field has exactly one writer." Includes the three bug
+  examples (post vanishing, follower-count zeroing, follow-accept
+  reverting) so the next contributor understands why the rule exists.
+
+### Why this matters
+
+Today's three bugs all had the same shape: **silent error swallow + UI
+optimistic update = fake success.** This sweep ensures the next bug in
+this family surfaces in seconds (real toast / alert / unhandled
+rejection in Sentry) instead of three days. The pattern is now
+structurally hard to repeat — every write path either rethrows or has a
+documented fire-and-forget contract.
+
+---
+
 ## Last action (2026-05-06) — Admin session bounce on page reload (fixed)
 
 **Commit `4adc6e2` · hosting deployed · OTA `cf46dab5` published.**
