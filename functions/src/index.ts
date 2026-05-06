@@ -31,6 +31,7 @@ import {
   buildRetryArticleImage,
   buildSendArticleToMarketingDraft,
   buildSyncPublishedArticleToMarketingDraft,
+  buildSyncArticleSocialDraft,
 } from './library';
 import {
   buildBoostMarketingDraft,
@@ -1491,6 +1492,7 @@ export const processPendingArticleImage = buildProcessPendingArticleImage();
 export const retryArticleImage = buildRetryArticleImage(ADMIN_EMAILS);
 export const sendArticleToMarketingDraft = buildSendArticleToMarketingDraft(ADMIN_EMAILS);
 export const syncPublishedArticleToMarketingDraft = buildSyncPublishedArticleToMarketingDraft();
+export const syncArticleSocialDraft = buildSyncArticleSocialDraft();
 export const generateBooksNow     = buildGenerateBooksNow(ADMIN_EMAILS);
 export const generateProductsNow  = buildGenerateProductsNow(ADMIN_EMAILS);
 export const archiveLibraryItem   = buildArchiveLibraryItem(ADMIN_EMAILS);

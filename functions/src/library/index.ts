@@ -11,3 +11,4 @@ export {
 export { buildGenerateBooksNow, runBookGenerator } from './books';
 export { buildGenerateProductsNow, runProductGenerator } from './products';
 export { buildDailyLibraryAiCron, buildExpireStaleLibrary, buildArchiveLibraryItem } from './cron';
+export { buildSyncArticleSocialDraft } from './socialDrafts';

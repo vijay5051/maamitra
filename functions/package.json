@@ -6,7 +6,8 @@
     "build:watch": "tsc --watch",
     "copy-assets": "mkdir -p lib/marketing/fonts lib/marketing/style-refs && cp src/marketing/fonts/*.ttf lib/marketing/fonts/ && cp src/marketing/style-refs/*.webp lib/marketing/style-refs/",
     "serve": "npm run build && firebase emulators:start --only functions",
-    "deploy": "firebase deploy --only functions"
+    "deploy": "firebase deploy --only functions",
+    "article:daily:draft": "node ../scripts/generate-daily-library-article.mjs"
   },
   "engines": {
     "node": "22"
