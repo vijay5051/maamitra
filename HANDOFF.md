@@ -11,6 +11,66 @@ No active coding task.
 
 ---
 
+## Last action (2026-05-06) — Follower-counter wipe fix + Divya recount
+
+**Bug**: Divya appeared to have 0 followers / 0 following in the UI, but
+the `/follows` collection had 4 followers + 3 follows for her — the count
+was correct in the source of truth, but the publicProfile counters were
+wiped to 0/0. Audit across all 19 publicProfiles found a 2nd victim
+(Manvi Bhandari, off by 1 in followingCount). Both manually corrected
+via Firestore REST PATCH after fix shipped.
+
+### Root cause
+`store/useSocialStore.ts syncPublicProfile()` was reading
+`followersCount` / `followingCount` from the local Zustand store (which
+initialises to 0, 0 on every fresh app open) and writing those values
+into the publicProfile via `upsertPublicProfile`. When the user opened
+the app, the sync fired before `loadSocialData()` had hydrated the real
+counts from `/follows`, so 0,0 overwrote whatever the
+`onFollowCreate`/`onFollowDelete` triggers had correctly written.
+
+The Cloud Function triggers ARE correct — they increment counters on
+every follow create/delete. Client-side sync was racing them and
+clobbering the result.
+
+### What changed
+- **`store/useSocialStore.ts`** — `syncPublicProfile()` no longer writes
+  `followersCount` or `followingCount`. Those fields are now exclusively
+  maintained by the `onFollowCreate` / `onFollowDelete` Cloud Function
+  triggers (which use admin SDK and bypass rules). `postsCount` still
+  flows from the client because it's incremented by the same client via
+  `incrementPublicProfilePostCount`.
+
+### Recovery (already done manually)
+- Divya (`PYPNqlFdFARnyBOCjNON29jwR9k2`): set followersCount=4, followingCount=3
+- Manvi Bhandari (`5tEfLCMKzHVpwgpsD13tkNwuxdI2`): set followingCount=1
+- All 19 publicProfiles audited and now match `/follows` reality
+
+---
+
+## Last action (2026-05-06) — Follow-accept reverting after refresh
+
+**Commit `55c52ac` · rules + hosting deployed · OTA `ba394b1c-...`.**
+
+Three connected bugs caused tap-Accept → "Accepted ✓" briefly → buttons
+reappear after refresh, requestor's counters never increment:
+
+1. `firestore.rules` `notifications/{uid}/items` update rule restricted
+   to `onlyFields(['read'])`. `markNotificationRequestStatus` writes both
+   `read` AND `requestStatus`, so the update was permission-denied — the
+   `requestStatus` field never persisted, so on refresh the row had no
+   badge. Allowed `['read', 'requestStatus']` together.
+2. `services/social.ts` `acceptFollowRequest` / `declineFollowRequest`
+   had the same silent-swallow pattern that hid the post bug. Rethrow
+   so the caller can roll back optimistic state.
+3. `components/community/NotificationsSheet.tsx` `handleAccept` /
+   `handleDecline` fired un-awaited and unconditionally set
+   `handled='accepted'` / `'declined'`. Even with the rethrow above, the
+   UI claimed success on a real failure. Now awaits the call and rolls
+   the badge back on error.
+
+---
+
 ## Last action (2026-05-06) — Drafts post preview image collapse fix
 
 **Commit `36be0ac` · hosting deployed · OTA `7622ebb9` published.**
