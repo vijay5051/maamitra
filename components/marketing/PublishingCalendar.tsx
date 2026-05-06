@@ -536,12 +536,41 @@ function DraggableThumb({
   isPast: boolean;
   onOpen: () => void;
 }) {
+  const ref = useRef<View>(null);
   const tone = draft.status === 'posted' ? Colors.success : draft.status === 'scheduled' ? Colors.primary : Colors.textMuted;
   const time = draft.scheduledAt ? istHHmm(draft.scheduledAt) : null;
   const draggable = DND && draft.status !== 'posted' && !isPast;
 
-  const inner = (
-    <>
+  // Imperative listeners — Pressable + ref + addEventListener was the
+  // pattern that visually worked end-to-end. We keep Pressable so the
+  // click-to-open path stays identical to native; the drag attribute is
+  // attached imperatively after mount so RN-Web's render layer doesn't
+  // strip it.
+  useEffect(() => {
+    if (!DND) return;
+    const el = ref.current as unknown as HTMLDivElement | null;
+    if (!el) return;
+    if (!draggable) {
+      el.removeAttribute('draggable');
+      return;
+    }
+    el.setAttribute('draggable', 'true');
+    const onDragStart = (e: DragEvent) => {
+      if (!e.dataTransfer) return;
+      e.dataTransfer.setData(DND_MIME, draft.id);
+      e.dataTransfer.setData('text/plain', draft.id);
+      e.dataTransfer.effectAllowed = 'move';
+    };
+    el.addEventListener('dragstart', onDragStart);
+    return () => el.removeEventListener('dragstart', onDragStart);
+  }, [draggable, draft.id]);
+
+  return (
+    <Pressable
+      ref={ref as any}
+      onPress={onOpen}
+      style={[styles.thumbItem, { borderLeftColor: tone }, draggable && styles.thumbItemDraggable]}
+    >
       {draft.assets[0]?.url ? (
         <Image source={{ uri: draft.assets[0].url }} style={styles.thumbItemImg} resizeMode="cover" />
       ) : (
@@ -555,46 +584,7 @@ function DraggableThumb({
           {draft.headline ?? draft.caption.slice(0, 40) ?? '(untitled)'}
         </Text>
       </View>
-    </>
-  );
-
-  if (!DND) {
-    return (
-      <Pressable onPress={onOpen} style={[styles.thumbItem, { borderLeftColor: tone }]}>
-        {inner}
-      </Pressable>
-    );
-  }
-  // Web: raw <div> with React's native HTML drag props. Bypassing RN-Web's
-  // View entirely for this leaf — RN-Web wraps everything in CSS classes
-  // and refs that interact unpredictably with HTML5 drag (the previous
-  // imperative-listener attempts were swallowed). A plain div with
-  // draggable + onDragStart is the path of least resistance.
-  return (
-    <div
-      draggable={draggable}
-      onClick={onOpen}
-      onDragStart={(e) => {
-        if (!draggable) return;
-        e.dataTransfer.setData(DND_MIME, draft.id);
-        e.dataTransfer.setData('text/plain', draft.id);
-        e.dataTransfer.effectAllowed = 'move';
-      }}
-      style={{
-        display: 'flex',
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-        backgroundColor: Colors.bgLight,
-        borderRadius: 4,
-        padding: 3,
-        borderLeft: `2px solid ${tone}`,
-        cursor: draggable ? 'grab' : 'pointer',
-        userSelect: 'none',
-      }}
-    >
-      {inner}
-    </div>
+    </Pressable>
   );
 }
 
@@ -621,53 +611,48 @@ function DraftCardCompact({
   /** Past-day cards aren't draggable. Defaults to false. */
   isPast?: boolean;
 }) {
+  const ref = useRef<View>(null);
   const tone = draft.status === 'posted' ? Colors.success : draft.status === 'scheduled' ? Colors.primary : Colors.textMuted;
   const time = draft.scheduledAt ? istHHmm(draft.scheduledAt) : null;
   const draggable = DND && draft.status !== 'posted' && !isPast && !!onDragStart;
 
-  if (!DND) {
-    return (
-      <Pressable onPress={onOpen} style={styles.compactCard}>
-        <CompactCardContent draft={draft} tone={tone} time={time} />
-      </Pressable>
-    );
-  }
-  // Web: raw <div> for the same reason as DraggableThumb above. RN-Web's
-  // View wrapping was preventing dragstart from firing reliably; a plain
-  // div + React's native HTML drag props is deterministic.
-  return (
-    <div
-      draggable={draggable}
-      onClick={onOpen}
-      onDragStart={(e) => {
-        if (!draggable) return;
-        e.dataTransfer.setData(DND_MIME, draft.id);
-        e.dataTransfer.setData('text/plain', draft.id);
-        e.dataTransfer.effectAllowed = 'move';
-        onDragStart?.();
-      }}
-      onDragEnd={() => onDragEnd?.()}
-      style={{
-        display: 'flex',
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-        backgroundColor: Colors.bgLight,
-        borderRadius: 6,
-        padding: 6,
-        border: `1px solid ${Colors.border}`,
-        cursor: draggable ? 'grab' : 'pointer',
-        userSelect: 'none',
-      }}
-    >
-      <CompactCardContent draft={draft} tone={tone} time={time} />
-    </div>
-  );
-}
+  // Same imperative pattern as DraggableThumb — this is the version that
+  // visually fired drag correctly. The drop-target unreachability was a
+  // separate issue (modal scrim covered the cells) and is fixed in
+  // DayPostsModal via inline pointer-events.
+  useEffect(() => {
+    if (!DND) return;
+    const el = ref.current as unknown as HTMLDivElement | null;
+    if (!el) return;
+    if (!draggable) {
+      el.removeAttribute('draggable');
+      return;
+    }
+    el.setAttribute('draggable', 'true');
+    const handleDragStart = (e: DragEvent) => {
+      if (!e.dataTransfer) return;
+      e.dataTransfer.setData(DND_MIME, draft.id);
+      e.dataTransfer.setData('text/plain', draft.id);
+      e.dataTransfer.effectAllowed = 'move';
+      onDragStart?.();
+    };
+    const handleDragEnd = () => {
+      onDragEnd?.();
+    };
+    el.addEventListener('dragstart', handleDragStart);
+    el.addEventListener('dragend', handleDragEnd);
+    return () => {
+      el.removeEventListener('dragstart', handleDragStart);
+      el.removeEventListener('dragend', handleDragEnd);
+    };
+  }, [draggable, draft.id, onDragStart, onDragEnd]);
 
-function CompactCardContent({ draft, tone, time }: { draft: MarketingDraft; tone: string; time: string | null }) {
   return (
-    <>
+    <Pressable
+      ref={ref as any}
+      onPress={onOpen}
+      style={[styles.compactCard, draggable && styles.compactCardDraggable]}
+    >
       {draft.assets[0]?.url ? (
         <Image source={{ uri: draft.assets[0].url }} style={styles.compactThumb} resizeMode="cover" />
       ) : (
@@ -686,7 +671,7 @@ function CompactCardContent({ draft, tone, time }: { draft: MarketingDraft; tone
           {[draft.pillarLabel, draft.personaLabel].filter(Boolean).join(' · ')}
         </Text>
       </View>
-    </>
+    </Pressable>
   );
 }
 
@@ -824,19 +809,14 @@ function DayPostsModal({
       <Pressable
         style={[styles.modalScrim, ghosted && styles.modalScrimGhosted]}
         onPress={ghosted ? undefined : onClose}
-        // Both scrim AND modal card must be pointer-events:none during a
-        // drag — otherwise the modal card (pointer-events:auto by default,
-        // and absolute children of `box-none` get auto re-applied) sits on
-        // top of every day cell and swallows the dragover. With both set
-        // to 'none', HTML5 drag events fall through to the calendar grid
-        // beneath. The drag source's dragend still fires because the
-        // browser tracks the source independently after dragstart.
-        pointerEvents={ghosted ? 'none' : 'auto'}
+        // Scrim becomes box-none during drag — the scrim itself doesn't
+        // catch events but the modal card (now off-screen) doesn't either,
+        // so the cursor sees through to the calendar cells beneath.
+        pointerEvents={ghosted ? 'box-none' : 'auto'}
       >
         <Pressable
           style={[styles.modalCard, ghosted && styles.modalCardGhosted]}
           onPress={() => { /* swallow */ }}
-          pointerEvents={ghosted ? 'none' : 'auto'}
         >
           <View style={styles.modalHead}>
             <View style={{ flex: 1 }}>
@@ -1179,11 +1159,21 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
   },
   modalScrimGhosted: {
-    // Mid-drag: barely-tinted backdrop so the calendar grid is fully visible
-    // and the scrim doesn't intercept the drop event.
-    backgroundColor: 'rgba(28, 16, 51, 0.10)',
+    // Mid-drag: transparent backdrop so the calendar grid is fully visible.
+    backgroundColor: 'transparent',
   },
-  modalCardGhosted: { opacity: 0.4 },
+  modalCardGhosted: {
+    // During drag we move the modal card off-screen so the calendar cells
+    // beneath are reachable for drop. The source DOM element stays mounted
+    // (so the browser doesn't cancel the in-flight drag), it's just no
+    // longer covering anything. Once dragend fires we close the modal
+    // anyway, so the user never sees the off-screen state visually — they
+    // just see the modal disappear and the drag preview follow the cursor.
+    position: 'absolute' as any,
+    top: -10000,
+    left: 0,
+    opacity: 0,
+  },
   modalCardSm: {
     width: '100%', maxWidth: 380,
     backgroundColor: Colors.cardBg,
