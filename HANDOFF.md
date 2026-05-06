@@ -11,6 +11,32 @@ No active coding task.
 
 ---
 
+## Last action (2026-05-07) — Renamed "Real Story" → "Inspired Story" tag
+
+**Commit `27f69c3` · functions deployed · hosting deployed · OTA `3fa21cb0` published.**
+
+Why: today's UGC pipeline is wired but unused — every published "Real Story" is
+AI-composed with attributed personas. Calling them "Real Stories" misled readers.
+"Inspired Story" keeps warmth and signals composition without claiming a real
+author. Real-mom UGC (when it lands) drops into the same pillar.
+
+### What changed (user-visible only)
+- Admin: template picker label, Settings → Template Preview tab + eyebrow,
+  UGC queue description + render-button text.
+- Pillar: `'Real Stories'` → `'Inspired Stories'` (label only; **id stays
+  `real_stories`** so existing drafts/seasonal calendar don't break).
+- Cloud Functions: text rendered ON post images (`Inspired Story · …`),
+  draft `themeLabel`, caption `headline`, IG/FB hashtag (`RealStories` →
+  `InspiredStories`).
+- Compiled `functions/lib/*.js` mirrored.
+
+### Deliberately NOT renamed (Firestore-persisted identifiers)
+- Template key `'realStoryCard'`
+- Pillar id `'real_stories'`
+- Type/file names (`RealStoryCardProps`, `realStoryCard.ts`)
+
+---
+
 ## Last action (2026-05-06) — Editable post time (slot + per-day weekly rhythm)
 
 **Commit `0dd9b4c` · functions deployed · hosting deployed · OTA `26e7e803` published.**
