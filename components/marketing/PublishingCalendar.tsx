@@ -616,20 +616,35 @@ function DraftCardCompact({
   const time = draft.scheduledAt ? istHHmm(draft.scheduledAt) : null;
   const draggable = DND && draft.status !== 'posted' && !isPast && !!onDragStart;
 
-  // Same imperative pattern as DraggableThumb — this is the version that
-  // visually fired drag correctly. The drop-target unreachability was a
-  // separate issue (modal scrim covered the cells) and is fixed in
-  // DayPostsModal via inline pointer-events.
+  // Belt-and-suspenders: try every avenue to make this draggable on web.
+  // (1) JSX prop draggable+onDragStart on Pressable — RN-Web *might* forward.
+  // (2) Imperative setAttribute + addEventListener via ref — works even if RN
+  //     filters the JSX props.
+  // The console.log below tells the admin (via DevTools) whether dragstart
+  // is firing at all — critical signal we've been missing.
   useEffect(() => {
     if (!DND) return;
-    const el = ref.current as unknown as HTMLDivElement | null;
-    if (!el) return;
+    // Try to find the underlying DOM element. RN-Web's Pressable ref usually
+    // points to the div directly, but some versions wrap it. Walk every
+    // shape we know about until we find an HTMLElement.
+    const candidate: any = ref.current;
+    let el: HTMLElement | null = null;
+    if (candidate instanceof HTMLElement) el = candidate;
+    else if (candidate && candidate._node instanceof HTMLElement) el = candidate._node;
+    else if (candidate && typeof candidate.setAttribute === 'function') el = candidate as HTMLElement;
+    if (!el) {
+      // eslint-disable-next-line no-console
+      console.warn('[PublishingCalendar] DraftCardCompact ref did not resolve to a DOM element', candidate);
+      return;
+    }
     if (!draggable) {
       el.removeAttribute('draggable');
       return;
     }
     el.setAttribute('draggable', 'true');
     const handleDragStart = (e: DragEvent) => {
+      // eslint-disable-next-line no-console
+      console.log('[PublishingCalendar] dragstart on', draft.id, draft.headline);
       if (!e.dataTransfer) return;
       e.dataTransfer.setData(DND_MIME, draft.id);
       e.dataTransfer.setData('text/plain', draft.id);
@@ -637,6 +652,8 @@ function DraftCardCompact({
       onDragStart?.();
     };
     const handleDragEnd = () => {
+      // eslint-disable-next-line no-console
+      console.log('[PublishingCalendar] dragend on', draft.id);
       onDragEnd?.();
     };
     el.addEventListener('dragstart', handleDragStart);
@@ -645,13 +662,25 @@ function DraftCardCompact({
       el.removeEventListener('dragstart', handleDragStart);
       el.removeEventListener('dragend', handleDragEnd);
     };
-  }, [draggable, draft.id, onDragStart, onDragEnd]);
+  }, [draggable, draft.id, draft.headline, onDragStart, onDragEnd]);
+
+  // Web-only props passed through Pressable. RN-Web filters most unknown
+  // props but `draggable` and the on*Drag* event names are passed through
+  // for `View` (and Pressable wraps a View) — so this acts as the JSX-prop
+  // half of the belt-and-suspenders. The imperative useEffect above is the
+  // backup if RN-Web's filter strips them.
+  const webProps: any = DND
+    ? {
+        draggable: draggable ? true : undefined,
+      }
+    : {};
 
   return (
     <Pressable
       ref={ref as any}
       onPress={onOpen}
       style={[styles.compactCard, draggable && styles.compactCardDraggable]}
+      {...webProps}
     >
       {draft.assets[0]?.url ? (
         <Image source={{ uri: draft.assets[0].url }} style={styles.compactThumb} resizeMode="cover" />
