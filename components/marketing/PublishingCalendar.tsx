@@ -536,46 +536,9 @@ function DraggableThumb({
   isPast: boolean;
   onOpen: () => void;
 }) {
-  const ref = useRef<View>(null);
   const tone = draft.status === 'posted' ? Colors.success : draft.status === 'scheduled' ? Colors.primary : Colors.textMuted;
   const time = draft.scheduledAt ? istHHmm(draft.scheduledAt) : null;
   const draggable = DND && draft.status !== 'posted' && !isPast;
-
-  // Imperatively attach click + drag listeners to the underlying DOM
-  // element. We use a plain <View> rather than <Pressable> because RN-Web
-  // Pressable's pointerdown handler can suppress the browser's native
-  // dragstart event (preventDefault) — leaving only a click, which the
-  // user perceives as "drag is broken". Raw click + raw dragstart on a
-  // div both fire reliably.
-  useEffect(() => {
-    if (!DND) return;
-    const el = ref.current as unknown as HTMLDivElement | null;
-    if (!el) return;
-    const handleClick = (e: MouseEvent) => {
-      e.stopPropagation();
-      onOpen();
-    };
-    el.addEventListener('click', handleClick);
-    let removeDrag: (() => void) | null = null;
-    if (draggable) {
-      el.setAttribute('draggable', 'true');
-      const handleDragStart = (e: DragEvent) => {
-        e.stopPropagation();
-        if (!e.dataTransfer) return;
-        e.dataTransfer.setData(DND_MIME, draft.id);
-        e.dataTransfer.setData('text/plain', draft.id);
-        e.dataTransfer.effectAllowed = 'move';
-      };
-      el.addEventListener('dragstart', handleDragStart);
-      removeDrag = () => el.removeEventListener('dragstart', handleDragStart);
-    } else {
-      el.removeAttribute('draggable');
-    }
-    return () => {
-      el.removeEventListener('click', handleClick);
-      removeDrag?.();
-    };
-  }, [draggable, draft.id, onOpen]);
 
   const inner = (
     <>
@@ -602,13 +565,36 @@ function DraggableThumb({
       </Pressable>
     );
   }
+  // Web: raw <div> with React's native HTML drag props. Bypassing RN-Web's
+  // View entirely for this leaf — RN-Web wraps everything in CSS classes
+  // and refs that interact unpredictably with HTML5 drag (the previous
+  // imperative-listener attempts were swallowed). A plain div with
+  // draggable + onDragStart is the path of least resistance.
   return (
-    <View
-      ref={ref as any}
-      style={[styles.thumbItem, { borderLeftColor: tone }, draggable && styles.thumbItemDraggable]}
+    <div
+      draggable={draggable}
+      onClick={onOpen}
+      onDragStart={(e) => {
+        if (!draggable) return;
+        e.dataTransfer.setData(DND_MIME, draft.id);
+        e.dataTransfer.setData('text/plain', draft.id);
+        e.dataTransfer.effectAllowed = 'move';
+      }}
+      style={{
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        backgroundColor: Colors.bgLight,
+        borderRadius: 4,
+        padding: 3,
+        borderLeft: `2px solid ${tone}`,
+        cursor: draggable ? 'grab' : 'pointer',
+        userSelect: 'none',
+      }}
     >
       {inner}
-    </View>
+    </div>
   );
 }
 
@@ -635,56 +621,10 @@ function DraftCardCompact({
   /** Past-day cards aren't draggable. Defaults to false. */
   isPast?: boolean;
 }) {
-  const ref = useRef<View>(null);
   const tone = draft.status === 'posted' ? Colors.success : draft.status === 'scheduled' ? Colors.primary : Colors.textMuted;
   const time = draft.scheduledAt ? istHHmm(draft.scheduledAt) : null;
   const draggable = DND && draft.status !== 'posted' && !isPast && !!onDragStart;
 
-  useEffect(() => {
-    if (!DND) return;
-    const el = ref.current as unknown as HTMLDivElement | null;
-    if (!el) return;
-    // Click handler attached imperatively — RN's Pressable was suppressing
-    // the native HTML5 drag (preventDefault on pointerdown), leaving only
-    // the click which then closed the modal. A plain <View> with raw click
-    // listener doesn't fight the drag.
-    const handleClick = (e: MouseEvent) => {
-      e.stopPropagation();
-      onOpen();
-    };
-    el.addEventListener('click', handleClick);
-    let removeDrag: (() => void) | null = null;
-    if (draggable) {
-      el.setAttribute('draggable', 'true');
-      const handleDragStart = (e: DragEvent) => {
-        e.stopPropagation();
-        if (!e.dataTransfer) return;
-        e.dataTransfer.setData(DND_MIME, draft.id);
-        e.dataTransfer.setData('text/plain', draft.id);
-        e.dataTransfer.effectAllowed = 'move';
-        onDragStart?.();
-      };
-      const handleDragEnd = () => {
-        onDragEnd?.();
-      };
-      el.addEventListener('dragstart', handleDragStart);
-      el.addEventListener('dragend', handleDragEnd);
-      removeDrag = () => {
-        el.removeEventListener('dragstart', handleDragStart);
-        el.removeEventListener('dragend', handleDragEnd);
-      };
-    } else {
-      el.removeAttribute('draggable');
-    }
-    return () => {
-      el.removeEventListener('click', handleClick);
-      removeDrag?.();
-    };
-  }, [draggable, draft.id, onDragStart, onDragEnd, onOpen]);
-
-  // On native (no DND, no HTML drag), keep the Pressable wrapper so admins
-  // can tap to preview. On web we render a plain View — the imperative
-  // click + drag listeners above handle interaction.
   if (!DND) {
     return (
       <Pressable onPress={onOpen} style={styles.compactCard}>
@@ -692,13 +632,36 @@ function DraftCardCompact({
       </Pressable>
     );
   }
+  // Web: raw <div> for the same reason as DraggableThumb above. RN-Web's
+  // View wrapping was preventing dragstart from firing reliably; a plain
+  // div + React's native HTML drag props is deterministic.
   return (
-    <View
-      ref={ref as any}
-      style={[styles.compactCard, draggable && styles.compactCardDraggable]}
+    <div
+      draggable={draggable}
+      onClick={onOpen}
+      onDragStart={(e) => {
+        if (!draggable) return;
+        e.dataTransfer.setData(DND_MIME, draft.id);
+        e.dataTransfer.setData('text/plain', draft.id);
+        e.dataTransfer.effectAllowed = 'move';
+        onDragStart?.();
+      }}
+      onDragEnd={() => onDragEnd?.()}
+      style={{
+        display: 'flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        backgroundColor: Colors.bgLight,
+        borderRadius: 6,
+        padding: 6,
+        border: `1px solid ${Colors.border}`,
+        cursor: draggable ? 'grab' : 'pointer',
+        userSelect: 'none',
+      }}
     >
       <CompactCardContent draft={draft} tone={tone} time={time} />
-    </View>
+    </div>
   );
 }
 
