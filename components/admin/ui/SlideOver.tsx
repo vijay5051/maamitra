@@ -58,7 +58,16 @@ export default function SlideOver({
           <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.body}>
             {children}
           </ScrollView>
-          {footer ? <View style={styles.footer}>{footer}</View> : null}
+          {footer ? (
+            <ScrollView
+              style={styles.footer}
+              contentContainerStyle={styles.footerContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {footer}
+            </ScrollView>
+          ) : null}
         </View>
       </View>
     </Modal>
@@ -87,8 +96,11 @@ const styles = StyleSheet.create({
   },
   body: { padding: Spacing.xl, gap: Spacing.lg },
   footer: {
-    paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md,
     borderTopWidth: 1, borderTopColor: Colors.borderSoft,
-    flexDirection: 'row', gap: Spacing.sm, justifyContent: 'flex-end',
+    maxHeight: 220,
+  },
+  footerContent: {
+    paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md,
+    gap: Spacing.sm,
   },
 });
