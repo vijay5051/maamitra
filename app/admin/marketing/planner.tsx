@@ -166,7 +166,7 @@ export default function MarketingPlannerScreen() {
 
         {brand ? (
           <View style={[styles.grid, isWide && styles.gridWide]}>
-            <View style={styles.gridCol}>
+            <View style={[styles.gridCol, isWide && styles.gridColWide]}>
               <WeeklyRhythmEditor
                 themeCalendar={brand.themeCalendar}
                 slots={brand.automationSlots}
@@ -175,7 +175,7 @@ export default function MarketingPlannerScreen() {
               />
             </View>
 
-            <View style={styles.gridCol}>
+            <View style={[styles.gridCol, isWide && styles.gridColWide]}>
               <View style={styles.card}>
                 <View style={styles.cardHead}>
                   <View style={styles.cardIcon}>
@@ -709,7 +709,8 @@ const styles = StyleSheet.create({
 
   grid: { gap: Spacing.md },
   gridWide: { flexDirection: 'row', alignItems: 'stretch' },
-  gridCol: { flex: 1, gap: Spacing.md },
+  gridCol: { gap: Spacing.md },
+  gridColWide: { flex: 1 },
 
   card: {
     backgroundColor: Colors.cardBg,
