@@ -11,6 +11,32 @@ No active coding task.
 
 ---
 
+## Last action (2026-05-06) — Studio mobile layout fixes
+
+**Commit `2c8c7cf` · hosting deployed · OTA `34c10318` published.**
+
+### What changed (4 files)
+
+- **`components/marketing/MarketingShell.tsx`** — Settings gear extracted from
+  the horizontal ScrollView into a sibling View pinned to the right. On mobile
+  the `flex:1` spacer inside a ScrollView does nothing, so the gear was being
+  scrolled off-screen. Now always visible.
+- **`app/admin/marketing/create.tsx`** (Studio wizard)
+  - Preview image collapse fixed: `savePreviewWrap` style with `width:'100%',
+    maxWidth:360` so the Image's `width:'100%'` resolves correctly inside the
+    `alignItems:center` parent (was collapsing to 0).
+  - Step 2 action row: on narrow screens ghost buttons (Try again / Edit first)
+    are in a row and the primary button is full-width below — no more overflow.
+  - Quality card sub-text shortened to prevent excessive line-wrapping in the
+    narrow cards.
+- **`app/admin/marketing/index.tsx`** — TomorrowCard Skip/Queue buttons switch
+  to `flexDirection:'column'` on narrow so they never squeeze or overlap.
+- **`app/admin/marketing/posts.tsx`** — Calendar day-grid wrapped in a
+  horizontal ScrollView; `dayCell` changed from `width:'13.7%' minWidth:100`
+  (700 px minimum = off-screen on mobile) to a fixed `width:100` that scrolls.
+
+---
+
 ## Last action (2026-05-06) — Notifications outbox rebuild
 
 **Commit `ca9f3ff` · hosting deployed · OTA `0a030d18` published.**
