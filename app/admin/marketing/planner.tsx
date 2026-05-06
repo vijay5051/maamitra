@@ -212,14 +212,8 @@ export default function MarketingPlannerScreen() {
           <QuickNavCard
             icon="calendar-outline"
             title="Publishing calendar"
-            body="Drag approved and scheduled posts across the week."
+            body="Month-view of approved + scheduled + posted drafts. Drag to reschedule."
             onPress={() => router.push('/admin/marketing/calendar' as any)}
-          />
-          <QuickNavCard
-            icon="document-text-outline"
-            title="Posts queue"
-            body="Review drafts, approvals, posted content, and UGC in one place."
-            onPress={() => router.push('/admin/marketing/posts' as any)}
           />
           <QuickNavCard
             icon="settings-outline"
