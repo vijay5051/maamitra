@@ -423,6 +423,9 @@ function rowToDraft(snap: { id: string; data: () => DocumentData }): MarketingDr
     eventLabel: typeof d.eventLabel === 'string' ? d.eventLabel : null,
     locale: typeof d.locale === 'string' ? d.locale : null,
     headline: typeof d.headline === 'string' ? d.headline : null,
+    templateProps: d.templateProps && typeof d.templateProps === 'object' && !Array.isArray(d.templateProps)
+      ? (d.templateProps as Record<string, unknown>)
+      : null,
     imagePrompt: typeof d.imagePrompt === 'string' ? d.imagePrompt : null,
     imageSource: typeof d.imageSource === 'string' ? d.imageSource : null,
     costInr: typeof d.costInr === 'number' ? d.costInr : 0,
