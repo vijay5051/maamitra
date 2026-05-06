@@ -541,41 +541,44 @@ function DraggableThumb({
   const time = draft.scheduledAt ? istHHmm(draft.scheduledAt) : null;
   const draggable = DND && draft.status !== 'posted' && !isPast;
 
-  // Imperatively attach dragstart to the underlying DOM element. RN Web's
-  // Pressable doesn't always forward `draggable` + `onDragStart` reliably.
+  // Imperatively attach click + drag listeners to the underlying DOM
+  // element. We use a plain <View> rather than <Pressable> because RN-Web
+  // Pressable's pointerdown handler can suppress the browser's native
+  // dragstart event (preventDefault) — leaving only a click, which the
+  // user perceives as "drag is broken". Raw click + raw dragstart on a
+  // div both fire reliably.
   useEffect(() => {
     if (!DND) return;
     const el = ref.current as unknown as HTMLDivElement | null;
     if (!el) return;
-    if (!draggable) {
-      el.removeAttribute('draggable');
-      return;
-    }
-    el.setAttribute('draggable', 'true');
-    const onDragStart = (e: DragEvent) => {
+    const handleClick = (e: MouseEvent) => {
       e.stopPropagation();
-      if (!e.dataTransfer) return;
-      e.dataTransfer.setData(DND_MIME, draft.id);
-      e.dataTransfer.setData('text/plain', draft.id);
-      e.dataTransfer.effectAllowed = 'move';
+      onOpen();
     };
-    el.addEventListener('dragstart', onDragStart);
+    el.addEventListener('click', handleClick);
+    let removeDrag: (() => void) | null = null;
+    if (draggable) {
+      el.setAttribute('draggable', 'true');
+      const handleDragStart = (e: DragEvent) => {
+        e.stopPropagation();
+        if (!e.dataTransfer) return;
+        e.dataTransfer.setData(DND_MIME, draft.id);
+        e.dataTransfer.setData('text/plain', draft.id);
+        e.dataTransfer.effectAllowed = 'move';
+      };
+      el.addEventListener('dragstart', handleDragStart);
+      removeDrag = () => el.removeEventListener('dragstart', handleDragStart);
+    } else {
+      el.removeAttribute('draggable');
+    }
     return () => {
-      el.removeEventListener('dragstart', onDragStart);
+      el.removeEventListener('click', handleClick);
+      removeDrag?.();
     };
-  }, [draggable, draft.id]);
+  }, [draggable, draft.id, onOpen]);
 
-  const handlePress = (e: any) => {
-    if (e?.stopPropagation) e.stopPropagation();
-    onOpen();
-  };
-
-  return (
-    <Pressable
-      ref={ref as any}
-      onPress={handlePress}
-      style={[styles.thumbItem, { borderLeftColor: tone }, draggable && styles.thumbItemDraggable]}
-    >
+  const inner = (
+    <>
       {draft.assets[0]?.url ? (
         <Image source={{ uri: draft.assets[0].url }} style={styles.thumbItemImg} resizeMode="cover" />
       ) : (
@@ -589,7 +592,23 @@ function DraggableThumb({
           {draft.headline ?? draft.caption.slice(0, 40) ?? '(untitled)'}
         </Text>
       </View>
-    </Pressable>
+    </>
+  );
+
+  if (!DND) {
+    return (
+      <Pressable onPress={onOpen} style={[styles.thumbItem, { borderLeftColor: tone }]}>
+        {inner}
+      </Pressable>
+    );
+  }
+  return (
+    <View
+      ref={ref as any}
+      style={[styles.thumbItem, { borderLeftColor: tone }, draggable && styles.thumbItemDraggable]}
+    >
+      {inner}
+    </View>
   );
 }
 
@@ -625,36 +644,67 @@ function DraftCardCompact({
     if (!DND) return;
     const el = ref.current as unknown as HTMLDivElement | null;
     if (!el) return;
-    if (!draggable) {
-      el.removeAttribute('draggable');
-      return;
-    }
-    el.setAttribute('draggable', 'true');
-    const handleDragStart = (e: DragEvent) => {
+    // Click handler attached imperatively — RN's Pressable was suppressing
+    // the native HTML5 drag (preventDefault on pointerdown), leaving only
+    // the click which then closed the modal. A plain <View> with raw click
+    // listener doesn't fight the drag.
+    const handleClick = (e: MouseEvent) => {
       e.stopPropagation();
-      if (!e.dataTransfer) return;
-      e.dataTransfer.setData(DND_MIME, draft.id);
-      e.dataTransfer.setData('text/plain', draft.id);
-      e.dataTransfer.effectAllowed = 'move';
-      onDragStart?.();
+      onOpen();
     };
-    const handleDragEnd = () => {
-      onDragEnd?.();
-    };
-    el.addEventListener('dragstart', handleDragStart);
-    el.addEventListener('dragend', handleDragEnd);
+    el.addEventListener('click', handleClick);
+    let removeDrag: (() => void) | null = null;
+    if (draggable) {
+      el.setAttribute('draggable', 'true');
+      const handleDragStart = (e: DragEvent) => {
+        e.stopPropagation();
+        if (!e.dataTransfer) return;
+        e.dataTransfer.setData(DND_MIME, draft.id);
+        e.dataTransfer.setData('text/plain', draft.id);
+        e.dataTransfer.effectAllowed = 'move';
+        onDragStart?.();
+      };
+      const handleDragEnd = () => {
+        onDragEnd?.();
+      };
+      el.addEventListener('dragstart', handleDragStart);
+      el.addEventListener('dragend', handleDragEnd);
+      removeDrag = () => {
+        el.removeEventListener('dragstart', handleDragStart);
+        el.removeEventListener('dragend', handleDragEnd);
+      };
+    } else {
+      el.removeAttribute('draggable');
+    }
     return () => {
-      el.removeEventListener('dragstart', handleDragStart);
-      el.removeEventListener('dragend', handleDragEnd);
+      el.removeEventListener('click', handleClick);
+      removeDrag?.();
     };
-  }, [draggable, draft.id, onDragStart, onDragEnd]);
+  }, [draggable, draft.id, onDragStart, onDragEnd, onOpen]);
 
+  // On native (no DND, no HTML drag), keep the Pressable wrapper so admins
+  // can tap to preview. On web we render a plain View — the imperative
+  // click + drag listeners above handle interaction.
+  if (!DND) {
+    return (
+      <Pressable onPress={onOpen} style={styles.compactCard}>
+        <CompactCardContent draft={draft} tone={tone} time={time} />
+      </Pressable>
+    );
+  }
   return (
-    <Pressable
+    <View
       ref={ref as any}
-      onPress={onOpen}
       style={[styles.compactCard, draggable && styles.compactCardDraggable]}
     >
+      <CompactCardContent draft={draft} tone={tone} time={time} />
+    </View>
+  );
+}
+
+function CompactCardContent({ draft, tone, time }: { draft: MarketingDraft; tone: string; time: string | null }) {
+  return (
+    <>
       {draft.assets[0]?.url ? (
         <Image source={{ uri: draft.assets[0].url }} style={styles.compactThumb} resizeMode="cover" />
       ) : (
@@ -673,7 +723,7 @@ function DraftCardCompact({
           {[draft.pillarLabel, draft.personaLabel].filter(Boolean).join(' · ')}
         </Text>
       </View>
-    </Pressable>
+    </>
   );
 }
 
