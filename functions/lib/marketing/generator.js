@@ -823,6 +823,21 @@ function buildGenerateMarketingDraft(allowList) {
 // Auto-disabled: bumps a counter in marketing_brand/main if `cronEnabled`
 // is true; otherwise no-ops. Admin opts in by saving brand kit with
 // `cronEnabled: true`. This keeps test deploys safe.
+/** Returns false if the slot's frequency means it should not run on this date. */
+function shouldRunSlotToday(slot, isoDate, weekdayKey) {
+    const freq = slot.frequency ?? 'daily';
+    if (freq === 'daily')
+        return true;
+    if (freq === 'alternate_day')
+        return Math.floor(new Date(isoDate).getTime() / 86400000) % 2 === 0;
+    if (freq === 'weekly')
+        return weekdayKey === (slot.runOnWeekDay ?? 'mon');
+    if (freq === 'monthly') {
+        const dayOfMonth = new Date(`${isoDate}T12:00:00+05:30`).getDate();
+        return dayOfMonth === (slot.runOnMonthDay ?? 1);
+    }
+    return true;
+}
 function buildDailyMarketingDraftCron() {
     return functions
         .runWith({ memory: '1GB', timeoutSeconds: 540 })
@@ -858,19 +873,28 @@ function buildDailyMarketingDraftCron() {
         for (const rawSlot of slots) {
             if (rawSlot?.enabled === false)
                 continue;
+            if (!shouldRunSlotToday(rawSlot, todayIso, weekdayKey)) {
+                console.log('[dailyMarketingDraftCron] frequency skip for slot', rawSlot?.id, 'on', todayIso);
+                continue;
+            }
             const slotId = typeof rawSlot?.id === 'string' ? rawSlot.id : 'default';
             const generatedForKey = `${todayIso}:${slotId}`;
             if (await draftExistsForKey(generatedForKey)) {
                 console.log('[dailyMarketingDraftCron] draft already exists for', generatedForKey, '— skipping slot');
                 continue;
             }
+            // Day-level autoSchedule overrides slot-level when explicitly set.
+            const effectiveAutoSchedule = theme?.autoSchedule === true ? true : rawSlot?.autoSchedule === true;
+            const effectiveSlotTime = (typeof theme?.postTime === 'string' && /^[0-2]\d:[0-5]\d$/.test(theme.postTime))
+                ? theme.postTime
+                : (typeof rawSlot?.time === 'string' ? rawSlot.time : (data?.defaultPostTime ?? '09:00'));
             const genInput = {
                 forDateIso: todayIso,
                 slotId,
                 slotLabel: typeof rawSlot?.label === 'string' ? rawSlot.label : 'Daily slot',
-                slotTime: typeof rawSlot?.time === 'string' ? rawSlot.time : (data?.defaultPostTime ?? '09:00'),
+                slotTime: effectiveSlotTime,
                 slotPlatforms: rawSlot?.platforms,
-                autoSchedule: rawSlot?.autoSchedule === true,
+                autoSchedule: effectiveAutoSchedule,
             };
             const slotOverride = resolveSlotOverride(overrides, todayIso, slotId);
             if (slotOverride.skip === true) {
@@ -923,11 +947,14 @@ function buildDailyMarketingDraftCron() {
                 console.log('[dailyMarketingDraftCron] tomorrow event slot skip override active for', generatedForKey);
                 continue;
             }
+            const effectiveTomorrowSlotTime = (typeof tomorrowTheme?.postTime === 'string' && /^[0-2]\d:[0-5]\d$/.test(tomorrowTheme.postTime))
+                ? tomorrowTheme.postTime
+                : (typeof rawSlot?.time === 'string' ? rawSlot.time : (data?.defaultPostTime ?? '09:00'));
             const genInput = {
                 forDateIso: tomorrow.isoDate,
                 slotId,
                 slotLabel: typeof rawSlot?.label === 'string' ? rawSlot.label : 'Daily slot',
-                slotTime: typeof rawSlot?.time === 'string' ? rawSlot.time : (data?.defaultPostTime ?? '09:00'),
+                slotTime: effectiveTomorrowSlotTime,
                 slotPlatforms: rawSlot?.platforms,
                 autoSchedule: rawSlot?.autoSchedule === true,
             };

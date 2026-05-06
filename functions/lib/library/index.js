@@ -1,7 +1,7 @@
 "use strict";
 // Library AI — barrel exports for index.ts.
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.buildArchiveLibraryItem = exports.buildExpireStaleLibrary = exports.buildDailyLibraryAiCron = exports.runProductGenerator = exports.buildGenerateProductsNow = exports.runBookGenerator = exports.buildGenerateBooksNow = exports.runArticleGenerator = exports.buildSyncPublishedArticleToMarketingDraft = exports.buildSendArticleToMarketingDraft = exports.buildRetryArticleImage = exports.buildProcessPendingArticleImage = exports.buildGenerateArticleNow = void 0;
+exports.buildSyncArticleSocialDraft = exports.buildArchiveLibraryItem = exports.buildExpireStaleLibrary = exports.buildDailyLibraryAiCron = exports.runProductGenerator = exports.buildGenerateProductsNow = exports.runBookGenerator = exports.buildGenerateBooksNow = exports.runArticleGenerator = exports.buildSyncPublishedArticleToMarketingDraft = exports.buildSendArticleToMarketingDraft = exports.buildRetryArticleImage = exports.buildProcessPendingArticleImage = exports.buildGenerateArticleNow = void 0;
 var articles_1 = require("./articles");
 Object.defineProperty(exports, "buildGenerateArticleNow", { enumerable: true, get: function () { return articles_1.buildGenerateArticleNow; } });
 Object.defineProperty(exports, "buildProcessPendingArticleImage", { enumerable: true, get: function () { return articles_1.buildProcessPendingArticleImage; } });
@@ -19,3 +19,5 @@ var cron_1 = require("./cron");
 Object.defineProperty(exports, "buildDailyLibraryAiCron", { enumerable: true, get: function () { return cron_1.buildDailyLibraryAiCron; } });
 Object.defineProperty(exports, "buildExpireStaleLibrary", { enumerable: true, get: function () { return cron_1.buildExpireStaleLibrary; } });
 Object.defineProperty(exports, "buildArchiveLibraryItem", { enumerable: true, get: function () { return cron_1.buildArchiveLibraryItem; } });
+var socialDrafts_1 = require("./socialDrafts");
+Object.defineProperty(exports, "buildSyncArticleSocialDraft", { enumerable: true, get: function () { return socialDrafts_1.buildSyncArticleSocialDraft; } });

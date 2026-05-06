@@ -256,7 +256,8 @@ function WeeklyRhythmEditor({
     return current.label !== original.label ||
       current.prompt !== original.prompt ||
       current.enabled !== original.enabled ||
-      (current.autoSchedule ?? false) !== (original.autoSchedule ?? false);
+      (current.autoSchedule ?? false) !== (original.autoSchedule ?? false) ||
+      (current.postTime ?? '') !== (original.postTime ?? '');
   });
 
   const enabledSlots = slots.filter((slot) => slot.enabled);
@@ -314,6 +315,17 @@ function WeeklyRhythmEditor({
                   value={item.label}
                   onChangeText={(label) => patch(day, (current) => ({ ...current, label: label.slice(0, 40) }))}
                   placeholder="Tip Tuesday"
+                  placeholderTextColor={Colors.textMuted}
+                  style={styles.slotInput}
+                />
+              </View>
+
+              <View style={styles.themeField}>
+                <Text style={styles.fieldLabel}>Post time (optional override)</Text>
+                <TextInput
+                  value={item.postTime ?? ''}
+                  onChangeText={(t) => patch(day, (current) => ({ ...current, postTime: t.slice(0, 5) || undefined }))}
+                  placeholder="HH:MM — leave blank to use slot time"
                   placeholderTextColor={Colors.textMuted}
                   style={styles.slotInput}
                 />
@@ -491,23 +503,42 @@ function AutomationSlotsEditor({
   saving: boolean;
   onChange: (slots: AutomationSlot[]) => void;
 }) {
+  const [local, setLocal] = useState<AutomationSlot[]>(slots);
+
+  useEffect(() => {
+    setLocal(slots);
+  }, [slots]);
+
+  // For chip/toggle changes: update local state AND immediately persist.
   const patch = (id: string, updater: (slot: AutomationSlot) => AutomationSlot) => {
-    onChange(slots.map((slot) => (slot.id === id ? updater(slot) : slot)));
+    const next = local.map((slot) => (slot.id === id ? updater(slot) : slot));
+    setLocal(next);
+    onChange(next);
   };
+
+  // For text inputs: update local state only; persist on blur.
+  const patchLocal = (id: string, updater: (slot: AutomationSlot) => AutomationSlot) => {
+    setLocal((prev) => prev.map((slot) => (slot.id === id ? updater(slot) : slot)));
+  };
+
+  const flush = () => onChange(local);
+
   const addSlot = () => {
-    onChange([
-      ...slots,
+    const next = [
+      ...local,
       {
         id: `slot_${Date.now()}`,
-        label: `Slot ${slots.length + 1}`,
+        label: `Slot ${local.length + 1}`,
         time: '18:00',
-        template: 'auto',
-        platforms: ['instagram', 'facebook'],
+        template: 'auto' as const,
+        platforms: ['instagram', 'facebook'] as ('instagram' | 'facebook')[],
         enabled: true,
         autoSchedule: false,
         frequency: 'daily' as SlotFrequency,
       },
-    ]);
+    ];
+    setLocal(next);
+    onChange(next);
   };
   return (
     <View style={styles.subSection}>
@@ -523,12 +554,13 @@ function AutomationSlotsEditor({
       </View>
 
       <View style={styles.slotList}>
-        {slots.map((slot) => (
+        {local.map((slot) => (
           <View key={slot.id} style={styles.slotCard}>
             <View style={styles.slotHead}>
               <TextInput
                 value={slot.label}
-                onChangeText={(label) => patch(slot.id, (current) => ({ ...current, label: label.slice(0, 40) }))}
+                onChangeText={(label) => patchLocal(slot.id, (current) => ({ ...current, label: label.slice(0, 40) }))}
+                onBlur={flush}
                 placeholder="Slot name"
                 placeholderTextColor={Colors.textMuted}
                 style={styles.slotLabelInput}
@@ -536,8 +568,8 @@ function AutomationSlotsEditor({
               <Pressable onPress={() => patch(slot.id, (current) => ({ ...current, enabled: !current.enabled }))} style={[styles.toggleMini, slot.enabled && styles.toggleMiniActive]}>
                 <Text style={[styles.toggleMiniLabel, slot.enabled && { color: Colors.white }]}>{slot.enabled ? 'On' : 'Off'}</Text>
               </Pressable>
-              {slots.length > 1 ? (
-                <Pressable onPress={() => onChange(slots.filter((item) => item.id !== slot.id))} style={styles.deleteMini}>
+              {local.length > 1 ? (
+                <Pressable onPress={() => { const next = local.filter((item) => item.id !== slot.id); setLocal(next); onChange(next); }} style={styles.deleteMini}>
                   <Ionicons name="trash-outline" size={14} color={Colors.error} />
                 </Pressable>
               ) : null}
@@ -545,10 +577,11 @@ function AutomationSlotsEditor({
 
             <View style={styles.slotFieldGrid}>
               <View style={styles.slotField}>
-                <Text style={styles.fieldLabel}>Time</Text>
+                <Text style={styles.fieldLabel}>Time (HH:MM)</Text>
                 <TextInput
                   value={slot.time}
-                  onChangeText={(time) => patch(slot.id, (current) => ({ ...current, time: time.slice(0, 5) }))}
+                  onChangeText={(time) => patchLocal(slot.id, (current) => ({ ...current, time: time.slice(0, 5) }))}
+                  onBlur={flush}
                   placeholder="09:00"
                   placeholderTextColor={Colors.textMuted}
                   style={styles.slotInput}

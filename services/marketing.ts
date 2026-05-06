@@ -177,6 +177,7 @@ function sanitiseThemeCalendar(tc: BrandKit['themeCalendar']): BrandKit['themeCa
       prompt: typeof day.prompt === 'string' ? day.prompt.trim().slice(0, 400) || DEFAULT_THEME_CALENDAR[d].prompt : DEFAULT_THEME_CALENDAR[d].prompt,
       enabled: typeof day.enabled === 'boolean' ? day.enabled : DEFAULT_THEME_CALENDAR[d].enabled,
       autoSchedule: typeof day.autoSchedule === 'boolean' ? day.autoSchedule : false,
+      ...(typeof day.postTime === 'string' && /^[0-2]\d:[0-5]\d$/.test(day.postTime) ? { postTime: day.postTime } : {}),
     };
   });
   return result;

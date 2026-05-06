@@ -105,7 +105,7 @@ interface BrandKitData {
   pillars: Pillar[];
   culturalCalendar: CalEvent[];
   hashtags: string[];
-  themeCalendar: Record<string, { label: string; prompt: string; enabled: boolean; autoSchedule?: boolean }>;
+  themeCalendar: Record<string, { label: string; prompt: string; enabled: boolean; autoSchedule?: boolean; postTime?: string }>;
   automationSlots: Array<{
     id: string;
     label: string;
@@ -1038,11 +1038,14 @@ export function buildDailyMarketingDraftCron() {
         }
         // Day-level autoSchedule overrides slot-level when explicitly set.
         const effectiveAutoSchedule = theme?.autoSchedule === true ? true : rawSlot?.autoSchedule === true;
+        const effectiveSlotTime = (typeof theme?.postTime === 'string' && /^[0-2]\d:[0-5]\d$/.test(theme.postTime))
+          ? theme.postTime
+          : (typeof rawSlot?.time === 'string' ? rawSlot.time : (data?.defaultPostTime ?? '09:00'));
         const genInput: GenerateInput = {
           forDateIso: todayIso,
           slotId,
           slotLabel: typeof rawSlot?.label === 'string' ? rawSlot.label : 'Daily slot',
-          slotTime: typeof rawSlot?.time === 'string' ? rawSlot.time : (data?.defaultPostTime ?? '09:00'),
+          slotTime: effectiveSlotTime,
           slotPlatforms: rawSlot?.platforms,
           autoSchedule: effectiveAutoSchedule,
         };
@@ -1097,11 +1100,14 @@ export function buildDailyMarketingDraftCron() {
           continue;
         }
 
+        const effectiveTomorrowSlotTime = (typeof tomorrowTheme?.postTime === 'string' && /^[0-2]\d:[0-5]\d$/.test(tomorrowTheme.postTime))
+          ? tomorrowTheme.postTime
+          : (typeof rawSlot?.time === 'string' ? rawSlot.time : (data?.defaultPostTime ?? '09:00'));
         const genInput: GenerateInput = {
           forDateIso: tomorrow.isoDate,
           slotId,
           slotLabel: typeof rawSlot?.label === 'string' ? rawSlot.label : 'Daily slot',
-          slotTime: typeof rawSlot?.time === 'string' ? rawSlot.time : (data?.defaultPostTime ?? '09:00'),
+          slotTime: effectiveTomorrowSlotTime,
           slotPlatforms: rawSlot?.platforms,
           autoSchedule: rawSlot?.autoSchedule === true,
         };

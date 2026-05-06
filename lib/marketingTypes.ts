@@ -56,6 +56,8 @@ export interface ThemeForDay {
   enabled: boolean;
   /** When true, drafts for this day are auto-scheduled instead of queued for review. Overrides the slot-level setting. */
   autoSchedule?: boolean;
+  /** Optional per-day post time override (IST "HH:MM"). When set, overrides the slot time for drafts on this weekday. */
+  postTime?: string;
 }
 
 // ── Strategic foundation (M1) ───────────────────────────────────────────────
