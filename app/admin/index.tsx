@@ -547,7 +547,7 @@ const styles = StyleSheet.create({
   cols: { flexDirection: 'column', gap: Spacing.lg },
   colsWide: { flexDirection: 'row', flexWrap: 'wrap' },
   colsNarrow: { flexDirection: 'column', gap: Spacing.sm },
-  col: { flexBasis: '100%', minWidth: 0 },
+  col: { width: '100%', minWidth: 0 },
   colHalf: {
     // @ts-ignore — calc() is web-only; native uses percentage flexBasis
     flexBasis: Platform.OS === 'web' ? ('calc(50% - 8px)' as any) : '48%',
