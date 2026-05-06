@@ -60,8 +60,8 @@ export default function AdminDashboard() {
   // twoCol — show card pairs side-by-side on tablets / large-phone landscape
   // (680px = iPad mini portrait, wide phones in landscape). Both web and native.
   const twoCol = width >= 680;
-  // narrow — phone in portrait: hide the verbose header description to save space
-  const narrow = width < 500;
+  // narrow — anything smaller than a tablet: hide description + icon-only actions
+  const narrow = width < 768;
 
   const [snap, setSnap] = useState<AnalyticsSnapshot | null>(null);
   const [pendingPosts, setPendingPosts] = useState<any[]>([]);
@@ -157,8 +157,8 @@ export default function AdminDashboard() {
       <AdminPage
         title={`Good ${greetingByHour()}, ${user?.email?.split('@')[0] ?? 'admin'}`}
         description={narrow ? undefined : role
-          ? `${ADMIN_ROLE_LABELS[role]} · Live signal — flags, traffic, vigilance, activity.`
-          : 'Live signal — flags, traffic, vigilance, activity.'}
+          ? `${ADMIN_ROLE_LABELS[role]} · Live signal`
+          : 'Live signal'}
         hideBack
         headerActions={
           <>
