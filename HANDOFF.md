@@ -11,6 +11,29 @@ No active coding task.
 
 ---
 
+## Last action (2026-05-06) — Admin dashboard mobile redesign
+
+**Commit `2792c07` · hosting deployed · OTA `179c824b` published.**
+
+### What changed (`app/admin/index.tsx`)
+- **Quick nav chip strip** (phones only, `!twoCol`) — horizontal scrolling row of
+  6 chips: Users / Community / Support / Content / Studio / Notify. Lets admin
+  navigate directly without opening the hamburger drawer.
+- **Icon-only header actions** on narrow (<500px): Refresh = refresh icon; Sign out =
+  log-out icon. Full buttons with text remain on wider viewports.
+- **Compact card padding** — all body cards get `padding: 12px / gap: 4px` on narrow
+  (vs 16px/8px). Controlled via new `compact` prop on the local `Card` component.
+- **Row limits on narrow**: recent signups 3 (vs 6), live activity 8 (vs 12).
+- **Rebase onto origin/main** — pulled in 7 commits from the other agent
+  (library-ai two-tier nav, autopilot discoverability) before committing.
+
+### Also fixed (`app/admin/content.tsx`)
+- TS2367 — `isImageUrl` check no longer references removed 'articles'/'books' tabs
+  (the other agent moved those to `library-ai.tsx`). Fixed to plain `imageUrl` key
+  check; generateCover button still works for Schemes & Yoga imageUrl fields.
+
+---
+
 ## Last action (2026-05-05) — Brand visual style + Generate cover button
 
 **Two commits shipped:**
