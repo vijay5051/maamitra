@@ -13,11 +13,16 @@ import { AdminShell } from '../../components/admin/ui';
 export { ADMIN_EMAILS } from '../../lib/admin';
 
 export default function AdminLayout() {
-  const { user } = useAuthStore();
+  const { user, isLoading } = useAuthStore();
   const router = useRouter();
   const role = useAdminRole();
 
   useEffect(() => {
+    // Don't act while Firebase is still rehydrating auth state.
+    // On a hard refresh the store starts with user=null + isLoading=true;
+    // bouncing here would log the admin out before auth settles.
+    if (isLoading) return;
+
     function bounce() {
       requestAnimationFrame(() => router.replace('/(auth)/welcome'));
     }
@@ -25,6 +30,8 @@ export default function AdminLayout() {
       bounce();
       return;
     }
+    // isAdminEmail resolves synchronously for allow-listed emails, so the
+    // 1500 ms delay is only needed for Firestore-role non-allow-listed admins.
     if (!isAdminEmail(user.email) && role === null) {
       const t = setTimeout(() => {
         if (!isAdminEmail(user.email) && role === null) bounce();
@@ -32,7 +39,7 @@ export default function AdminLayout() {
       return () => clearTimeout(t);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, role]);
+  }, [user, role, isLoading]);
 
   // Resolve effective role for the shell (founder bootstrap → 'super').
   const effectiveRole: AdminRole | null = isAdminEmail(user?.email) ? 'super' : role;
