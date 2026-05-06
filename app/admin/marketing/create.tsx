@@ -632,6 +632,7 @@ function Step1Prompt({
   setAspectRatio: (v: StudioAspectRatio) => void;
   isWide: boolean;
 }) {
+  const router = useRouter();
   const valid = createMode === 'template'
     ? templateFormIsValid(templateKind, templateForm, prompt)
     : prompt.trim().length >= 3;
@@ -808,31 +809,53 @@ function Step1Prompt({
             </View>
           ) : null}
 
-          <View style={styles.sectionBlockCompact}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Quality</Text>
-              <Text style={styles.sectionHint}>Use quick for iteration, best for final output.</Text>
+          {createMode === 'ai' ? (
+            <View style={styles.sectionBlockCompact}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Quality</Text>
+                <Text style={styles.sectionHint}>Use quick for iteration, best for final output.</Text>
+              </View>
+              <View style={styles.qualityStackCompact}>
+                {(['best', 'quick'] as Quality[]).map((q) => {
+                  const info = QUALITY_INFO[q];
+                  const selected = q === quality;
+                  return (
+                    <Pressable
+                      key={q}
+                      onPress={() => setQuality(q)}
+                      style={[styles.optionCardCompact, selected && styles.qualityCardSelected]}
+                    >
+                      <View style={styles.qualityHead}>
+                        <Text style={[styles.optionLabel, selected && { color: Colors.primary }]}>{info.label}</Text>
+                        {selected ? <Ionicons name="checkmark-circle" size={16} color={Colors.primary} /> : null}
+                      </View>
+                      <Text style={styles.optionSub}>{info.sub}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </View>
-            <View style={styles.qualityStackCompact}>
-              {(['best', 'quick'] as Quality[]).map((q) => {
-                const info = QUALITY_INFO[q];
-                const selected = q === quality;
-                return (
-                  <Pressable
-                    key={q}
-                    onPress={() => setQuality(q)}
-                    style={[styles.optionCardCompact, selected && styles.qualityCardSelected]}
-                  >
-                    <View style={styles.qualityHead}>
-                      <Text style={[styles.optionLabel, selected && { color: Colors.primary }]}>{info.label}</Text>
-                      {selected ? <Ionicons name="checkmark-circle" size={16} color={Colors.primary} /> : null}
-                    </View>
-                    <Text style={styles.optionSub}>{info.sub}</Text>
-                  </Pressable>
-                );
-              })}
+          ) : (
+            // Template mode pulls render style (image source / model / prompt) from
+            // the locked default in Settings → Template Preview. The Best/Quick
+            // dial doesn't apply here — admins iterate in Settings, not per-post.
+            <View style={[styles.sectionBlockCompact, styles.lockedHintCard]}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Locked render style</Text>
+              </View>
+              <Text style={styles.sectionHint}>
+                Image source, model, and prompt for {TEMPLATE_META[templateKind].label} come from
+                Settings → Template Preview. Adjust them there to change every future render.
+              </Text>
+              <Pressable
+                onPress={() => router.push('/admin/marketing/preview' as any)}
+                style={styles.lockedHintLink}
+              >
+                <Ionicons name="settings-outline" size={12} color={Colors.primary} />
+                <Text style={styles.lockedHintLinkLabel}>Open Template Preview</Text>
+              </Pressable>
             </View>
-          </View>
+          )}
 
           <View style={styles.generateRail}>
             <View style={{ flex: 1 }}>
@@ -2217,6 +2240,13 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   qualityCardSelected: { borderColor: Colors.primary, backgroundColor: Colors.primarySoft },
+  lockedHintCard: { borderColor: Colors.primary, backgroundColor: Colors.primarySoft },
+  lockedHintLink: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingVertical: 6,
+    alignSelf: 'flex-start',
+  },
+  lockedHintLinkLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.primary },
   qualityHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   qualityLabel: { fontSize: FontSize.md, fontWeight: '700', color: Colors.textDark },
   qualitySub: { fontSize: FontSize.xs, color: Colors.textLight, lineHeight: 16 },
