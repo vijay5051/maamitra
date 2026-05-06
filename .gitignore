@@ -3,6 +3,8 @@ node_modules/
 .firebase/
 .claude/worktrees/
 dist/
+.DS_Store
+**/.DS_Store
 .env
 *.jks
 *.p8
