@@ -63,6 +63,11 @@ export function PublishingCalendar() {
   >(null);
   // Day-detail modal (shows every post on a chosen day).
   const [dayDetailIso, setDayDetailIso] = useState<string | null>(null);
+  // True while admin is dragging an item from inside the day-detail modal —
+  // we lower the modal's opacity + disable pointer-events so the underlying
+  // calendar cells can receive the drop event. Without this the scrim swallows
+  // the drag and the user thinks drop is broken inside the modal.
+  const [draggingInModal, setDraggingInModal] = useState(false);
   // In-place draft preview modal (cancellable).
   const [previewDraft, setPreviewDraft] = useState<MarketingDraft | null>(null);
 
@@ -275,8 +280,20 @@ export function PublishingCalendar() {
         <DayPostsModal
           dayIso={dayDetailIso}
           items={byDay[dayDetailIso] ?? []}
+          ghosted={draggingInModal}
+          isPast={dayDetailIso < todayIso}
           onOpenDraft={(d) => { setPreviewDraft(d); setDayDetailIso(null); }}
-          onClose={() => setDayDetailIso(null)}
+          onClose={() => { setDraggingInModal(false); setDayDetailIso(null); }}
+          onItemDragStart={() => setDraggingInModal(true)}
+          onItemDragEnd={() => {
+            // dragend fires on every drag — successful or cancelled. The
+            // calendar cell's drop handler already triggers beginReschedule
+            // independently; here we only need to un-ghost + close the day
+            // modal once a drag completes so the time picker (or no-op
+            // cancel) is the only foreground UI left.
+            setDraggingInModal(false);
+            setDayDetailIso(null);
+          }}
         />
       ) : null}
 
@@ -576,11 +593,68 @@ function DraggableThumb({
   );
 }
 
-function DraftCardCompact({ draft, onOpen }: { draft: MarketingDraft; onOpen: () => void }) {
+/**
+ * Compact draft row used in the unscheduled drop zone, mobile day list, and
+ * the day-detail modal. When `onDragStart` / `onDragEnd` are provided AND the
+ * draft is in a draggable state (web + not posted + not past), the card wires
+ * up imperative HTML5 drag listeners so admin can drag it onto a day cell.
+ */
+function DraftCardCompact({
+  draft,
+  onOpen,
+  onDragStart,
+  onDragEnd,
+  isPast,
+}: {
+  draft: MarketingDraft;
+  onOpen: () => void;
+  /** Called when the admin starts dragging this card. Lets the calendar dim
+   *  any covering modal so the underlying day cells receive drop events. */
+  onDragStart?: () => void;
+  /** Called on dragend — admin completed or cancelled the drag. */
+  onDragEnd?: () => void;
+  /** Past-day cards aren't draggable. Defaults to false. */
+  isPast?: boolean;
+}) {
+  const ref = useRef<View>(null);
   const tone = draft.status === 'posted' ? Colors.success : draft.status === 'scheduled' ? Colors.primary : Colors.textMuted;
   const time = draft.scheduledAt ? istHHmm(draft.scheduledAt) : null;
+  const draggable = DND && draft.status !== 'posted' && !isPast && !!onDragStart;
+
+  useEffect(() => {
+    if (!DND) return;
+    const el = ref.current as unknown as HTMLDivElement | null;
+    if (!el) return;
+    if (!draggable) {
+      el.removeAttribute('draggable');
+      return;
+    }
+    el.setAttribute('draggable', 'true');
+    const handleDragStart = (e: DragEvent) => {
+      e.stopPropagation();
+      if (!e.dataTransfer) return;
+      e.dataTransfer.setData(DND_MIME, draft.id);
+      e.dataTransfer.setData('text/plain', draft.id);
+      e.dataTransfer.effectAllowed = 'move';
+      onDragStart?.();
+    };
+    const handleDragEnd = () => {
+      onDragEnd?.();
+    };
+    el.addEventListener('dragstart', handleDragStart);
+    el.addEventListener('dragend', handleDragEnd);
+    return () => {
+      el.removeEventListener('dragstart', handleDragStart);
+      el.removeEventListener('dragend', handleDragEnd);
+    };
+  }, [draggable, draft.id, onDragStart, onDragEnd]);
+
   return (
-    <Pressable onPress={onOpen} style={styles.compactCard}>
+    <Pressable
+      ref={ref as any}
+      onPress={onOpen}
+      style={[styles.compactCard, draggable && styles.compactCardDraggable]}
+    >
       {draft.assets[0]?.url ? (
         <Image source={{ uri: draft.assets[0].url }} style={styles.compactThumb} resizeMode="cover" />
       ) : (
@@ -714,22 +788,45 @@ function ReschedulePicker({
 function DayPostsModal({
   dayIso,
   items,
+  ghosted,
+  isPast,
   onOpenDraft,
   onClose,
+  onItemDragStart,
+  onItemDragEnd,
 }: {
   dayIso: string;
   items: MarketingDraft[];
+  /** When true the scrim becomes transparent + non-interactive so an
+   *  in-progress drag from inside the modal can land on a day cell behind it. */
+  ghosted: boolean;
+  isPast: boolean;
   onOpenDraft: (d: MarketingDraft) => void;
   onClose: () => void;
+  onItemDragStart: () => void;
+  onItemDragEnd: () => void;
 }) {
   return (
     <Modal transparent animationType="fade" visible onRequestClose={onClose}>
-      <Pressable style={styles.modalScrim} onPress={onClose}>
-        <Pressable style={styles.modalCard} onPress={() => { /* swallow */ }}>
+      <Pressable
+        style={[styles.modalScrim, ghosted && styles.modalScrimGhosted]}
+        onPress={ghosted ? undefined : onClose}
+        // box-none = scrim itself doesn't catch events but children (modal card,
+        // and through it the day cells behind) can. Lets HTML5 drag-over fire
+        // on the calendar grid below the modal during a drag from inside.
+        pointerEvents={ghosted ? 'box-none' : 'auto'}
+      >
+        <Pressable
+          style={[styles.modalCard, ghosted && styles.modalCardGhosted]}
+          onPress={() => { /* swallow */ }}
+        >
           <View style={styles.modalHead}>
             <View style={{ flex: 1 }}>
               <Text style={styles.modalTitle}>{formatLongDayLabel(dayIso)}</Text>
-              <Text style={styles.modalSub}>{items.length} {items.length === 1 ? 'post' : 'posts'} scheduled</Text>
+              <Text style={styles.modalSub}>
+                {items.length} {items.length === 1 ? 'post' : 'posts'} scheduled
+                {!isPast && DND ? ' · drag to another day to reschedule' : ''}
+              </Text>
             </View>
             <Pressable onPress={onClose} style={styles.iconBtn} accessibilityLabel="Close">
               <Ionicons name="close" size={20} color={Colors.textDark} />
@@ -737,7 +834,14 @@ function DayPostsModal({
           </View>
           <ScrollView style={{ maxHeight: 480 }} contentContainerStyle={{ gap: 8, padding: 4 }}>
             {items.map((d) => (
-              <DraftCardCompact key={d.id} draft={d} onOpen={() => onOpenDraft(d)} />
+              <DraftCardCompact
+                key={d.id}
+                draft={d}
+                isPast={isPast}
+                onOpen={() => onOpenDraft(d)}
+                onDragStart={onItemDragStart}
+                onDragEnd={onItemDragEnd}
+              />
             ))}
             {items.length === 0 ? <Text style={styles.dayEmptyText}>Nothing scheduled.</Text> : null}
           </ScrollView>
@@ -1016,6 +1120,7 @@ const styles = StyleSheet.create({
     padding: 6,
     borderWidth: 1, borderColor: Colors.border,
   },
+  compactCardDraggable: { cursor: 'grab' as any },
   compactThumb: { width: 40, height: 40, borderRadius: Radius.sm, backgroundColor: Colors.bgLight },
   thumbPlaceholder: { alignItems: 'center', justifyContent: 'center' },
   compactHead: { flexDirection: 'row', alignItems: 'center', gap: 4 },
@@ -1055,6 +1160,12 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     padding: Spacing.lg,
   },
+  modalScrimGhosted: {
+    // Mid-drag: barely-tinted backdrop so the calendar grid is fully visible
+    // and the scrim doesn't intercept the drop event.
+    backgroundColor: 'rgba(28, 16, 51, 0.10)',
+  },
+  modalCardGhosted: { opacity: 0.4 },
   modalCardSm: {
     width: '100%', maxWidth: 380,
     backgroundColor: Colors.cardBg,
