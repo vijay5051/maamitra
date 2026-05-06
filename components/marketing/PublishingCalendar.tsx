@@ -811,14 +811,19 @@ function DayPostsModal({
       <Pressable
         style={[styles.modalScrim, ghosted && styles.modalScrimGhosted]}
         onPress={ghosted ? undefined : onClose}
-        // box-none = scrim itself doesn't catch events but children (modal card,
-        // and through it the day cells behind) can. Lets HTML5 drag-over fire
-        // on the calendar grid below the modal during a drag from inside.
-        pointerEvents={ghosted ? 'box-none' : 'auto'}
+        // Both scrim AND modal card must be pointer-events:none during a
+        // drag — otherwise the modal card (pointer-events:auto by default,
+        // and absolute children of `box-none` get auto re-applied) sits on
+        // top of every day cell and swallows the dragover. With both set
+        // to 'none', HTML5 drag events fall through to the calendar grid
+        // beneath. The drag source's dragend still fires because the
+        // browser tracks the source independently after dragstart.
+        pointerEvents={ghosted ? 'none' : 'auto'}
       >
         <Pressable
           style={[styles.modalCard, ghosted && styles.modalCardGhosted]}
           onPress={() => { /* swallow */ }}
+          pointerEvents={ghosted ? 'none' : 'auto'}
         >
           <View style={styles.modalHead}>
             <View style={{ flex: 1 }}>
