@@ -76,6 +76,14 @@
       ]
     },
     {
+      "collectionGroup": "marketing_drafts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "scheduledAt", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "marketing_inbox",
       "queryScope": "COLLECTION",
       "fields": [
