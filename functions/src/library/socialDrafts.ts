@@ -81,7 +81,7 @@ async function upsertMarketingDraft(articleId: string, article: ArticleDoc): Pro
   const captionParts = [
     title,
     summary,
-    `Read the full article: ${link}`,
+    `Read full article on MaaMitra App: ${link}`,
     hashtags.join(' '),
   ].filter(Boolean);
   const caption = captionParts.join('\n\n').slice(0, 2200);
