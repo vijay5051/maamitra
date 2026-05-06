@@ -11,6 +11,43 @@ No active coding task.
 
 ---
 
+## Last action (2026-05-06) — Editable post time (slot + per-day weekly rhythm)
+
+**Commit `0dd9b4c` · functions deployed · hosting deployed · OTA `26e7e803` published.**
+
+### What changed
+- **`app/admin/marketing/planner.tsx`** — `AutomationSlotsEditor` rewritten with
+  local state + `onBlur` flush for the text inputs (slot **Label** and **Time**).
+  The previous pattern called `onChange(slots)` on every keystroke, which
+  triggered a parent re-render that wiped the input focus mid-typing. Chip
+  toggles (platforms, frequency, on/off) still flush immediately. Add/Delete
+  also persist immediately. WeeklyRhythmEditor gains an optional **Post time
+  (HH:MM)** field per weekday — when set, overrides the slot time for drafts
+  on that weekday.
+- **`lib/marketingTypes.ts`** — `ThemeForDay.postTime?: string` (HH:MM).
+- **`services/marketing.ts`** — `sanitiseThemeCalendar` validates `postTime`
+  with `/^[0-2]\d:[0-5]\d$/` and drops it otherwise.
+- **`functions/src/marketing/generator.ts`** — both today and tomorrow paths
+  in the cron pick `theme.postTime` (if valid) before falling back to
+  `slot.time` / `data.defaultPostTime`. Compiled JS in
+  `functions/lib/marketing/generator.js` regenerated.
+
+### Pre-existing TS errors (NOT introduced here, NOT blocking — esbuild builds)
+- `services/marketing.ts:825-826,834-835` — `previewScheduledSlot` references
+  `override` before the `.map()` callback that declares it. Likely a runtime
+  ReferenceError on first call; "Tomorrow's auto-post" card on the Today tab
+  may have been silently broken since the brand-kit-cronOverrides shape
+  changed. **Worth a fix-up.**
+- `app/admin/marketing/settings.tsx` — missing imports for `TextInput`,
+  `ScheduledSlotPreview`, `AutomationSlot`. The Settings page still loads
+  (esbuild lets the implicit any pass), but anything inside the missing-import
+  branches will crash at runtime. **Check before next settings change.**
+- `app/admin/marketing/preview.tsx:40` — `realStoryCard` missing from the
+  `Record<RenderableTemplateName, TemplatePreset>` map. Means the preview
+  tool can't render that card variant.
+
+---
+
 ## Last action (2026-05-06) — Silent-swallow sweep + field-ownership doc
 
 Companion cleanup to today's three social-flow bugs (post vanishing,
