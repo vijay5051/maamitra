@@ -41,6 +41,9 @@ import {
   MarketingHealth,
   SlotFrequency,
   StyleProfile,
+  TemplateDefault,
+  TemplateDefaults,
+  AiImageModelName,
   UNKNOWN_CHANNEL_HEALTH,
   WeekDay,
 } from '../lib/marketingTypes';
@@ -113,6 +116,9 @@ export async function saveBrandKit(
     sanitised.styleReferences = Array.isArray(patch.styleReferences)
       ? patch.styleReferences.filter((r): r is string => typeof r === 'string').slice(0, 12)
       : [];
+  }
+  if (patch.templateDefaults !== undefined) {
+    sanitised.templateDefaults = sanitiseTemplateDefaults(patch.templateDefaults);
   }
 
   sanitised.updatedAt = serverTimestamp();
@@ -581,6 +587,7 @@ function normaliseBrandKit(data: any): BrandKit {
     styleReferences: Array.isArray(data?.styleReferences)
       ? data.styleReferences.filter((r: any): r is string => typeof r === 'string').slice(0, 12)
       : [],
+    templateDefaults: sanitiseTemplateDefaults(data?.templateDefaults),
     cronOverrides: normaliseCronOverrides(data?.cronOverrides),
     updatedAt: iso,
     updatedBy: typeof data?.updatedBy === 'string' ? data.updatedBy : null,
@@ -693,6 +700,44 @@ function normaliseChannelHealth(raw: any): ChannelHealth {
     error: typeof raw.error === 'string' ? raw.error : null,
     errorCode: typeof raw.errorCode === 'string' ? raw.errorCode : null,
   };
+}
+
+const RENDERABLE_TEMPLATES: ReadonlyArray<keyof TemplateDefaults> = ['tipCard', 'quoteCard', 'milestoneCard', 'realStoryCard'];
+const AI_MODEL_NAMES: ReadonlyArray<AiImageModelName> = ['imagen', 'dalle', 'flux'];
+
+/** Validate the per-template render presets coming back from Firestore.
+ *  Anything malformed gets dropped silently — the preset is admin-controlled
+ *  but lands in the brand doc which other clients also write, so we want
+ *  defensive parsing rather than failing loudly. */
+function sanitiseTemplateDefaults(raw: unknown): TemplateDefaults {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const out: TemplateDefaults = {};
+  for (const t of RENDERABLE_TEMPLATES) {
+    const v = (raw as Record<string, unknown>)[t];
+    if (!v || typeof v !== 'object' || Array.isArray(v)) continue;
+    const sanitized = sanitiseSingleTemplateDefault(v as Record<string, unknown>);
+    if (sanitized) out[t] = sanitized;
+  }
+  return out;
+}
+
+function sanitiseSingleTemplateDefault(raw: Record<string, unknown>): TemplateDefault | null {
+  const source = raw.source;
+  if (source !== 'none' && source !== 'stock' && source !== 'ai') return null;
+  const out: TemplateDefault = { source };
+  if (source === 'stock' && typeof raw.stockQuery === 'string' && raw.stockQuery.trim()) {
+    out.stockQuery = raw.stockQuery.trim().slice(0, 240);
+  }
+  if (source === 'ai') {
+    if (typeof raw.aiModel === 'string' && (AI_MODEL_NAMES as readonly string[]).includes(raw.aiModel)) {
+      out.aiModel = raw.aiModel as AiImageModelName;
+    }
+    if (typeof raw.aiPrompt === 'string' && raw.aiPrompt.trim()) {
+      out.aiPrompt = raw.aiPrompt.trim().slice(0, 1200);
+    }
+  }
+  if (typeof raw.updatedAt === 'string') out.updatedAt = raw.updatedAt;
+  return out;
 }
 
 function sanitiseStyleProfile(raw: any): StyleProfile {

@@ -134,6 +134,15 @@ interface BrandKitData {
     artKeywords: string;
     prohibited: string[];
   } | null;
+  /** Per-template render defaults locked from Settings → Template Preview.
+   *  Override the global flux fallback so each template can have its own
+   *  preferred image source/model/prompt without code changes. */
+  templateDefaults: Partial<Record<TemplateName, {
+    source: 'none' | 'stock' | 'ai';
+    stockQuery?: string;
+    aiModel?: AiImageModel;
+    aiPrompt?: string;
+  }>>;
 }
 
 // Studio v2 defaults — kept identical to functions/src/marketing/studio.ts so
@@ -205,7 +214,26 @@ async function loadBrandKit(): Promise<BrandKitData> {
       artKeywords: typeof d.styleProfile.artKeywords === 'string' ? d.styleProfile.artKeywords : STYLE_DEFAULT_KEYWORDS,
       prohibited: arr(d.styleProfile.prohibited).filter((s: any): s is string => typeof s === 'string'),
     } : null,
+    templateDefaults: parseTemplateDefaults(d?.templateDefaults),
   };
+}
+
+function parseTemplateDefaults(raw: unknown): BrandKitData['templateDefaults'] {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const out: BrandKitData['templateDefaults'] = {};
+  const templates: TemplateName[] = ['tipCard', 'quoteCard', 'milestoneCard', 'realStoryCard'];
+  for (const t of templates) {
+    const v = (raw as Record<string, any>)[t];
+    if (!v || typeof v !== 'object') continue;
+    const source = v.source;
+    if (source !== 'none' && source !== 'stock' && source !== 'ai') continue;
+    const entry: NonNullable<BrandKitData['templateDefaults'][TemplateName]> = { source };
+    if (typeof v.stockQuery === 'string' && v.stockQuery.trim()) entry.stockQuery = v.stockQuery.trim().slice(0, 240);
+    if (v.aiModel === 'imagen' || v.aiModel === 'dalle' || v.aiModel === 'flux') entry.aiModel = v.aiModel;
+    if (typeof v.aiPrompt === 'string' && v.aiPrompt.trim()) entry.aiPrompt = v.aiPrompt.trim().slice(0, 1200);
+    out[t] = entry;
+  }
+  return out;
 }
 
 /** Wrap the LLM-supplied imagePrompt with the brand's visual DNA so daily
@@ -753,14 +781,19 @@ async function renderDraftImage(
   imageModel: AiImageModel,
   brand: BrandKitData,
 ): Promise<{ url: string; storagePath: string; bytes: number; source: string; costInr: number }> {
-  // Tip Card never takes a background; Quote / Milestone / Real Story do.
+  // Locked source override from Settings → Template Preview. When admin saves
+  // `source: 'stock'`, skip AI generation entirely and go straight to Pexels.
+  // When `source: 'none'`, render on the brand-colour panel only (no photo).
+  const lockedDefault = brand.templateDefaults[template];
+  const lockedSource = template === 'tipCard' ? 'none' : (lockedDefault?.source ?? 'ai');
+
   // For AI providers, wrap the LLM-supplied subject prompt in the brand's
   // style preamble so cron-generated images share the Studio look. Pexels
   // is keyword-search, so it gets the raw subject prompt only.
   const styleLockedPrompt = buildStyleLockedImagePrompt(imagePrompt, brand);
-  const bgUrl: string | null = template === 'tipCard'
-    ? null
-    : imageModel === 'imagen'
+  let bgUrl: string | null = null;
+  if (lockedSource === 'ai' && template !== 'tipCard') {
+    bgUrl = imageModel === 'imagen'
       ? await imagenGenerate(styleLockedPrompt, { aspectRatio: '1:1' })
       : imageModel === 'dalle'
         ? await openaiMaaMitraReferenceImage(styleLockedPrompt, {
@@ -777,15 +810,19 @@ async function renderDraftImage(
             ],
           })
         : await fluxSchnell(styleLockedPrompt, { aspectRatio: '1:1' });
+  }
 
-  // If AI failed, fall back to Pexels with the (un-styled) subject prompt as
-  // a query. Pexels is keyword-search; the styling preamble would just
-  // narrow the photo set unhelpfully.
-  let imageSource: string = template === 'tipCard' ? 'none' : imageModel;
+  // Pexels path — admin explicitly locked stock OR AI failed. Prefer the
+  // saved stockQuery when present; otherwise fall back to the per-draft
+  // imagePrompt as a search keyword.
+  let imageSource: string = template === 'tipCard' ? 'none' : (lockedSource === 'ai' ? imageModel : lockedSource);
   let imageAttribution: string | null = null;
   let resolvedBg = bgUrl;
-  if (!resolvedBg && template !== 'tipCard') {
-    const stock = await pexelsSearch(imagePrompt.slice(0, 100));
+  if (!resolvedBg && template !== 'tipCard' && lockedSource !== 'none') {
+    const query = (lockedSource === 'stock' && lockedDefault?.stockQuery)
+      ? lockedDefault.stockQuery
+      : imagePrompt.slice(0, 100);
+    const stock = await pexelsSearch(query);
     if (stock) {
       resolvedBg = stock.url;
       imageAttribution = stock.attribution;
@@ -942,9 +979,19 @@ export async function runGenerator(
     };
     requestedTemplate = 'tipCard';
   }
+  // Resolve image model + prompt with the saved per-template default as the
+  // tier between "explicit caller input" and "flux fallback". Auto-Post
+  // (cron) never passes input.imageModel, so the saved default is what
+  // actually drives the visual style for automated drafts.
+  const lockedDefault = brand.templateDefaults[requestedTemplate];
   const requestedModel: AiImageModel = (['imagen', 'dalle', 'flux'] as AiImageModel[]).includes(input.imageModel as AiImageModel)
     ? (input.imageModel as AiImageModel)
-    : 'flux';
+    : (lockedDefault?.aiModel ?? 'flux');
+  // If the locked default has a seed prompt and the caption AI didn't write a
+  // specific image prompt, fall back to the seed.
+  if (lockedDefault?.aiPrompt && (!captionOut.imagePrompt || captionOut.imagePrompt.length < 12)) {
+    captionOut = { ...captionOut, imagePrompt: lockedDefault.aiPrompt };
+  }
   const slotId = typeof input.slotId === 'string' && input.slotId.trim() ? input.slotId.trim() : 'default';
   const slotLabel = typeof input.slotLabel === 'string' && input.slotLabel.trim() ? input.slotLabel.trim() : 'Daily slot';
   const slotTime = typeof input.slotTime === 'string' && /^[0-2]\d:[0-5]\d$/.test(input.slotTime) ? input.slotTime : null;

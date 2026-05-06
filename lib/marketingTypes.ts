@@ -10,6 +10,36 @@
 
 export type MarketingPlatform = 'instagram' | 'facebook';
 export type AutomationTemplate = 'auto' | 'tipCard' | 'quoteCard' | 'milestoneCard' | 'realStoryCard';
+/** Concrete renderable templates (no "auto" sentinel). */
+export type RenderableTemplate = 'tipCard' | 'quoteCard' | 'milestoneCard' | 'realStoryCard';
+/** AI image-generation models used by both manual studio + cron. */
+export type AiImageModelName = 'imagen' | 'dalle' | 'flux';
+/** Background image source for a template render. */
+export type TemplateBackgroundSource = 'none' | 'stock' | 'ai';
+
+/**
+ * Per-template render defaults — set once on the Settings → Template
+ * Preview page, then automatically applied by Create Post (template mode)
+ * and by the cron generator. Lets admin iterate on a template's visual
+ * style in ONE place rather than re-tuning every manual + automated post.
+ *
+ * tipCard has no background so `source` is effectively forced to 'none'
+ * for it; the other three templates support all three sources.
+ */
+export interface TemplateDefault {
+  source: TemplateBackgroundSource;
+  /** Pexels query when source='stock'. */
+  stockQuery?: string;
+  /** AI image model when source='ai'. */
+  aiModel?: AiImageModelName;
+  /** AI image prompt when source='ai'. Used as a seed; the cron's per-draft
+   *  AI prompt still wins if it produces a more specific imagePrompt. */
+  aiPrompt?: string;
+  /** ISO timestamp of last save — surfaced in the UI as "saved 5 min ago". */
+  updatedAt?: string;
+}
+
+export type TemplateDefaults = Partial<Record<RenderableTemplate, TemplateDefault>>;
 
 // ── Brand kit ───────────────────────────────────────────────────────────────
 // Single Firestore doc at marketing_brand/main. Drives every rendered post:
@@ -196,6 +226,11 @@ export interface BrandKit {
   /** Studio v2 — 6-12 illustrations from `illustrations[]` curated as the
    *  canonical visual references. Image-gen calls pass these as style refs. */
   styleReferences: string[];
+  /** Locked-in render defaults per template — set from the Settings →
+   *  Template Preview page. Used by both Create Post (template mode) and
+   *  the cron generator so admin can iterate visual style in one place
+   *  and have it automatically applied everywhere. */
+  templateDefaults: TemplateDefaults;
   /** Per-date scheduler overrides. Keyed by YYYY-MM-DD IST date.
    *  Cron reads the key matching today's IST date before generating.
    *  Skip a date, or override the persona/pillar/prompt for that day. */
@@ -414,6 +449,7 @@ export function defaultBrandKit(brandName = 'MaaMitra'): BrandKit {
     onboardedAt: null,
     styleProfile: DEFAULT_STYLE_PROFILE,
     styleReferences: [],
+    templateDefaults: {},
     cronOverrides: {},
     updatedAt: null,
     updatedBy: null,

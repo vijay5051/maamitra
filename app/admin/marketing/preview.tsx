@@ -9,8 +9,8 @@
  * cron will use later — same params, same Function, just hand-driven.
  */
 import { Stack } from 'expo-router';
-import { useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Colors, FontSize, Radius, Shadow, Spacing } from '../../../constants/theme';
@@ -22,8 +22,13 @@ import {
   RenderTemplateInput,
   RenderTemplateResult,
   RenderTemplateError,
+  fetchBrandKit,
   renderMarketingTemplate,
+  saveBrandKit,
 } from '../../../services/marketing';
+import { friendlyError } from '../../../services/marketingErrors';
+import { TemplateDefault } from '../../../lib/marketingTypes';
+import { useAuthStore } from '../../../store/useAuthStore';
 
 type SourceKind = 'none' | 'stock' | 'ai';
 
@@ -104,9 +109,8 @@ const AI_MODELS: AiModelOption[] = [
 ];
 
 export default function MarketingPreviewScreen() {
+  const user = useAuthStore((s) => s.user);
   const [template, setTemplate] = useState<RenderableTemplateName>('tipCard');
-  // Tip Card has no background; non-tip templates default to OpenAI's
-  // ChatGPT image model for stronger brand-theme adherence.
   const [sourceKind, setSourceKind] = useState<SourceKind>('none');
   const [aiModel, setAiModel] = useState<AiImageModel>('dalle');
   const [stockQuery, setStockQuery] = useState<string>(TEMPLATE_PRESETS.tipCard.defaultStockQuery ?? '');
@@ -116,17 +120,103 @@ export default function MarketingPreviewScreen() {
   const [result, setResult] = useState<RenderTemplateResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  function pickTemplate(t: RenderableTemplateName) {
+  /** Saved per-template defaults from marketing_brand/main. Loaded once on
+   *  mount and refreshed after every Save — both Create Post (template mode)
+   *  and the cron generator pull from this same field. */
+  const [savedDefaults, setSavedDefaults] = useState<Partial<Record<RenderableTemplateName, TemplateDefault>>>({});
+  const [saving, setSaving] = useState(false);
+  const [savedBanner, setSavedBanner] = useState<string | null>(null);
+
+  // Load brand kit once and hydrate UI from the active template's saved
+  // default if one exists. Falls back to the hard-coded TEMPLATE_PRESETS
+  // when the admin hasn't locked one yet.
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      try {
+        const brand = await fetchBrandKit();
+        if (!alive) return;
+        const td = brand?.templateDefaults ?? {};
+        setSavedDefaults(td);
+        applySavedToCurrent('tipCard', td);
+      } catch (e: any) {
+        // Soft-fail: page still works as a one-shot preview without persisted
+        // defaults if Firestore is unavailable.
+        console.warn('[preview] brand load failed', e);
+      }
+    })();
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** Apply the saved default for `t` to the live form (or the hardcoded
+   *  preset if nothing is saved). Keeps source-kind picker in sync with the
+   *  saved value so admin sees what's locked. */
+  function applySavedToCurrent(t: RenderableTemplateName, defaults: Partial<Record<RenderableTemplateName, TemplateDefault>>) {
     const preset = TEMPLATE_PRESETS[t];
+    const saved = defaults[t];
     setTemplate(t);
     setPropsJson(JSON.stringify(preset.props, null, 2));
-    setStockQuery(preset.defaultStockQuery ?? '');
-    setAiPrompt(preset.defaultAiPrompt ?? '');
-    // Tip Card has no background. Other templates default to AI for the
-    // higher-quality Indian-context render; user can switch to stock or none.
-    setSourceKind(t === 'tipCard' ? 'none' : 'ai');
+    if (saved) {
+      setSourceKind(saved.source);
+      setStockQuery(saved.stockQuery ?? preset.defaultStockQuery ?? '');
+      setAiModel(saved.aiModel ?? 'dalle');
+      setAiPrompt(saved.aiPrompt ?? preset.defaultAiPrompt ?? '');
+    } else {
+      setSourceKind(t === 'tipCard' ? 'none' : 'ai');
+      setStockQuery(preset.defaultStockQuery ?? '');
+      setAiModel('dalle');
+      setAiPrompt(preset.defaultAiPrompt ?? '');
+    }
     setResult(null);
   }
+
+  function pickTemplate(t: RenderableTemplateName) {
+    applySavedToCurrent(t, savedDefaults);
+  }
+
+  async function saveAsDefault() {
+    if (!user) {
+      setError('Sign in to save defaults.');
+      return;
+    }
+    setError(null);
+    setSavedBanner(null);
+    setSaving(true);
+    try {
+      const next: TemplateDefault = (() => {
+        if (template === 'tipCard') return { source: 'none', updatedAt: new Date().toISOString() };
+        if (sourceKind === 'stock') {
+          return {
+            source: 'stock',
+            stockQuery: stockQuery.trim().slice(0, 240),
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        if (sourceKind === 'ai') {
+          return {
+            source: 'ai',
+            aiModel,
+            aiPrompt: aiPrompt.trim().slice(0, 1200),
+            updatedAt: new Date().toISOString(),
+          };
+        }
+        return { source: 'none', updatedAt: new Date().toISOString() };
+      })();
+      const merged = { ...savedDefaults, [template]: next };
+      await saveBrandKit({ uid: user.uid, email: user.email }, { templateDefaults: merged });
+      setSavedDefaults(merged);
+      setSavedBanner(`${TEMPLATE_PRESETS[template].label} default locked. Create Post + Auto Post now use these settings.`);
+      setTimeout(() => setSavedBanner(null), 4000);
+    } catch (e: any) {
+      setError(friendlyError('Save default', e));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const isLocked = !!savedDefaults[template];
+  const lockedAt = savedDefaults[template]?.updatedAt;
 
   function buildBackground(): BackgroundSpec | undefined {
     if (template === 'tipCard') return undefined;
@@ -182,16 +272,39 @@ export default function MarketingPreviewScreen() {
           { label: 'Preview' },
         ]}
         headerActions={
-          <ToolbarButton
-            label={rendering ? 'Rendering…' : 'Render'}
-            icon="sparkles"
-            variant="primary"
-            onPress={render}
-            disabled={rendering}
-          />
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <ToolbarButton
+              label={saving ? 'Saving…' : isLocked ? 'Update locked default' : 'Save as default'}
+              icon="lock-closed"
+              onPress={saveAsDefault}
+              disabled={saving || rendering}
+            />
+            <ToolbarButton
+              label={rendering ? 'Rendering…' : 'Render'}
+              icon="sparkles"
+              variant="primary"
+              onPress={render}
+              disabled={rendering}
+            />
+          </View>
         }
         error={error}
       >
+        {savedBanner ? (
+          <View style={styles.savedBanner}>
+            <Ionicons name="checkmark-circle" size={14} color={Colors.success} />
+            <Text style={styles.savedBannerText}>{savedBanner}</Text>
+          </View>
+        ) : null}
+        {isLocked && !savedBanner ? (
+          <View style={styles.lockBanner}>
+            <Ionicons name="lock-closed" size={12} color={Colors.primary} />
+            <Text style={styles.lockBannerText}>
+              {TEMPLATE_PRESETS[template].label} is locked. These settings are used by Create Post + Auto Post.
+              {lockedAt ? ` Saved ${formatRelativeTime(lockedAt)}.` : ''}
+            </Text>
+          </View>
+        ) : null}
         <View style={styles.row}>
           {/* ── Left: configure ────────────────────────────────────────── */}
           <View style={styles.col}>
@@ -343,6 +456,18 @@ export default function MarketingPreviewScreen() {
   );
 }
 
+function formatRelativeTime(iso: string): string {
+  const ts = new Date(iso).getTime();
+  if (!Number.isFinite(ts)) return 'just now';
+  const mins = Math.floor((Date.now() - ts) / 60_000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} min ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
     <View style={styles.section}>
@@ -400,6 +525,25 @@ const styles = StyleSheet.create({
     minHeight: 280,
     textAlignVertical: 'top',
   },
+
+  savedBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: 'rgba(34, 197, 94, 0.12)',
+    borderRadius: Radius.sm,
+    borderWidth: 1, borderColor: Colors.success,
+    paddingHorizontal: Spacing.md, paddingVertical: 8,
+    marginBottom: Spacing.md,
+  },
+  savedBannerText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.success, flex: 1 },
+  lockBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: Colors.primarySoft,
+    borderRadius: Radius.sm,
+    borderWidth: 1, borderColor: Colors.primary,
+    paddingHorizontal: Spacing.md, paddingVertical: 6,
+    marginBottom: Spacing.md,
+  },
+  lockBannerText: { fontSize: 11, fontWeight: '600', color: Colors.primary, flex: 1 },
 
   placeholderCard: {
     minHeight: 300,
