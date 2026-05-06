@@ -326,9 +326,7 @@ function FormModal({ visible, tab, item, onClose, onSave, onDelete, onTogglePubl
     const title = String(form.title || form.name || '').trim();
     const topic = String(form.topic || '').trim();
     const author = String(form.author || '').trim();
-    const subject = tab === 'books'
-      ? `book cover illustration for "${title || 'parenting book'}"${author ? ` by ${author}` : ''}${topic ? `. Topic: ${topic}` : ''}. Indian parenting / baby book.`
-      : `article cover illustration for "${title || 'parenting article'}"${topic ? `. Topic: ${topic}` : ''}. Indian parenting app article.`;
+    const subject = `cover illustration for "${title || 'parenting topic'}"${topic ? `. Topic: ${topic}` : ''}. Indian parenting / wellness app.`;
     setGeneratingCover(true);
     setCoverError(null);
     try {
@@ -369,7 +367,7 @@ function FormModal({ visible, tab, item, onClose, onSave, onDelete, onTogglePubl
           </View>
           <ScrollView contentContainerStyle={styles.modalBody} keyboardShouldPersistTaps="handled">
             {schema.map((field) => {
-              const isImageUrl = field.key === 'imageUrl' && (tab === 'articles' || tab === 'books');
+              const isImageUrl = field.key === 'imageUrl';
               return (
                 <View key={field.key} style={{ marginBottom: Spacing.md }}>
                   <Text style={styles.fieldLabel}>{field.label}</Text>

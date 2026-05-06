@@ -162,8 +162,20 @@ export default function AdminDashboard() {
         hideBack
         headerActions={
           <>
-            <ToolbarButton label="Refresh" icon="refresh" onPress={load} />
-            <ToolbarButton label="Sign out" icon="log-out-outline" variant="ghost" onPress={handleSignOut} />
+            {narrow ? (
+              <Pressable onPress={load} style={styles.iconOnlyBtn} hitSlop={8} accessibilityLabel="Refresh">
+                <Ionicons name="refresh" size={18} color={Colors.textDark} />
+              </Pressable>
+            ) : (
+              <ToolbarButton label="Refresh" icon="refresh" onPress={load} />
+            )}
+            {narrow ? (
+              <Pressable onPress={handleSignOut} style={styles.iconOnlyBtn} hitSlop={8} accessibilityLabel="Sign out">
+                <Ionicons name="log-out-outline" size={18} color={Colors.textDark} />
+              </Pressable>
+            ) : (
+              <ToolbarButton label="Sign out" icon="log-out-outline" variant="ghost" onPress={handleSignOut} />
+            )}
           </>
         }
         loading={loading && !snap}
@@ -214,10 +226,30 @@ export default function AdminDashboard() {
           />
         </View>
 
+        {/* ─── Quick nav strip (phones only — hamburger is too hidden) ─── */}
+        {!twoCol ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.quickNavContent}
+          >
+            {QUICK_NAV_ITEMS.map((item) => (
+              <Pressable
+                key={item.href}
+                onPress={() => router.push(item.href as any)}
+                style={styles.quickNavChip}
+              >
+                <Ionicons name={item.icon} size={14} color={Colors.primary} />
+                <Text style={styles.quickNavLabel}>{item.label}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        ) : null}
+
         {/* ─── Two-column body on wide ─────────────────────────── */}
         <View style={[styles.cols, twoCol && styles.colsWide]}>
           <View style={[styles.col, twoCol && styles.colHalf]}>
-            <Card label="Signups · last 7 days">
+            <Card label="Signups · last 7 days" compact={narrow}>
               <Sparkline points={snap?.signupTrend ?? []} />
               <View style={styles.sparkFooter}>
                 <Text style={styles.muted}>
@@ -228,7 +260,7 @@ export default function AdminDashboard() {
           </View>
 
           <View style={[styles.col, twoCol && styles.colHalf]}>
-            <Card label="Where users live">
+            <Card label="Where users live" compact={narrow}>
               {snap?.topStates.length ? snap.topStates.map((row) => (
                 <View key={row.state} style={styles.stateRow}>
                   <Ionicons name="location-outline" size={14} color={Colors.primary} />
@@ -242,7 +274,7 @@ export default function AdminDashboard() {
           </View>
 
           <View style={[styles.col, twoCol && styles.colHalf]}>
-            <Card label="Feature adoption" hint="% of users who've used each feature at least once.">
+            <Card label="Feature adoption" hint="% of users who've used each feature at least once." compact={narrow}>
               {snap?.featureAdoption.length ? snap.featureAdoption.map((item) => (
                 <AdoptionRow key={item.label} item={item} />
               )) : (
@@ -252,7 +284,7 @@ export default function AdminDashboard() {
           </View>
 
           <View style={[styles.col, twoCol && styles.colHalf]}>
-            <Card label="Pending posts">
+            <Card label="Pending posts" compact={narrow}>
               <View style={styles.vigilanceRow}>
                 <StatusBadge label={`${snap?.vigilance.pendingPosts ?? 0} pending`} color={Colors.warning} />
                 <StatusBadge label={`${snap?.vigilance.reportedPosts ?? 0} flagged`} color={Colors.error} />
@@ -293,8 +325,8 @@ export default function AdminDashboard() {
           </View>
 
           <View style={[styles.col, twoCol && styles.colHalf]}>
-            <Card label="Recent signups">
-              {snap?.recentSignups.length ? snap.recentSignups.slice(0, 6).map((u) => (
+            <Card label="Recent signups" compact={narrow}>
+              {snap?.recentSignups.length ? snap.recentSignups.slice(0, narrow ? 3 : 6).map((u) => (
                 <Pressable key={u.uid} style={styles.signupRow} onPress={() => router.push(`/admin/users/${u.uid}` as any)}>
                   <View style={styles.signupAvatar}>
                     <Text style={styles.signupInitial}>{(u.name || '?').charAt(0).toUpperCase()}</Text>
@@ -319,7 +351,7 @@ export default function AdminDashboard() {
           </View>
 
           <View style={[styles.col, twoCol && styles.colHalf]}>
-            <Card label="Activation funnel">
+            <Card label="Activation funnel" compact={narrow}>
               {funnel.length === 0 ? (
                 <Text style={styles.muted}>Nothing to show yet.</Text>
               ) : funnel.map((step, i) => {
@@ -340,7 +372,7 @@ export default function AdminDashboard() {
           </View>
 
           <View style={[styles.col, twoCol && styles.colHalf]}>
-            <Card label="Weekly cohort retention">
+            <Card label="Weekly cohort retention" compact={narrow}>
               {retention.length === 0 ? (
                 <Text style={styles.muted}>No cohort data yet.</Text>
               ) : (
@@ -370,7 +402,7 @@ export default function AdminDashboard() {
         </View>
 
         {/* ─── Live activity (full width) ───────────────────────── */}
-        <Card label="Live activity">
+        <Card label="Live activity" compact={narrow}>
           {activity.length === 0 ? (
             <EmptyState
               kind="empty"
@@ -378,7 +410,7 @@ export default function AdminDashboard() {
               body="Signups, posts, support tickets, and admin actions will stream in here."
               compact
             />
-          ) : activity.slice(0, 12).map((a) => (
+          ) : activity.slice(0, narrow ? 8 : 12).map((a) => (
             <Pressable
               key={`${a.kind}_${a.id}`}
               disabled={!a.href}
@@ -412,6 +444,16 @@ export default function AdminDashboard() {
   );
 }
 
+// ─── Constants ─────────────────────────────────────────────────────────────
+const QUICK_NAV_ITEMS = [
+  { href: '/admin/users',         label: 'Users',      icon: 'people-outline' as const },
+  { href: '/admin/community',     label: 'Community',  icon: 'chatbubbles-outline' as const },
+  { href: '/admin/support',       label: 'Support',    icon: 'help-buoy-outline' as const },
+  { href: '/admin/content',       label: 'Content',    icon: 'library-outline' as const },
+  { href: '/admin/marketing',     label: 'Studio',     icon: 'sparkles-outline' as const },
+  { href: '/admin/notifications', label: 'Notify',     icon: 'notifications-outline' as const },
+];
+
 // ─── Helpers ───────────────────────────────────────────────────────────────
 function greetingByHour(): string {
   const h = new Date().getHours();
@@ -430,9 +472,9 @@ function activityTint(kind: ActivityItem['kind']): string {
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────
-function Card({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+function Card({ label, hint, compact, children }: { label: string; hint?: string; compact?: boolean; children: React.ReactNode }) {
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, compact && styles.cardCompact]}>
       <Text style={styles.cardLabel}>{label}</Text>
       {hint ? <Text style={styles.cardHint}>{hint}</Text> : null}
       {children}
@@ -506,6 +548,26 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     ...Shadow.sm,
   },
+  cardCompact: {
+    padding: Spacing.md,
+    gap: Spacing.xs,
+  },
+
+  iconOnlyBtn: {
+    width: 34, height: 34, borderRadius: Radius.sm,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: Colors.cardBg,
+    borderWidth: 1, borderColor: Colors.borderSoft,
+  },
+
+  quickNavContent: { flexDirection: 'row', gap: Spacing.sm, paddingVertical: 2 },
+  quickNavChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm,
+    backgroundColor: Colors.cardBg,
+    borderRadius: 20, borderWidth: 1, borderColor: Colors.borderSoft,
+  },
+  quickNavLabel: { fontSize: FontSize.xs, fontWeight: '600', color: Colors.textDark },
   cardLabel: {
     fontSize: 11, fontWeight: '700', color: Colors.textLight,
     letterSpacing: 1.2, textTransform: 'uppercase',
