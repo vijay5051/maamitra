@@ -620,33 +620,40 @@ function DraftSlideOver({
       }
     >
       <View style={{ gap: Spacing.md }}>
-        <View style={styles.previewWrap}>
-          {draft.assets.length > 1 ? (
-            // Carousel — horizontal scroller with slide-of-N badges so admin
-            // can review every slide before approving / publishing.
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ gap: 8 }}
-              style={{ flexGrow: 0 }}
-            >
-              {draft.assets.map((a, i) => (
-                <View key={i} style={styles.carouselThumbWrap}>
-                  <Image source={{ uri: a.url }} style={styles.carouselThumb} resizeMode="cover" />
-                  <View style={styles.carouselThumbBadge}>
-                    <Text style={styles.carouselThumbBadgeLabel}>{i + 1}/{draft.assets.length}</Text>
+        {/* Only render the preview block when there are actual assets.
+            Drafts with imageSource='none' (text-only / tipCard) have
+            zero assets — showing the placeholder square wastes screen
+            space and misleads the admin into thinking an image is loading. */}
+        {draft.assets.length > 0 && (
+          <View style={styles.previewWrap}>
+            {draft.assets.length > 1 ? (
+              // Carousel — horizontal scroller with slide-of-N badges so admin
+              // can review every slide before approving / publishing.
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ gap: 8 }}
+                style={{ flexGrow: 0 }}
+              >
+                {draft.assets.map((a, i) => (
+                  <View key={i} style={styles.carouselThumbWrap}>
+                    <Image source={{ uri: a.url }} style={styles.carouselThumb} resizeMode="cover" />
+                    <View style={styles.carouselThumbBadge}>
+                      <Text style={styles.carouselThumbBadgeLabel}>{i + 1}/{draft.assets.length}</Text>
+                    </View>
                   </View>
-                </View>
-              ))}
-            </ScrollView>
-          ) : thumb ? (
-            <Image source={{ uri: thumb }} style={styles.preview} resizeMode="cover" />
-          ) : (
-            <View style={[styles.preview, styles.thumbPlaceholder]}>
-              <ActivityIndicator />
-            </View>
-          )}
-        </View>
+                ))}
+              </ScrollView>
+            ) : thumb ? (
+              <Image source={{ uri: thumb }} style={styles.preview} resizeMode="cover" />
+            ) : (
+              // Has an asset URL pending — show spinner while it loads
+              <View style={[styles.preview, styles.thumbPlaceholder]}>
+                <ActivityIndicator />
+              </View>
+            )}
+          </View>
+        )}
 
         <View style={styles.metaCard}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>

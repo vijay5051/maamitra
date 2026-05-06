@@ -33,7 +33,13 @@ export default function SlideOver({
 }: Props) {
   const { width: screenW, height: screenH } = useWindowDimensions();
   const isWide = Platform.OS === 'web' && screenW >= 900;
-  const panelWidth = width ?? (isWide ? Math.min(560, screenW * 0.5) : screenW);
+  // Always cap to screenW — a caller passing e.g. width={640} on a 390px
+  // phone would push 250px of the panel off the left edge of the screen
+  // (the panel is right-anchored via justifyContent:'flex-end').
+  const panelWidth = Math.min(
+    width ?? (isWide ? Math.min(560, screenW * 0.5) : screenW),
+    screenW,
+  );
 
   return (
     <Modal visible={visible} transparent animationType={isWide ? 'slide' : 'fade'} onRequestClose={onClose}>
