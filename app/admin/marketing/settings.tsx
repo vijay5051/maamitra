@@ -112,7 +112,7 @@ export default function MarketingSettingsScreen() {
             <MiniNavPill
               icon="calendar-clear-outline"
               label="Open planner"
-              onPress={() => router.push('/admin/marketing/calendar' as any)}
+              onPress={() => router.push('/admin/marketing/planner' as any)}
             />
             <MiniNavPill
               icon="stats-chart-outline"
@@ -128,7 +128,7 @@ export default function MarketingSettingsScreen() {
           icon="calendar-clear-outline"
           title="Content Planner"
           body="Auto scheduler, slot timings, weekly rhythm, cultural calendar, and crisis pause now live in one place."
-          onPress={() => router.push('/admin/marketing/calendar' as any)}
+          onPress={() => router.push('/admin/marketing/planner' as any)}
         />
 
         <Card>

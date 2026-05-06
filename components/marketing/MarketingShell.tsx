@@ -77,7 +77,7 @@ const TABS: Tab[] = [
     key: 'planner',
     label: 'Content Planner',
     icon: 'calendar-clear-outline',
-    href: '/admin/marketing/calendar',
+    href: '/admin/marketing/planner',
     match: (p) =>
       p.startsWith('/admin/marketing/planner') ||
       p.startsWith('/admin/marketing/calendar'),
