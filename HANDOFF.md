@@ -11,6 +11,23 @@ No active coding task.
 
 ---
 
+## Last action (2026-05-06) — Drafts post preview image collapse fix
+
+**Commit `36be0ac` · hosting deployed · OTA `7622ebb9` published.**
+
+### What changed (`app/admin/marketing/drafts.tsx`)
+- `previewWrap` style gained `width: '100%'` so the `Image` inside it
+  (which also has `width: '100%', aspectRatio: 1`) resolves to the panel
+  width rather than collapsing to 0 height inside `SlideOver`'s
+  `ScrollView` body.
+- Root cause: `SlideOver`'s ScrollView `contentContainerStyle` is
+  `{ padding: 20, gap: 16 }` with no `alignItems: 'stretch'`, so any
+  child View without an explicit width collapses; the Image's
+  `width: '100%'` then resolves to 0. Adding `width: '100%'` to the
+  wrapper fixes it.
+
+---
+
 ## Last action (2026-05-06) — Community posts vanishing (P0 fix)
 
 **Hotfix for "posts of members not visible to other members" reported live.**
