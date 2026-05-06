@@ -54,6 +54,19 @@ their work overwriting each other:
    to publish if the tree is dirty or out of sync with origin.
 3. **One branch.** No long-lived feature branches. Land on `main` in
    small commits + push frequently.
+4. **Always check the main repo working tree before starting any task.**
+   Claude often runs inside a git worktree — `git status` there shows clean
+   even when the main repo has hours of uncommitted Codex work. Before
+   touching any file, run:
+   ```bash
+   git -C $(git rev-parse --show-toplevel)/../../.. status
+   git -C $(git rev-parse --show-toplevel)/../../.. stash list
+   ```
+   If the main repo has unstaged changes or stashes, **stop and tell the user**
+   before doing anything. Do not proceed until the user confirms those changes
+   are either committed/pushed or intentionally abandoned. Silently proceeding
+   when the other agent has uncommitted work is what causes 3-hour redesigns
+   to be overwritten.
 
 ## 4. Always sync everything
 After any change, the full delivery chain is, in order:
