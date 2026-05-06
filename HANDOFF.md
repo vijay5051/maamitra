@@ -11,6 +11,34 @@ No active coding task.
 
 ---
 
+## Last action (2026-05-06) — Admin session bounce on page reload (fixed)
+
+**Commit `4adc6e2` · hosting deployed · OTA `cf46dab5` published.**
+
+### Root cause
+`ensureWebAuthPersistence()` was calling
+`setPersistence(auth, browserLocalPersistence)` on every page load.
+Firebase's default web persistence is **IndexedDB**, not localStorage.
+Calling `setPersistence(localStorage)` migrated auth state from IndexedDB
+to localStorage, during which `onAuthStateChanged` fired with `null`
+(before firing with the real user). The admin layout saw
+`isLoading:false + user:null` and bounced to `/welcome` — even with a
+valid session.
+
+### Three-layer fix
+1. **`services/firebase.ts`** — `ensureWebAuthPersistence` now uses
+   `indexedDBLocalPersistence` (= Firebase's own default). Re-affirming
+   the same persistence type is a true no-op: no migration, no null
+   callback, no bounce. Incognito fallback: indexedDB → sessionStorage →
+   inMemory.
+2. **`store/useAuthStore.ts`** — 700ms debounce on null callbacks from
+   `onAuthStateChanged`. If the real user arrives within 700ms the timer
+   cancels. If 700ms pass with no user it's a genuine sign-out.
+3. **`app/admin/_layout.tsx`** — 800ms grace period before bouncing on
+   null user, as a final safety net.
+
+---
+
 ## Last action (2026-05-06) — Follower-counter wipe fix + Divya recount
 
 **Bug**: Divya appeared to have 0 followers / 0 following in the UI, but
