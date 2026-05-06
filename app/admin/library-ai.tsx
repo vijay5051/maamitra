@@ -646,6 +646,7 @@ function ContentRow({ item, onPreview, onEdit, onSendToMarketing, sendBusy, onTo
   const imageFailed = item.source === 'ai' && !item.imageUrl && (
     item.imageStatus === 'failed' || item.raw?.aiImageStatus === 'failed'
   );
+  const alreadySent = !!item.raw?.marketingDraftLastId;
 
   return (
     <Pressable style={s.contentRow} onPress={onEdit}>
@@ -699,8 +700,14 @@ function ContentRow({ item, onPreview, onEdit, onSendToMarketing, sendBusy, onTo
         </View>
         {item.kind === 'articles' ? (
           <Pressable style={s.inlineActionBtn} disabled={sendBusy} onPress={(e) => { e.stopPropagation?.(); onSendToMarketing(); }}>
-            <Ionicons name={sendBusy ? 'hourglass-outline' : 'megaphone-outline'} size={14} color={Colors.primary} />
-            <Text style={s.inlineActionBtnText}>{sendBusy ? 'Sending…' : 'Send to Drafts'}</Text>
+            <Ionicons
+              name={sendBusy ? 'hourglass-outline' : alreadySent ? 'checkmark-done-outline' : 'megaphone-outline'}
+              size={14}
+              color={alreadySent ? Colors.success : Colors.primary}
+            />
+            <Text style={[s.inlineActionBtnText, alreadySent && { color: Colors.success }]}>
+              {sendBusy ? 'Sending…' : alreadySent ? 'Sent to Drafts · Resend' : 'Send to Drafts'}
+            </Text>
           </Pressable>
         ) : null}
       </View>
@@ -711,7 +718,11 @@ function ContentRow({ item, onPreview, onEdit, onSendToMarketing, sendBusy, onTo
         </Pressable>
         {item.kind === 'articles' ? (
           <Pressable hitSlop={8} disabled={sendBusy} onPress={(e) => { e.stopPropagation?.(); onSendToMarketing(); }}>
-            <Ionicons name={sendBusy ? 'hourglass-outline' : 'megaphone-outline'} size={18} color={Colors.primary} />
+            <Ionicons
+              name={sendBusy ? 'hourglass-outline' : alreadySent ? 'checkmark-done-outline' : 'megaphone-outline'}
+              size={18}
+              color={alreadySent ? Colors.success : Colors.primary}
+            />
           </Pressable>
         ) : null}
         {item.url ? (
@@ -895,8 +906,20 @@ function ContentFormModal({ visible, kind, item, saving, sendingToMarketing, onC
             {onPreview && <ToolbarButton label="Preview" icon="reader-outline" variant="secondary" onPress={onPreview} />}
             {onSendToMarketing && (
               <ToolbarButton
-                label={sendingToMarketing ? 'Sending…' : 'Send to Marketing Drafts'}
-                icon={sendingToMarketing ? 'hourglass-outline' : 'megaphone-outline'}
+                label={
+                  sendingToMarketing
+                    ? 'Sending…'
+                    : item?.raw?.marketingDraftLastId
+                      ? 'Sent to Drafts · Resend'
+                      : 'Send to Marketing Drafts'
+                }
+                icon={
+                  sendingToMarketing
+                    ? 'hourglass-outline'
+                    : item?.raw?.marketingDraftLastId
+                      ? 'checkmark-done-outline'
+                      : 'megaphone-outline'
+                }
                 variant="secondary"
                 onPress={onSendToMarketing}
                 disabled={sendingToMarketing}

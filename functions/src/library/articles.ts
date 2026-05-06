@@ -321,14 +321,22 @@ async function loadMarketingHashtags(): Promise<string[]> {
   }
 }
 
-function assembleMarketingCaption(body: string, hashtags: string[], brandHashtags: string[]): string {
+function buildLibraryArticleLink(articleId: string, article: any): string {
+  const external = typeof article?.url === 'string' ? article.url.trim() : '';
+  if (/^https?:\/\//i.test(external)) return external;
+  const sp = new URLSearchParams({ tab: 'read', articleId });
+  return `https://maamitra.co.in/library?${sp.toString()}`;
+}
+
+function assembleMarketingCaption(body: string, hashtags: string[], brandHashtags: string[], link?: string): string {
   const merged = Array.from(new Set(
     [...hashtags, ...brandHashtags]
       .map((h) => h.trim().replace(/^#/, ''))
       .filter(Boolean),
   )).slice(0, 12);
   const tagLine = merged.length ? merged.map((h) => `#${h}`).join(' ') : '';
-  return [body.trim(), tagLine].filter(Boolean).join('\n\n').slice(0, 2200);
+  const linkLine = link ? `Read full article on MaaMitra App: ${link}` : '';
+  return [body.trim(), linkLine, tagLine].filter(Boolean).join('\n\n').slice(0, 2200);
 }
 
 async function summarizeArticleForMarketing(
@@ -585,7 +593,8 @@ async function createMarketingDraftFromArticle(
   const social = await summarizeArticleForMarketing(data, brand);
   const compliance = runCompliance(`${social.headline}\n${social.body}`, brand);
   const brandHashtags = await loadMarketingHashtags();
-  const caption = assembleMarketingCaption(social.body, social.hashtags, brandHashtags);
+  const articleLink = buildLibraryArticleLink(ref.id, data);
+  const caption = assembleMarketingCaption(social.body, social.hashtags, brandHashtags, articleLink);
   const storagePath = decodeStoragePathFromUrl(data.imageUrl);
   const themeKey = weekdayKeyForNowIst();
   const draftRef = admin.firestore().collection('marketing_drafts').doc();
@@ -633,6 +642,7 @@ async function createMarketingDraftFromArticle(
     sourceArticleId: ref.id,
     sourceArticleTitle: title,
     sourceArticleStatus: data.status ?? null,
+    linkUrl: articleLink,
   });
 
   await ref.set({
