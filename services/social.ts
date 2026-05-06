@@ -1038,6 +1038,13 @@ export async function acceptFollowRequest(
     });
   } catch (error) {
     console.error('acceptFollowRequest error:', error);
+    // Rethrow so the caller can roll back optimistic state (otherwise
+    // a permission-denied batch leaves the requestor showing as
+    // accepted locally while the followRequests doc stays pending —
+    // the Accept button reappears after refresh and counters never
+    // update because the follows doc that drives onFollowCreate was
+    // never written).
+    throw error;
   }
 }
 
@@ -1047,6 +1054,7 @@ export async function declineFollowRequest(requestId: string): Promise<void> {
     await updateDoc(doc(db, 'followRequests', requestId), { status: 'declined' });
   } catch (error) {
     console.error('declineFollowRequest error:', error);
+    throw error;
   }
 }
 

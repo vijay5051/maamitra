@@ -220,16 +220,44 @@ export default function NotificationsSheet({ visible, onClose, onViewProfile }: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, notifications?.length]);
 
-  const handleAccept = (notif: AppNotification) => {
+  const handleAccept = async (notif: AppNotification) => {
     if (!notif.requestId) return;
-    acceptRequest(notif.requestId, notif.fromUid, notif.fromName ?? '', notif.fromPhotoUrl);
+    // Optimistically flip the badge so the tap feels instant, but await
+    // the actual write so we can roll the badge back if the rules /
+    // network / SDK reject it. The previous code fired acceptRequest
+    // un-awaited and unconditionally set 'accepted' — a permission-
+    // denied write left the row showing "Accepted ✓" while Firestore
+    // still had status='pending', so on refresh the buttons reappeared.
     setHandledRequests((prev) => ({ ...prev, [notif.id]: 'accepted' }));
+    try {
+      await acceptRequest(notif.requestId, notif.fromUid, notif.fromName ?? '', notif.fromPhotoUrl);
+    } catch (_err) {
+      setHandledRequests((prev) => {
+        const next = { ...prev };
+        delete next[notif.id];
+        return next;
+      });
+      if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+        window.alert("Couldn't accept the request. Please check your connection and try again.");
+      }
+    }
   };
 
-  const handleDecline = (notif: AppNotification) => {
+  const handleDecline = async (notif: AppNotification) => {
     if (!notif.requestId) return;
-    declineRequest(notif.requestId);
     setHandledRequests((prev) => ({ ...prev, [notif.id]: 'declined' }));
+    try {
+      await declineRequest(notif.requestId);
+    } catch (_err) {
+      setHandledRequests((prev) => {
+        const next = { ...prev };
+        delete next[notif.id];
+        return next;
+      });
+      if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+        window.alert("Couldn't decline the request. Please check your connection and try again.");
+      }
+    }
   };
 
   const renderEmpty = () => (

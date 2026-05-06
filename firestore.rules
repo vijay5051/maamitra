@@ -376,7 +376,14 @@ service cloud.firestore {
            'requestId',
            'createdAt', 'read']
         );
-      allow update: if isOwner(uid) && onlyFields(['read']);
+      // Owner can update read flag and follow-request action state
+      // (requestStatus = 'accepted' | 'declined' is set by the
+      // services/social.ts markNotificationRequestStatus helper after
+      // the user accepts/declines so the row keeps its outcome badge
+      // across refreshes — without `requestStatus` here the update was
+      // denied, the field never persisted, and Accept/Decline buttons
+      // reappeared after every refresh).
+      allow update: if isOwner(uid) && onlyFields(['read', 'requestStatus']);
       allow delete: if isOwner(uid) || isAdmin();
     }
 
