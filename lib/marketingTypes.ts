@@ -511,6 +511,10 @@ export interface MarketingDraft {
   locale: string | null;
   /** Headline shown in queue cards (≤ 80 chars). Distinct from caption. */
   headline: string | null;
+  /** Structured fields passed to the template renderer (eyebrow / story /
+   * attribution / tips / quote / milestones — shape varies by template).
+   * Persisted so the admin can re-render or inspect the source content. */
+  templateProps: Record<string, unknown> | null;
   /** Image prompt used by the generator — kept so admin can regenerate. */
   imagePrompt: string | null;
   /** Image source provider used for the rendered asset. */
