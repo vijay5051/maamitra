@@ -11,6 +11,32 @@ No active coding task.
 
 ---
 
+## Last action (2026-05-08) — Template categories + per-card move
+
+**Commit `d57143f` · firestore rules deployed · hosting deployed · OTA `4f9b6bd6` published.**
+
+Two follow-on capabilities on `/admin/marketing/templates`:
+
+- **First-class categories** — new Firestore collection `template_categories`
+  lets admin pre-create empty buckets ahead of any image. Display set on
+  the page is union(explicit, implicit-from-images). Chip row gets a
+  dashed "+ New category" chip at the end and a tiny × button on empty
+  explicit chips for one-click removal. Categories with images attached
+  can't be removed (admin renames per-image instead).
+- **Move action** — every card now has a Move icon (4th action, between
+  Edit and Download). Opens a category-picker modal with the current
+  category highlighted; click any other to reassign in one tap. From
+  inside the picker, "New category…" creates the bucket AND auto-moves
+  the image into it.
+
+Card actions switch from icon+label to icon-only with native browser
+tooltips so all four (Edit / Move / Download / Delete) fit in 220 px.
+
+Rules: `template_categories/{docId}` admin read+write. Audit:
+`marketing.template.category.create` / `.delete`.
+
+---
+
 ## Last action (2026-05-08) — Admin template image library
 
 **Commit `7151272` · firestore + storage rules deployed · hosting deployed
