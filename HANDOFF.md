@@ -11,6 +11,29 @@ No active coding task.
 
 ---
 
+## Last action (2026-05-08) — Multi-select on templates page
+
+**Commit `49d7065` · hosting deployed · OTA `972f4716` published.**
+
+"Select" toggle in the page header enters select mode:
+- Cards grow a checkbox overlay; tapping the card body toggles selection.
+- Per-card action icons hide so the gesture is unambiguous.
+- A primary-purple bar above the grid shows the selection count plus
+  Select all / Deselect all, Move (N), Delete (N).
+- Batch Move opens a category picker; clicking any category reassigns
+  every selected row sequentially. Progress overlay; failures are
+  surfaced and the failed ids stay selected for retry.
+- Batch Delete asks for confirmation, then iterates. Storage cleanup
+  per row.
+- "New category…" inside batch move stacks atop the modal and
+  auto-batch-moves once the category is created (parity with single Move).
+- Selection survives Firestore live updates — stale ids prune on row diff.
+
+No new rules, functions, or backend wiring — feature is pure client
+on top of existing `template_images` admin r/w.
+
+---
+
 ## Last action (2026-05-08) — Template categories + per-card move
 
 **Commit `d57143f` · firestore rules deployed · hosting deployed · OTA `4f9b6bd6` published.**
