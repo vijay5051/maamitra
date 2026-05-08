@@ -11,7 +11,17 @@ No active coding task.
 
 ---
 
-## Last action (2026-05-08) — Fix CORS-blocked picker reads via proxy callable
+## Last action (2026-05-08) — Picker categories + deploy catch-up
+
+**Commit `0fed654` · hosting deployed · OTA `7a199d4b` published.**
+
+`0fed654` was committed but never deployed. Deploy gap now closed.
+Fix: picker subscribes to `template_categories` collection so admin-defined empty
+categories appear; chip row renders when ≥1 category exists (was `> 1`).
+
+---
+
+## Previous action (2026-05-08) — Fix CORS-blocked picker reads via proxy callable
 
 **Commit `cd46540` · function `getTemplateImage` deployed · hosting deployed · OTA `f7474efd` published.**
 
