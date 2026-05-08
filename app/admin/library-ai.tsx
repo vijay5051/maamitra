@@ -38,6 +38,7 @@ import {
 } from '../../components/admin/ui';
 import TemplateImagePicker from '../../components/admin/TemplateImagePicker';
 import { Colors, FontSize, Radius, Shadow, Spacing } from '../../constants/theme';
+import { getStaticArticleImageSource } from '../../lib/articleImages';
 import { createContent, deleteContent, setContentById, updateContent } from '../../services/firebase';
 import { uploadLibraryImage } from '../../services/storage';
 import {
@@ -648,12 +649,18 @@ function ContentRow({ item, onPreview, onEdit, onSendToMarketing, sendBusy, onTo
     item.imageStatus === 'failed' || item.raw?.aiImageStatus === 'failed'
   );
   const alreadySent = !!item.raw?.marketingDraftLastId;
+  const staticArticleImage = item.kind === 'articles'
+    ? getStaticArticleImageSource(item.id)
+    : undefined;
+  const imageSource = item.imageUrl
+    ? staticArticleImage ?? { uri: item.imageUrl }
+    : staticArticleImage;
 
   return (
     <Pressable style={s.contentRow} onPress={onEdit}>
       <View style={s.rowThumbWrap}>
-        {item.imageUrl ? (
-          <Image source={{ uri: item.imageUrl }} style={s.rowThumb} resizeMode="cover" />
+        {imageSource ? (
+          <Image source={imageSource} style={s.rowThumb} resizeMode="cover" />
         ) : (
           <View style={[s.rowThumb, s.rowThumbEmpty]}>
             <Text style={{ fontSize: 20 }}>{meta.emoji}</Text>
@@ -1042,6 +1049,12 @@ function ContentPreviewModal({ visible, kind, item, onClose }: {
   const ageLabel = item
     ? item.ageMin < 0 ? 'Pregnancy' : item.ageMax >= 999 ? 'All ages' : `${item.ageMin}-${item.ageMax} months`
     : '';
+  const staticArticleImage = item?.kind === 'articles'
+    ? getStaticArticleImageSource(item.id)
+    : undefined;
+  const imageSource = item?.imageUrl
+    ? staticArticleImage ?? { uri: item.imageUrl }
+    : staticArticleImage;
 
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
@@ -1058,8 +1071,8 @@ function ContentPreviewModal({ visible, kind, item, onClose }: {
           </View>
 
           <ScrollView contentContainerStyle={s.previewBody}>
-            {item?.imageUrl ? (
-              <Image source={{ uri: item.imageUrl }} style={s.previewHero} resizeMode="cover" />
+            {imageSource ? (
+              <Image source={imageSource} style={s.previewHero} resizeMode="cover" />
             ) : null}
 
             <View style={s.previewMetaRow}>

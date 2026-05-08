@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   FlatList,
   Image,
+  type ImageSourcePropType,
   Linking,
   Modal,
   Platform,
@@ -27,6 +28,7 @@ import { useAppSettingsStore } from '../../store/useAppSettingsStore';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useAuthStore } from '../../store/useAuthStore';
 import { isAdminEmail } from '../../lib/admin';
+import { getStaticArticleImageSource } from '../../lib/articleImages';
 import { PRODUCTS, Product } from '../../data/products';
 import { Article } from '../../data/articles';
 import { BOOKS, type Book } from '../../data/books';
@@ -242,7 +244,11 @@ function ArticleCard({
   const [expanded, setExpanded] = useState(!!autoExpand);
   const [imgError, setImgError] = useState(false);
   const [colors] = useState<[string, string]>(() => getArticleGradient(article.topic));
-  const showRealImg = !!(article.imageUrl && !imgError);
+  const staticImage = getStaticArticleImageSource(article.id);
+  const imageSource: ImageSourcePropType | undefined = article.imageUrl
+    ? staticImage ?? { uri: article.imageUrl }
+    : staticImage;
+  const showRealImg = !!(imageSource && !imgError);
 
   useEffect(() => {
     if (autoExpand) {
@@ -258,7 +264,7 @@ function ArticleCard({
         {showRealImg ? (
           <View style={articleStyles.cover}>
             <Image
-              source={{ uri: article.imageUrl }}
+              source={imageSource}
               style={StyleSheet.absoluteFill}
               resizeMode="cover"
               onError={() => setImgError(true)}

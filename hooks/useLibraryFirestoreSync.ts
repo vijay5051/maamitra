@@ -25,7 +25,12 @@ export function useLibraryFirestoreSync(): void {
   const setProducts = useProductStore((s) => s.setProducts);
 
   useEffect(() => {
-    if (!db) return;
+    if (!db) {
+      setArticles([]);
+      setBooks([]);
+      setProducts([]);
+      return;
+    }
     let cancelled = false;
 
     let unsubArticles: (() => void) | null = null;
@@ -61,10 +66,14 @@ export function useLibraryFirestoreSync(): void {
             }).filter((r) => r.title && r.preview);
             setArticles(rows);
           },
-          (err) => console.warn('[libraryFirestoreSync] articles', err),
+          (err) => {
+            console.warn('[libraryFirestoreSync] articles', err);
+            setArticles([]);
+          },
         );
       } catch (e) {
         console.warn('[libraryFirestoreSync] articles subscribe failed', e);
+        setArticles([]);
       }
 
       // ── Books ───────────────────────────────────────────────────────────
@@ -93,10 +102,14 @@ export function useLibraryFirestoreSync(): void {
             }).filter((r) => r.title && r.url);
             setBooks(rows);
           },
-          (err) => console.warn('[libraryFirestoreSync] books', err),
+          (err) => {
+            console.warn('[libraryFirestoreSync] books', err);
+            setBooks([]);
+          },
         );
       } catch (e) {
         console.warn('[libraryFirestoreSync] books subscribe failed', e);
+        setBooks([]);
       }
 
       // ── Products ────────────────────────────────────────────────────────
@@ -129,10 +142,14 @@ export function useLibraryFirestoreSync(): void {
             }).filter((r) => r.name && r.url);
             setProducts(rows);
           },
-          (err) => console.warn('[libraryFirestoreSync] products', err),
+          (err) => {
+            console.warn('[libraryFirestoreSync] products', err);
+            setProducts([]);
+          },
         );
       } catch (e) {
         console.warn('[libraryFirestoreSync] products subscribe failed', e);
+        setProducts([]);
       }
     })();
 
