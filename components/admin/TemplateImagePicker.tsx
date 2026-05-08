@@ -34,7 +34,6 @@ import { TEMPLATE_IMAGES, TemplateImageAsset } from '../../lib/templateImages';
 import {
   TemplateCategoryDoc,
   TemplateImageDoc,
-  getTemplateImageBlob,
   subscribeTemplateCategories,
   subscribeTemplateImages,
 } from '../../services/templateLibrary';
@@ -48,7 +47,7 @@ interface PickerEntry extends TemplateImageAsset {
 interface Props {
   disabled?: boolean;
   buttonLabel?: string;
-  onSelect: (blob: Blob, asset: TemplateImageAsset) => Promise<void> | void;
+  onSelect: (asset: TemplateImageAsset) => Promise<void> | void;
 }
 
 export default function TemplateImagePicker({
@@ -82,6 +81,7 @@ export default function TemplateImagePicker({
         label: d.label,
         filename: d.legacyFileName ?? `${d.id}.png`,
         url: d.url,
+        storagePath: d.storagePath,
         category: d.category || 'Uncategorised',
         source: 'library',
       };
@@ -125,19 +125,7 @@ export default function TemplateImagePicker({
     setBusyId(asset.id);
     setError(null);
     try {
-      let blob: Blob;
-      if (asset.source === 'library') {
-        // Library entries live at firebasestorage URLs. A direct browser
-        // fetch hits CORS, so go through the admin-only proxy callable.
-        blob = await getTemplateImageBlob(asset.id);
-      } else {
-        // Static-manifest entries are served from /template-images/ on the
-        // same origin — direct fetch works.
-        const res = await fetch(asset.url);
-        if (!res.ok) throw new Error(`template-read-${res.status}`);
-        blob = await res.blob();
-      }
-      await onSelect(blob, asset);
+      await onSelect(asset);
       setOpen(false);
     } catch (e: any) {
       setError(e?.message ?? String(e));

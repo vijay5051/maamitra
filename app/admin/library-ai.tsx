@@ -839,18 +839,10 @@ function ContentFormModal({ visible, kind, item, saving, sendingToMarketing, onC
     }
   }
 
-  async function pickTemplateArticleImage(blob: Blob) {
+  function pickTemplateArticleImage(url: string) {
     if (kind !== 'articles' || imageUploading) return;
     setImageUploadError(null);
-    try {
-      setImageUploading(true);
-      await uploadArticleImageBlob(blob);
-    } catch (e: any) {
-      console.error('[library-ai] article template image upload failed', e);
-      setImageUploadError(formatLibraryUploadError(e));
-    } finally {
-      setImageUploading(false);
-    }
+    setForm((f) => ({ ...f, imageUrl: url }));
   }
 
   async function uploadArticleImageBlob(blob: Blob | null) {
@@ -984,7 +976,7 @@ function ArticleImageUploader({ imageUrl, uploading, error, onPick, onPickTempla
   uploading: boolean;
   error: string | null;
   onPick: () => void;
-  onPickTemplate: (blob: Blob) => Promise<void> | void;
+  onPickTemplate: (url: string) => Promise<void> | void;
   onClear: () => void;
 }) {
   return (
@@ -1008,7 +1000,7 @@ function ArticleImageUploader({ imageUrl, uploading, error, onPick, onPickTempla
         <TemplateImagePicker
           disabled={uploading}
           buttonLabel="Template library"
-          onSelect={(blob) => onPickTemplate(blob)}
+          onSelect={(asset) => onPickTemplate(asset.url)}
         />
         {imageUrl ? (
           <ToolbarButton

@@ -454,8 +454,11 @@ export default function StudioCanvasScreen() {
     }
   }
 
-  async function handleTemplateLibraryUpload(blob: Blob, asset: TemplateLibraryAsset) {
-    await handleUpload(blob, asset.label);
+  function handleTemplateLibraryUpload(asset: TemplateLibraryAsset) {
+    setTemplateImageAsset({ url: asset.url, storagePath: asset.storagePath ?? '' });
+    if (!prompt.trim()) setPrompt(asset.label);
+    setOkBanner('Background image selected. Render the card to use it.');
+    setTimeout(() => setOkBanner(null), 3500);
   }
 
   async function handleDownloadOutputs(items?: Variant[]) {
@@ -715,7 +718,7 @@ function Step1Prompt({
   onReuseWinner: () => void;
   /** Web-only — invoked when admin picks a file via the Upload button. */
   onUploadFile: (file: File) => void;
-  onUploadTemplateBlob: (blob: Blob, asset: TemplateLibraryAsset) => void;
+  onUploadTemplateBlob: (asset: TemplateLibraryAsset) => void;
   templateImageAsset: TemplateImageAsset | null;
   setTemplateImageAsset: (v: TemplateImageAsset | null) => void;
   carouselMode: boolean;
@@ -1021,7 +1024,7 @@ function TemplateFields({
   templateImageAsset: TemplateImageAsset | null;
   setTemplateImageAsset: (v: TemplateImageAsset | null) => void;
   onUploadFile: (file: File) => void;
-  onUploadTemplateBlob: (blob: Blob, asset: TemplateLibraryAsset) => void;
+  onUploadTemplateBlob: (asset: TemplateLibraryAsset) => void;
   isWide: boolean;
 }) {
   const patch = (key: keyof TemplateForm, value: string) => setForm({ ...form, [key]: value });

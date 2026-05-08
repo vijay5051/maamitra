@@ -73,6 +73,8 @@ export interface TemplateImageAsset {
   label: string;
   filename: string;
   url: string;
+  /** Storage path, present for library entries; absent for static starters. */
+  storagePath?: string;
 }
 
 export const TEMPLATE_IMAGES: TemplateImageAsset[] = TEMPLATE_IMAGE_FILENAMES.map((filename, index) => ({
