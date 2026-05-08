@@ -11,13 +11,20 @@ No active coding task.
 
 ---
 
-## Last action (2026-05-08) — Picker categories + deploy catch-up
+## Last action (2026-05-08) — Picker: drop blob-fetch, pass URL directly
 
-**Commit `0fed654` · hosting deployed · OTA `7a199d4b` published.**
+**Commit `2974afc` · hosting deployed · OTA `cc2823e6` published.**
 
-`0fed654` was committed but never deployed. Deploy gap now closed.
-Fix: picker subscribes to `template_categories` collection so admin-defined empty
-categories appear; chip row renders when ≥1 category exists (was `> 1`).
+Root cause of "Could not select image: Failed to fetch": picker was fetching
+image bytes from firebasestorage.googleapis.com (CORS-blocked cross-origin).
+The proxy callable (`getTemplateImage`) also had issues reaching the client.
+
+Fix: remove blob fetching entirely.
+- `onSelect(asset)` instead of `onSelect(blob, asset)` — no bytes touch the browser.
+- `library-ai.tsx`: sets `form.imageUrl = asset.url` directly.
+- `create.tsx`: sets `templateImageAsset = { url, storagePath }` directly, skips upload.
+- `TemplateImagePicker`: `select()` just calls `onSelect(asset)`, instant.
+- `lib/templateImages`: `TemplateImageAsset` gains optional `storagePath` field.
 
 ---
 
