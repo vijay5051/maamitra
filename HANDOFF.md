@@ -9,6 +9,89 @@
 ## Active task
 No active coding task.
 
+Deploy chain in flight: see "Last action (2026-05-08)" below — git push is
+done, functions + hosting + OTA still need to land.
+
+---
+
+## Last action (2026-05-08) — Backlog flush: 3 commits pushed to main
+
+Three commits landed; deploy chain to follow (functions → hosting → OTA).
+
+### `428f8f7` feat(library): template-image picker for article hero (67 images)
+Reusable web modal gallery (`components/admin/TemplateImagePicker.tsx`) +
+manifest (`lib/templateImages.ts`) + 67 PNGs in `public/template-images/`.
+Wired into article add/edit on `app/admin/library-ai.tsx`. Studio wiring
+landed in commit 14a0050 below (was held back during the split because the
+picker state shared scope with the unfinished edit-draft feature).
+
+### `14a0050` feat(marketing): studio edit-draft, regenerate, server-side scheduling, image hardening
+- **Studio edit-draft round trip**: open a saved draft via
+  `/admin/marketing/create?editDraft=<id>`, edit prompt/template/image, save
+  back to the same doc. Backend (`createStudioDraft`) merges into existing
+  doc when a `draftId` is supplied; preserves persona/pillar/posted state.
+- **Regenerate-in-place**: new `regenerateMarketingDraft` callable replaces
+  the open draft (instead of generating a parallel one). `drafts.tsx` UI
+  now uses it; URL state `?filter=&open=` keeps the slide-over deep-linkable
+  and a fresh-fetch path resolves stale links.
+- **Server-side schedule/unschedule**: `scheduleMarketingDraft` /
+  `unscheduleMarketingDraft` callables; client `services/marketingDrafts.ts`
+  routes through them instead of writing Firestore directly. Audit trail +
+  RLS now consistent with other admin writes.
+- **Inspired Story polish**: story cap 240 → 220 chars, eyebrow & font
+  sizing dynamic by story length, photo block 648 → 520 px, panel padding
+  bumped, `trimStory` helper centralized.
+- **Image hardening**: paginated Pexels search dedupes by photo id, blocks
+  animal/object/idol keywords; `requireHumanAlt` filter for parenting
+  queries; OpenAI reference path retries with fewer refs on failure;
+  Imagen reinstated as last-resort fallback (`personGeneration: 'allow_all'`
+  for baby/child subjects); caption fallback now produces structured props
+  for `realStoryCard` / `milestoneCard` / `quoteCard` (was tip-only).
+- **Inbox**: missing IG creds + FB Messenger DMs no longer hard-fail;
+  message is left queued with a friendly "Manual send required" note and a
+  Copy-to-paste button.
+- Hygiene: `.gitignore`-d `tmp/image-generation-tests/` and
+  `.claude/test-credentials.md`; added `OPENAI_API_KEY` example;
+  `image:test` npm alias points at `scripts/test-maamitra-image-generation.mjs`.
+
+**Pre-existing TS errors (not introduced here, not blocking esbuild)** —
+left from earlier sessions, see prior handoff: `services/marketing.ts`
+`previewScheduledSlot`, `app/admin/marketing/settings.tsx` missing imports.
+
+### `119cac9` feat(library): static article banners served from public/ (no app bundling)
+60 article hero banners published to `public/article-banners/` and served
+from the web origin. `lib/articleImages.ts` returns a `{ uri }` source —
+relative path on web, `https://maamitra.co.in/article-banners/...` on
+native. **Zero PNGs in the app bundle** (an earlier draft with
+`require('../assets/...')` would have added ~118 MB to IPA/APK; that path
+was removed before push). Both `app/(tabs)/library.tsx` ArticleCard and
+admin row/preview fall back to the static banner only when `imageUrl` is
+empty. `useLibraryFirestoreSync` now clears stores on db-unavailable /
+subscription error so signed-out sessions don't show stale rows.
+
+### Deploy steps still pending
+1. `cd functions && npm run build && cd .. && firebase deploy --only functions`
+   — must land before any client OTA, otherwise schedule/unschedule/regenerate
+   will fail in prod (the new callables don't exist yet).
+2. `firebase deploy --only hosting` — pushes the 60 article banners to
+   `https://maamitra.co.in/article-banners/` (so native fetches resolve).
+3. `npx expo export --platform web` already ran inside `firebase deploy
+   --only hosting` flow; otherwise run before hosting deploy.
+4. `npm run update` (OTA via `safe-update.sh`) — only after the two deploys
+   above. Tree must be clean (it is, post-push).
+
+### Stashes left untouched
+`stash@{0} On main: codex-studio-redesign-3hrs` and 6 older WIP stashes.
+Confirm with whoever made `codex-studio-redesign-3hrs` whether it's still
+needed before clearing.
+
+### Local-only files NOT committed
+- `scripts/export_article_banners.mjs`, `scripts/render_single_banner.mjs`
+  — hardcode `/Users/vijay/.cache/codex-runtimes/...` paths. Won't run on
+  another machine. Useful only on Vijay's box; left untracked.
+- `tmp/` (146 MB local image-generation outputs) — gitignored.
+- `.claude/test-credentials.md` — gitignored.
+
 ---
 
 ## Last action (2026-05-07) — Renamed "Real Story" → "Inspired Story" tag
