@@ -89,6 +89,13 @@ const TABS: Tab[] = [
     href: '/admin/marketing/inbox',
     match: (p) => p.startsWith('/admin/marketing/inbox') || p.startsWith('/admin/marketing/replies'),
   },
+  {
+    key: 'templates',
+    label: 'Templates',
+    icon: 'albums-outline',
+    href: '/admin/marketing/templates',
+    match: (p) => p.startsWith('/admin/marketing/templates'),
+  },
 ];
 
 const SETTINGS_TAB: Tab = {

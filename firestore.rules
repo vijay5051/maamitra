@@ -457,6 +457,13 @@ service cloud.firestore {
     match /marketing_drafts/{docId} {
       allow read, write: if isAdmin();
     }
+    // Reusable template image library. Admin-curated PNGs used by the Studio
+    // picker as backgrounds for quote/milestone/inspired-story cards. Admin
+    // reads + writes the metadata; matching Storage objects sit at
+    // template-images/<docId>.<ext> with the Storage rule above.
+    match /template_images/{docId} {
+      allow read, write: if isAdmin();
+    }
     // Live posts (post-publish receipts + insights snapshots). Admin-only.
     match /marketing_posts/{docId} {
       allow read, write: if isAdmin();

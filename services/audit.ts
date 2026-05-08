@@ -76,6 +76,9 @@ export type AdminAction =
   | 'marketing.inbox.reply'
   | 'marketing.inbox.archive'
   | 'marketing.cron.override'
+  | 'marketing.template.upload'
+  | 'marketing.template.update'
+  | 'marketing.template.delete'
   // Integration Hub — API key rotation
   | 'integration.update'
   // Library AI — autopilot for Articles / Books / Products

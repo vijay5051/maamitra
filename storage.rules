@@ -92,6 +92,16 @@ service firebase.storage {
         && request.resource.contentType.matches('image/(jpeg|jpg|png|webp|heic|heif|gif|avif)');
     }
 
+    // Admin-managed marketing template image library. The Studio picker
+    // fetches via getDownloadURL so reads must be public; writes/deletes
+    // are admin-only. Same 8 MB cap and image-mime allow-list as Library.
+    match /template-images/{fileName} {
+      allow read: if true;
+      allow write: if isAdmin()
+        && request.resource.size < 8 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|jpg|png|webp|heic|heif|gif|avif)');
+    }
+
     // Deny everything else by default
     match /{allPaths=**} {
       allow read, write: if false;
