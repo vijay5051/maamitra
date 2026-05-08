@@ -36,6 +36,7 @@ import {
   Toolbar,
   ToolbarButton,
 } from '../../components/admin/ui';
+import TemplateImagePicker from '../../components/admin/TemplateImagePicker';
 import { Colors, FontSize, Radius, Shadow, Spacing } from '../../constants/theme';
 import { createContent, deleteContent, setContentById, updateContent } from '../../services/firebase';
 import { uploadLibraryImage } from '../../services/storage';
@@ -822,19 +823,37 @@ function ContentFormModal({ visible, kind, item, saving, sendingToMarketing, onC
         if (!res.ok) throw new Error(`image-read-${res.status}`);
         blob = await res.blob();
       }
-      if (!blob) throw new Error('image-read-empty');
-      if (blob.size > 8 * 1024 * 1024) {
-        throw new Error('too-large');
-      }
-      const url = await uploadLibraryImage('articles', blob);
-      setForm((f) => ({ ...f, imageUrl: url }));
-      setImageUploadError(null);
+      await uploadArticleImageBlob(blob);
     } catch (e: any) {
       console.error('[library-ai] article image upload failed', e);
       setImageUploadError(formatLibraryUploadError(e));
     } finally {
       setImageUploading(false);
     }
+  }
+
+  async function pickTemplateArticleImage(blob: Blob) {
+    if (kind !== 'articles' || imageUploading) return;
+    setImageUploadError(null);
+    try {
+      setImageUploading(true);
+      await uploadArticleImageBlob(blob);
+    } catch (e: any) {
+      console.error('[library-ai] article template image upload failed', e);
+      setImageUploadError(formatLibraryUploadError(e));
+    } finally {
+      setImageUploading(false);
+    }
+  }
+
+  async function uploadArticleImageBlob(blob: Blob | null) {
+    if (!blob) throw new Error('image-read-empty');
+    if (blob.size > 8 * 1024 * 1024) {
+      throw new Error('too-large');
+    }
+    const url = await uploadLibraryImage('articles', blob);
+    setForm((f) => ({ ...f, imageUrl: url }));
+    setImageUploadError(null);
   }
 
   return (
@@ -875,6 +894,7 @@ function ContentFormModal({ visible, kind, item, saving, sendingToMarketing, onC
                     uploading={imageUploading}
                     error={imageUploadError}
                     onPick={pickAndUploadArticleImage}
+                    onPickTemplate={pickTemplateArticleImage}
                     onClear={() => {
                       setForm((f) => ({ ...f, imageUrl: '' }));
                       setImageUploadError(null);
@@ -952,11 +972,12 @@ function ContentFormModal({ visible, kind, item, saving, sendingToMarketing, onC
   );
 }
 
-function ArticleImageUploader({ imageUrl, uploading, error, onPick, onClear }: {
+function ArticleImageUploader({ imageUrl, uploading, error, onPick, onPickTemplate, onClear }: {
   imageUrl: string;
   uploading: boolean;
   error: string | null;
   onPick: () => void;
+  onPickTemplate: (blob: Blob) => Promise<void> | void;
   onClear: () => void;
 }) {
   return (
@@ -976,6 +997,11 @@ function ArticleImageUploader({ imageUrl, uploading, error, onPick, onClear }: {
           variant="secondary"
           disabled={uploading}
           onPress={onPick}
+        />
+        <TemplateImagePicker
+          disabled={uploading}
+          buttonLabel="Template library"
+          onSelect={(blob) => onPickTemplate(blob)}
         />
         {imageUrl ? (
           <ToolbarButton
