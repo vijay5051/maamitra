@@ -50,7 +50,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.buildProbeMarketingHealthNow = exports.buildProbeMarketingHealth = exports.buildComposeStudioLogo = exports.buildUploadStudioImage = exports.buildEditStudioImage = exports.buildCreateStudioDraft = exports.buildGenerateStudioVariants = exports.buildBoostMarketingDraft = exports.buildRenderUgcAsDraft = exports.buildGenerateWeeklyInsightDigest = exports.buildPollMarketingAccountInsights = exports.buildPollMarketingInsights = exports.buildPublishMarketingDraftNow = exports.buildScheduledMarketingPublisher = exports.buildMetaInboxReplyPublisher = exports.buildClassifyInboxThread = exports.buildGenerateInboxReplies = exports.buildMetaWebhookReceiver = exports.buildGenerateAheadDrafts = exports.buildDailyMarketingDraftCron = exports.buildUnscheduleMarketingDraft = exports.buildScheduleMarketingDraft = exports.buildRegenerateMarketingDraft = exports.buildGenerateMarketingDraft = exports.buildScoreMarketingDraft = void 0;
+exports.buildGetTemplateImage = exports.buildProbeMarketingHealthNow = exports.buildProbeMarketingHealth = exports.buildComposeStudioLogo = exports.buildUploadStudioImage = exports.buildEditStudioImage = exports.buildCreateStudioDraft = exports.buildGenerateStudioVariants = exports.buildBoostMarketingDraft = exports.buildRenderUgcAsDraft = exports.buildGenerateWeeklyInsightDigest = exports.buildPollMarketingAccountInsights = exports.buildPollMarketingInsights = exports.buildPublishMarketingDraftNow = exports.buildScheduledMarketingPublisher = exports.buildMetaInboxReplyPublisher = exports.buildClassifyInboxThread = exports.buildGenerateInboxReplies = exports.buildMetaWebhookReceiver = exports.buildGenerateAheadDrafts = exports.buildDailyMarketingDraftCron = exports.buildUnscheduleMarketingDraft = exports.buildScheduleMarketingDraft = exports.buildRegenerateMarketingDraft = exports.buildGenerateMarketingDraft = exports.buildScoreMarketingDraft = void 0;
 exports.buildRenderMarketingTemplate = buildRenderMarketingTemplate;
 exports.buildGenerateTemplatePrefill = buildGenerateTemplatePrefill;
 const admin = __importStar(require("firebase-admin"));
@@ -93,6 +93,8 @@ Object.defineProperty(exports, "buildComposeStudioLogo", { enumerable: true, get
 var health_1 = require("./health");
 Object.defineProperty(exports, "buildProbeMarketingHealth", { enumerable: true, get: function () { return health_1.buildProbeMarketingHealth; } });
 Object.defineProperty(exports, "buildProbeMarketingHealthNow", { enumerable: true, get: function () { return health_1.buildProbeMarketingHealthNow; } });
+var templateLibrary_1 = require("./templateLibrary");
+Object.defineProperty(exports, "buildGetTemplateImage", { enumerable: true, get: function () { return templateLibrary_1.buildGetTemplateImage; } });
 // firebase-admin is initialized in functions/src/index.ts before this module
 // is imported; we just grab the existing instance.
 // Capability check — Marketing renders are gated on the same admin signal

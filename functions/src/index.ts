@@ -56,6 +56,7 @@ import {
   buildPollMarketingInsights,
   buildProbeMarketingHealth,
   buildProbeMarketingHealthNow,
+  buildGetTemplateImage,
   buildPublishMarketingDraftNow,
   buildRenderMarketingTemplate,
   buildRenderUgcAsDraft,
@@ -1467,6 +1468,10 @@ export const composeStudioLogo = buildComposeStudioLogo(ADMIN_EMAILS);
 // the callable backs the "Re-check now" button in Settings.
 export const probeMarketingHealth = buildProbeMarketingHealth();
 export const probeMarketingHealthNow = buildProbeMarketingHealthNow(ADMIN_EMAILS);
+
+// Template library: read-through proxy that bypasses the Storage CORS gap
+// when the picker fetches an image to convert to a Blob for re-upload.
+export const getTemplateImage = buildGetTemplateImage(ADMIN_EMAILS);
 
 // Integration Hub — admin-callable health check + config updater.
 // checkIntegrationHealth probes every external API (OpenAI, Gemini,

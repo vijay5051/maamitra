@@ -22,7 +22,7 @@ import {
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 
 import { logAdminAction } from './audit';
-import { db, storage } from './firebase';
+import { app, db, storage } from './firebase';
 
 const COL = 'template_images';
 const CAT_COL = 'template_categories';
@@ -192,6 +192,28 @@ export async function deleteTemplateImage(
     }
   }
   await logAdminAction(actor, 'marketing.template.delete', { docId: row.id }, { label: row.label });
+}
+
+/** Read a library image's bytes via the admin-only proxy callable.
+ *
+ *  Going direct against firebasestorage.googleapis.com works for `<Image>`
+ *  rendering but trips CORS for `fetch()` — the bucket isn't configured to
+ *  allow arbitrary browser origins. Routing through the function lets the
+ *  picker hand a Blob to its destination upload flow without changing
+ *  bucket-level config. */
+export async function getTemplateImageBlob(id: string): Promise<Blob> {
+  if (!app) throw new Error('Firebase app not configured');
+  const { getFunctions, httpsCallable } = await import('firebase/functions');
+  const functions = getFunctions(app);
+  const call = httpsCallable<
+    { id: string },
+    { ok: true; dataUrl: string; bytes: number; contentType: string } | { ok: false; code: string; message: string }
+  >(functions, 'getTemplateImage');
+  const result = await call({ id });
+  if (!result.data.ok) throw new Error(result.data.message || 'Could not read template.');
+  // Browsers + RN both resolve `data:` URLs through fetch into Blob.
+  const res = await fetch(result.data.dataUrl);
+  return await res.blob();
 }
 
 /** One-shot import: fetch a static `/template-images/<file>` URL into the

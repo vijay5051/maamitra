@@ -33,6 +33,7 @@ import { Colors, FontSize, Radius, Shadow, Spacing } from '../../constants/theme
 import { TEMPLATE_IMAGES, TemplateImageAsset } from '../../lib/templateImages';
 import {
   TemplateImageDoc,
+  getTemplateImageBlob,
   subscribeTemplateImages,
 } from '../../services/templateLibrary';
 import { ToolbarButton } from './ui';
@@ -115,9 +116,18 @@ export default function TemplateImagePicker({
     setBusyId(asset.id);
     setError(null);
     try {
-      const res = await fetch(asset.url);
-      if (!res.ok) throw new Error(`template-read-${res.status}`);
-      const blob = await res.blob();
+      let blob: Blob;
+      if (asset.source === 'library') {
+        // Library entries live at firebasestorage URLs. A direct browser
+        // fetch hits CORS, so go through the admin-only proxy callable.
+        blob = await getTemplateImageBlob(asset.id);
+      } else {
+        // Static-manifest entries are served from /template-images/ on the
+        // same origin — direct fetch works.
+        const res = await fetch(asset.url);
+        if (!res.ok) throw new Error(`template-read-${res.status}`);
+        blob = await res.blob();
+      }
       await onSelect(blob, asset);
       setOpen(false);
     } catch (e: any) {

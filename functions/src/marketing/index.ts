@@ -54,6 +54,7 @@ export {
   buildComposeStudioLogo,
 } from './studio';
 export { buildProbeMarketingHealth, buildProbeMarketingHealthNow } from './health';
+export { buildGetTemplateImage } from './templateLibrary';
 
 // firebase-admin is initialized in functions/src/index.ts before this module
 // is imported; we just grab the existing instance.
