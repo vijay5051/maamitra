@@ -7,8 +7,54 @@
 ---
 
 ## Active task
-No active coding task. Backlog flush of 2026-05-08 fully shipped — see
-last action below.
+No active coding task.
+
+---
+
+## Last action (2026-05-08) — Admin template image library
+
+**Commit `7151272` · firestore + storage rules deployed · hosting deployed
+· OTA `0e158edd` published.**
+
+New `/admin/marketing/templates` page (5th pill tab "Templates" in the
+marketing shell) — admin-managed library of reusable Studio template
+PNGs, backed by Firestore `template_images` + Storage `template-images/`.
+
+### Capabilities
+- Upload PNG/JPEG/WEBP up to 8 MB; admin sets label + category inline.
+- Edit label and category on any row (free-form category text with
+  autocomplete from existing categories).
+- Delete (best-effort cleans up Storage too).
+- Download the source image to the local machine.
+- Search by label/category; filter by category chips.
+- One-shot "Import 67 starters" button that walks
+  `lib/templateImages.ts`, fetches each PNG from `/template-images/`,
+  uploads to Storage, and creates a Firestore doc with category
+  "Quote backgrounds". Idempotent — only shows entries not yet imported.
+
+### Picker rewrite (`components/admin/TemplateImagePicker.tsx`)
+- Live-subscribes to `template_images` so library edits propagate to all
+  3 picker callsites without a refresh.
+- Falls back to the static manifest for any starter the admin hasn't
+  imported yet — the picker is never empty.
+- Adds search + category filter chips inside the modal.
+- Tile labels now show a category subtitle.
+
+### Rules
+- `firestore.rules` — `template_images/{docId}` admin read+write.
+- `storage.rules` — `template-images/{fileName}` public read (so picker
+  fetches via `getDownloadURL`), admin-only write, 8 MB cap, image-mime
+  allow-list.
+
+### Audit
+`marketing.template.upload` / `.update` / `.delete` added to
+`services/audit.ts`.
+
+### Pending follow-up
+- Once admin clicks **Import all** on the templates page, the static 67
+  PNGs in `public/template-images/` are duplicated in Storage. After that,
+  `lib/templateImages.ts` and `public/template-images/*` can be removed
+  in a follow-up commit (~140 MB off the web build).
 
 ---
 
