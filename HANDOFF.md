@@ -11,6 +11,38 @@ No active coding task.
 
 ---
 
+## Last action (2026-05-08) — Fix CORS-blocked picker reads via proxy callable
+
+**Commit `cd46540` · function `getTemplateImage` deployed · hosting deployed · OTA `f7474efd` published.**
+
+### Bug
+After admins imported the 67 starter templates, every selection in the
+picker (article hero, studio background) failed with
+`Could not select image: Failed to fetch`. The picker does
+`fetch(asset.url)` so it can convert to Blob and hand off to the
+destination upload. After migration `asset.url` points at a
+`firebasestorage.googleapis.com` URL — cross-origin from
+`maamitra.co.in`. The bucket has no CORS allow-list (would need
+gsutil/gcloud to set), so the browser blocks the fetch.
+
+Static-manifest fallback entries kept working because they're served
+from `/template-images/<file>` on the same Hosting origin.
+
+### Fix
+New admin-only callable `getTemplateImage(id)` reads the Storage object
+server-side via the admin SDK and returns a base64 data URL the picker
+decodes back into a Blob. Picker uses this for `source: 'library'`
+entries; `source: 'starter'` entries keep using direct same-origin
+fetch (no extra round-trip for the pre-migration case).
+
+Files:
+- `functions/src/marketing/templateLibrary.ts` (new)
+- `functions/src/marketing/index.ts`, `functions/src/index.ts` (exports)
+- `services/templateLibrary.ts` — `getTemplateImageBlob` client wrapper
+- `components/admin/TemplateImagePicker.tsx` — branch on `asset.source`
+
+---
+
 ## Last action (2026-05-08) — Multi-select on templates page
 
 **Commit `49d7065` · hosting deployed · OTA `972f4716` published.**
