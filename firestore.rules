@@ -464,6 +464,13 @@ service cloud.firestore {
     match /template_images/{docId} {
       allow read, write: if isAdmin();
     }
+    // First-class category labels for the template library. Lets admin create
+    // an empty bucket ahead of dropping images into it. Image rows still
+    // store their category as a plain string — this collection is the
+    // explicit catalogue, image rows can also surface implicit ones.
+    match /template_categories/{docId} {
+      allow read, write: if isAdmin();
+    }
     // Live posts (post-publish receipts + insights snapshots). Admin-only.
     match /marketing_posts/{docId} {
       allow read, write: if isAdmin();

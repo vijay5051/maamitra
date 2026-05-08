@@ -27,9 +27,13 @@ import {
 import { Colors, FontSize, Radius, Shadow, Spacing } from '../../../constants/theme';
 import { useAuthStore } from '../../../store/useAuthStore';
 import {
+  TemplateCategoryDoc,
   TemplateImageDoc,
+  createTemplateCategory,
+  deleteTemplateCategory,
   deleteTemplateImage,
   importStaticTemplate,
+  subscribeTemplateCategories,
   subscribeTemplateImages,
   updateTemplateImage,
   uploadTemplateImage,
@@ -51,21 +55,26 @@ export default function MarketingTemplatesScreen() {
   const isWide = Platform.OS === 'web' && width >= 720;
 
   const [rows, setRows] = useState<TemplateImageDoc[]>([]);
+  const [explicitCategories, setExplicitCategories] = useState<TemplateCategoryDoc[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [banner, setBanner] = useState<Banner>(null);
   const [editing, setEditing] = useState<EditingState>({ mode: 'closed' });
   const [confirmDelete, setConfirmDelete] = useState<TemplateImageDoc | null>(null);
+  const [confirmDeleteCategory, setConfirmDeleteCategory] = useState<TemplateCategoryDoc | null>(null);
+  const [moving, setMoving] = useState<TemplateImageDoc | null>(null);
+  const [newCategoryOpen, setNewCategoryOpen] = useState(false);
   const [importing, setImporting] = useState<{ done: number; total: number; failed: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    const unsub = subscribeTemplateImages((next) => {
+    const unsubImages = subscribeTemplateImages((next) => {
       setRows(next);
       setLoaded(true);
     });
-    return () => unsub();
+    const unsubCats = subscribeTemplateCategories(setExplicitCategories);
+    return () => { unsubImages(); unsubCats(); };
   }, []);
 
   const showBanner = useCallback((tone: 'ok' | 'err' | 'info', text: string) => {
@@ -73,11 +82,32 @@ export default function MarketingTemplatesScreen() {
     if (tone === 'ok') setTimeout(() => setBanner(null), 2400);
   }, []);
 
+  // Display categories = union of explicit (admin-defined, may be empty) and
+  // implicit (any category string used by an existing image row).
   const categories = useMemo(() => {
     const set = new Set<string>();
     for (const r of rows) set.add(r.category || 'Uncategorised');
+    for (const c of explicitCategories) set.add(c.label);
     return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [rows, explicitCategories]);
+
+  // Map of category → image count (used for chip badges + safe-delete logic).
+  const categoryCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const r of rows) {
+      const k = r.category || 'Uncategorised';
+      counts.set(k, (counts.get(k) ?? 0) + 1);
+    }
+    return counts;
   }, [rows]);
+
+  // Lookup for "is this label backed by an explicit doc?" — empty explicit
+  // categories show a small × delete control, implicit-only ones don't.
+  const explicitCategoryByLabel = useMemo(() => {
+    const map = new Map<string, TemplateCategoryDoc>();
+    for (const c of explicitCategories) map.set(c.label, c);
+    return map;
+  }, [explicitCategories]);
 
   const visible = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -157,6 +187,72 @@ export default function MarketingTemplatesScreen() {
       showBanner('ok', 'Deleted.');
     } catch (e: any) {
       showBanner('err', e?.message ?? 'Delete failed — try again.');
+    }
+  }
+
+  async function handleMoveTo(targetCategory: string) {
+    if (!moving || !user) return;
+    const row = moving;
+    if (targetCategory === row.category) {
+      setMoving(null);
+      return;
+    }
+    setMoving(null);
+    try {
+      await updateTemplateImage(
+        { uid: user.uid, email: user.email },
+        row.id,
+        { category: targetCategory },
+      );
+      showBanner('ok', `Moved to "${targetCategory}".`);
+    } catch (e: any) {
+      showBanner('err', e?.message ?? 'Move failed — try again.');
+    }
+  }
+
+  async function handleCreateCategory(label: string) {
+    if (!user) return;
+    const trimmed = label.trim();
+    if (!trimmed) return;
+    // Friendly duplicate guard — same case-insensitive label already exists.
+    const existing = categories.find((c) => c.toLowerCase() === trimmed.toLowerCase());
+    if (existing) {
+      setNewCategoryOpen(false);
+      // If admin opened "New" from the Move flow, treat the existing match
+      // as their pick — move the image and close both modals.
+      if (moving) {
+        await handleMoveTo(existing);
+      } else {
+        setFilterCategory(existing);
+        showBanner('info', `"${existing}" already exists — filtering by it now.`);
+      }
+      return;
+    }
+    try {
+      const created = await createTemplateCategory({ uid: user.uid, email: user.email }, trimmed);
+      setNewCategoryOpen(false);
+      if (moving) {
+        // Auto-move the image into the new category and close the Move modal.
+        await handleMoveTo(created.label);
+      } else {
+        setFilterCategory(created.label);
+        showBanner('ok', `Category "${created.label}" added.`);
+      }
+    } catch (e: any) {
+      showBanner('err', e?.message ?? 'Could not add category — try again.');
+    }
+  }
+
+  async function handleDeleteCategory() {
+    if (!confirmDeleteCategory || !user) return;
+    const cat = confirmDeleteCategory;
+    setConfirmDeleteCategory(null);
+    try {
+      await deleteTemplateCategory({ uid: user.uid, email: user.email }, cat.id, cat.label);
+      if (filterCategory === cat.label) setFilterCategory('all');
+      showBanner('ok', `Category "${cat.label}" removed.`);
+    } catch (e: any) {
+      showBanner('err', e?.message ?? 'Could not remove category — try again.');
     }
   }
 
@@ -306,20 +402,33 @@ export default function MarketingTemplatesScreen() {
           </View>
         </View>
 
-        {categories.length ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-            <CategoryChip label="All" count={rows.length} active={filterCategory === 'all'} onPress={() => setFilterCategory('all')} />
-            {categories.map((c) => (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+          <CategoryChip label="All" count={rows.length} active={filterCategory === 'all'} onPress={() => setFilterCategory('all')} />
+          {categories.map((c) => {
+            const explicitDoc = explicitCategoryByLabel.get(c);
+            const count = categoryCounts.get(c) ?? 0;
+            return (
               <CategoryChip
                 key={c}
                 label={c}
-                count={rows.filter((r) => (r.category || 'Uncategorised') === c).length}
+                count={count}
                 active={filterCategory === c}
                 onPress={() => setFilterCategory(c)}
+                onDelete={
+                  // Only allow removing empty explicit categories — a category
+                  // backed by image rows would silently lose its label here.
+                  explicitDoc && count === 0
+                    ? () => setConfirmDeleteCategory(explicitDoc)
+                    : undefined
+                }
               />
-            ))}
-          </ScrollView>
-        ) : null}
+            );
+          })}
+          <Pressable onPress={() => setNewCategoryOpen(true)} style={styles.newChip} accessibilityLabel="Add a new category">
+            <Ionicons name="add" size={14} color={Colors.primary} />
+            <Text style={styles.newChipLabel}>New category</Text>
+          </Pressable>
+        </ScrollView>
 
         {/* Grid */}
         {!loaded ? (
@@ -342,7 +451,6 @@ export default function MarketingTemplatesScreen() {
               <TemplateCard
                 key={row.id}
                 row={row}
-                categories={categories}
                 onEdit={() =>
                   setEditing({
                     mode: 'edit',
@@ -353,6 +461,7 @@ export default function MarketingTemplatesScreen() {
                     error: null,
                   })
                 }
+                onMove={() => setMoving(row)}
                 onDelete={() => setConfirmDelete(row)}
                 onDownload={() => handleDownload(row)}
               />
@@ -391,6 +500,87 @@ export default function MarketingTemplatesScreen() {
         </View>
       </Modal>
 
+      {/* Move-to-category picker */}
+      <Modal visible={!!moving} transparent animationType="fade" onRequestClose={() => setMoving(null)}>
+        <View style={modalStyles.backdrop}>
+          <View style={modalStyles.formCard}>
+            <View style={modalStyles.formHeader}>
+              <Text style={modalStyles.title}>Move "{moving?.label}"</Text>
+              <Pressable onPress={() => setMoving(null)} hitSlop={8}>
+                <Ionicons name="close" size={20} color={Colors.textDark} />
+              </Pressable>
+            </View>
+            <Text style={modalStyles.body}>
+              Currently in <Text style={{ fontWeight: '800', color: Colors.textDark }}>{moving?.category}</Text>.
+              Pick the new category below.
+            </Text>
+            <ScrollView style={{ maxHeight: 360 }} contentContainerStyle={modalStyles.moveList}>
+              {categories.map((c) => {
+                const isCurrent = c === moving?.category;
+                return (
+                  <Pressable
+                    key={c}
+                    onPress={() => handleMoveTo(c)}
+                    disabled={isCurrent}
+                    style={[modalStyles.moveRow, isCurrent && modalStyles.moveRowCurrent]}
+                  >
+                    <Ionicons
+                      name={isCurrent ? 'checkmark-circle' : 'pricetag-outline'}
+                      size={16}
+                      color={isCurrent ? Colors.primary : Colors.textMuted}
+                    />
+                    <Text style={[modalStyles.moveRowLabel, isCurrent && { color: Colors.primary }]}>{c}</Text>
+                    <Text style={modalStyles.moveRowCount}>{categoryCounts.get(c) ?? 0}</Text>
+                  </Pressable>
+                );
+              })}
+              <Pressable
+                // Keep `moving` alive so handleCreateCategory can auto-move
+                // the image into the new category after it's created.
+                onPress={() => setNewCategoryOpen(true)}
+                style={modalStyles.moveNewRow}
+              >
+                <Ionicons name="add-circle-outline" size={16} color={Colors.primary} />
+                <Text style={[modalStyles.moveRowLabel, { color: Colors.primary }]}>New category…</Text>
+              </Pressable>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* New-category modal */}
+      <NewCategoryModal
+        visible={newCategoryOpen}
+        existing={categories}
+        onCancel={() => setNewCategoryOpen(false)}
+        onCreate={handleCreateCategory}
+      />
+
+      {/* Empty-category delete confirm */}
+      <Modal
+        visible={!!confirmDeleteCategory}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setConfirmDeleteCategory(null)}
+      >
+        <View style={modalStyles.backdrop}>
+          <View style={modalStyles.confirmCard}>
+            <Text style={modalStyles.title}>Remove this category?</Text>
+            <Text style={modalStyles.body}>
+              "{confirmDeleteCategory?.label}" has no templates in it. The label will disappear from the chip row — images aren't affected.
+            </Text>
+            <View style={modalStyles.actions}>
+              <Pressable onPress={() => setConfirmDeleteCategory(null)} style={[modalStyles.btn, modalStyles.btnGhost]}>
+                <Text style={modalStyles.btnGhostLabel}>Cancel</Text>
+              </Pressable>
+              <Pressable onPress={handleDeleteCategory} style={[modalStyles.btn, modalStyles.btnDanger]}>
+                <Text style={modalStyles.btnDangerLabel}>Remove</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Import overlay */}
       {importing ? (
         <View style={modalStyles.backdrop} pointerEvents="auto">
@@ -412,14 +602,14 @@ export default function MarketingTemplatesScreen() {
 
 function TemplateCard({
   row,
-  categories,
   onEdit,
+  onMove,
   onDelete,
   onDownload,
 }: {
   row: TemplateImageDoc;
-  categories: string[];
   onEdit: () => void;
+  onMove: () => void;
   onDelete: () => void;
   onDownload: () => void;
 }) {
@@ -444,6 +634,7 @@ function TemplateCard({
       </View>
       <View style={cardStyles.actions}>
         <CardAction icon="create-outline" label="Edit" onPress={onEdit} />
+        <CardAction icon="swap-horizontal-outline" label="Move" onPress={onMove} />
         <CardAction icon="download-outline" label="Download" onPress={onDownload} />
         <CardAction icon="trash-outline" label="Delete" onPress={onDelete} variant="danger" />
       </View>
@@ -464,17 +655,23 @@ function CardAction({
 }) {
   const color = variant === 'danger' ? Colors.error : Colors.textDark;
   return (
-    <Pressable onPress={onPress} style={cardStyles.actionBtn} accessibilityLabel={label}>
-      <Ionicons name={icon} size={14} color={color} />
-      <Text style={[cardStyles.actionLabel, { color }]}>{label}</Text>
+    <Pressable
+      onPress={onPress}
+      style={cardStyles.actionBtn}
+      accessibilityLabel={label}
+      // Native browser tooltip — `title` shows the label on hover for web,
+      // since we render icon-only to fit four actions in 220 px.
+      {...(Platform.OS === 'web' ? { ...{ title: label } as any } : null)}
+    >
+      <Ionicons name={icon} size={16} color={color} />
     </Pressable>
   );
 }
 
 function CategoryChip({
-  label, count, active, onPress,
+  label, count, active, onPress, onDelete,
 }: {
-  label: string; count: number; active: boolean; onPress: () => void;
+  label: string; count: number; active: boolean; onPress: () => void; onDelete?: () => void;
 }) {
   return (
     <Pressable onPress={onPress} style={[chipStyles.chip, active && chipStyles.chipActive]}>
@@ -482,7 +679,112 @@ function CategoryChip({
       <View style={[chipStyles.count, active && chipStyles.countActive]}>
         <Text style={[chipStyles.countLabel, active && chipStyles.countLabelActive]}>{count}</Text>
       </View>
+      {onDelete ? (
+        <Pressable
+          onPress={(e) => { e.stopPropagation(); onDelete(); }}
+          style={chipStyles.chipDeleteBtn}
+          accessibilityLabel={`Remove category ${label}`}
+          hitSlop={6}
+          {...(Platform.OS === 'web' ? { ...{ title: 'Remove category' } as any } : null)}
+        >
+          <Ionicons name="close" size={11} color={Colors.textMuted} />
+        </Pressable>
+      ) : null}
     </Pressable>
+  );
+}
+
+function NewCategoryModal({
+  visible, existing, onCancel, onCreate,
+}: {
+  visible: boolean;
+  existing: string[];
+  onCancel: () => void;
+  onCreate: (label: string) => Promise<void> | void;
+}) {
+  const [label, setLabel] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Reset on each open so we never carry stale text across sessions.
+  useEffect(() => {
+    if (visible) {
+      setLabel('');
+      setError(null);
+      setBusy(false);
+    }
+  }, [visible]);
+
+  async function submit() {
+    const trimmed = label.trim();
+    if (!trimmed) {
+      setError('Category name is required.');
+      return;
+    }
+    if (trimmed.length > 60) {
+      setError('Keep it under 60 characters.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await onCreate(trimmed);
+    } catch (e: any) {
+      setError(e?.message ?? 'Could not add — try again.');
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+      <View style={modalStyles.backdrop}>
+        <View style={modalStyles.formCard}>
+          <View style={modalStyles.formHeader}>
+            <Text style={modalStyles.title}>New category</Text>
+            <Pressable onPress={onCancel} hitSlop={8} disabled={busy}>
+              <Ionicons name="close" size={20} color={Colors.textDark} />
+            </Pressable>
+          </View>
+          <Text style={modalStyles.body}>
+            Empty categories appear in the chip row right away. You can move templates into them with the Move button on each card.
+          </Text>
+          <Text style={modalStyles.fieldLabel}>Name</Text>
+          <TextInput
+            value={label}
+            onChangeText={setLabel}
+            placeholder="e.g. Milestone backgrounds"
+            placeholderTextColor={Colors.textMuted}
+            style={modalStyles.input}
+            maxLength={60}
+            autoFocus
+            onSubmitEditing={submit}
+          />
+          {existing.length ? (
+            <Text style={modalStyles.helperText}>
+              {existing.length} existing categor{existing.length === 1 ? 'y' : 'ies'} — case-insensitive duplicate names are merged.
+            </Text>
+          ) : null}
+          {error ? (
+            <View style={modalStyles.formError}>
+              <Ionicons name="alert-circle-outline" size={14} color={Colors.error} />
+              <Text style={modalStyles.formErrorText}>{error}</Text>
+            </View>
+          ) : null}
+          <View style={modalStyles.actions}>
+            <Pressable onPress={onCancel} style={[modalStyles.btn, modalStyles.btnGhost]} disabled={busy}>
+              <Text style={modalStyles.btnGhostLabel}>Cancel</Text>
+            </Pressable>
+            <Pressable
+              onPress={submit}
+              style={[modalStyles.btn, modalStyles.btnPrimary, busy && modalStyles.btnDisabled]}
+              disabled={busy}
+            >
+              {busy ? <ActivityIndicator size="small" color="#fff" /> : <Text style={modalStyles.btnPrimaryLabel}>Add</Text>}
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -682,7 +984,15 @@ const styles = StyleSheet.create({
   },
   searchInput: { flex: 1, fontSize: FontSize.sm, color: Colors.textDark, outlineStyle: 'none' as any },
 
-  chipRow: { flexDirection: 'row', gap: 6, paddingVertical: 4, paddingRight: Spacing.md },
+  chipRow: { flexDirection: 'row', gap: 6, paddingVertical: 4, paddingRight: Spacing.md, alignItems: 'center' },
+  newChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 12, paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: '#fff',
+    borderWidth: 1, borderStyle: 'dashed' as any, borderColor: Colors.primary,
+  },
+  newChipLabel: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.primary },
 
   empty: {
     alignItems: 'center', justifyContent: 'center',
@@ -749,6 +1059,12 @@ const chipStyles = StyleSheet.create({
   countActive: { backgroundColor: '#fff' },
   countLabel: { fontSize: 10, fontWeight: '800', color: Colors.textLight },
   countLabelActive: { color: Colors.primary },
+  chipDeleteBtn: {
+    marginLeft: 2,
+    width: 18, height: 18, borderRadius: 9,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(15,23,42,0.06)',
+  },
 });
 
 const modalStyles = StyleSheet.create({
@@ -782,6 +1098,27 @@ const modalStyles = StyleSheet.create({
     backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#fecaca',
   },
   formErrorText: { flex: 1, fontSize: FontSize.xs, color: Colors.error, fontWeight: '700' },
+  helperText: { fontSize: FontSize.xs, color: Colors.textLight, marginTop: 2 },
+
+  moveList: { gap: 4, paddingTop: 4, paddingBottom: 4 },
+  moveRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 12, paddingVertical: 10,
+    borderRadius: Radius.md,
+    borderWidth: 1, borderColor: Colors.borderSoft,
+    backgroundColor: Colors.cardBg,
+  },
+  moveRowCurrent: { backgroundColor: Colors.primarySoft, borderColor: Colors.primary },
+  moveRowLabel: { flex: 1, fontSize: FontSize.sm, fontWeight: '700', color: Colors.textDark },
+  moveRowCount: { fontSize: 11, fontWeight: '800', color: Colors.textLight },
+  moveNewRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 12, paddingVertical: 10,
+    borderRadius: Radius.md,
+    borderWidth: 1, borderStyle: 'dashed' as any, borderColor: Colors.primary,
+    backgroundColor: '#fff',
+    marginTop: 4,
+  },
 
   confirmCard: {
     width: '100%', maxWidth: 420,

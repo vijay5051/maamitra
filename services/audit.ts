@@ -79,6 +79,8 @@ export type AdminAction =
   | 'marketing.template.upload'
   | 'marketing.template.update'
   | 'marketing.template.delete'
+  | 'marketing.template.category.create'
+  | 'marketing.template.category.delete'
   // Integration Hub — API key rotation
   | 'integration.update'
   // Library AI — autopilot for Articles / Books / Products

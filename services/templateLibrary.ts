@@ -25,6 +25,7 @@ import { logAdminAction } from './audit';
 import { db, storage } from './firebase';
 
 const COL = 'template_images';
+const CAT_COL = 'template_categories';
 const STORAGE_PREFIX = 'template-images';
 
 export interface TemplateImageDoc {
@@ -209,4 +210,76 @@ export async function importStaticTemplate(
     category,
     legacyFileName: asset.fileName,
   });
+}
+
+// ── Categories ─────────────────────────────────────────────────────────────
+//
+// First-class category catalogue. Image rows still store their category as a
+// plain string for back-compat — this collection is purely the catalogue of
+// admin-defined buckets. The page's display set is union(explicit, implicit
+// from image rows) so an empty explicit category still shows up.
+
+export interface TemplateCategoryDoc {
+  id: string;
+  label: string;
+  createdBy: string | null;
+  createdAt: string | null;
+}
+
+function rowToCategory(snap: { id: string; data: () => DocumentData }): TemplateCategoryDoc {
+  const d = snap.data();
+  return {
+    id: snap.id,
+    label: typeof d.label === 'string' ? d.label : 'Untitled',
+    createdBy: typeof d.createdBy === 'string' ? d.createdBy : null,
+    createdAt: tsToIso(d.createdAt),
+  };
+}
+
+export function subscribeTemplateCategories(cb: (rows: TemplateCategoryDoc[]) => void): () => void {
+  if (!db) {
+    cb([]);
+    return () => {};
+  }
+  const q = query(collection(db, CAT_COL), orderBy('label', 'asc'));
+  return onSnapshot(
+    q,
+    (snap) => cb(snap.docs.map(rowToCategory)),
+    (err) => {
+      console.warn('[templateLibrary] category subscribe failed', err);
+      cb([]);
+    },
+  );
+}
+
+export async function createTemplateCategory(
+  actor: { uid: string; email: string | null | undefined },
+  label: string,
+): Promise<TemplateCategoryDoc> {
+  if (!db) throw new Error('Firestore not ready');
+  const trimmed = label.trim();
+  if (!trimmed) throw new Error('Category name is required.');
+  if (trimmed.length > 60) throw new Error('Category name is too long (max 60 chars).');
+  const docRef = await addDoc(collection(db, CAT_COL), {
+    label: trimmed,
+    createdBy: actor.email ?? actor.uid,
+    createdAt: serverTimestamp(),
+  });
+  await logAdminAction(actor, 'marketing.template.category.create', { docId: docRef.id }, { label: trimmed });
+  return {
+    id: docRef.id,
+    label: trimmed,
+    createdBy: actor.email ?? actor.uid,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+export async function deleteTemplateCategory(
+  actor: { uid: string; email: string | null | undefined },
+  id: string,
+  label: string,
+): Promise<void> {
+  if (!db) throw new Error('Firestore not ready');
+  await fsDeleteDoc(doc(db, CAT_COL, id));
+  await logAdminAction(actor, 'marketing.template.category.delete', { docId: id }, { label });
 }
