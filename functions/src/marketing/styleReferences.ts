@@ -119,18 +119,22 @@ export async function openaiMaaMitraReferenceImage(
   },
 ): Promise<string | null> {
   const prompt = buildMaaMitraReferencePrompt(subjectPrompt, opts?.extraLines ?? []);
-  const viaRefs = await openaiImageEdit(
-    pickStyleReferenceImages(subjectPrompt, { maxRefs: opts?.maxRefs, preset: opts?.preset }),
-    prompt,
-    {
-      quality: opts?.quality ?? 'high',
-      size: opts?.size ?? '1024x1024',
-      inputFidelity: 'high',
-      mimeType: 'image/webp',
-      timeoutMs: opts?.timeoutMs ?? 90_000,
-    },
-  );
-  if (viaRefs) return viaRefs;
+  const requestedRefs = Math.max(1, Math.min(opts?.maxRefs ?? 4, 4));
+  const refAttempts = Array.from(new Set([requestedRefs, 2])).filter((n) => n > 0);
+  for (const maxRefs of refAttempts) {
+    const viaRefs = await openaiImageEdit(
+      pickStyleReferenceImages(subjectPrompt, { maxRefs, preset: opts?.preset }),
+      prompt,
+      {
+        quality: opts?.quality ?? 'high',
+        size: opts?.size ?? '1024x1024',
+        inputFidelity: 'high',
+        mimeType: 'image/webp',
+        timeoutMs: opts?.timeoutMs ?? 90_000,
+      },
+    );
+    if (viaRefs) return viaRefs;
+  }
   if (opts?.fallbackToGeneration === false) return null;
   return openaiImage(prompt, {
     quality: opts?.quality ?? 'high',

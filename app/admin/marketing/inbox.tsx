@@ -528,11 +528,14 @@ function MessageBubble({ message, authorName, onCopy }: { message: InboxMessage;
             </Text>
           ) : null}
         </View>
-        {isOutbound && status === 'pending_send' ? (
+        {isOutbound && (status === 'pending_send' || status === 'failed') ? (
           <Pressable onPress={() => onCopy(message.text)} style={styles.copyInline}>
             <Ionicons name="copy" size={12} color={Colors.primary} />
-            <Text style={styles.copyInlineLabel}>Copy to paste manually</Text>
+            <Text style={styles.copyInlineLabel}>{status === 'failed' ? 'Copy to retry manually' : 'Copy to paste manually'}</Text>
           </Pressable>
+        ) : null}
+        {isOutbound && status === 'failed' && message.outboundError ? (
+          <Text style={styles.failedHint}>{message.outboundError}</Text>
         ) : null}
       </View>
     </View>
@@ -715,6 +718,7 @@ const styles = StyleSheet.create({
   bubbleStatus: { fontSize: 10, fontWeight: '800', color: Colors.warning, textTransform: 'uppercase', letterSpacing: 0.4 },
   copyInline: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2, alignSelf: 'flex-start' },
   copyInlineLabel: { fontSize: 10, fontWeight: '700', color: Colors.primary },
+  failedHint: { marginTop: 6, fontSize: FontSize.xs, lineHeight: 16, color: Colors.error },
 
   replyArea: {
     padding: Spacing.md,

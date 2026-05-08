@@ -50,7 +50,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.buildProbeMarketingHealthNow = exports.buildProbeMarketingHealth = exports.buildComposeStudioLogo = exports.buildUploadStudioImage = exports.buildEditStudioImage = exports.buildCreateStudioDraft = exports.buildGenerateStudioVariants = exports.buildBoostMarketingDraft = exports.buildRenderUgcAsDraft = exports.buildGenerateWeeklyInsightDigest = exports.buildPollMarketingAccountInsights = exports.buildPollMarketingInsights = exports.buildPublishMarketingDraftNow = exports.buildScheduledMarketingPublisher = exports.buildMetaInboxReplyPublisher = exports.buildClassifyInboxThread = exports.buildGenerateInboxReplies = exports.buildMetaWebhookReceiver = exports.buildGenerateAheadDrafts = exports.buildDailyMarketingDraftCron = exports.buildGenerateMarketingDraft = exports.buildScoreMarketingDraft = void 0;
+exports.buildProbeMarketingHealthNow = exports.buildProbeMarketingHealth = exports.buildComposeStudioLogo = exports.buildUploadStudioImage = exports.buildEditStudioImage = exports.buildCreateStudioDraft = exports.buildGenerateStudioVariants = exports.buildBoostMarketingDraft = exports.buildRenderUgcAsDraft = exports.buildGenerateWeeklyInsightDigest = exports.buildPollMarketingAccountInsights = exports.buildPollMarketingInsights = exports.buildPublishMarketingDraftNow = exports.buildScheduledMarketingPublisher = exports.buildMetaInboxReplyPublisher = exports.buildClassifyInboxThread = exports.buildGenerateInboxReplies = exports.buildMetaWebhookReceiver = exports.buildGenerateAheadDrafts = exports.buildDailyMarketingDraftCron = exports.buildUnscheduleMarketingDraft = exports.buildScheduleMarketingDraft = exports.buildRegenerateMarketingDraft = exports.buildGenerateMarketingDraft = exports.buildScoreMarketingDraft = void 0;
 exports.buildRenderMarketingTemplate = buildRenderMarketingTemplate;
 exports.buildGenerateTemplatePrefill = buildGenerateTemplatePrefill;
 const admin = __importStar(require("firebase-admin"));
@@ -63,6 +63,9 @@ var scoring_1 = require("./scoring");
 Object.defineProperty(exports, "buildScoreMarketingDraft", { enumerable: true, get: function () { return scoring_1.buildScoreMarketingDraft; } });
 var generator_1 = require("./generator");
 Object.defineProperty(exports, "buildGenerateMarketingDraft", { enumerable: true, get: function () { return generator_1.buildGenerateMarketingDraft; } });
+Object.defineProperty(exports, "buildRegenerateMarketingDraft", { enumerable: true, get: function () { return generator_1.buildRegenerateMarketingDraft; } });
+Object.defineProperty(exports, "buildScheduleMarketingDraft", { enumerable: true, get: function () { return generator_1.buildScheduleMarketingDraft; } });
+Object.defineProperty(exports, "buildUnscheduleMarketingDraft", { enumerable: true, get: function () { return generator_1.buildUnscheduleMarketingDraft; } });
 Object.defineProperty(exports, "buildDailyMarketingDraftCron", { enumerable: true, get: function () { return generator_1.buildDailyMarketingDraftCron; } });
 Object.defineProperty(exports, "buildGenerateAheadDrafts", { enumerable: true, get: function () { return generator_1.buildGenerateAheadDrafts; } });
 var inbox_1 = require("./inbox");
@@ -316,7 +319,7 @@ function buildGenerateTemplatePrefill(allowList) {
             'tipCard: { "eyebrow": string<=30, "title": string<=80, "tips": string[3-4] }',
             'quoteCard: { "quote": string<=200, "attribution": string<=40 }',
             'milestoneCard: { "age": string<=20, "title": string<=60, "milestones": string[3-5] }',
-            'realStoryCard: { "eyebrow": string<=30, "story": string<=240 chars (count carefully — must finish a sentence with a period inside the limit), "attribution": string<=40 (Indian first name + city or relation, e.g. "Priya, Pune · mom of Aanya") }',
+            'realStoryCard: { "eyebrow": string<=30, "story": string<=220 chars (count carefully — must finish a sentence with a period inside the limit), "attribution": string<=40 (Indian first name + city or relation, e.g. "Priya, Pune · mom of Aanya") }',
             '',
             'Rules:',
             '- Keep it crisp and render-friendly.',
@@ -412,7 +415,7 @@ function sanitizeTemplateProps(template, props) {
     }
     return {
         eyebrow: trimText(props.eyebrow, 30),
-        story: trimStory(props.story, 240),
+        story: trimStory(props.story, 220),
         attribution: trimText(props.attribution, 40),
     };
 }

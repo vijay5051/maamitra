@@ -118,7 +118,7 @@ function buildMetaInboxReplyPublisher() {
         }
         const publisherCfg = await (0, integrationConfig_1.getIntegrationConfig)();
         if (!publisherCfg.meta.igUserId || !igGraphToken(publisherCfg.meta.fbPageAccessToken, publisherCfg.meta.igAccessToken)) {
-            await snap.ref.update({ outboundStatus: 'failed', outboundError: 'IG credentials missing — configure them in the Integration Hub (Instagram User ID + access token)' });
+            await snap.ref.update({ outboundError: 'Manual send required — Instagram credentials are not configured in the Integration Hub yet.' });
             return null;
         }
         try {
@@ -151,7 +151,8 @@ function buildMetaInboxReplyPublisher() {
                 await replyToFbComment(String(externalId), text);
             }
             else if (thread.channel === 'fb_message') {
-                throw new Error('FB Messenger DMs need pages_messaging scope (deferred — IG DMs cover most engagement)');
+                await snap.ref.update({ outboundError: 'Manual send required — FB Messenger still needs pages_messaging approval, so this reply stays queued for copy/paste.' });
+                return null;
             }
             else {
                 throw new Error(`unsupported channel: ${thread.channel}`);

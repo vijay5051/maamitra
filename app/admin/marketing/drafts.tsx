@@ -8,7 +8,7 @@
  *     copy-caption + download-image while Meta App Review pending)
  *   - Reject   (asks for a reason; status → 'rejected')
  *   - Regenerate (calls generateMarketingDraft with same persona/pillar;
- *     creates a NEW draft, leaves the old one in place — admin compares)
+ *     for scheduled drafts, swaps the scheduled slot to the new variant)
  *   - Delete   (hard delete — for stale drafts the admin doesn't want
  *     in the audit trail)
  */
@@ -45,6 +45,7 @@ import {
   generateMarketingDraft,
   markDraftPosted,
   publishDraftNow,
+  regenerateMarketingDraft,
   rejectDraft,
   scheduleDraft,
   subscribeDrafts,
@@ -74,24 +75,87 @@ const STATUS_TONES: Record<DraftStatus, string> = {
   failed: Colors.error,
 };
 
+type RenderableTemplateName = 'tipCard' | 'quoteCard' | 'milestoneCard' | 'realStoryCard';
+
+function renderableTemplateFromDraft(draft: MarketingDraft): RenderableTemplateName | undefined {
+  const template = draft.assets[0]?.template;
+  if (template === 'tipCard' ||
+    template === 'quoteCard' ||
+    template === 'milestoneCard' ||
+    template === 'realStoryCard') {
+    return template;
+  }
+  const props = draft.templateProps ?? {};
+  if (typeof props.quote === 'string') return 'quoteCard';
+  if (Array.isArray(props.milestones)) return 'milestoneCard';
+  if (typeof props.story === 'string') return 'realStoryCard';
+  if (Array.isArray(props.tips) || typeof props.title === 'string') return 'tipCard';
+  return undefined;
+}
+
+function templateLabel(template: string | undefined): string {
+  switch (template) {
+    case 'tipCard': return 'tip card';
+    case 'quoteCard': return 'quote card';
+    case 'milestoneCard': return 'milestone card';
+    case 'realStoryCard': return 'inspired story';
+    default: return 'draft';
+  }
+}
+
 export default function MarketingDraftsScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ open?: string }>();
+  const params = useLocalSearchParams<{ open?: string; filter?: string }>();
   const user = useAuthStore((s) => s.user);
-  const [filter, setFilter] = useState<DraftStatus | 'all'>('pending_review');
+  const [filter, setFilter] = useState<DraftStatus | 'all'>(() => parseFilterParam(null));
   const [drafts, setDrafts] = useState<MarketingDraft[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [freshOpenDraft, setFreshOpenDraft] = useState<MarketingDraft | null>(null);
 
   // Deep-link from calendar: /admin/marketing/drafts?open=<id> opens that
   // draft's slide-over once the snapshot has loaded the row.
   useEffect(() => {
     const target = typeof params.open === 'string' ? params.open : null;
     if (target && target !== openId) setOpenId(target);
+    if (!target && openId) setOpenId(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.open]);
+
+  useEffect(() => {
+    setFilter(parseFilterParam(typeof params.filter === 'string' ? params.filter : null));
+  }, [params.filter]);
+
+  useEffect(() => {
+    const target = typeof params.open === 'string' ? params.open : null;
+    if (!target) {
+      setFreshOpenDraft(null);
+      return;
+    }
+    if (drafts.some((d) => d.id === target)) {
+      setFreshOpenDraft(null);
+      return;
+    }
+    let alive = true;
+    void fetchDraft(target)
+      .then((draft) => {
+        if (!alive) return;
+        setFreshOpenDraft(draft);
+        if (!draft) {
+          setError('That draft link is stale or no longer exists.');
+        }
+      })
+      .catch(() => {
+        if (!alive) return;
+        setError('Could not load that draft.');
+      });
+    return () => {
+      alive = false;
+    };
+  }, [drafts, params.open]);
 
   const counts = useMemo(() => {
     const out: Record<DraftStatus | 'all', number> = {
@@ -118,6 +182,7 @@ export default function MarketingDraftsScreen() {
 
   async function handleGenerate(count: 1 | 2 = 1) {
     setError(null);
+    setNotice(null);
     setGenerating(true);
     try {
       // For "Generate 2 variants" we kick off two parallel calls with the
@@ -132,6 +197,7 @@ export default function MarketingDraftsScreen() {
       // Open the first successful one for review.
       const firstOk = results.find((r) => r.ok) as any;
       setOpenId(firstOk.draftId);
+      setNotice(`New ${templateLabel(firstOk.template)} draft created and opened.`);
       if (failures.length > 0) {
         setError(`${failures.length} of ${results.length} variants didn't work — opening the ones that did.`);
       }
@@ -142,7 +208,29 @@ export default function MarketingDraftsScreen() {
     }
   }
 
-  const openDraft = useMemo(() => visible.find((d) => d.id === openId) ?? drafts.find((d) => d.id === openId) ?? null, [drafts, visible, openId]);
+  const openDraft = useMemo(
+    () => visible.find((d) => d.id === openId) ?? drafts.find((d) => d.id === openId) ?? (freshOpenDraft?.id === openId ? freshOpenDraft : null),
+    [drafts, freshOpenDraft, visible, openId],
+  );
+
+  function openDraftById(draftId: string) {
+    setOpenId(draftId);
+    router.replace(`/admin/marketing/drafts?filter=${encodeURIComponent(filter)}&open=${encodeURIComponent(draftId)}` as any);
+  }
+
+  function closeDraft() {
+    setOpenId(null);
+    setFreshOpenDraft(null);
+    router.replace(`/admin/marketing/drafts?filter=${encodeURIComponent(filter)}` as any);
+  }
+
+  function selectFilter(next: DraftStatus | 'all') {
+    setFilter(next);
+    const target = openId
+      ? `/admin/marketing/drafts?filter=${encodeURIComponent(next)}&open=${encodeURIComponent(openId)}`
+      : `/admin/marketing/drafts?filter=${encodeURIComponent(next)}`;
+    router.replace(target as any);
+  }
 
   return (
     <>
@@ -183,12 +271,21 @@ export default function MarketingDraftsScreen() {
             </Pressable>
           </View>
         ) : null}
+        {notice ? (
+          <View style={styles.inlineNotice}>
+            <Ionicons name="checkmark-circle-outline" size={18} color={Colors.success} />
+            <Text style={styles.inlineNoticeText}>{notice}</Text>
+            <Pressable onPress={() => setNotice(null)} hitSlop={8}>
+              <Ionicons name="close" size={18} color={Colors.textMuted} />
+            </Pressable>
+          </View>
+        ) : null}
 
         <View style={styles.filterBar}>
           {STATUS_FILTERS.map((f) => (
             <Pressable
               key={f.value}
-              onPress={() => setFilter(f.value)}
+              onPress={() => selectFilter(f.value)}
               style={[styles.filterChip, filter === f.value && styles.filterChipActive]}
             >
               <Text style={[styles.filterLabel, filter === f.value && styles.filterLabelActive]}>
@@ -210,7 +307,7 @@ export default function MarketingDraftsScreen() {
         ) : (
           <View style={styles.grid}>
             {visible.map((d) => (
-              <DraftCard key={d.id} draft={d} onOpen={() => setOpenId(d.id)} />
+              <DraftCard key={d.id} draft={d} onOpen={() => openDraftById(d.id)} />
             ))}
           </View>
         )}
@@ -218,7 +315,12 @@ export default function MarketingDraftsScreen() {
 
       <DraftSlideOver
         draft={openDraft}
-        onClose={() => setOpenId(null)}
+        onClose={closeDraft}
+        onRegenerated={(newDraftId, message, freshDraft) => {
+          if (freshDraft) setFreshOpenDraft(freshDraft);
+          openDraftById(newDraftId);
+          setNotice(message);
+        }}
         onChanged={async () => {
           // Snapshot will refresh automatically; force-reload the open
           // draft from server just in case (e.g. caption edit confirm).
@@ -280,18 +382,22 @@ function DraftCard({ draft, onOpen }: { draft: MarketingDraft; onOpen: () => voi
 function DraftSlideOver({
   draft,
   onClose,
+  onRegenerated,
   onChanged,
   actor,
 }: {
   draft: MarketingDraft | null;
   onClose: () => void;
+  onRegenerated: (newDraftId: string, message: string, freshDraft?: MarketingDraft | null) => void;
   onChanged: () => Promise<void> | void;
   actor: { uid: string; email: string | null | undefined } | null;
 }) {
+  const router = useRouter();
   const [editingCaption, setEditingCaption] = useState(false);
   const [captionDraft, setCaptionDraft] = useState('');
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [rejectingReason, setRejectingReason] = useState<string | null>(null);
   const [regenerating, setRegenerating] = useState(false);
   const [scheduleDraftAt, setScheduleDraftAt] = useState<string>('');
@@ -360,16 +466,17 @@ function DraftSlideOver({
   }
 
   async function handleRegenerate() {
-    if (!draft) return;
+    if (!draft || !actor) return;
     setActionError(null);
+    setActionNotice(null);
     setRegenerating(true);
     try {
-      const res = await generateMarketingDraft({
-        personaId: draft.personaId ?? undefined,
-        pillarId: draft.pillarId ?? undefined,
-        eventId: draft.eventId ?? undefined,
-      });
+      const res = await regenerateMarketingDraft(draft.id);
       if (!res.ok) throw res;
+      const message = res.message || `New ${templateLabel(res.template)} draft generated and opened.`;
+      const fresh = await fetchDraft(res.draftId);
+      setActionNotice(message);
+      onRegenerated(res.draftId, message, fresh);
     } catch (e) {
       setActionError(friendlyError('Regenerate', e));
     } finally {
@@ -416,6 +523,7 @@ function DraftSlideOver({
     if (!draft || !actor) return;
     await withGuard('Unschedule', async () => {
       await unscheduleDraft(actor, draft.id);
+      setShowSchedule(false);
     });
   }
 
@@ -476,6 +584,18 @@ function DraftSlideOver({
     }
   }
 
+  function openScheduleEditor() {
+    setActionError(null);
+    setShowSchedule(true);
+    setScheduleDraftAt(draft.scheduledAt ? isoToLocalInput(draft.scheduledAt) : defaultScheduleAt());
+  }
+
+  function handleEditDesign() {
+    if (!draft) return;
+    onClose();
+    router.replace(`/admin/marketing/create?editDraft=${encodeURIComponent(draft.id)}` as any);
+  }
+
   function downloadImage() {
     const url = draft?.assets[0]?.url;
     if (!url) return;
@@ -504,6 +624,21 @@ function DraftSlideOver({
       footer={
         <View style={styles.footerCol}>
           {actionError ? <Text style={styles.errorText}>{actionError}</Text> : null}
+          {showSchedule && rejectingReason === null ? (
+            <View style={[styles.schedBox, styles.footerSchedBox]}>
+              <Text style={styles.captionLabel}>Schedule for (IST)</Text>
+              <Text style={styles.fieldHint}>The post stays as-is; it just shows up on the calendar at this time and the cron auto-publishes once Meta access lands. Until then, manual publish.</Text>
+              <DateTimeInput value={scheduleDraftAt} onChange={setScheduleDraftAt} />
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                <Pressable onPress={handleSchedule} disabled={saving} style={[styles.btn, styles.btnPrimary]}>
+                  <Text style={styles.btnLabel}>{saving ? 'Saving…' : (isScheduled ? 'Confirm reschedule' : 'Confirm schedule')}</Text>
+                </Pressable>
+                <Pressable onPress={() => setShowSchedule(false)} style={[styles.btn, styles.btnGhost]}>
+                  <Text style={[styles.btnLabel, { color: Colors.textMuted }]}>Cancel</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : null}
           {rejectingReason !== null ? (
             <View style={styles.rejectRow}>
               <TextInput
@@ -533,6 +668,10 @@ function DraftSlideOver({
                     <Ionicons name="checkmark" size={16} color="#fff" />
                     <Text style={styles.btnLabel}>{saving ? 'Saving…' : 'Approve'}</Text>
                   </Pressable>
+                  <Pressable onPress={openScheduleEditor} style={[styles.btn, styles.btnGhost]}>
+                    <Ionicons name="calendar" size={16} color={Colors.primary} />
+                    <Text style={[styles.btnLabel, { color: Colors.primary }]}>Schedule…</Text>
+                  </Pressable>
                   <Pressable onPress={() => setRejectingReason('')} style={[styles.btn, styles.btnGhost]}>
                     <Ionicons name="close" size={16} color={Colors.error} />
                     <Text style={[styles.btnLabel, { color: Colors.error }]}>Reject</Text>
@@ -545,7 +684,7 @@ function DraftSlideOver({
                     <Ionicons name="rocket" size={16} color="#fff" />
                     <Text style={styles.btnLabel}>{saving ? 'Publishing…' : 'Publish now'}</Text>
                   </Pressable>
-                  <Pressable onPress={() => setShowSchedule((v) => !v)} style={[styles.btn, styles.btnGhost]}>
+                  <Pressable onPress={openScheduleEditor} style={[styles.btn, styles.btnGhost]}>
                     <Ionicons name="calendar" size={16} color={Colors.primary} />
                     <Text style={[styles.btnLabel, { color: Colors.primary }]}>Schedule…</Text>
                   </Pressable>
@@ -568,6 +707,10 @@ function DraftSlideOver({
                   <Pressable onPress={handlePublishNow} disabled={saving} style={[styles.btn, styles.btnPrimary]}>
                     <Ionicons name="rocket" size={16} color="#fff" />
                     <Text style={styles.btnLabel}>{saving ? 'Publishing…' : 'Publish now'}</Text>
+                  </Pressable>
+                  <Pressable onPress={openScheduleEditor} style={[styles.btn, styles.btnGhost]} disabled={saving}>
+                    <Ionicons name="calendar" size={16} color={Colors.primary} />
+                    <Text style={[styles.btnLabel, { color: Colors.primary }]}>{saving ? 'Updating…' : 'Reschedule…'}</Text>
                   </Pressable>
                   <Pressable onPress={handleUnschedule} style={[styles.btn, styles.btnGhost]} disabled={saving}>
                     <Ionicons name="calendar-outline" size={16} color={Colors.textMuted} />
@@ -609,6 +752,10 @@ function DraftSlideOver({
                   <Text style={styles.btnLabel}>{saving ? 'Retrying…' : 'Retry publish'}</Text>
                 </Pressable>
               ) : null}
+              <Pressable onPress={handleEditDesign} style={[styles.btn, styles.btnGhost]}>
+                <Ionicons name="create-outline" size={16} color={Colors.primary} />
+                <Text style={[styles.btnLabel, { color: Colors.primary }]}>Edit design</Text>
+              </Pressable>
               <Pressable
                 onPress={handleRegenerate}
                 disabled={regenerating}
@@ -694,19 +841,13 @@ function DraftSlideOver({
           </View>
         ) : null}
 
-        {showSchedule ? (
-          <View style={styles.schedBox}>
-            <Text style={styles.captionLabel}>Schedule for (IST)</Text>
-            <Text style={styles.fieldHint}>The post stays as-is; it just shows up on the calendar at this time and the cron auto-publishes once Meta access lands. Until then, manual publish.</Text>
-            <DateTimeInput value={scheduleDraftAt} onChange={setScheduleDraftAt} />
-            <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-              <Pressable onPress={handleSchedule} disabled={saving} style={[styles.btn, styles.btnPrimary]}>
-                <Text style={styles.btnLabel}>{saving ? 'Saving…' : 'Confirm schedule'}</Text>
-              </Pressable>
-              <Pressable onPress={() => setShowSchedule(false)} style={[styles.btn, styles.btnGhost]}>
-                <Text style={[styles.btnLabel, { color: Colors.textMuted }]}>Cancel</Text>
-              </Pressable>
-            </View>
+        {actionNotice ? (
+          <View style={styles.inlineNotice}>
+            <Ionicons name="checkmark-circle-outline" size={18} color={Colors.success} />
+            <Text style={styles.inlineNoticeText}>{actionNotice}</Text>
+            <Pressable onPress={() => setActionNotice(null)} hitSlop={8}>
+              <Ionicons name="close" size={18} color={Colors.textMuted} />
+            </Pressable>
           </View>
         ) : null}
 
@@ -936,6 +1077,22 @@ function defaultScheduleAt(): string {
   const pad = (n: number) => String(n).padStart(2, '0');
   const istClock = new Date(Date.now() + 5.5 * 3600 * 1000 + 24 * 3600 * 1000);
   return `${istClock.getUTCFullYear()}-${pad(istClock.getUTCMonth() + 1)}-${pad(istClock.getUTCDate())}T09:00`;
+}
+
+function parseFilterParam(raw: string | null): DraftStatus | 'all' {
+  if (!raw) return 'pending_review';
+  return STATUS_FILTERS.some((entry) => entry.value === raw)
+    ? (raw as DraftStatus | 'all')
+    : 'pending_review';
+}
+
+function isoToLocalInput(iso: string): string {
+  const when = new Date(iso);
+  if (!Number.isFinite(when.getTime())) return defaultScheduleAt();
+  const istMs = when.getTime() + 5.5 * 3600 * 1000;
+  const ist = new Date(istMs);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${ist.getUTCFullYear()}-${pad(ist.getUTCMonth() + 1)}-${pad(ist.getUTCDate())}T${pad(ist.getUTCHours())}:${pad(ist.getUTCMinutes())}`;
 }
 
 function scheduleInputToIso(local: string): string | null {
@@ -1197,6 +1354,7 @@ const styles = StyleSheet.create({
   },
 
   footerCol: { gap: 8 },
+  footerSchedBox: { marginBottom: 4 },
   footerRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   btn: {
     flexDirection: 'row',
@@ -1225,6 +1383,24 @@ const styles = StyleSheet.create({
   inlineErrorText: {
     flex: 1,
     color: Colors.error,
+    fontSize: FontSize.sm,
+    fontWeight: '700',
+  },
+  inlineNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+    backgroundColor: '#f0fdf4',
+    borderRadius: Radius.lg,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 10,
+    marginBottom: Spacing.md,
+  },
+  inlineNoticeText: {
+    flex: 1,
+    color: Colors.success,
     fontSize: FontSize.sm,
     fontWeight: '700',
   },

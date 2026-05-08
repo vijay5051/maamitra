@@ -77,7 +77,7 @@ export function buildRenderUgcAsDraft(allowList: ReadonlySet<string>) {
       }
 
       // Sanitise + cap inputs.
-      const story = String(sub?.story ?? '').trim().slice(0, 240);
+      const story = trimStory(String(sub?.story ?? ''), 220);
       const displayName = String(sub?.displayName ?? 'A MaaMitra mom').trim().slice(0, 40) || 'A MaaMitra mom';
       const childAge = sub?.childAge ? String(sub.childAge).trim().slice(0, 20) : '';
       const eyebrow = childAge ? `${displayName.split(' ')[0]}, ${childAge}` : displayName.split(' ')[0];
@@ -186,4 +186,16 @@ async function loadBrandHashtags(): Promise<string[]> {
     }
   } catch { /* fall through */ }
   return ['MaaMitra', 'IndianMoms', 'InspiredStories'];
+}
+
+function trimStory(v: unknown, max: number): string {
+  if (typeof v !== 'string') return '';
+  const cleaned = v.trim().replace(/\s+/g, ' ');
+  if (cleaned.length <= max) return cleaned;
+  const window = cleaned.slice(0, max);
+  const sentenceEnd = Math.max(window.lastIndexOf('. '), window.lastIndexOf('! '), window.lastIndexOf('? '));
+  if (sentenceEnd > Math.floor(max * 0.5)) {
+    return cleaned.slice(0, sentenceEnd + 1).trim();
+  }
+  return window.replace(/[\s,;:]+\S*$/, '').trim() + '…';
 }

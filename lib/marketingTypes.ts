@@ -511,6 +511,12 @@ export interface DraftAsset {
   index: number;
   /** Template name used to render this asset. */
   template: string;
+  /** Storage object path of the rendered asset, when available. */
+  storagePath?: string | null;
+  /** Provider-specific source photo id, when a stock image backed the render. */
+  sourcePhotoId?: number | null;
+  /** Provider source image URL before it was embedded into the rendered PNG. */
+  sourceImageUrl?: string | null;
 }
 
 export interface MarketingDraft {
@@ -555,6 +561,12 @@ export interface MarketingDraft {
   imagePrompt: string | null;
   /** Image source provider used for the rendered asset. */
   imageSource: string | null;
+  /** Provider-specific source photo id, when available. */
+  sourcePhotoId?: number | null;
+  /** Provider source image URL before template rendering, when available. */
+  sourceImageUrl?: string | null;
+  /** Human-readable attribution for stock sources. */
+  imageAttribution?: string | null;
   /** Per-draft cost (₹) attributable to this generation (caption + image). */
   costInr: number;
   generatedAt: string | null;

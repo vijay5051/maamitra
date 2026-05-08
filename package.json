@@ -14,7 +14,8 @@
     "build:prod": "eas build --profile production --platform all",
     "submit:ios": "eas submit --platform ios",
     "submit:android": "eas submit --platform android",
-    "update": "bash scripts/safe-update.sh"
+    "update": "bash scripts/safe-update.sh",
+    "image:test": "node scripts/test-maamitra-image-generation.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",

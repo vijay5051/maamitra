@@ -28,12 +28,45 @@ exports.imagenGenerate = imagenGenerate;
 exports.openaiImage = openaiImage;
 exports.openaiImageEdit = openaiImageEdit;
 const integrationConfig_1 = require("../lib/integrationConfig");
+const NON_HUMAN_RE = /\b(monkey|macaque|ape|gorilla|chimp|chimpanzee|baboon|langur|animal|dog|cat|cow|goat|horse|bird|parrot|snake|lizard|wildlife|zoo)\b/i;
+const OBJECT_ONLY_RE = /\b(shoe|shoes|sneaker|sneakers|footwear|sandal|sandals|toy|toys|product|object|still life)\b/i;
+const IRRELEVANT_SCENE_RE = /\b(idol|deity|statue|temple|shrine|altar|garland|festival decoration|worship|prayer)\b/i;
+function acceptableStockPhoto(photo, opts) {
+    const alt = photo.alt ?? '';
+    if (NON_HUMAN_RE.test(alt))
+        return false;
+    if (IRRELEVANT_SCENE_RE.test(alt))
+        return false;
+    if (opts?.requireHumanAlt) {
+        const hasHumanSubject = /\b(baby|babies|infant|newborn|toddler|child|kid|boy|girl|mother|mom|mum|woman|parent|family|people|person)\b/i.test(alt);
+        if (!hasHumanSubject || OBJECT_ONLY_RE.test(alt))
+            return false;
+    }
+    return true;
+}
+async function fetchPexelsPage(apiKey, query, perPage, orientation, page) {
+    const params = new URLSearchParams({
+        query,
+        per_page: String(perPage),
+        orientation,
+        page: String(page),
+    });
+    const res = await fetch(`https://api.pexels.com/v1/search?${params}`, {
+        headers: { Authorization: apiKey },
+    });
+    if (!res.ok) {
+        console.warn(`[imageSources] Pexels ${res.status}: ${await res.text()}`);
+        return null;
+    }
+    return (await res.json());
+}
 /**
  * Search Pexels for a photo matching the query. Returns the URL of the
  * `large2x` variant (1880px wide max, plenty for a 1080×1080 IG post).
  *
- * Picks among the top 5 results randomly so consecutive posts on the same
- * theme don't reuse the same image.
+ * Samples paginated search results and avoids all known used Pexels IDs. If
+ * every sampled candidate has already been used, returns null instead of
+ * intentionally repeating a photo.
  */
 async function pexelsSearch(query, opts) {
     const cfg = await (0, integrationConfig_1.getIntegrationConfig)();
@@ -41,23 +74,36 @@ async function pexelsSearch(query, opts) {
         console.warn('[imageSources] pexels.apiKey not set');
         return null;
     }
-    const params = new URLSearchParams({
-        query,
-        per_page: '5',
-        orientation: opts?.orientation ?? 'square',
-    });
-    const res = await fetch(`https://api.pexels.com/v1/search?${params}`, {
-        headers: { Authorization: cfg.pexels.apiKey },
-    });
-    if (!res.ok) {
-        console.warn(`[imageSources] Pexels ${res.status}: ${await res.text()}`);
+    const perPage = Math.min(80, Math.max(10, opts?.perPage ?? 40));
+    const avoided = new Set(opts?.avoidPhotoIds ?? []);
+    const allowed = opts?.allowPhotoIds?.length ? new Set(opts.allowPhotoIds) : null;
+    const orientation = opts?.orientation ?? 'square';
+    const first = await fetchPexelsPage(cfg.pexels.apiKey, query, perPage, orientation, 1);
+    if (!first?.photos.length)
+        return null;
+    const totalPages = Math.max(1, Math.ceil(first.total_results / perPage));
+    const maxPageAttempts = Math.min(totalPages, Math.max(1, opts?.maxPageAttempts ?? 12));
+    const pageOrder = new Set([1]);
+    while (pageOrder.size < maxPageAttempts) {
+        pageOrder.add(1 + Math.floor(Math.random() * totalPages));
+    }
+    const candidates = [];
+    for (const page of pageOrder) {
+        const data = page === 1 ? first : await fetchPexelsPage(cfg.pexels.apiKey, query, perPage, orientation, page);
+        if (!data?.photos.length)
+            continue;
+        candidates.push(...data.photos.filter((photo) => ((!allowed || allowed.has(photo.id)) &&
+            !avoided.has(photo.id) &&
+            acceptableStockPhoto(photo, opts))));
+    }
+    if (!candidates.length) {
+        console.warn('[imageSources] Pexels returned only previously used photos for query:', query);
         return null;
     }
-    const data = (await res.json());
-    if (!data.photos.length)
-        return null;
-    const pick = data.photos[Math.floor(Math.random() * data.photos.length)];
+    const pool = candidates;
+    const pick = pool[Math.floor(Math.random() * pool.length)];
     return {
+        id: pick.id,
         url: pick.src.large2x,
         attribution: `Photo by ${pick.photographer} on Pexels`,
     };
@@ -230,7 +276,7 @@ async function imagenGenerate(prompt, opts) {
             headers: { 'Content-Type': 'application/json', 'x-goog-api-key': cfg.gemini.apiKey },
             body: JSON.stringify({
                 instances: [{ prompt }],
-                parameters: { sampleCount: 1, aspectRatio, personGeneration: 'allow_adult' },
+                parameters: { sampleCount: 1, aspectRatio, personGeneration: 'allow_all' },
             }),
         });
         if (!res.ok) {

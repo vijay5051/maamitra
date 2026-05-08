@@ -21,7 +21,11 @@ import { h, SatoriElement } from './h';
 import { BrandSnapshot, RealStoryCardProps } from './types';
 
 export function realStoryCard(props: RealStoryCardProps, brand: BrandSnapshot): SatoriElement {
-  const photoH = 648; // 60% of 1080
+  const story = String(props.story ?? '').trim();
+  const storyLen = story.length;
+  const quoteFontSize = storyLen > 210 ? 29 : storyLen > 165 ? 32 : 35;
+  const quoteLineHeight = storyLen > 210 ? 1.25 : 1.28;
+  const photoH = 520;
   const panelH = 1080 - photoH;
 
   return h(
@@ -48,10 +52,11 @@ export function realStoryCard(props: RealStoryCardProps, brand: BrandSnapshot): 
           justifyContent: 'flex-start',
           padding: '40px',
           backgroundColor: brand.palette.primary,
-          backgroundImage: props.photoUrl ? `url(${props.photoUrl})` : undefined,
           backgroundSize: 'cover',
-          backgroundPosition: 'center',
+          backgroundPosition: 'center top',
+          backgroundRepeat: 'no-repeat',
           position: 'relative',
+          ...(props.photoUrl ? { backgroundImage: `url(${props.photoUrl})` } : {}),
         },
       },
       // Subtle gradient shade at the bottom to blend into the panel.
@@ -75,7 +80,7 @@ export function realStoryCard(props: RealStoryCardProps, brand: BrandSnapshot): 
           height: `${panelH}px`,
           display: 'flex',
           flexDirection: 'column',
-          padding: '48px 64px 48px 64px',
+          padding: '48px 72px 44px 72px',
           backgroundColor: brand.palette.background,
           flex: 1,
         },
@@ -85,12 +90,12 @@ export function realStoryCard(props: RealStoryCardProps, brand: BrandSnapshot): 
         'div',
         {
           style: {
-            fontSize: '22px',
+            fontSize: '20px',
             fontWeight: 700,
             color: brand.palette.primary,
-            letterSpacing: '5px',
+            letterSpacing: '4px',
             textTransform: 'uppercase',
-            marginBottom: '16px',
+            marginBottom: '20px',
           },
         },
         `Inspired Story · ${props.eyebrow}`,
@@ -100,15 +105,16 @@ export function realStoryCard(props: RealStoryCardProps, brand: BrandSnapshot): 
         'div',
         {
           style: {
-            fontSize: '38px',
+            fontSize: `${quoteFontSize}px`,
             fontWeight: 400,
             color: brand.palette.text,
-            lineHeight: 1.32,
-            letterSpacing: '-0.5px',
+            lineHeight: quoteLineHeight,
+            letterSpacing: '0px',
             flex: 1,
+            overflow: 'hidden',
           },
         },
-        `"${props.story}"`,
+        `"${story}"`,
       ),
       // Footer — attribution + logo
       h(
@@ -118,7 +124,8 @@ export function realStoryCard(props: RealStoryCardProps, brand: BrandSnapshot): 
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            marginTop: '20px',
+            marginTop: '24px',
+            minHeight: '60px',
           },
         },
         h(

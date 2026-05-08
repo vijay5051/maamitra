@@ -230,15 +230,15 @@ export async function scheduleDraft(
   scheduledAtIso: string,
   platforms?: MarketingPlatform[],
 ): Promise<void> {
-  if (!db) throw new Error('Firestore not ready');
-  const update: Record<string, unknown> = {
-    status: 'scheduled',
-    scheduledAt: scheduledAtIso,
-    approvedAt: serverTimestamp(),
-    approvedBy: actor.email ?? actor.uid,
-  };
-  if (platforms?.length) update.platforms = platforms.slice(0, 6);
-  await updateDoc(doc(db, DRAFTS_COL, id), update);
+  if (!app) throw new Error('Firebase app not configured');
+  const { getFunctions, httpsCallable } = await import('firebase/functions');
+  const functions = getFunctions(app);
+  const call = httpsCallable<
+    { draftId: string; scheduledAt: string; platforms?: MarketingPlatform[] },
+    { ok: true } | GenerateDraftError
+  >(functions, 'scheduleMarketingDraft');
+  const result = await call({ draftId: id, scheduledAt: scheduledAtIso, platforms });
+  if (!result.data.ok) throw result.data;
   await logAdminAction(actor, 'marketing.draft.schedule', { docId: id }, { scheduledAt: scheduledAtIso });
 }
 
@@ -246,11 +246,15 @@ export async function unscheduleDraft(
   actor: { uid: string; email: string | null | undefined },
   id: string,
 ): Promise<void> {
-  if (!db) throw new Error('Firestore not ready');
-  await updateDoc(doc(db, DRAFTS_COL, id), {
-    status: 'approved',
-    scheduledAt: null,
-  });
+  if (!app) throw new Error('Firebase app not configured');
+  const { getFunctions, httpsCallable } = await import('firebase/functions');
+  const functions = getFunctions(app);
+  const call = httpsCallable<{ draftId: string }, { ok: true } | GenerateDraftError>(
+    functions,
+    'unscheduleMarketingDraft',
+  );
+  const result = await call({ draftId: id });
+  if (!result.data.ok) throw result.data;
   await logAdminAction(actor, 'marketing.draft.unschedule', { docId: id });
 }
 
@@ -282,7 +286,7 @@ export interface GenerateDraftInput {
   pillarId?: string;
   eventId?: string;
   /** Force a specific template; otherwise model picks. */
-  template?: 'tipCard' | 'quoteCard' | 'milestoneCard';
+  template?: 'tipCard' | 'quoteCard' | 'milestoneCard' | 'realStoryCard';
   /** Image generation model. Default 'dalle' (OpenAI gpt-image-1) for brand-theme adherence. */
   imageModel?: 'imagen' | 'dalle' | 'flux';
 }
@@ -302,6 +306,15 @@ export interface GenerateDraftResult {
 export interface GenerateDraftError {
   ok: false;
   code: string;
+  message: string;
+}
+
+export interface RegenerateDraftResult {
+  ok: true;
+  draftId: string;
+  template: string;
+  scheduledAt: string | null;
+  replacedDraftId: string | null;
   message: string;
 }
 
@@ -377,6 +390,20 @@ export async function generateMarketingDraft(
   return result.data;
 }
 
+export async function regenerateMarketingDraft(
+  draftId: string,
+): Promise<RegenerateDraftResult | GenerateDraftError> {
+  if (!app) throw new Error('Firebase app not configured');
+  const { getFunctions, httpsCallable } = await import('firebase/functions');
+  const functions = getFunctions(app);
+  const call = httpsCallable<{ draftId: string }, RegenerateDraftResult | GenerateDraftError>(
+    functions,
+    'regenerateMarketingDraft',
+  );
+  const result = await call({ draftId });
+  return result.data;
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 function tsToIso(ts: unknown): string | null {
@@ -408,6 +435,9 @@ function rowToDraft(snap: { id: string; data: () => DocumentData }): MarketingDr
       url: typeof a?.url === 'string' ? a.url : '',
       index: typeof a?.index === 'number' ? a.index : 0,
       template: typeof a?.template === 'string' ? a.template : '',
+      storagePath: typeof a?.storagePath === 'string' ? a.storagePath : null,
+      sourcePhotoId: typeof a?.sourcePhotoId === 'number' ? a.sourcePhotoId : null,
+      sourceImageUrl: typeof a?.sourceImageUrl === 'string' ? a.sourceImageUrl : null,
     })),
     platforms: Array.isArray(d.platforms) ? d.platforms : ['instagram', 'facebook'],
     scheduledAt: typeof d.scheduledAt === 'string' ? d.scheduledAt : tsToIso(d.scheduledAt),
@@ -428,6 +458,9 @@ function rowToDraft(snap: { id: string; data: () => DocumentData }): MarketingDr
       : null,
     imagePrompt: typeof d.imagePrompt === 'string' ? d.imagePrompt : null,
     imageSource: typeof d.imageSource === 'string' ? d.imageSource : null,
+    sourcePhotoId: typeof d.sourcePhotoId === 'number' ? d.sourcePhotoId : null,
+    sourceImageUrl: typeof d.sourceImageUrl === 'string' ? d.sourceImageUrl : null,
+    imageAttribution: typeof d.imageAttribution === 'string' ? d.imageAttribution : null,
     costInr: typeof d.costInr === 'number' ? d.costInr : 0,
     generatedAt: tsToIso(d.generatedAt),
     generatedBy: typeof d.generatedBy === 'string' ? d.generatedBy : null,

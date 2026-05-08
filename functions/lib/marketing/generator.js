@@ -52,6 +52,9 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.runGenerator = runGenerator;
 exports.buildGenerateMarketingDraft = buildGenerateMarketingDraft;
+exports.buildRegenerateMarketingDraft = buildRegenerateMarketingDraft;
+exports.buildScheduleMarketingDraft = buildScheduleMarketingDraft;
+exports.buildUnscheduleMarketingDraft = buildUnscheduleMarketingDraft;
 exports.buildDailyMarketingDraftCron = buildDailyMarketingDraftCron;
 exports.buildGenerateAheadDrafts = buildGenerateAheadDrafts;
 const admin = __importStar(require("firebase-admin"));
@@ -60,6 +63,12 @@ const imageSources_1 = require("./imageSources");
 const renderer_1 = require("./renderer");
 const integrationConfig_1 = require("../lib/integrationConfig");
 const styleReferences_1 = require("./styleReferences");
+const VETTED_INDIAN_PARENTING_PEXELS_IDS = [
+    11527695, // mother holding child at Indian cultural event
+    11527697, // mother holding child at Indian cultural event
+    11439050, // toddler outdoors in Goa, India
+    19205992, // mother and child walking in South Asian rural setting
+];
 // ── Caller auth ────────────────────────────────────────────────────────────
 async function callerIsMarketingAdmin(token, allowList) {
     if (!token)
@@ -220,12 +229,12 @@ function hasCulturalEventOnIsoDate(events, isoDate) {
 }
 /** Does a draft already exist for the given IST date? Checks pending_review,
  *  approved, scheduled, and posted statuses — all mean "cron should skip". */
-async function draftExistsForKey(generatedForKey) {
+async function draftExistsForKey(generatedForKey, statuses = ['pending_review', 'approved', 'scheduled', 'posted']) {
     try {
         const snap = await admin.firestore()
             .collection('marketing_drafts')
             .where('generatedForKey', '==', generatedForKey)
-            .where('status', 'in', ['pending_review', 'approved', 'scheduled', 'posted'])
+            .where('status', 'in', statuses)
             .limit(1)
             .get();
         return !snap.empty;
@@ -445,7 +454,7 @@ async function generateCaption(brand, slot, stats, forcedTemplate) {
         ? [
             `MUST use template: "${forcedTemplate}" — do not pick another. The post is going into a slot pre-configured for this template.`,
             forcedTemplate === 'realStoryCard'
-                ? 'Write a relatable first-person mini story (≤320 chars, MUST end with a period inside the limit — never leave a clause hanging mid-sentence) from the POV of an Indian mom, with a believable Indian name attribution like "Priya, Pune" or "Anjali, mom of 2". Do NOT preface with "I am ...".'
+                ? 'Write a relatable first-person mini story (≤220 chars, MUST end with a period inside the limit — never leave a clause hanging mid-sentence) from the POV of an Indian mom, with a believable Indian name attribution like "Priya, Pune" or "Anjali, mom of 2". Do NOT preface with "I am ...".'
                 : forcedTemplate === 'quoteCard'
                     ? 'Write a single short inspirational quote (≤200 chars) suited to Indian motherhood, with a short attribution.'
                     : forcedTemplate === 'milestoneCard'
@@ -485,7 +494,7 @@ async function generateCaption(brand, slot, stats, forcedTemplate) {
         '  tipCard:        { eyebrow: string (≤30c), title: string (≤80c), tips: string[3-4] (each ≤120c) }',
         '  quoteCard:      { quote: string (≤200c), attribution: string (≤40c) }',
         '  milestoneCard:  { age: string (≤20c), title: string (≤60c), milestones: string[3-5] (each ≤120c) }',
-        '  realStoryCard:  { eyebrow: string (≤30c), story: string (≤320c), attribution: string (≤40c) }',
+        '  realStoryCard:  { eyebrow: string (≤30c), story: string (≤220c), attribution: string (≤40c) }',
     ].join('\n');
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -538,6 +547,69 @@ async function generateCaption(brand, slot, stats, forcedTemplate) {
 function trim(v, max) {
     return typeof v === 'string' ? v.trim().slice(0, max) : '';
 }
+function trimStory(v, max) {
+    if (typeof v !== 'string')
+        return '';
+    const cleaned = v.trim().replace(/\s+/g, ' ');
+    if (cleaned.length <= max)
+        return cleaned;
+    const window = cleaned.slice(0, max);
+    const sentenceEnd = Math.max(window.lastIndexOf('. '), window.lastIndexOf('! '), window.lastIndexOf('? '));
+    if (sentenceEnd > Math.floor(max * 0.5)) {
+        return cleaned.slice(0, sentenceEnd + 1).trim();
+    }
+    return window.replace(/[\s,;:]+\S*$/, '').trim() + '…';
+}
+function stripUndefinedDeep(value) {
+    if (value &&
+        typeof value === 'object' &&
+        value.constructor &&
+        value.constructor.name === 'FieldValue') {
+        return value;
+    }
+    if (Array.isArray(value)) {
+        return value
+            .map((item) => stripUndefinedDeep(item))
+            .filter((item) => item !== undefined);
+    }
+    if (value && typeof value === 'object') {
+        const out = {};
+        for (const [key, item] of Object.entries(value)) {
+            if (item === undefined)
+                continue;
+            out[key] = stripUndefinedDeep(item);
+        }
+        return out;
+    }
+    return value;
+}
+function sanitizeCaptionTemplateProps(template, props) {
+    switch (template) {
+        case 'tipCard':
+            return {
+                eyebrow: trim(props.eyebrow, 30),
+                title: trim(props.title, 80),
+                tips: Array.isArray(props.tips) ? props.tips.map((x) => trim(x, 120)).filter(Boolean).slice(0, 4) : [],
+            };
+        case 'quoteCard':
+            return {
+                quote: trim(props.quote, 200),
+                attribution: trim(props.attribution, 40),
+            };
+        case 'milestoneCard':
+            return {
+                age: trim(props.age, 20),
+                title: trim(props.title, 60),
+                milestones: Array.isArray(props.milestones) ? props.milestones.map((x) => trim(x, 120)).filter(Boolean).slice(0, 5) : [],
+            };
+        case 'realStoryCard':
+            return {
+                eyebrow: trim(props.eyebrow, 30),
+                story: trimStory(props.story, 220),
+                attribution: trim(props.attribution, 40),
+            };
+    }
+}
 function titleCase(s) {
     return s
         .replace(/\s+/g, ' ')
@@ -545,6 +617,45 @@ function titleCase(s) {
         .split(' ')
         .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w))
         .join(' ');
+}
+function firstSentence(input, max = 120) {
+    const cleaned = input.replace(/\s+/g, ' ').trim();
+    if (!cleaned)
+        return '';
+    const slice = cleaned.slice(0, max);
+    const stop = Math.max(slice.indexOf('. '), slice.indexOf('! '), slice.indexOf('? '));
+    return (stop > 0 ? slice.slice(0, stop + 1) : slice).trim();
+}
+function ageLabelFromHint(hint) {
+    const m = hint.match(/\b(\d+\s*[-–]?\s*\d*\s*(?:month|months|week|weeks|year|years))\b/i);
+    if (!m)
+        return 'Baby milestones';
+    return m[1].replace(/\s+/g, ' ').trim();
+}
+function milestonePointsFromHint(hint, englishOnly) {
+    const lower = hint.toLowerCase();
+    const points = [];
+    if (lower.includes('sitting'))
+        points.push('Sits with support and holds their head steady.');
+    if (lower.includes('reaching'))
+        points.push('Reaches for nearby toys or familiar objects.');
+    if (lower.includes('babbling'))
+        points.push('Babbles with playful vowel and consonant sounds.');
+    if (lower.includes('recognizing familiar faces'))
+        points.push('Recognizes familiar faces and responds warmly.');
+    if (points.length >= 2)
+        return points.slice(0, 4);
+    return englishOnly
+        ? [
+            'Shows growing control while sitting with support.',
+            'Reaches for toys and explores with hands and eyes.',
+            'Babbles more often and reacts to familiar voices.',
+        ]
+        : [
+            'Support ke saath baithne ki control dheere dheere better hoti hai.',
+            'Khilonon tak haath badhata hai aur curiosity dikhata hai.',
+            'Awazon par react karta hai aur zyada babble karta hai.',
+        ];
 }
 function fallbackCaption(brand, slot, forcedTemplate) {
     const pillar = slot.pillar?.label || 'Parenting';
@@ -563,8 +674,57 @@ function fallbackCaption(brand, slot, forcedTemplate) {
         'Motherhood',
         'BabyCare',
     ].filter(Boolean);
-    // Fallback never fabricates a "real story" or attributed quote — when the
-    // slot wants those, downgrade to tipCard so we don't ship invented bylines.
+    if (forcedTemplate === 'milestoneCard') {
+        const age = ageLabelFromHint(hint);
+        const milestones = milestonePointsFromHint(hint, englishOnly);
+        return {
+            headline: `${titleCase(age)} Milestones`.slice(0, 80),
+            body: (englishOnly
+                ? `A quick look at what many babies may start showing around ${age.toLowerCase()}. Every child develops at their own pace.`
+                : `${age} ke around kai babies yeh chhote developmental signs dikhana shuru karte hain. Har bachcha apni pace par grow karta hai.`).slice(0, 1800),
+            hashtags: Array.from(new Set(baseTags)).slice(0, 8),
+            template: 'milestoneCard',
+            imagePrompt: `Warm MaaMitra illustration of an Indian mother or parents with baby around ${age}, developmental milestone moment at home.`.slice(0, 600),
+            templateProps: {
+                age: titleCase(age).slice(0, 20),
+                title: 'Milestones To Look For',
+                milestones,
+            },
+        };
+    }
+    if (forcedTemplate === 'realStoryCard') {
+        const story = englishOnly
+            ? `I still pause for these quiet little moments with my baby. In the middle of an ordinary day, one small smile can make everything feel lighter and remind me that we are learning together.`
+            : `Main aaj bhi apne baby ke saath in chhote, shaant moments ke liye ruk jaati hoon. Din kitna bhi busy ho, ek si muskaan sab halka kar deti hai aur yaad dilati hai ki hum saath saath seekh rahe hain.`;
+        return {
+            headline: topic.slice(0, 80),
+            body: firstSentence(story, 1800),
+            hashtags: Array.from(new Set(baseTags)).slice(0, 8),
+            template: 'realStoryCard',
+            imagePrompt: `Warm MaaMitra illustration of an Indian mother with her baby in a tender everyday parenting moment at home.`.slice(0, 600),
+            templateProps: {
+                eyebrow: 'INSPIRED STORY',
+                story: trimStory(story, 220),
+                attribution: 'A MaaMitra mom',
+            },
+        };
+    }
+    if (forcedTemplate === 'quoteCard') {
+        const quote = englishOnly
+            ? 'Small everyday moments often become the strongest memories of parenthood.'
+            : 'Parenting ki sabse gehri yaadein aksar roz ke chhote moments se banti hain.';
+        return {
+            headline: topic.slice(0, 80),
+            body: quote,
+            hashtags: Array.from(new Set(baseTags)).slice(0, 8),
+            template: 'quoteCard',
+            imagePrompt: `Warm MaaMitra illustration with Indian family context and generous negative space for a quote overlay.`.slice(0, 600),
+            templateProps: {
+                quote,
+                attribution: 'MaaMitra',
+            },
+        };
+    }
     return {
         headline: topic.slice(0, 80),
         body: body.slice(0, 1800),
@@ -637,7 +797,7 @@ function runCompliance(text, brand) {
     return { flags, disclaimers };
 }
 // ── Image rendering ────────────────────────────────────────────────────────
-async function renderDraftImage(template, templateProps, imagePrompt, imageModel, brand) {
+async function renderDraftImage(template, templateProps, imagePrompt, imageModel, brand, opts) {
     // Locked source override from Settings → Template Preview. When admin saves
     // `source: 'stock'`, skip AI generation entirely and go straight to Pexels.
     // When `source: 'none'`, render on the brand-colour panel only (no photo).
@@ -646,6 +806,7 @@ async function renderDraftImage(template, templateProps, imagePrompt, imageModel
     // For AI providers, wrap the LLM-supplied subject prompt in the brand's
     // style preamble so cron-generated images share the Studio look. Pexels
     // is keyword-search, so it gets the raw subject prompt only.
+    let imageSource = template === 'tipCard' ? 'none' : (lockedSource === 'ai' ? imageModel : lockedSource);
     const styleLockedPrompt = buildStyleLockedImagePrompt(imagePrompt, brand);
     let bgUrl = null;
     if (lockedSource === 'ai' && template !== 'tipCard') {
@@ -666,28 +827,80 @@ async function renderDraftImage(template, templateProps, imagePrompt, imageModel
                     ],
                 })
                 : await (0, imageSources_1.fluxSchnell)(styleLockedPrompt, { aspectRatio: '1:1' });
+        if (!bgUrl && imageModel === 'dalle') {
+            bgUrl = await (0, imageSources_1.imagenGenerate)(styleLockedPrompt, { aspectRatio: '1:1' });
+            if (bgUrl)
+                imageSource = 'imagen';
+        }
     }
-    // Pexels path — admin explicitly locked stock OR AI failed. Prefer the
-    // saved stockQuery when present; otherwise fall back to the per-draft
-    // imagePrompt as a search keyword.
-    let imageSource = template === 'tipCard' ? 'none' : (lockedSource === 'ai' ? imageModel : lockedSource);
+    // Pexels path — use a frozen MaaMitra-safe query set. Do not feed the
+    // free-form AI image prompt into Pexels; broad prompts have returned
+    // animals/objects for parenting templates.
     let imageAttribution = null;
+    let sourcePhotoId = null;
+    let sourceImageUrl = null;
     let resolvedBg = bgUrl;
+    if (resolvedBg)
+        sourceImageUrl = resolvedBg;
     if (!resolvedBg && template !== 'tipCard' && lockedSource !== 'none') {
-        const query = (lockedSource === 'stock' && lockedDefault?.stockQuery)
-            ? lockedDefault.stockQuery
-            : imagePrompt.slice(0, 100);
-        const stock = await (0, imageSources_1.pexelsSearch)(query);
+        const queries = stockQueriesForTemplate(template, templateProps, lockedSource === 'stock' ? lockedDefault?.stockQuery : undefined);
+        let stock = null;
+        for (const query of queries) {
+            stock = await (0, imageSources_1.pexelsSearch)(query, {
+                avoidPhotoIds: opts?.avoidPexelsPhotoIds,
+                perPage: 80,
+                maxPageAttempts: 12,
+                requireHumanAlt: true,
+                allowPhotoIds: VETTED_INDIAN_PARENTING_PEXELS_IDS,
+            });
+            if (stock)
+                break;
+        }
         if (stock) {
             resolvedBg = stock.url;
             imageAttribution = stock.attribution;
+            sourcePhotoId = stock.id;
+            sourceImageUrl = stock.url;
             imageSource = 'pexels';
         }
         else {
-            imageSource = 'none';
+            const fallbackPrompt = buildStyleLockedImagePrompt(stockFallbackImagePrompt(template, templateProps), brand);
+            const imagenFallback = await (0, imageSources_1.imagenGenerate)(fallbackPrompt, { aspectRatio: '1:1' });
+            if (imagenFallback) {
+                resolvedBg = imagenFallback;
+                sourceImageUrl = imagenFallback;
+                imageSource = 'imagen';
+            }
+            else {
+                const openAiFallback = await (0, styleReferences_1.openaiMaaMitraReferenceImage)(fallbackPrompt, {
+                    preset: 'post',
+                    quality: 'medium',
+                    size: '1024x1024',
+                    maxRefs: 6,
+                    timeoutMs: 90000,
+                    fallbackToGeneration: true,
+                    extraLines: [
+                        'Use this only because no relevant curated Pexels photo was available and Imagen also returned no image.',
+                        'The image must show Indian-context parenting: Indian mother/father/parents with baby or child, warm real family moment.',
+                        'Do NOT show animals, objects-only still life, shoes, toys-only compositions, text, signage, logos, watermarks, temples, idols, or statues.',
+                    ],
+                });
+                if (openAiFallback) {
+                    resolvedBg = openAiFallback;
+                    sourceImageUrl = openAiFallback;
+                    imageSource = 'dalle';
+                }
+                else {
+                    imageSource = 'none';
+                }
+            }
         }
     }
     const propsForRender = { ...templateProps };
+    if (resolvedBg?.startsWith('data:')) {
+        resolvedBg = await persistRenderSourceImage(resolvedBg, template);
+        sourceImageUrl = resolvedBg;
+    }
     if (resolvedBg) {
         if (template === 'quoteCard')
             propsForRender.backgroundUrl = resolvedBg;
@@ -707,7 +920,15 @@ async function renderDraftImage(template, templateProps, imagePrompt, imageModel
     const file = bucket.file(storagePath);
     await file.save(result.png, {
         contentType: 'image/png',
-        metadata: { metadata: { template, source: imageSource, attribution: imageAttribution ?? '' } },
+        metadata: {
+            metadata: {
+                template,
+                source: imageSource,
+                attribution: imageAttribution ?? '',
+                sourcePhotoId: sourcePhotoId ? String(sourcePhotoId) : '',
+                sourceImageUrl: sourceImageUrl ?? '',
+            },
+        },
     });
     await file.makePublic();
     const url = `https://storage.googleapis.com/${bucket.name}/${storagePath}`;
@@ -718,6 +939,7 @@ async function renderDraftImage(template, templateProps, imagePrompt, imageModel
             ts: admin.firestore.FieldValue.serverTimestamp(),
             template,
             imageSource,
+            sourcePhotoId,
             costInr,
             bytes: result.png.length,
             actor: 'generator',
@@ -726,7 +948,66 @@ async function renderDraftImage(template, templateProps, imagePrompt, imageModel
     catch (e) {
         console.warn('[generator] cost log write failed (non-fatal)', e);
     }
-    return { url, storagePath, bytes: result.png.length, source: imageSource, costInr };
+    return {
+        url,
+        storagePath,
+        bytes: result.png.length,
+        source: imageSource,
+        costInr,
+        sourcePhotoId,
+        sourceImageUrl,
+        imageAttribution,
+    };
+}
+function stockQueriesForTemplate(template, templateProps, lockedQuery) {
+    const maaMitraFamilyQueries = [
+        'Indian mother baby',
+        'Indian mother child',
+        'Indian parents child',
+        'Indian family baby',
+        'Indian parent toddler',
+    ];
+    if (template === 'milestoneCard') {
+        const age = typeof templateProps.age === 'string' ? templateProps.age : '';
+        return [
+            ['Indian baby mother developmental milestone', age].filter(Boolean).join(' '),
+            'Indian infant mother',
+            'Indian mother baby',
+            'Indian parents baby',
+            'Indian family baby',
+        ].map((q) => q.slice(0, 100));
+    }
+    if (template === 'realStoryCard') {
+        return [
+            'Indian mother baby family home',
+            'Indian mother child home',
+            'Indian parents child home',
+            'Indian family baby home',
+        ];
+    }
+    // Even quote/background cards stay inside the same parenting-photo pool.
+    // Admin locked queries are allowed only when they still name Indian family
+    // context; otherwise we ignore them instead of drifting to random stock.
+    const cleanedLockedQuery = lockedQuery?.trim();
+    const lockedIsFamily = !!cleanedLockedQuery &&
+        /\bindian\b/i.test(cleanedLockedQuery) &&
+        /\b(mother|mom|parent|family|baby|child|kid|toddler|infant)\b/i.test(cleanedLockedQuery);
+    return lockedIsFamily
+        ? [cleanedLockedQuery.slice(0, 100), ...maaMitraFamilyQueries]
+        : maaMitraFamilyQueries;
+}
+function stockFallbackImagePrompt(template, templateProps) {
+    if (template === 'milestoneCard') {
+        const age = typeof templateProps.age === 'string' ? templateProps.age : 'baby';
+        return `Indian mother or Indian parents with a ${age} baby, warm home setting, developmental milestone moment, natural light, no text.`;
+    }
+    if (template === 'realStoryCard') {
+        return 'Indian mother with baby or child in a warm home setting, emotional family moment, natural light, no text.';
+    }
+    if (template === 'quoteCard') {
+        return 'Indian parents with baby or child, warm family moment, soft natural light, generous space for overlaid quote, no text.';
+    }
+    return 'Indian mother with child, warm parenting moment, natural light, no text.';
 }
 function imageSourceCostInr(source) {
     switch (source) {
@@ -736,11 +1017,135 @@ function imageSourceCostInr(source) {
         default: return 0;
     }
 }
+async function persistRenderSourceImage(urlOrData, template) {
+    if (!urlOrData.startsWith('data:'))
+        return urlOrData;
+    const match = urlOrData.match(/^data:([^;]+);base64,(.+)$/);
+    if (!match)
+        throw new Error('invalid-source-data-url');
+    const contentType = match[1] || 'image/png';
+    const ext = contentType.includes('webp') ? 'webp' : contentType.includes('jpeg') ? 'jpg' : 'png';
+    const buf = Buffer.from(match[2], 'base64');
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const storagePath = `marketing/render-sources/${timestamp}-${template}.${ext}`;
+    const bucket = admin.storage().bucket();
+    const file = bucket.file(storagePath);
+    await file.save(buf, {
+        contentType,
+        metadata: { metadata: { source: 'generator', template } },
+    });
+    await file.makePublic();
+    return `https://storage.googleapis.com/${bucket.name}/${storagePath}`;
+}
+async function loadUsedPexelsPhotoIds() {
+    try {
+        const ids = new Set();
+        const collect = (data) => {
+            const topLevel = Number(data?.sourcePhotoId);
+            if (Number.isFinite(topLevel) && topLevel > 0)
+                ids.add(topLevel);
+            const assets = Array.isArray(data?.assets) ? data.assets : [];
+            for (const asset of assets) {
+                const assetId = Number(asset?.sourcePhotoId);
+                if (Number.isFinite(assetId) && assetId > 0)
+                    ids.add(assetId);
+            }
+        };
+        const db = admin.firestore();
+        let last = null;
+        for (;;) {
+            let q = db.collection('marketing_drafts')
+                .orderBy('generatedAt', 'desc')
+                .limit(500);
+            if (last)
+                q = q.startAfter(last);
+            const snap = await q.get();
+            if (snap.empty)
+                break;
+            snap.forEach((docSnap) => collect(docSnap.data()));
+            last = snap.docs[snap.docs.length - 1] ?? null;
+            if (snap.size < 500 || !last)
+                break;
+        }
+        return Array.from(ids);
+    }
+    catch (e) {
+        console.warn('[generator] used Pexels photo lookup failed (non-fatal)', e);
+        return [];
+    }
+}
 function parsePlatforms(input) {
     const out = Array.isArray(input)
         ? input.filter((p) => p === 'instagram' || p === 'facebook')
         : [];
     return out.length ? Array.from(new Set(out)).slice(0, 2) : ['instagram', 'facebook'];
+}
+function inferTemplateFromDraft(data) {
+    const pillarId = typeof data?.pillarId === 'string' ? data.pillarId.toLowerCase() : '';
+    const pillarLabel = typeof data?.pillarLabel === 'string' ? data.pillarLabel.toLowerCase() : '';
+    if (pillarId.includes('milestone') ||
+        pillarId.includes('development') ||
+        pillarLabel.includes('milestone') ||
+        pillarLabel.includes('development')) {
+        return 'milestoneCard';
+    }
+    const assetTemplate = data?.assets?.[0]?.template;
+    if (['tipCard', 'quoteCard', 'milestoneCard', 'realStoryCard'].includes(assetTemplate)) {
+        return assetTemplate;
+    }
+    const props = data?.templateProps && typeof data.templateProps === 'object' ? data.templateProps : {};
+    if (typeof props.quote === 'string')
+        return 'quoteCard';
+    if (Array.isArray(props.milestones))
+        return 'milestoneCard';
+    if (typeof props.story === 'string')
+        return 'realStoryCard';
+    if (Array.isArray(props.tips) || typeof props.title === 'string')
+        return 'tipCard';
+    return null;
+}
+function istDateAndTimeFromIso(iso) {
+    if (typeof iso !== 'string' || !iso)
+        return null;
+    const date = new Date(iso);
+    if (!Number.isFinite(date.getTime()))
+        return null;
+    const parts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Kolkata',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+    }).formatToParts(date);
+    const get = (type) => parts.find((p) => p.type === type)?.value ?? '';
+    return {
+        dateIso: `${get('year')}-${get('month')}-${get('day')}`,
+        time: `${get('hour')}:${get('minute')}`,
+    };
+}
+function regeneratePromptOverride(template, data) {
+    const props = JSON.stringify(data?.templateProps ?? {}).slice(0, 900);
+    const headline = typeof data?.headline === 'string' ? data.headline : '';
+    const base = [
+        'Regenerate this existing draft as a clearly different creative, but preserve the same template and content type.',
+        headline ? `Original headline: ${headline}` : '',
+        props ? `Original template props: ${props}` : '',
+    ].filter(Boolean);
+    if (template === 'milestoneCard') {
+        base.push('This MUST be a milestone/development card, not a personal story.', 'Write objective milestone copy: age range, short title, and concise developmental milestone bullets.', 'Do not write first-person narration, contributor names, family memory copy, nostalgia story copy, or Inspired Story wording.');
+    }
+    else if (template === 'quoteCard') {
+        base.push('This MUST be a quote card: one concise quote plus attribution.', 'Do not write a first-person story, milestone bullets, or Inspired Story wording.');
+    }
+    else if (template === 'realStoryCard') {
+        base.push('This MUST be an Inspired Story style first-person mini story with attribution.');
+    }
+    else {
+        base.push('This MUST be a practical tip/list card with short actionable tips.');
+    }
+    return base.join(' ');
 }
 function scheduleIsoForSlot(dateIso, slotTime) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateIso))
@@ -803,18 +1208,22 @@ async function runGenerator(input, actorEmail) {
     // attribution), downgrade to tipCard with safe content so we never bake
     // the literal word "undefined" into a published image.
     let requestedTemplate = forcedTemplate ?? captionOut.template;
+    captionOut = {
+        ...captionOut,
+        templateProps: sanitizeCaptionTemplateProps(requestedTemplate, captionOut.templateProps),
+    };
     if (!templatePropsValid(requestedTemplate, captionOut.templateProps)) {
-        console.warn(`[generator] templateProps invalid for ${requestedTemplate}; downgrading to tipCard`, { keys: Object.keys(captionOut.templateProps || {}) });
-        const safe = fallbackCaption(brand, slot);
+        console.warn(`[generator] templateProps invalid for ${requestedTemplate}; using same-template fallback`, { keys: Object.keys(captionOut.templateProps || {}) });
+        const safe = fallbackCaption(brand, slot, requestedTemplate);
         captionOut = {
             ...captionOut,
-            template: 'tipCard',
+            template: requestedTemplate,
             templateProps: safe.templateProps,
+            imagePrompt: captionOut.imagePrompt || safe.imagePrompt,
             // Keep the AI body/headline if they exist; only swap props.
             headline: captionOut.headline || safe.headline,
             body: captionOut.body || safe.body,
         };
-        requestedTemplate = 'tipCard';
     }
     // Resolve image model + prompt with the saved per-template default as the
     // tier between "explicit caller input" and "flux fallback". Auto-Post
@@ -838,7 +1247,8 @@ async function runGenerator(input, actorEmail) {
     const platforms = parsePlatforms(input.slotPlatforms);
     let render;
     try {
-        render = await renderDraftImage(requestedTemplate, captionOut.templateProps, captionOut.imagePrompt, requestedModel, brand);
+        const usedPexelsPhotoIds = await loadUsedPexelsPhotoIds();
+        render = await renderDraftImage(requestedTemplate, captionOut.templateProps, captionOut.imagePrompt, requestedModel, brand, { avoidPexelsPhotoIds: usedPexelsPhotoIds });
     }
     catch (e) {
         return { ok: false, code: 'render-failed', message: e?.message ?? String(e) };
@@ -864,7 +1274,14 @@ async function runGenerator(input, actorEmail) {
         caption,
         headline: captionOut.headline,
         templateProps: captionOut.templateProps,
-        assets: [{ url: render.url, index: 0, template: requestedTemplate, storagePath: render.storagePath }],
+        assets: [{
+                url: render.url,
+                index: 0,
+                template: requestedTemplate,
+                storagePath: render.storagePath,
+                sourcePhotoId: render.sourcePhotoId,
+                sourceImageUrl: render.sourceImageUrl,
+            }],
         platforms,
         scheduledAt,
         postedAt: null,
@@ -880,6 +1297,9 @@ async function runGenerator(input, actorEmail) {
         locale: brand.voice.bilingual,
         imagePrompt: captionOut.imagePrompt,
         imageSource: render.source,
+        sourcePhotoId: render.sourcePhotoId,
+        sourceImageUrl: render.sourceImageUrl,
+        imageAttribution: render.imageAttribution,
         costInr: totalCost,
         generatedAt: admin.firestore.FieldValue.serverTimestamp(),
         generatedForDate: today.isoDate,
@@ -892,7 +1312,7 @@ async function runGenerator(input, actorEmail) {
         rejectReason: null,
     };
     try {
-        await draftRef.set(draft);
+        await draftRef.set(stripUndefinedDeep(draft));
     }
     catch (e) {
         return { ok: false, code: 'write-failed', message: e?.message ?? String(e) };
@@ -919,6 +1339,102 @@ function buildGenerateMarketingDraft(allowList) {
         }
         const actorEmail = context.auth?.token?.email ?? null;
         return runGenerator(data ?? {}, actorEmail);
+    });
+}
+function buildRegenerateMarketingDraft(allowList) {
+    return functions
+        .runWith({ memory: '1GB', timeoutSeconds: 300 })
+        .https.onCall(async (data, context) => {
+        if (!(await callerIsMarketingAdmin(context.auth?.token, allowList))) {
+            throw new functions.https.HttpsError('permission-denied', 'Only admins with marketing access can regenerate drafts.');
+        }
+        const draftId = typeof data?.draftId === 'string' ? data.draftId.trim() : '';
+        if (!draftId)
+            return { ok: false, code: 'missing-id', message: 'draftId required.' };
+        const db = admin.firestore();
+        const draftRef = db.doc(`marketing_drafts/${draftId}`);
+        const snap = await draftRef.get();
+        if (!snap.exists)
+            return { ok: false, code: 'not-found', message: 'Draft not found.' };
+        const original = snap.data();
+        const template = inferTemplateFromDraft(original);
+        if (!template)
+            return { ok: false, code: 'unknown-template', message: 'Could not determine the original draft template.' };
+        const scheduled = typeof original.scheduledAt === 'string' && !!original.scheduledAt;
+        const scheduleParts = scheduled ? istDateAndTimeFromIso(original.scheduledAt) : null;
+        const input = {
+            personaId: typeof original.personaId === 'string' ? original.personaId : undefined,
+            pillarId: typeof original.pillarId === 'string' ? original.pillarId : undefined,
+            eventId: typeof original.eventId === 'string' ? original.eventId : undefined,
+            template,
+            promptOverride: regeneratePromptOverride(template, original),
+            slotId: typeof original.slotId === 'string' ? original.slotId : undefined,
+            slotLabel: typeof original.slotLabel === 'string' ? original.slotLabel : undefined,
+            slotPlatforms: Array.isArray(original.platforms) ? original.platforms : undefined,
+        };
+        if (scheduleParts) {
+            input.forDateIso = scheduleParts.dateIso;
+            input.slotTime = scheduleParts.time;
+            input.autoSchedule = true;
+        }
+        const result = await runGenerator(input, context.auth?.token?.email ?? null);
+        if (!result.ok)
+            return result;
+        if (scheduled) {
+            await draftRef.delete();
+        }
+        return {
+            ok: true,
+            draftId: result.draftId,
+            template: result.template,
+            scheduledAt: scheduleParts ? scheduleIsoForSlot(scheduleParts.dateIso, scheduleParts.time) : null,
+            replacedDraftId: scheduled ? draftId : null,
+            message: scheduled
+                ? `New ${result.template} generated, scheduled in the same slot, and opened.`
+                : `New ${result.template} draft generated and opened.`,
+        };
+    });
+}
+function buildScheduleMarketingDraft(allowList) {
+    return functions
+        .runWith({ memory: '256MB', timeoutSeconds: 60 })
+        .https.onCall(async (data, context) => {
+        if (!(await callerIsMarketingAdmin(context.auth?.token, allowList))) {
+            throw new functions.https.HttpsError('permission-denied', 'Only admins with marketing access can schedule drafts.');
+        }
+        const draftId = typeof data?.draftId === 'string' ? data.draftId.trim() : '';
+        const scheduledAt = typeof data?.scheduledAt === 'string' ? data.scheduledAt.trim() : '';
+        if (!draftId)
+            return { ok: false, code: 'missing-id', message: 'draftId required.' };
+        if (!scheduledAt || !Number.isFinite(new Date(scheduledAt).getTime())) {
+            return { ok: false, code: 'bad-schedule', message: 'Valid scheduledAt ISO string required.' };
+        }
+        const platforms = parsePlatforms(data?.platforms);
+        await admin.firestore().doc(`marketing_drafts/${draftId}`).update({
+            status: 'scheduled',
+            scheduledAt,
+            platforms,
+            approvedAt: admin.firestore.FieldValue.serverTimestamp(),
+            approvedBy: context.auth?.token?.email ?? context.auth?.uid ?? null,
+        });
+        return { ok: true, draftId, status: 'scheduled', scheduledAt };
+    });
+}
+function buildUnscheduleMarketingDraft(allowList) {
+    return functions
+        .runWith({ memory: '256MB', timeoutSeconds: 60 })
+        .https.onCall(async (data, context) => {
+        if (!(await callerIsMarketingAdmin(context.auth?.token, allowList))) {
+            throw new functions.https.HttpsError('permission-denied', 'Only admins with marketing access can unschedule drafts.');
+        }
+        const draftId = typeof data?.draftId === 'string' ? data.draftId.trim() : '';
+        if (!draftId)
+            return { ok: false, code: 'missing-id', message: 'draftId required.' };
+        await admin.firestore().doc(`marketing_drafts/${draftId}`).update({
+            status: 'approved',
+            scheduledAt: null,
+        });
+        return { ok: true, draftId, status: 'approved', scheduledAt: null };
     });
 }
 // ── Pubsub cron (6am IST = 00:30 UTC) ──────────────────────────────────────
@@ -1133,7 +1649,7 @@ function buildGenerateAheadDrafts(allowList) {
                 }
                 const slotId = typeof rawSlot?.id === 'string' ? rawSlot.id : 'default';
                 const generatedForKey = `${isoDate}:${slotId}`;
-                if (await draftExistsForKey(generatedForKey)) {
+                if (await draftExistsForKey(generatedForKey, ['scheduled', 'posted'])) {
                     results.push({ date: generatedForKey, ok: true, skipped: 'already-exists' });
                     continue;
                 }

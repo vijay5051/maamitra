@@ -33,7 +33,7 @@ import {
 
 import { Colors, FontSize, Radius, Shadow, Spacing } from '../../../constants/theme';
 import { friendlyError } from '../../../services/marketingErrors';
-import { renderMarketingTemplate, RenderableTemplateName } from '../../../services/marketing';
+import { renderMarketingTemplate, RenderTemplateInput, RenderableTemplateName } from '../../../services/marketing';
 import {
   composeStudioLogo,
   createStudioDraft,
@@ -43,10 +43,18 @@ import {
   LogoPosition,
   uploadStudioImage,
 } from '../../../services/marketingStudio';
-import { fetchTopPerformingDraft, TopPerformingDraft } from '../../../services/marketingDrafts';
+import { fetchDraft, fetchTopPerformingDraft, TopPerformingDraft } from '../../../services/marketingDrafts';
+import { MarketingDraft } from '../../../lib/marketingTypes';
+import TemplateImagePicker from '../../../components/admin/TemplateImagePicker';
+import { TemplateImageAsset as TemplateLibraryAsset } from '../../../lib/templateImages';
 
 interface Variant {
   variantId: string;
+  url: string;
+  storagePath: string;
+}
+
+interface TemplateImageAsset {
   url: string;
   storagePath: string;
 }
@@ -83,7 +91,8 @@ type TemplateForm = {
 
 export default function StudioCanvasScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ prompt?: string }>();
+  const params = useLocalSearchParams<{ prompt?: string; editDraft?: string }>();
+  const editDraftId = typeof params.editDraft === 'string' ? params.editDraft : '';
   const { width } = useWindowDimensions();
   const isWide = width >= 900;
 
@@ -102,11 +111,12 @@ export default function StudioCanvasScreen() {
     story: '',
     backgroundPrompt: '',
   });
+  const [templateImageAsset, setTemplateImageAsset] = useState<TemplateImageAsset | null>(null);
   const [quality, setQuality] = useState<Quality>('best');
   // Carousel mode (Phase 4 item 1) — when true, generate N slides instead
   // of picker variants; no picking step, all slides go into the draft.
   const [carouselMode, setCarouselMode] = useState(false);
-  const [singleVariantCount, setSingleVariantCount] = useState<1 | 2 | 3 | 4>(1);
+  const [singleVariantCount, setSingleVariantCount] = useState<1 | 2 | 3 | 4>(4);
   const [slideCount, setSlideCount] = useState<3 | 5>(3);
   const [aspectRatio, setAspectRatio] = useState<StudioAspectRatio>('1:1');
   const variantCount: 1 | 2 | 3 | 4 | 5 = carouselMode ? slideCount : singleVariantCount;
@@ -123,6 +133,7 @@ export default function StudioCanvasScreen() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [okBanner, setOkBanner] = useState<string | null>(null);
+  const [loadingDraftEdit, setLoadingDraftEdit] = useState(false);
 
   // Edit mode (Phase 3) — applies a text-edit to the currently picked variant.
   const [editing, setEditing] = useState(false);
@@ -175,9 +186,54 @@ export default function StudioCanvasScreen() {
     void fetchTopPerformingDraft().then((w) => { setWinner(w); setWinnerLoaded(true); });
   }, []);
 
+  useEffect(() => {
+    const draftId = typeof params.editDraft === 'string' ? params.editDraft : '';
+    if (!draftId) return;
+    let alive = true;
+    setLoadingDraftEdit(true);
+    setError(null);
+    void fetchDraft(draftId)
+      .then((draft) => {
+        if (!alive) return;
+        if (!draft) {
+          setError('Could not load that draft for editing.');
+          return;
+        }
+        applyDraftToStudio(draft, {
+          setPrompt,
+          setCreateMode,
+          setTemplateKind,
+          setTemplateForm,
+          setCaption,
+          setScheduleAt,
+          setVariants,
+          setPickedId,
+          setStep,
+          setOkBanner,
+          setEditing,
+          setEditPrompt,
+          setMaskDataUrl,
+          setBrushOpen,
+          setCropOpen,
+          setLogoApplied,
+          setTemplateImageAsset,
+        });
+      })
+      .catch((e) => {
+        if (!alive) return;
+        setError(friendlyError('Load draft', e));
+      })
+      .finally(() => {
+        if (alive) setLoadingDraftEdit(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [params.editDraft]);
+
   const picked = useMemo(() => variants.find((v) => v.variantId === pickedId) ?? null, [variants, pickedId]);
   const estCost = createMode === 'template'
-    ? estimateTemplateCost(templateKind, templateForm, quality)
+    ? estimateTemplateCost(templateKind, templateForm, quality, !!templateImageAsset)
     : QUALITY_INFO[quality].perVariantInr * variantCount;
   const promptSummary = createMode === 'template'
     ? buildTemplateDraftPrompt(templateKind, templateForm, prompt)
@@ -196,6 +252,9 @@ export default function StudioCanvasScreen() {
           setError('Fill the required template fields first.');
           setStep(1);
           return;
+        }
+        if (templateImageAsset?.url && request.template !== 'tipCard') {
+          request.background = { type: 'url' as const, url: templateImageAsset.url };
         }
         const r = await renderMarketingTemplate(request);
         if (!r.ok) {
@@ -346,15 +405,16 @@ export default function StudioCanvasScreen() {
    *  base64 data URL and POST through the studio callable. On success,
    *  treat the uploaded image as the picked variant and skip Step 2's
    *  AI-generation flow entirely (no AI cost, no prompt requirement). */
-  async function handleUpload(file: File) {
+  async function handleUpload(file: File | Blob, suggestedName?: string) {
     if (Platform.OS !== 'web') return;
     if (file.size > 8 * 1024 * 1024) {
       setError('File is larger than 8 MB. Compress or resize and try again.');
       return;
     }
+    const isTemplateUpload = createMode === 'template';
     setError(null);
     setGenerating(true);
-    setStep(2);
+    if (!isTemplateUpload) setStep(2);
     try {
       const dataUrl = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
@@ -365,26 +425,37 @@ export default function StudioCanvasScreen() {
       const r = await uploadStudioImage({ dataUrl });
       if (!r.ok) {
         setError(friendlyError('Upload', r));
-        setStep(1);
+        if (!isTemplateUpload) setStep(1);
         return;
       }
       const v: Variant = { variantId: r.variantId, url: r.url, storagePath: r.storagePath };
-      setVariants([v]);
-      setPickedId(v.variantId);
+      if (isTemplateUpload) {
+        setTemplateImageAsset({ url: r.url, storagePath: r.storagePath });
+      } else {
+        setVariants([v]);
+        setPickedId(v.variantId);
+      }
       // Default the prompt from filename so caption gen has something to
       // riff on if the admin didn't write anything.
       if (!prompt.trim()) {
-        const niceName = file.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').slice(0, 200);
+        const fileName = suggestedName || ('name' in file ? file.name : '');
+        const niceName = fileName.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').slice(0, 200);
         setPrompt(niceName || 'Uploaded image');
       }
-      setOkBanner('Image uploaded! Pick "Use this image" to continue.');
+      setOkBanner(createMode === 'template'
+        ? 'Background image selected. Render the card to use it.'
+        : 'Image uploaded! Pick "Use this image" to continue.');
       setTimeout(() => setOkBanner(null), 3500);
     } catch (e) {
       setError(friendlyError('Upload', e));
-      setStep(1);
+      if (!isTemplateUpload) setStep(1);
     } finally {
       setGenerating(false);
     }
+  }
+
+  async function handleTemplateLibraryUpload(blob: Blob, asset: TemplateLibraryAsset) {
+    await handleUpload(blob, asset.label);
   }
 
   async function handleDownloadOutputs(items?: Variant[]) {
@@ -443,14 +514,26 @@ export default function StudioCanvasScreen() {
       const draftPrompt = createMode === 'template'
         ? buildTemplateDraftPrompt(templateKind, templateForm, prompt)
         : prompt.trim();
+      const nextScheduledAt = asScheduled
+        ? scheduleInputToIso(scheduleAt)
+        : (editDraftId && scheduleAt ? scheduleInputToIso(scheduleAt) : null);
       const r = await createStudioDraft({
+        ...(editDraftId ? { draftId: editDraftId } : {}),
         prompt: draftPrompt,
         // Carousel: send all slides as assets[]. Single: use the picked one.
         ...(createMode === 'ai' && carouselMode && variants.length > 1
           ? { assets: variants.map((v) => ({ url: v.url, storagePath: v.storagePath })) }
           : { imageUrl: picked.url, imageStoragePath: picked.storagePath }),
+        ...(createMode === 'template'
+          ? {
+            template: templateKind,
+            templateProps: templateFormToDraftProps(templateKind, templateForm),
+            sourceImageUrl: templateImageAsset?.url ?? null,
+            imageSource: templateImageAsset?.url ? 'caller-supplied' : null,
+          }
+          : {}),
         caption: caption.trim() || undefined,
-        scheduledAt: asScheduled ? scheduleInputToIso(scheduleAt) : null,
+        scheduledAt: nextScheduledAt,
       });
       if (!r.ok) {
         setError(friendlyError('Save', r));
@@ -494,7 +577,14 @@ export default function StudioCanvasScreen() {
           </View>
         ) : null}
 
-        {okBanner && step === 2 ? (
+        {loadingDraftEdit ? (
+          <View style={styles.warnBanner}>
+            <ActivityIndicator size="small" color={Colors.primary} />
+            <Text style={styles.warnText}>Loading draft into Studio…</Text>
+          </View>
+        ) : null}
+
+        {okBanner ? (
           <View style={styles.warnBanner}>
             <Ionicons name="information-circle-outline" size={16} color={Colors.warning} />
             <Text style={styles.warnText}>{okBanner}</Text>
@@ -524,6 +614,9 @@ export default function StudioCanvasScreen() {
               if (next) setPrompt(next);
             }}
             onUploadFile={handleUpload}
+            onUploadTemplateBlob={handleTemplateLibraryUpload}
+            templateImageAsset={templateImageAsset}
+            setTemplateImageAsset={setTemplateImageAsset}
             carouselMode={carouselMode}
             setCarouselMode={setCarouselMode}
             singleVariantCount={singleVariantCount}
@@ -604,7 +697,7 @@ function Step1Prompt({
   prompt, setPrompt, createMode, setCreateMode, templateKind, setTemplateKind, templateForm, setTemplateForm,
   onTemplatePrefill, prefillingTemplate,
   quality, setQuality, estCost, onGenerate, generating,
-  winner, winnerLoaded, onReuseWinner, onUploadFile,
+  winner, winnerLoaded, onReuseWinner, onUploadFile, onUploadTemplateBlob, templateImageAsset, setTemplateImageAsset,
   carouselMode, setCarouselMode, singleVariantCount, setSingleVariantCount, slideCount, setSlideCount,
   aspectRatio, setAspectRatio, isWide,
 }: {
@@ -622,6 +715,9 @@ function Step1Prompt({
   onReuseWinner: () => void;
   /** Web-only — invoked when admin picks a file via the Upload button. */
   onUploadFile: (file: File) => void;
+  onUploadTemplateBlob: (blob: Blob, asset: TemplateLibraryAsset) => void;
+  templateImageAsset: TemplateImageAsset | null;
+  setTemplateImageAsset: (v: TemplateImageAsset | null) => void;
   carouselMode: boolean;
   setCarouselMode: (v: boolean) => void;
   singleVariantCount: 1 | 2 | 3 | 4;
@@ -691,6 +787,10 @@ function Step1Prompt({
               setForm={setTemplateForm}
               onTemplatePrefill={onTemplatePrefill}
               prefillingTemplate={prefillingTemplate}
+              templateImageAsset={templateImageAsset}
+              setTemplateImageAsset={setTemplateImageAsset}
+              onUploadFile={onUploadFile}
+              onUploadTemplateBlob={onUploadTemplateBlob}
               isWide={isWide}
             />
           ) : null}
@@ -729,6 +829,11 @@ function Step1Prompt({
                   if (f) onUploadFile(f);
                   e.currentTarget.value = '';
                 }}
+              />
+              <TemplateImagePicker
+                disabled={generating}
+                buttonLabel="Template library"
+                onSelect={onUploadTemplateBlob}
               />
             </View>
           ) : null}
@@ -901,6 +1006,10 @@ function TemplateFields({
   setForm,
   onTemplatePrefill,
   prefillingTemplate,
+  templateImageAsset,
+  setTemplateImageAsset,
+  onUploadFile,
+  onUploadTemplateBlob,
   isWide,
 }: {
   templateKind: TemplateKind;
@@ -909,6 +1018,10 @@ function TemplateFields({
   setForm: (v: TemplateForm) => void;
   onTemplatePrefill: () => void;
   prefillingTemplate: boolean;
+  templateImageAsset: TemplateImageAsset | null;
+  setTemplateImageAsset: (v: TemplateImageAsset | null) => void;
+  onUploadFile: (file: File) => void;
+  onUploadTemplateBlob: (blob: Blob, asset: TemplateLibraryAsset) => void;
   isWide: boolean;
 }) {
   const patch = (key: keyof TemplateForm, value: string) => setForm({ ...form, [key]: value });
@@ -1012,7 +1125,63 @@ function TemplateFields({
       {(templateKind === 'quoteCard' || templateKind === 'milestoneCard' || templateKind === 'realStoryCard') ? (
         <View style={[styles.fieldBlock, styles.fieldBlockFull]}>
           <Text style={styles.fieldLabel}>Optional background image prompt</Text>
+          <Text style={styles.fieldHint}>Use AI here, or choose your own image below. A chosen image overrides the prompt.</Text>
           <TextInput value={form.backgroundPrompt} onChangeText={(v) => patch('backgroundPrompt', v)} placeholder="e.g. warm Indian home scene with soft natural light" placeholderTextColor={Colors.textMuted} style={[styles.fieldInput, styles.fieldTextAreaSmall]} multiline />
+        </View>
+      ) : null}
+
+      {Platform.OS === 'web' && (templateKind === 'quoteCard' || templateKind === 'milestoneCard' || templateKind === 'realStoryCard') ? (
+        <View style={[styles.fieldBlock, styles.fieldBlockFull]}>
+          <Text style={styles.fieldLabel}>Choose your own image</Text>
+          <Text style={styles.fieldHint}>Open the image picker and use a photo from your device for this template.</Text>
+          <View style={styles.templateImagePickerRow}>
+            <label
+              htmlFor="studio-template-upload-input"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '10px 14px',
+                borderRadius: 10,
+                backgroundColor: Colors.cardBg,
+                border: `1px solid ${Colors.borderSoft}`,
+                color: Colors.textDark,
+                fontSize: FontSize.sm,
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              <Ionicons name="image-outline" size={16} color={Colors.textDark} />
+              <span>{templateImageAsset ? 'Replace image' : 'Choose image'}</span>
+            </label>
+            <input
+              id="studio-template-upload-input"
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const f = e.currentTarget.files?.[0];
+                if (f) onUploadFile(f);
+                e.currentTarget.value = '';
+              }}
+            />
+            <TemplateImagePicker
+              buttonLabel="Template library"
+              onSelect={onUploadTemplateBlob}
+            />
+            {templateImageAsset ? (
+              <Pressable onPress={() => setTemplateImageAsset(null)} style={styles.ghostBtn}>
+                <Ionicons name="close" size={14} color={Colors.error} />
+                <Text style={[styles.ghostBtnLabel, { color: Colors.error }]}>Use AI prompt instead</Text>
+              </Pressable>
+            ) : null}
+          </View>
+          {templateImageAsset ? (
+            <View style={styles.templateImagePreviewCard}>
+              <Image source={{ uri: templateImageAsset.url }} style={styles.templateImagePreview} resizeMode="cover" />
+              <Text style={styles.templateImagePreviewLabel}>Selected custom image</Text>
+            </View>
+          ) : null}
         </View>
       ) : null}
       </View>
@@ -1482,10 +1651,106 @@ function aspectRatioNumber(r: StudioAspectRatio): number {
   return 1;
 }
 
+function draftTemplateKind(draft: MarketingDraft): TemplateKind | null {
+  const template = draft.assets[0]?.template;
+  if (template === 'tipCard' || template === 'quoteCard' || template === 'milestoneCard' || template === 'realStoryCard') {
+    return template;
+  }
+  const props = draft.templateProps ?? {};
+  if (typeof props.quote === 'string') return 'quoteCard';
+  if (Array.isArray(props.milestones)) return 'milestoneCard';
+  if (typeof props.story === 'string') return 'realStoryCard';
+  if (Array.isArray(props.tips) || typeof props.title === 'string') return 'tipCard';
+  return null;
+}
+
+function toTemplateForm(kind: TemplateKind, props: Record<string, unknown> | null | undefined, imagePrompt: string | null): TemplateForm {
+  const p = props ?? {};
+  return {
+    eyebrow: typeof p.eyebrow === 'string' ? p.eyebrow : 'MaaMitra',
+    title: typeof p.title === 'string' ? p.title : '',
+    tipsText: Array.isArray(p.tips) ? p.tips.map((x) => String(x ?? '')).filter(Boolean).join('\n') : '',
+    quote: typeof p.quote === 'string' ? p.quote : '',
+    attribution: typeof p.attribution === 'string' ? p.attribution : '',
+    age: typeof p.age === 'string' ? p.age : '',
+    milestonesText: Array.isArray(p.milestones) ? p.milestones.map((x) => String(x ?? '')).filter(Boolean).join('\n') : '',
+    story: typeof p.story === 'string' ? p.story : '',
+    backgroundPrompt: imagePrompt ?? '',
+  };
+}
+
+function applyDraftToStudio(
+  draft: MarketingDraft,
+  setters: {
+    setPrompt: (v: string) => void;
+    setCreateMode: (v: CreateMode) => void;
+    setTemplateKind: (v: TemplateKind) => void;
+    setTemplateForm: (v: TemplateForm) => void;
+    setCaption: (v: string) => void;
+    setScheduleAt: (v: string) => void;
+    setVariants: (v: Variant[]) => void;
+    setPickedId: (v: string | null) => void;
+    setStep: (v: Step) => void;
+    setOkBanner: (v: string | null) => void;
+    setEditing: (v: boolean) => void;
+    setEditPrompt: (v: string) => void;
+    setMaskDataUrl: (v: string | null) => void;
+    setBrushOpen: (v: boolean) => void;
+    setCropOpen: (v: boolean) => void;
+    setLogoApplied: (v: LogoPosition | null) => void;
+    setTemplateImageAsset: (v: TemplateImageAsset | null) => void;
+  },
+) {
+  const templateKind = draftTemplateKind(draft);
+  const variants = draft.assets
+    .filter((asset) => asset.url)
+    .map((asset, index) => ({
+      variantId: `${draft.id}-${index}`,
+      url: asset.url,
+      storagePath: asset.storagePath ?? '',
+    }));
+  const basePrompt = draft.imagePrompt?.trim() || draft.headline?.trim() || '';
+
+  setters.setPrompt(basePrompt);
+  setters.setCaption(draft.caption || '');
+  setters.setScheduleAt(draft.scheduledAt ? isoToLocalInput(draft.scheduledAt) : '');
+  setters.setVariants(variants);
+  setters.setPickedId(variants[0]?.variantId ?? null);
+  setters.setEditing(false);
+  setters.setEditPrompt('');
+  setters.setMaskDataUrl(null);
+  setters.setBrushOpen(false);
+  setters.setCropOpen(false);
+  setters.setLogoApplied(null);
+  setters.setTemplateImageAsset(null);
+
+  if (templateKind) {
+    setters.setCreateMode('template');
+    setters.setTemplateKind(templateKind);
+    setters.setTemplateForm(toTemplateForm(templateKind, draft.templateProps, draft.imagePrompt));
+    if (draft.sourceImageUrl) {
+      setters.setTemplateImageAsset({ url: draft.sourceImageUrl, storagePath: '' });
+    }
+    setters.setStep(1);
+    setters.setOkBanner('Draft loaded. Edit any line, rerender, or swap the image.');
+  } else {
+    setters.setCreateMode('ai');
+    setters.setStep(2);
+    setters.setOkBanner('Draft loaded. Change the image, then continue to save a revised version.');
+  }
+}
+
 function aspectOutputSize(r: StudioAspectRatio): { width: number; height: number } {
   if (r === '9:16') return { width: 1080, height: 1920 };
   if (r === '16:9') return { width: 1920, height: 1080 };
   return { width: 1080, height: 1080 };
+}
+
+function isoToLocalInput(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 function CropEditor({
@@ -1918,7 +2183,8 @@ function buildTemplateDraftPrompt(kind: TemplateKind, form: TemplateForm, prompt
   return [form.eyebrow || 'Inspired story', form.story, form.attribution, prompt].filter(Boolean).join(' · ');
 }
 
-function estimateTemplateCost(kind: TemplateKind, form: TemplateForm, quality: Quality): number {
+function estimateTemplateCost(kind: TemplateKind, form: TemplateForm, quality: Quality, hasCustomImage = false): number {
+  if (hasCustomImage) return 0;
   const usesBackground = (kind === 'quoteCard' || kind === 'milestoneCard' || kind === 'realStoryCard') && !!form.backgroundPrompt.trim();
   return usesBackground ? QUALITY_INFO[quality].perVariantInr : 0;
 }
@@ -1928,7 +2194,7 @@ function buildTemplateRenderRequest(
   form: TemplateForm,
   prompt: string,
   quality: Quality,
-) {
+): RenderTemplateInput | null {
   if (!templateFormIsValid(kind, form, prompt)) return null;
 
   const background = form.backgroundPrompt.trim()
@@ -1982,6 +2248,10 @@ function templateFormToPrefillCurrent(kind: TemplateKind, form: TemplateForm): R
   if (kind === 'quoteCard') return { quote: form.quote, attribution: form.attribution };
   if (kind === 'milestoneCard') return { age: form.age, title: form.title, milestones: splitLines(form.milestonesText, 6) };
   return { eyebrow: form.eyebrow, story: form.story, attribution: form.attribution };
+}
+
+function templateFormToDraftProps(kind: TemplateKind, form: TemplateForm): Record<string, any> {
+  return templateFormToPrefillCurrent(kind, form);
 }
 
 function applyTemplatePrefill(
@@ -2298,6 +2568,7 @@ const styles = StyleSheet.create({
   fieldBlock: { gap: 6, flexBasis: '48%', flexGrow: 1, minWidth: 180 },
   fieldBlockFull: { width: '100%' },
   fieldLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textDark, marginBottom: 6 },
+  fieldHint: { fontSize: FontSize.xs, color: Colors.textLight, lineHeight: 16, marginBottom: 6 },
   fieldInput: {
     backgroundColor: Colors.bgLight,
     borderWidth: 1,
@@ -2311,6 +2582,24 @@ const styles = StyleSheet.create({
   },
   fieldTextArea: { minHeight: 100, textAlignVertical: 'top' as any },
   fieldTextAreaSmall: { minHeight: 72, textAlignVertical: 'top' as any },
+  templateImagePickerRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flexWrap: 'wrap' },
+  templateImagePreviewCard: {
+    marginTop: Spacing.sm,
+    padding: Spacing.sm,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: Colors.borderSoft,
+    backgroundColor: Colors.cardBg,
+    gap: 8,
+    maxWidth: 220,
+  },
+  templateImagePreview: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: Radius.sm,
+    backgroundColor: Colors.bgTint,
+  },
+  templateImagePreviewLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textDark },
 
   estCost: { fontSize: FontSize.xs, color: Colors.textLight, fontWeight: '600' },
   generateRail: {

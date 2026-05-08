@@ -50,12 +50,17 @@ export async function generateStudioVariants(
 }
 
 export interface CreateStudioDraftInput {
+  draftId?: string;
   prompt: string;
   /** Single-image flow — pass these. */
   imageUrl?: string;
   imageStoragePath?: string;
   /** Carousel flow — pass these instead. Length 2–10. */
   assets?: { url: string; storagePath: string }[];
+  template?: 'tipCard' | 'quoteCard' | 'milestoneCard' | 'realStoryCard' | null;
+  templateProps?: Record<string, any> | null;
+  sourceImageUrl?: string | null;
+  imageSource?: string | null;
   caption?: string;
   scheduledAt?: string | null;
 }

@@ -25,7 +25,14 @@ import { BrandSnapshot, TEMPLATE_NAMES } from './templates';
 import { getIntegrationConfig } from '../lib/integrationConfig';
 
 export { buildScoreMarketingDraft } from './scoring';
-export { buildGenerateMarketingDraft, buildDailyMarketingDraftCron, buildGenerateAheadDrafts } from './generator';
+export {
+  buildGenerateMarketingDraft,
+  buildRegenerateMarketingDraft,
+  buildScheduleMarketingDraft,
+  buildUnscheduleMarketingDraft,
+  buildDailyMarketingDraftCron,
+  buildGenerateAheadDrafts,
+} from './generator';
 export { buildMetaWebhookReceiver, buildGenerateInboxReplies, buildClassifyInboxThread } from './inbox';
 export {
   buildMetaInboxReplyPublisher,
@@ -329,7 +336,7 @@ export function buildGenerateTemplatePrefill(allowList: ReadonlySet<string>) {
         'tipCard: { "eyebrow": string<=30, "title": string<=80, "tips": string[3-4] }',
         'quoteCard: { "quote": string<=200, "attribution": string<=40 }',
         'milestoneCard: { "age": string<=20, "title": string<=60, "milestones": string[3-5] }',
-        'realStoryCard: { "eyebrow": string<=30, "story": string<=240 chars (count carefully — must finish a sentence with a period inside the limit), "attribution": string<=40 (Indian first name + city or relation, e.g. "Priya, Pune · mom of Aanya") }',
+        'realStoryCard: { "eyebrow": string<=30, "story": string<=220 chars (count carefully — must finish a sentence with a period inside the limit), "attribution": string<=40 (Indian first name + city or relation, e.g. "Priya, Pune · mom of Aanya") }',
         '',
         'Rules:',
         '- Keep it crisp and render-friendly.',
@@ -429,7 +436,7 @@ function sanitizeTemplateProps(template: string, props: Record<string, any>): Re
   }
   return {
     eyebrow: trimText(props.eyebrow, 30),
-    story: trimStory(props.story, 240),
+    story: trimStory(props.story, 220),
     attribution: trimText(props.attribution, 40),
   };
 }

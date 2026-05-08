@@ -334,11 +334,11 @@ function buildGenerateStudioVariants(allowList) {
                     if (model === 'dalle') {
                         imageUrl = await (0, styleReferences_1.openaiMaaMitraReferenceImage)(styledPrompt, {
                             preset: 'post',
-                            quality: 'high',
+                            quality: 'medium',
                             size: openAiSizeForAspectRatio(aspectRatio),
-                            maxRefs: 6,
+                            maxRefs: 4,
                             timeoutMs: 90000,
-                            fallbackToGeneration: false,
+                            fallbackToGeneration: true,
                             extraLines: [
                                 'Scene priority: the requested action, setting, and props above are mandatory and override any familiar sitting, cuddling, cup-holding, portrait, yoga, or floor-mat poses learned from the references.',
                                 'Skin consistency rules: keep skin tones natural, even, clean, and close to the MaaMitra reference characters across outfit colors. Do not darken, redden, spot, freckle, or over-blush faces, hands, or feet.',
@@ -346,11 +346,22 @@ function buildGenerateStudioVariants(allowList) {
                                 'The supplied MaaMitra references from the real illustration library must dominate the visual result over generic model priors.',
                             ],
                         });
+                        if (!imageUrl) {
+                            imageUrl = await (0, imageSources_1.imagenGenerate)(styledPrompt, { aspectRatio: aspectRatio === '16:9' ? '16:9' : aspectRatio === '9:16' ? '9:16' : '1:1' });
+                            if (imageUrl)
+                                sourceUsed = 'imagen';
+                        }
                     }
                     else {
                         imageUrl = await (0, imageSources_1.fluxSchnell)(styledPrompt, { aspectRatio: aspectRatio === '16:9' ? '16:9' : aspectRatio });
-                        if (imageUrl)
+                        if (imageUrl) {
                             sourceUsed = 'flux';
+                        }
+                        else {
+                            imageUrl = await (0, imageSources_1.imagenGenerate)(styledPrompt, { aspectRatio: aspectRatio === '16:9' ? '16:9' : aspectRatio === '9:16' ? '9:16' : '1:1' });
+                            if (imageUrl)
+                                sourceUsed = 'imagen';
+                        }
                     }
                 }
                 catch (e) {
@@ -476,10 +487,17 @@ function buildCreateStudioDraft(allowList) {
             throw new functions.https.HttpsError('permission-denied', 'Admin only.');
         }
         const prompt = typeof data?.prompt === 'string' ? data.prompt.trim() : '';
+        const draftId = typeof data?.draftId === 'string' ? data.draftId.trim() : '';
         const imageUrl = typeof data?.imageUrl === 'string' ? data.imageUrl : '';
         const imageStoragePath = typeof data?.imageStoragePath === 'string' ? data.imageStoragePath : '';
         let caption = typeof data?.caption === 'string' ? data.caption.trim() : '';
         const scheduledAt = typeof data?.scheduledAt === 'string' && data.scheduledAt ? data.scheduledAt : null;
+        const template = typeof data?.template === 'string' ? data.template.trim() : '';
+        const templateProps = data?.templateProps && typeof data.templateProps === 'object' && !Array.isArray(data.templateProps)
+            ? data.templateProps
+            : null;
+        const sourceImageUrl = typeof data?.sourceImageUrl === 'string' && data.sourceImageUrl ? data.sourceImageUrl : null;
+        const imageSource = typeof data?.imageSource === 'string' && data.imageSource ? data.imageSource : null;
         let assets = [];
         if (Array.isArray(data?.assets)) {
             for (const raw of data.assets) {
@@ -511,42 +529,57 @@ function buildCreateStudioDraft(allowList) {
         if (!caption) {
             caption = await generateStudioCaption(prompt, brand);
         }
-        const draftRef = admin.firestore().collection('marketing_drafts').doc();
-        const status = scheduledAt ? 'scheduled' : 'pending_review';
+        const draftRef = draftId
+            ? admin.firestore().collection('marketing_drafts').doc(draftId)
+            : admin.firestore().collection('marketing_drafts').doc();
+        const existingSnap = draftId ? await draftRef.get() : null;
+        if (draftId && !existingSnap?.exists) {
+            return { ok: false, code: 'not-found', message: 'The original draft no longer exists.' };
+        }
+        const existing = existingSnap?.data();
+        const finalScheduledAt = scheduledAt ?? (typeof existing?.scheduledAt === 'string' ? existing.scheduledAt : null);
+        const status = finalScheduledAt
+            ? 'scheduled'
+            : (existing?.status === 'approved' ? 'approved' : 'pending_review');
         const isCarousel = assets.length > 1;
+        const assetTemplate = isCarousel
+            ? 'studioCarouselSlide'
+            : (template || (typeof existing?.assets?.[0]?.template === 'string' ? existing.assets[0].template : 'studioImage'));
         const draft = {
             status,
-            kind: isCarousel ? 'carousel' : 'image',
-            themeKey: 'studio',
-            themeLabel: 'Studio',
+            kind: isCarousel ? 'carousel' : (typeof existing?.kind === 'string' ? existing.kind : 'image'),
+            themeKey: typeof existing?.themeKey === 'string' ? existing.themeKey : 'studio',
+            themeLabel: typeof existing?.themeLabel === 'string' ? existing.themeLabel : 'Studio',
             caption,
             headline: prompt.slice(0, 80),
             assets: assets.map((a, i) => ({
                 url: a.url,
                 index: i,
-                template: isCarousel ? 'studioCarouselSlide' : 'studioImage',
+                template: assetTemplate,
                 storagePath: a.storagePath,
             })),
-            platforms: ['instagram', 'facebook'],
-            scheduledAt,
-            postedAt: null,
-            postPermalinks: {},
+            platforms: Array.isArray(existing?.platforms) && existing.platforms.length ? existing.platforms : ['instagram', 'facebook'],
+            scheduledAt: finalScheduledAt,
+            postedAt: existing?.postedAt ?? null,
+            postPermalinks: existing?.postPermalinks ?? {},
             publishError: null,
-            safetyFlags: [],
-            personaId: null,
-            personaLabel: null,
-            pillarId: null,
-            pillarLabel: null,
-            eventId: null,
-            eventLabel: null,
-            locale: brand.voice.bilingual,
+            safetyFlags: Array.isArray(existing?.safetyFlags) ? existing.safetyFlags : [],
+            personaId: existing?.personaId ?? null,
+            personaLabel: existing?.personaLabel ?? null,
+            pillarId: existing?.pillarId ?? null,
+            pillarLabel: existing?.pillarLabel ?? null,
+            eventId: existing?.eventId ?? null,
+            eventLabel: existing?.eventLabel ?? null,
+            locale: typeof existing?.locale === 'string' ? existing.locale : brand.voice.bilingual,
+            templateProps,
             imagePrompt: prompt,
-            imageSource: 'studio',
+            imageSource: imageSource ?? existing?.imageSource ?? 'studio',
+            sourceImageUrl: sourceImageUrl ?? existing?.sourceImageUrl ?? null,
             costInr: 0.05, // caption call only — variant cost was already logged
             generatedAt: admin.firestore.FieldValue.serverTimestamp(),
             generatedBy: context.auth?.token?.email ?? 'studio',
-            approvedAt: null,
-            approvedBy: null,
+            approvedAt: existing?.approvedAt ?? null,
+            approvedBy: existing?.approvedBy ?? null,
             rejectedAt: null,
             rejectedBy: null,
             rejectReason: null,
@@ -555,13 +588,36 @@ function buildCreateStudioDraft(allowList) {
             sourceTool: 'studio',
         };
         try {
-            await draftRef.set(draft);
+            await draftRef.set(stripUndefinedDeep(draft), { merge: true });
         }
         catch {
             return { ok: false, code: 'write-failed', message: "Couldn't save the draft. Try again." };
         }
         return { ok: true, draftId: draftRef.id, caption };
     });
+}
+function stripUndefinedDeep(value) {
+    if (value &&
+        typeof value === 'object' &&
+        value.constructor &&
+        value.constructor.name === 'FieldValue') {
+        return value;
+    }
+    if (Array.isArray(value)) {
+        return value
+            .map((item) => stripUndefinedDeep(item))
+            .filter((item) => item !== undefined);
+    }
+    if (value && typeof value === 'object') {
+        const out = {};
+        for (const [key, item] of Object.entries(value)) {
+            if (item === undefined)
+                continue;
+            out[key] = stripUndefinedDeep(item);
+        }
+        return out;
+    }
+    return value;
 }
 const EDIT_COST_INR = {
     medium: 3.50,

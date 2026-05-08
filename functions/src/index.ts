@@ -44,6 +44,9 @@ import {
   buildGenerateAheadDrafts,
   buildGenerateInboxReplies,
   buildGenerateMarketingDraft,
+  buildRegenerateMarketingDraft,
+  buildScheduleMarketingDraft,
+  buildUnscheduleMarketingDraft,
   buildGenerateTemplatePrefill,
   buildGenerateStudioVariants,
   buildGenerateWeeklyInsightDigest,
@@ -1366,6 +1369,9 @@ export const scoreMarketingDraft = buildScoreMarketingDraft(ADMIN_EMAILS);
 // AI image (default Imagen) with Pexels fallback, renders the matching
 // template, and writes a marketing_drafts row with status=pending_review.
 export const generateMarketingDraft = buildGenerateMarketingDraft(ADMIN_EMAILS);
+export const regenerateMarketingDraft = buildRegenerateMarketingDraft(ADMIN_EMAILS);
+export const scheduleMarketingDraft = buildScheduleMarketingDraft(ADMIN_EMAILS);
+export const unscheduleMarketingDraft = buildUnscheduleMarketingDraft(ADMIN_EMAILS);
 
 // Daily 6am IST cron — opt-in via marketing_brand/main.cronEnabled=true.
 // Same generation flow, runs as service account. Automatically skips if a
