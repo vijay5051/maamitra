@@ -66,6 +66,15 @@ export default function MarketingTemplatesScreen() {
   const [moving, setMoving] = useState<TemplateImageDoc | null>(null);
   const [newCategoryOpen, setNewCategoryOpen] = useState(false);
   const [importing, setImporting] = useState<{ done: number; total: number; failed: number } | null>(null);
+  // Multi-select. Selected ids and the modal targets for batch ops are kept
+  // separate from the single-row `moving`/`confirmDelete` flows so we don't
+  // tangle states (e.g. the move modal can be opened from one ID OR from
+  // the bulk action bar).
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [batchMoveOpen, setBatchMoveOpen] = useState(false);
+  const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
+  const [batchProgress, setBatchProgress] = useState<{ kind: 'move' | 'delete'; done: number; total: number; failed: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -214,14 +223,18 @@ export default function MarketingTemplatesScreen() {
     if (!user) return;
     const trimmed = label.trim();
     if (!trimmed) return;
+    const fromSingleMove = !!moving;
+    const fromBatchMove = batchMoveOpen;
     // Friendly duplicate guard — same case-insensitive label already exists.
     const existing = categories.find((c) => c.toLowerCase() === trimmed.toLowerCase());
     if (existing) {
       setNewCategoryOpen(false);
-      // If admin opened "New" from the Move flow, treat the existing match
-      // as their pick — move the image and close both modals.
-      if (moving) {
+      // If admin opened "New" from a Move flow, treat the existing match as
+      // their pick — move the image(s) and close both modals.
+      if (fromSingleMove) {
         await handleMoveTo(existing);
+      } else if (fromBatchMove) {
+        await handleBatchMoveTo(existing);
       } else {
         setFilterCategory(existing);
         showBanner('info', `"${existing}" already exists — filtering by it now.`);
@@ -231,9 +244,10 @@ export default function MarketingTemplatesScreen() {
     try {
       const created = await createTemplateCategory({ uid: user.uid, email: user.email }, trimmed);
       setNewCategoryOpen(false);
-      if (moving) {
-        // Auto-move the image into the new category and close the Move modal.
+      if (fromSingleMove) {
         await handleMoveTo(created.label);
+      } else if (fromBatchMove) {
+        await handleBatchMoveTo(created.label);
       } else {
         setFilterCategory(created.label);
         showBanner('ok', `Category "${created.label}" added.`);
@@ -254,6 +268,108 @@ export default function MarketingTemplatesScreen() {
     } catch (e: any) {
       showBanner('err', e?.message ?? 'Could not remove category — try again.');
     }
+  }
+
+  // ── Multi-select ─────────────────────────────────────────────────────────
+  function exitSelectMode() {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+    setBatchMoveOpen(false);
+    setBatchDeleteOpen(false);
+  }
+
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function selectAllVisible() {
+    setSelectedIds(new Set(visible.map((r) => r.id)));
+  }
+
+  function deselectAll() {
+    setSelectedIds(new Set());
+  }
+
+  // Drop selection ids that aren't in the current row set anymore (e.g. a
+  // doc was deleted from another tab) so the count stays honest.
+  useEffect(() => {
+    if (selectedIds.size === 0) return;
+    const ids = new Set(rows.map((r) => r.id));
+    let changed = false;
+    const next = new Set<string>();
+    for (const id of selectedIds) {
+      if (ids.has(id)) next.add(id);
+      else changed = true;
+    }
+    if (changed) setSelectedIds(next);
+  }, [rows, selectedIds]);
+
+  async function handleBatchMoveTo(targetCategory: string) {
+    if (!user || selectedIds.size === 0) return;
+    setBatchMoveOpen(false);
+    const targets = rows.filter((r) => selectedIds.has(r.id) && r.category !== targetCategory);
+    const total = targets.length;
+    if (total === 0) {
+      showBanner('info', `Already in "${targetCategory}".`);
+      return;
+    }
+    setBatchProgress({ kind: 'move', done: 0, total, failed: 0 });
+    let done = 0;
+    let failed = 0;
+    for (const row of targets) {
+      try {
+        await updateTemplateImage(
+          { uid: user.uid, email: user.email },
+          row.id,
+          { category: targetCategory },
+        );
+        done += 1;
+      } catch (e) {
+        console.warn('[templates] batch move failed for', row.id, e);
+        failed += 1;
+      }
+      setBatchProgress({ kind: 'move', done: done + failed, total, failed });
+    }
+    setBatchProgress(null);
+    if (failed === 0) showBanner('ok', `Moved ${done} to "${targetCategory}".`);
+    else showBanner('err', `Moved ${done}, ${failed} failed.`);
+    // Stay in select mode but drop the moved ids from selection so the user
+    // sees what's left after a partial-failure batch.
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      for (const r of targets) next.delete(r.id);
+      return next;
+    });
+  }
+
+  async function handleBatchDelete() {
+    if (!user || selectedIds.size === 0) return;
+    setBatchDeleteOpen(false);
+    const targets = rows.filter((r) => selectedIds.has(r.id));
+    const total = targets.length;
+    setBatchProgress({ kind: 'delete', done: 0, total, failed: 0 });
+    let done = 0;
+    let failed = 0;
+    for (const row of targets) {
+      try {
+        await deleteTemplateImage({ uid: user.uid, email: user.email }, row);
+        done += 1;
+      } catch (e) {
+        console.warn('[templates] batch delete failed for', row.id, e);
+        failed += 1;
+      }
+      setBatchProgress({ kind: 'delete', done: done + failed, total, failed });
+    }
+    setBatchProgress(null);
+    if (failed === 0) showBanner('ok', `Deleted ${done} template${done === 1 ? '' : 's'}.`);
+    else showBanner('err', `Deleted ${done}, ${failed} failed.`);
+    setSelectedIds(new Set());
+    if (failed === 0) setSelectMode(false);
   }
 
   function handleDownload(row: TemplateImageDoc) {
@@ -336,6 +452,23 @@ export default function MarketingTemplatesScreen() {
             </Text>
           </View>
           <View style={styles.headerActions}>
+            <Pressable
+              onPress={() => {
+                if (selectMode) exitSelectMode();
+                else setSelectMode(true);
+              }}
+              style={[styles.ghostBtn, selectMode && styles.ghostBtnActive]}
+              accessibilityLabel={selectMode ? 'Exit select mode' : 'Enter select mode'}
+            >
+              <Ionicons
+                name={selectMode ? 'close-circle-outline' : 'checkbox-outline'}
+                size={16}
+                color={selectMode ? Colors.error : Colors.primary}
+              />
+              <Text style={[styles.ghostBtnLabel, selectMode && { color: Colors.error }]}>
+                {selectMode ? 'Done' : 'Select'}
+              </Text>
+            </Pressable>
             <Pressable onPress={openFilePicker} style={styles.primaryBtn} accessibilityLabel="Upload new template">
               <Ionicons name="cloud-upload-outline" size={16} color="#fff" />
               <Text style={styles.primaryBtnLabel}>Upload</Text>
@@ -430,6 +563,58 @@ export default function MarketingTemplatesScreen() {
           </Pressable>
         </ScrollView>
 
+        {/* Batch action bar — only in select mode */}
+        {selectMode ? (
+          <View style={styles.selectBar}>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.selectBarTitle}>
+                {selectedIds.size === 0
+                  ? 'Tap any template to start selecting'
+                  : `${selectedIds.size} selected`}
+              </Text>
+              <Text style={styles.selectBarSubtitle}>
+                {visible.length} visible · {rows.length} total
+              </Text>
+            </View>
+            <View style={styles.selectBarActions}>
+              <Pressable
+                onPress={selectedIds.size === visible.length && visible.length > 0 ? deselectAll : selectAllVisible}
+                style={styles.selectBarGhost}
+                disabled={visible.length === 0}
+              >
+                <Ionicons
+                  name={selectedIds.size === visible.length && visible.length > 0 ? 'remove-circle-outline' : 'checkmark-done-outline'}
+                  size={14}
+                  color={Colors.textDark}
+                />
+                <Text style={styles.selectBarGhostLabel}>
+                  {selectedIds.size === visible.length && visible.length > 0 ? 'Deselect all' : 'Select all'}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setBatchMoveOpen(true)}
+                style={[styles.selectBarBtn, selectedIds.size === 0 && styles.selectBarBtnDisabled]}
+                disabled={selectedIds.size === 0}
+              >
+                <Ionicons name="swap-horizontal-outline" size={14} color={selectedIds.size === 0 ? Colors.textMuted : Colors.primary} />
+                <Text style={[styles.selectBarBtnLabel, selectedIds.size === 0 && { color: Colors.textMuted }]}>
+                  Move ({selectedIds.size})
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setBatchDeleteOpen(true)}
+                style={[styles.selectBarBtn, styles.selectBarBtnDanger, selectedIds.size === 0 && styles.selectBarBtnDisabled]}
+                disabled={selectedIds.size === 0}
+              >
+                <Ionicons name="trash-outline" size={14} color={selectedIds.size === 0 ? Colors.textMuted : Colors.error} />
+                <Text style={[styles.selectBarBtnLabel, { color: Colors.error }, selectedIds.size === 0 && { color: Colors.textMuted }]}>
+                  Delete ({selectedIds.size})
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
+
         {/* Grid */}
         {!loaded ? (
           <View style={styles.empty}>
@@ -451,6 +636,9 @@ export default function MarketingTemplatesScreen() {
               <TemplateCard
                 key={row.id}
                 row={row}
+                selectMode={selectMode}
+                selected={selectedIds.has(row.id)}
+                onToggleSelect={() => toggleSelected(row.id)}
                 onEdit={() =>
                   setEditing({
                     mode: 'edit',
@@ -556,6 +744,83 @@ export default function MarketingTemplatesScreen() {
         onCreate={handleCreateCategory}
       />
 
+      {/* Batch move-to-category picker */}
+      <Modal visible={batchMoveOpen} transparent animationType="fade" onRequestClose={() => setBatchMoveOpen(false)}>
+        <View style={modalStyles.backdrop}>
+          <View style={modalStyles.formCard}>
+            <View style={modalStyles.formHeader}>
+              <Text style={modalStyles.title}>Move {selectedIds.size} template{selectedIds.size === 1 ? '' : 's'}</Text>
+              <Pressable onPress={() => setBatchMoveOpen(false)} hitSlop={8}>
+                <Ionicons name="close" size={20} color={Colors.textDark} />
+              </Pressable>
+            </View>
+            <Text style={modalStyles.body}>Pick the destination category. Templates already in it are skipped.</Text>
+            <ScrollView style={{ maxHeight: 360 }} contentContainerStyle={modalStyles.moveList}>
+              {categories.map((c) => (
+                <Pressable
+                  key={c}
+                  onPress={() => handleBatchMoveTo(c)}
+                  style={modalStyles.moveRow}
+                >
+                  <Ionicons name="pricetag-outline" size={16} color={Colors.textMuted} />
+                  <Text style={modalStyles.moveRowLabel}>{c}</Text>
+                  <Text style={modalStyles.moveRowCount}>{categoryCounts.get(c) ?? 0}</Text>
+                </Pressable>
+              ))}
+              <Pressable
+                // Keep batchMoveOpen alive so handleCreateCategory can
+                // auto-batch-move into the new category.
+                onPress={() => setNewCategoryOpen(true)}
+                style={modalStyles.moveNewRow}
+              >
+                <Ionicons name="add-circle-outline" size={16} color={Colors.primary} />
+                <Text style={[modalStyles.moveRowLabel, { color: Colors.primary }]}>New category…</Text>
+              </Pressable>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Batch delete confirm */}
+      <Modal visible={batchDeleteOpen} transparent animationType="fade" onRequestClose={() => setBatchDeleteOpen(false)}>
+        <View style={modalStyles.backdrop}>
+          <View style={modalStyles.confirmCard}>
+            <Text style={modalStyles.title}>Delete {selectedIds.size} template{selectedIds.size === 1 ? '' : 's'}?</Text>
+            <Text style={modalStyles.body}>
+              All {selectedIds.size} selected templates will be removed from the library and from Storage. This can't be undone.
+            </Text>
+            <View style={modalStyles.actions}>
+              <Pressable onPress={() => setBatchDeleteOpen(false)} style={[modalStyles.btn, modalStyles.btnGhost]}>
+                <Text style={modalStyles.btnGhostLabel}>Cancel</Text>
+              </Pressable>
+              <Pressable onPress={handleBatchDelete} style={[modalStyles.btn, modalStyles.btnDanger]}>
+                <Text style={modalStyles.btnDangerLabel}>Delete {selectedIds.size}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Batch progress overlay */}
+      {batchProgress ? (
+        <View style={modalStyles.backdrop} pointerEvents="auto">
+          <View style={modalStyles.importCard}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+            <Text style={modalStyles.title}>
+              {batchProgress.kind === 'move' ? 'Moving…' : 'Deleting…'}
+            </Text>
+            <Text style={modalStyles.body}>
+              {batchProgress.done} of {batchProgress.total}{batchProgress.failed ? ` · ${batchProgress.failed} failed` : ''}
+            </Text>
+            <View style={modalStyles.progressTrack}>
+              <View
+                style={[modalStyles.progressFill, { width: `${(batchProgress.done / Math.max(1, batchProgress.total)) * 100}%` }]}
+              />
+            </View>
+          </View>
+        </View>
+      ) : null}
+
       {/* Empty-category delete confirm */}
       <Modal
         visible={!!confirmDeleteCategory}
@@ -602,20 +867,30 @@ export default function MarketingTemplatesScreen() {
 
 function TemplateCard({
   row,
+  selectMode,
+  selected,
+  onToggleSelect,
   onEdit,
   onMove,
   onDelete,
   onDownload,
 }: {
   row: TemplateImageDoc;
+  selectMode: boolean;
+  selected: boolean;
+  onToggleSelect: () => void;
   onEdit: () => void;
   onMove: () => void;
   onDelete: () => void;
   onDownload: () => void;
 }) {
   const [imgError, setImgError] = useState(false);
+  // In select mode the whole card is a giant toggle. Outside select mode the
+  // card is non-interactive at the body level — admin uses the action icons.
+  const Wrapper: any = selectMode ? Pressable : View;
+  const wrapperProps = selectMode ? { onPress: onToggleSelect, accessibilityLabel: `${selected ? 'Deselect' : 'Select'} ${row.label}` } : {};
   return (
-    <View style={cardStyles.card}>
+    <Wrapper style={[cardStyles.card, selected && cardStyles.cardSelected]} {...wrapperProps}>
       <View style={cardStyles.imageWrap}>
         {row.url && !imgError ? (
           <Image source={{ uri: row.url }} style={cardStyles.image} resizeMode="cover" onError={() => setImgError(true)} />
@@ -624,6 +899,11 @@ function TemplateCard({
             <Ionicons name="image-outline" size={28} color={Colors.textMuted} />
           </View>
         )}
+        {selectMode ? (
+          <View style={[cardStyles.checkbox, selected && cardStyles.checkboxOn]}>
+            {selected ? <Ionicons name="checkmark" size={16} color="#fff" /> : null}
+          </View>
+        ) : null}
       </View>
       <View style={cardStyles.body}>
         <Text style={cardStyles.label} numberOfLines={1}>{row.label}</Text>
@@ -632,13 +912,15 @@ function TemplateCard({
           <Text style={cardStyles.categoryLabel}>{row.category}</Text>
         </View>
       </View>
-      <View style={cardStyles.actions}>
-        <CardAction icon="create-outline" label="Edit" onPress={onEdit} />
-        <CardAction icon="swap-horizontal-outline" label="Move" onPress={onMove} />
-        <CardAction icon="download-outline" label="Download" onPress={onDownload} />
-        <CardAction icon="trash-outline" label="Delete" onPress={onDelete} variant="danger" />
-      </View>
-    </View>
+      {selectMode ? null : (
+        <View style={cardStyles.actions}>
+          <CardAction icon="create-outline" label="Edit" onPress={onEdit} />
+          <CardAction icon="swap-horizontal-outline" label="Move" onPress={onMove} />
+          <CardAction icon="download-outline" label="Download" onPress={onDownload} />
+          <CardAction icon="trash-outline" label="Delete" onPress={onDelete} variant="danger" />
+        </View>
+      )}
+    </Wrapper>
   );
 }
 
@@ -950,6 +1232,42 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary, borderRadius: Radius.md,
   },
   primaryBtnLabel: { color: '#fff', fontWeight: '700', fontSize: FontSize.sm },
+  ghostBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 12, paddingVertical: 9,
+    backgroundColor: Colors.cardBg, borderRadius: Radius.md,
+    borderWidth: 1, borderColor: Colors.borderSoft,
+  },
+  ghostBtnActive: { borderColor: Colors.error, backgroundColor: '#fef2f2' },
+  ghostBtnLabel: { color: Colors.primary, fontWeight: '700', fontSize: FontSize.sm },
+
+  // ── Multi-select bar ───────────────────────────────────────────────────
+  selectBar: {
+    flexDirection: 'row', alignItems: 'center',
+    gap: Spacing.md, padding: Spacing.md,
+    backgroundColor: Colors.primarySoft, borderRadius: Radius.lg,
+    borderWidth: 1, borderColor: Colors.primary,
+    flexWrap: 'wrap',
+  },
+  selectBarTitle: { fontSize: FontSize.md, fontWeight: '800', color: Colors.primary },
+  selectBarSubtitle: { fontSize: FontSize.xs, color: Colors.textLight, marginTop: 2 },
+  selectBarActions: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+  selectBarGhost: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 10, paddingVertical: 7,
+    backgroundColor: Colors.cardBg, borderRadius: Radius.md,
+    borderWidth: 1, borderColor: Colors.borderSoft,
+  },
+  selectBarGhostLabel: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textDark },
+  selectBarBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 12, paddingVertical: 7,
+    backgroundColor: Colors.cardBg, borderRadius: Radius.md,
+    borderWidth: 1, borderColor: Colors.primary,
+  },
+  selectBarBtnDanger: { borderColor: Colors.error, backgroundColor: '#fef2f2' },
+  selectBarBtnDisabled: { opacity: 0.5, borderColor: Colors.borderSoft },
+  selectBarBtnLabel: { fontSize: FontSize.xs, fontWeight: '800', color: Colors.primary },
 
   importCard: {
     backgroundColor: '#eef2ff',
@@ -1020,7 +1338,20 @@ const cardStyles = StyleSheet.create({
     overflow: 'hidden',
     ...Shadow.sm,
   },
-  imageWrap: { width: '100%', aspectRatio: 1, backgroundColor: Colors.bgLight },
+  cardSelected: {
+    borderColor: Colors.primary,
+    borderWidth: 2,
+    backgroundColor: Colors.primarySoft,
+  },
+  imageWrap: { width: '100%', aspectRatio: 1, backgroundColor: Colors.bgLight, position: 'relative' },
+  checkbox: {
+    position: 'absolute', top: 8, right: 8,
+    width: 26, height: 26, borderRadius: 13,
+    borderWidth: 2, borderColor: '#fff',
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(15,23,42,0.55)',
+  },
+  checkboxOn: { backgroundColor: Colors.primary, borderColor: '#fff' },
   image: { width: '100%', height: '100%' },
   imagePlaceholder: { width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' },
   body: { padding: Spacing.md, gap: 6 },
