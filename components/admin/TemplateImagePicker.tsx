@@ -32,8 +32,10 @@ import {
 import { Colors, FontSize, Radius, Shadow, Spacing } from '../../constants/theme';
 import { TEMPLATE_IMAGES, TemplateImageAsset } from '../../lib/templateImages';
 import {
+  TemplateCategoryDoc,
   TemplateImageDoc,
   getTemplateImageBlob,
+  subscribeTemplateCategories,
   subscribeTemplateImages,
 } from '../../services/templateLibrary';
 import { ToolbarButton } from './ui';
@@ -58,6 +60,7 @@ export default function TemplateImagePicker({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [libraryDocs, setLibraryDocs] = useState<TemplateImageDoc[]>([]);
+  const [explicitCategories, setExplicitCategories] = useState<TemplateCategoryDoc[]>([]);
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
 
@@ -65,8 +68,9 @@ export default function TemplateImagePicker({
   // from the templates page show up here without a refresh.
   useEffect(() => {
     if (Platform.OS !== 'web') return;
-    const unsub = subscribeTemplateImages(setLibraryDocs);
-    return () => unsub();
+    const unsubImages = subscribeTemplateImages(setLibraryDocs);
+    const unsubCats = subscribeTemplateCategories(setExplicitCategories);
+    return () => { unsubImages(); unsubCats(); };
   }, []);
 
   const entries: PickerEntry[] = useMemo(() => {
@@ -95,11 +99,16 @@ export default function TemplateImagePicker({
     return [...libraryEntries, ...starterEntries];
   }, [libraryDocs]);
 
+  // Display categories = union of explicit (admin-defined, may be empty) and
+  // implicit (any category string used by an image or starter entry). Empty
+  // explicit categories appear with count 0 — useful when admin pre-creates
+  // a bucket and wants to upload directly into it from a per-card flow.
   const categories = useMemo(() => {
     const set = new Set<string>();
     for (const e of entries) set.add(e.category);
+    for (const c of explicitCategories) set.add(c.label);
     return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [entries]);
+  }, [entries, explicitCategories]);
 
   const visible = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -180,7 +189,7 @@ export default function TemplateImagePicker({
               </View>
             </View>
 
-            {categories.length > 1 ? (
+            {categories.length > 0 ? (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
                 <Chip label="All" count={entries.length} active={filterCategory === 'all'} onPress={() => setFilterCategory('all')} />
                 {categories.map((c) => (
