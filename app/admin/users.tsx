@@ -40,12 +40,19 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useAdminRole } from '../../lib/useAdminRole';
 import { ADMIN_ROLE_LABELS, ADMIN_ROLES, AdminRole, can } from '../../lib/admin';
 
-type UsersFilter = 'active-today' | 'new-7d' | null;
+type UsersFilter = 'active-today' | 'new-7d' | 'onboarded' | 'pending' | 'with-kids' | null;
 
 const FILTER_LABELS: Record<Exclude<UsersFilter, null>, string> = {
   'active-today': 'Active today',
   'new-7d': 'New · last 7 days',
+  'onboarded': 'Onboarded',
+  'pending': 'Pending onboarding',
+  'with-kids': 'With kids',
 };
+
+const VALID_FILTERS: Exclude<UsersFilter, null>[] = [
+  'active-today', 'new-7d', 'onboarded', 'pending', 'with-kids',
+];
 
 export default function UsersScreen() {
   const router = useRouter();
@@ -55,10 +62,9 @@ export default function UsersScreen() {
   const canPush = can(role, 'send_personal_push');
   const canManageAdminRoles = can(role, 'manage_admin_roles');
 
-  const activeFilter: UsersFilter =
-    params.filter === 'active-today' || params.filter === 'new-7d'
-      ? params.filter
-      : null;
+  const activeFilter: UsersFilter = VALID_FILTERS.includes(params.filter as any)
+    ? (params.filter as Exclude<UsersFilter, null>)
+    : null;
 
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -127,6 +133,12 @@ export default function UsersScreen() {
           const t = Date.parse(u.createdAt);
           return !Number.isNaN(t) && t >= cutoff;
         });
+      } else if (activeFilter === 'onboarded') {
+        list = list.filter((u) => u.onboardingComplete);
+      } else if (activeFilter === 'pending') {
+        list = list.filter((u) => !u.onboardingComplete);
+      } else if (activeFilter === 'with-kids') {
+        list = list.filter((u) => u.kidsCount > 0);
       }
     }
     const q = search.trim().toLowerCase();
@@ -138,7 +150,17 @@ export default function UsersScreen() {
     );
   }, [users, search, activeFilter]);
 
-  const completeCount = filtered.filter((u) => u.onboardingComplete).length;
+  // Stat-card counts must reflect the WHOLE dataset (so they always show the
+  // same numbers regardless of the active filter) — they ARE the filter buttons,
+  // so their values represent "what tapping this card will narrow down to".
+  const onboardedCount = useMemo(() => users.filter((u) => u.onboardingComplete).length, [users]);
+  const pendingCount = users.length - onboardedCount;
+  const withKidsCount = useMemo(() => users.filter((u) => u.kidsCount > 0).length, [users]);
+
+  /** Toggle a filter — re-tapping the active one clears, otherwise switches. */
+  const setFilter = (next: Exclude<UsersFilter, null>) => {
+    router.replace(activeFilter === next ? '/admin/users' : `/admin/users?filter=${next}`);
+  };
 
   const columns: Column<AdminUser>[] = [
     {
@@ -248,20 +270,10 @@ export default function UsersScreen() {
             leading={
               <View style={styles.toolbarLeading}>
                 <Text style={styles.countText}>{filtered.length} of {users.length}</Text>
-                {/* Preset filter chips — tap to apply, tap active again to clear */}
+                {/* Time-based filter chips — the status filters live in the stat
+                    cards above. Tap to apply, tap active again to clear. */}
                 <Pressable
-                  onPress={() => router.replace('/admin/users')}
-                  style={[styles.filterChip, !activeFilter && styles.filterChipActive]}
-                  accessibilityLabel="Show all users"
-                >
-                  <Text style={[styles.filterChipText, !activeFilter && styles.filterChipTextActive]}>
-                    All
-                  </Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => router.replace(
-                    activeFilter === 'active-today' ? '/admin/users' : '/admin/users?filter=active-today'
-                  )}
+                  onPress={() => setFilter('active-today')}
                   style={[styles.filterChip, activeFilter === 'active-today' && styles.filterChipActive]}
                   accessibilityLabel="Filter: active today"
                 >
@@ -275,9 +287,7 @@ export default function UsersScreen() {
                   </Text>
                 </Pressable>
                 <Pressable
-                  onPress={() => router.replace(
-                    activeFilter === 'new-7d' ? '/admin/users' : '/admin/users?filter=new-7d'
-                  )}
+                  onPress={() => setFilter('new-7d')}
                   style={[styles.filterChip, activeFilter === 'new-7d' && styles.filterChipActive]}
                   accessibilityLabel="Filter: new in last 7 days"
                 >
@@ -297,13 +307,37 @@ export default function UsersScreen() {
         error={error}
       >
         <View style={styles.statsRow}>
-          <StatCard label="Total"      value={users.length}     icon="people-outline" />
-          <StatCard label="Onboarded"  value={completeCount}    icon="checkmark-done-outline" />
-          <StatCard label="Pending"    value={filtered.length - completeCount} icon="time-outline" />
+          <StatCard
+            label="Total"
+            value={users.length}
+            icon="people-outline"
+            onPress={() => router.replace('/admin/users')}
+            active={!activeFilter}
+            hint={!activeFilter ? 'Showing all' : 'Tap to clear filter'}
+          />
+          <StatCard
+            label="Onboarded"
+            value={onboardedCount}
+            icon="checkmark-done-outline"
+            onPress={() => setFilter('onboarded')}
+            active={activeFilter === 'onboarded'}
+            hint="Profile complete"
+          />
+          <StatCard
+            label="Pending"
+            value={pendingCount}
+            icon="time-outline"
+            onPress={() => setFilter('pending')}
+            active={activeFilter === 'pending'}
+            hint="Onboarding incomplete"
+          />
           <StatCard
             label="With kids"
-            value={filtered.filter((u) => u.kidsCount > 0).length}
+            value={withKidsCount}
             icon="happy-outline"
+            onPress={() => setFilter('with-kids')}
+            active={activeFilter === 'with-kids'}
+            hint="At least one child"
           />
         </View>
 

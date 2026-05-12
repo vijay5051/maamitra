@@ -13,6 +13,8 @@ interface Props {
   deltaPositive?: 'up' | 'down';
   hint?: string;
   onPress?: () => void;
+  /** When true (and onPress is set), card is highlighted as the active filter. */
+  active?: boolean;
   style?: ViewStyle;
 }
 
@@ -24,6 +26,7 @@ export default function StatCard({
   deltaPositive = 'up',
   hint,
   onPress,
+  active = false,
   style,
 }: Props) {
   const hasDelta = typeof delta === 'number' && Number.isFinite(delta);
@@ -40,12 +43,17 @@ export default function StatCard({
   return (
     <Wrapper
       onPress={onPress}
-      style={[styles.card, isNarrow && styles.cardNarrow, style]}
+      style={[styles.card, isNarrow && styles.cardNarrow, active && styles.cardActive, style]}
       accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityState={onPress ? { selected: active } : undefined}
     >
       <View style={styles.headerRow}>
-        <Text style={styles.label} numberOfLines={1}>{label}</Text>
-        {icon ? (
+        <Text style={[styles.label, active && styles.labelActive]} numberOfLines={1}>{label}</Text>
+        {active ? (
+          <View style={[styles.iconRing, styles.iconRingActive]}>
+            <Ionicons name="checkmark" size={14} color="#fff" />
+          </View>
+        ) : icon ? (
           <View style={styles.iconRing}>
             <Ionicons name={icon} size={14} color={Colors.primary} />
           </View>
@@ -97,6 +105,17 @@ const styles = StyleSheet.create({
     minWidth: 140,
     padding: Spacing.md,
     gap: Spacing.xs,
+  },
+  cardActive: {
+    borderColor: Colors.primary,
+    borderWidth: 2,
+    backgroundColor: Colors.primarySoft,
+  },
+  labelActive: {
+    color: Colors.primary,
+  },
+  iconRingActive: {
+    backgroundColor: Colors.primary,
   },
   valueNarrow: { fontSize: FontSize.xl },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
