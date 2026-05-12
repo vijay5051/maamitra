@@ -248,16 +248,48 @@ export default function UsersScreen() {
             leading={
               <View style={styles.toolbarLeading}>
                 <Text style={styles.countText}>{filtered.length} of {users.length}</Text>
-                {activeFilter ? (
-                  <Pressable
-                    onPress={() => router.replace('/admin/users')}
-                    style={styles.filterChip}
-                    accessibilityLabel={`Clear filter: ${FILTER_LABELS[activeFilter]}`}
-                  >
-                    <Text style={styles.filterChipText}>{FILTER_LABELS[activeFilter]}</Text>
-                    <Ionicons name="close" size={12} color={Colors.primary} />
-                  </Pressable>
-                ) : null}
+                {/* Preset filter chips — tap to apply, tap active again to clear */}
+                <Pressable
+                  onPress={() => router.replace('/admin/users')}
+                  style={[styles.filterChip, !activeFilter && styles.filterChipActive]}
+                  accessibilityLabel="Show all users"
+                >
+                  <Text style={[styles.filterChipText, !activeFilter && styles.filterChipTextActive]}>
+                    All
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => router.replace(
+                    activeFilter === 'active-today' ? '/admin/users' : '/admin/users?filter=active-today'
+                  )}
+                  style={[styles.filterChip, activeFilter === 'active-today' && styles.filterChipActive]}
+                  accessibilityLabel="Filter: active today"
+                >
+                  <Ionicons
+                    name="flash-outline"
+                    size={12}
+                    color={activeFilter === 'active-today' ? '#fff' : Colors.primary}
+                  />
+                  <Text style={[styles.filterChipText, activeFilter === 'active-today' && styles.filterChipTextActive]}>
+                    Active today
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => router.replace(
+                    activeFilter === 'new-7d' ? '/admin/users' : '/admin/users?filter=new-7d'
+                  )}
+                  style={[styles.filterChip, activeFilter === 'new-7d' && styles.filterChipActive]}
+                  accessibilityLabel="Filter: new in last 7 days"
+                >
+                  <Ionicons
+                    name="sparkles-outline"
+                    size={12}
+                    color={activeFilter === 'new-7d' ? '#fff' : Colors.primary}
+                  />
+                  <Text style={[styles.filterChipText, activeFilter === 'new-7d' && styles.filterChipTextActive]}>
+                    New · 7d
+                  </Text>
+                </Pressable>
               </View>
             }
           />
@@ -496,11 +528,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: Spacing.sm, paddingVertical: 4,
     borderRadius: Radius.full,
-    backgroundColor: Colors.primarySoft,
-    borderWidth: 1, borderColor: Colors.primary,
+    backgroundColor: '#fff',
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  filterChipActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
   },
   filterChipText: {
-    fontSize: FontSize.xs, fontWeight: '700', color: Colors.primary, letterSpacing: 0.2,
+    fontSize: FontSize.xs, fontWeight: '700', color: Colors.textLight, letterSpacing: 0.2,
+  },
+  filterChipTextActive: {
+    color: '#fff',
   },
 
   cellNameRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
