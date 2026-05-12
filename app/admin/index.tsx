@@ -195,12 +195,14 @@ export default function AdminDashboard() {
             value={snap?.activeToday ?? 0}
             icon="radio-outline"
             hint={`${snap?.activeThisWeek ?? 0} this week`}
+            onPress={() => router.push('/admin/users?filter=active-today' as any)}
           />
           <StatCard
             label="New · 7d"
             value={snap?.newSignups7d ?? 0}
             icon="person-add-outline"
             hint={`${snap?.newSignups30d ?? 0} in 30d`}
+            onPress={() => router.push('/admin/users?filter=new-7d' as any)}
           />
           <StatCard
             label="Pending posts"
@@ -216,6 +218,7 @@ export default function AdminDashboard() {
             icon="shield-outline"
             deltaPositive="down"
             hint={`${snap?.vigilance.reportedPosts ?? 0} posts flagged`}
+            onPress={() => router.push('/admin/community')}
           />
           <StatCard
             label="Open tickets"

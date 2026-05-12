@@ -1361,6 +1361,10 @@ export interface AdminUser {
   name: string;
   email: string;
   createdAt: string;
+  /** Last write to the user doc — approximates "last seen" since
+   *  saveFullProfile bumps it on most interactions. Empty string if
+   *  the field is missing on the doc. */
+  updatedAt: string;
   onboardingComplete: boolean;
   kidsCount: number;
   state: string;
@@ -1399,6 +1403,16 @@ export async function getUsers(): Promise<AdminUser[]> {
             : typeof rawCreated.seconds === 'number'
               ? new Date(rawCreated.seconds * 1000).toISOString()
               : '';
+      const rawUpdated: any = data.updatedAt;
+      const updatedAtStr = !rawUpdated
+        ? ''
+        : typeof rawUpdated === 'string'
+          ? rawUpdated
+          : typeof rawUpdated.toDate === 'function'
+            ? rawUpdated.toDate().toISOString()
+            : typeof rawUpdated.seconds === 'number'
+              ? new Date(rawUpdated.seconds * 1000).toISOString()
+              : '';
       const buckets: string[] = Array.isArray(data.audienceBuckets)
         ? data.audienceBuckets.filter((x: any) => typeof x === 'string')
         : [];
@@ -1408,6 +1422,7 @@ export async function getUsers(): Promise<AdminUser[]> {
         name: data.name ?? data.motherName ?? 'Unknown',
         email: data.email ?? '',
         createdAt: createdAtStr,
+        updatedAt: updatedAtStr,
         onboardingComplete: inferOnboardingComplete(data),
         kidsCount: Array.isArray(data.kids) ? data.kids.length : 0,
         state: data.profile?.state ?? '',

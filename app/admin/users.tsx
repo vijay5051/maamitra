@@ -10,7 +10,7 @@
  * the old style sheet.
  */
 import { Ionicons } from '@expo/vector-icons';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
@@ -40,12 +40,25 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useAdminRole } from '../../lib/useAdminRole';
 import { ADMIN_ROLE_LABELS, ADMIN_ROLES, AdminRole, can } from '../../lib/admin';
 
+type UsersFilter = 'active-today' | 'new-7d' | null;
+
+const FILTER_LABELS: Record<Exclude<UsersFilter, null>, string> = {
+  'active-today': 'Active today',
+  'new-7d': 'New · last 7 days',
+};
+
 export default function UsersScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ filter?: string }>();
   const { user: authUser } = useAuthStore();
   const role = useAdminRole();
   const canPush = can(role, 'send_personal_push');
   const canManageAdminRoles = can(role, 'manage_admin_roles');
+
+  const activeFilter: UsersFilter =
+    params.filter === 'active-today' || params.filter === 'new-7d'
+      ? params.filter
+      : null;
 
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -96,14 +109,34 @@ export default function UsersScreen() {
   }
 
   const filtered = useMemo(() => {
+    let list = users;
+    if (activeFilter) {
+      const now = Date.now();
+      const dayMs = 864e5;
+      if (activeFilter === 'active-today') {
+        const cutoff = now - dayMs;
+        list = list.filter((u) => {
+          if (!u.updatedAt) return false;
+          const t = Date.parse(u.updatedAt);
+          return !Number.isNaN(t) && t >= cutoff;
+        });
+      } else if (activeFilter === 'new-7d') {
+        const cutoff = now - 7 * dayMs;
+        list = list.filter((u) => {
+          if (!u.createdAt) return false;
+          const t = Date.parse(u.createdAt);
+          return !Number.isNaN(t) && t >= cutoff;
+        });
+      }
+    }
     const q = search.trim().toLowerCase();
-    if (!q) return users;
-    return users.filter((u) =>
+    if (!q) return list;
+    return list.filter((u) =>
       u.name.toLowerCase().includes(q) ||
       u.email.toLowerCase().includes(q) ||
       u.state.toLowerCase().includes(q),
     );
-  }, [users, search]);
+  }, [users, search, activeFilter]);
 
   const completeCount = filtered.filter((u) => u.onboardingComplete).length;
 
@@ -180,7 +213,11 @@ export default function UsersScreen() {
       <Stack.Screen options={{ title: 'Users' }} />
       <AdminPage
         title="Users"
-        description="Every signed-up user. Tap a row for the 360 view, or bulk-select to send a personal push."
+        description={
+          activeFilter
+            ? `Filtered: ${FILTER_LABELS[activeFilter]}. Tap a row for the 360, or clear the filter to see everyone.`
+            : 'Every signed-up user. Tap a row for the 360 view, or bulk-select to send a personal push.'
+        }
         crumbs={[{ label: 'Admin', href: '/admin' }, { label: 'Users' }]}
         headerActions={
           <>
@@ -208,7 +245,21 @@ export default function UsersScreen() {
               onChange: setSearch,
               placeholder: 'Search name, email, state…',
             }}
-            leading={<Text style={styles.countText}>{filtered.length} of {users.length}</Text>}
+            leading={
+              <View style={styles.toolbarLeading}>
+                <Text style={styles.countText}>{filtered.length} of {users.length}</Text>
+                {activeFilter ? (
+                  <Pressable
+                    onPress={() => router.replace('/admin/users')}
+                    style={styles.filterChip}
+                    accessibilityLabel={`Clear filter: ${FILTER_LABELS[activeFilter]}`}
+                  >
+                    <Text style={styles.filterChipText}>{FILTER_LABELS[activeFilter]}</Text>
+                    <Ionicons name="close" size={12} color={Colors.primary} />
+                  </Pressable>
+                ) : null}
+              </View>
+            }
           />
         }
         error={error}
@@ -233,8 +284,22 @@ export default function UsersScreen() {
           selected={selected}
           onSelectChange={setSelected}
           onRowPress={(u) => router.push(`/admin/users/${u.uid}` as any)}
-          emptyTitle={search ? 'No users match' : 'No users yet'}
-          emptyBody={search ? 'Try a different search.' : 'New signups will appear here.'}
+          emptyTitle={
+            search
+              ? 'No users match'
+              : activeFilter === 'active-today'
+                ? 'No one active today yet'
+                : activeFilter === 'new-7d'
+                  ? 'No new signups this week'
+                  : 'No users yet'
+          }
+          emptyBody={
+            search
+              ? 'Try a different search.'
+              : activeFilter
+                ? 'Clear the filter to see all users.'
+                : 'New signups will appear here.'
+          }
         />
       </AdminPage>
 
@@ -426,6 +491,17 @@ function CreateUserModal({
 const styles = StyleSheet.create({
   statsRow: { flexDirection: 'row', gap: Spacing.md, flexWrap: 'wrap' },
   countText: { fontSize: FontSize.xs, fontWeight: '700', color: Colors.textLight, letterSpacing: 0.4 },
+  toolbarLeading: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flexWrap: 'wrap' },
+  filterChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: Spacing.sm, paddingVertical: 4,
+    borderRadius: Radius.full,
+    backgroundColor: Colors.primarySoft,
+    borderWidth: 1, borderColor: Colors.primary,
+  },
+  filterChipText: {
+    fontSize: FontSize.xs, fontWeight: '700', color: Colors.primary, letterSpacing: 0.2,
+  },
 
   cellNameRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   cellName: { fontSize: FontSize.sm, fontWeight: '700', color: Colors.textDark },
