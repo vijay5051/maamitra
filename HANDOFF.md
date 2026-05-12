@@ -8,17 +8,18 @@
 
 ## Active task
 
-**Push pending.** Commit `819a2b0` is on local `main`, 1 ahead of
-`origin/main`. Authored from a Nucleus worktree where the git
-credentials authenticate as `infosoonicorn`, so the push 403'd
-against `vijay5051/maamitra.git`. Open this project directly and run
-`git push origin main` — credentials work from here. After pushing,
-clear this block back to "No active coding task."
+**No active coding task.**
 
-OTA / hosting not yet published either — do that after the push (the
-fix is admin-only UI on a screen that is loaded from the Hosting
-bundle, so a fresh hosting deploy + OTA is the right delivery path,
-same shape as the picker fixes below).
+Admin dashboard KPI fix (commits `819a2b0` + `86b32fc`) pushed to
+`origin/main` on 2026-05-12. **Hosting + OTA still pending** — the
+fix is admin-only UI shipped in the Hosting bundle, so deploy chain
+is: `firebase deploy --only hosting` → `npm run update` (OTA).
+
+Side note: git credential setup updated on this machine to handle
+multiple GitHub accounts cleanly — `credential.useHttpPath = true`
+plus per-org username pins for `vijay5051` and `infosoonicorn`.
+Future pushes from either checkout now use the right account
+automatically without overwriting each other in the keychain.
 
 ---
 
