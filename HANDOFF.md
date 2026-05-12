@@ -10,10 +10,11 @@
 
 **No active coding task.**
 
-Admin dashboard KPI fix (commits `819a2b0` + `86b32fc`) pushed to
-`origin/main` on 2026-05-12. **Hosting + OTA still pending** — the
-fix is admin-only UI shipped in the Hosting bundle, so deploy chain
-is: `firebase deploy --only hosting` → `npm run update` (OTA).
+Admin dashboard KPI fix (commits `819a2b0` + `86b32fc`) fully shipped:
+- Pushed to `origin/main` on 2026-05-12
+- Firebase Hosting deployed (https://maa-mitra-7kird8.web.app)
+- OTA published — update group `e12d0f7f-eb2a-4a11-8338-e796fcd6e9eb`,
+  runtime `1.0.5`, both Android + iOS
 
 Side note: git credential setup updated on this machine to handle
 multiple GitHub accounts cleanly — `credential.useHttpPath = true`
