@@ -7,11 +7,58 @@
 ---
 
 ## Active task
-No active coding task.
+
+**Push pending.** Commit `819a2b0` is on local `main`, 1 ahead of
+`origin/main`. Authored from a Nucleus worktree where the git
+credentials authenticate as `infosoonicorn`, so the push 403'd
+against `vijay5051/maamitra.git`. Open this project directly and run
+`git push origin main` — credentials work from here. After pushing,
+clear this block back to "No active coding task."
+
+OTA / hosting not yet published either — do that after the push (the
+fix is admin-only UI on a screen that is loaded from the Hosting
+bundle, so a fresh hosting deploy + OTA is the right delivery path,
+same shape as the picker fixes below).
 
 ---
 
-## Last action (2026-05-08) — Picker: drop blob-fetch, pass URL directly
+## Last action (2026-05-12) — Admin dashboard: wire dead KPI cards + "who was active"
+
+**Commit `819a2b0` · local main only · NOT pushed · NOT deployed.**
+
+Three KPI cards on `/admin` were non-clickable (Active today, New · 7d,
+Reported), so the dashboard showed a count of active users but no way
+to see *which* users were behind that count. Vijay's report:
+"shows active users on dashboard but who was active is not displayed,
+the buttons on admin dashboard doesn't link to relevant section."
+
+Fix:
+
+- `services/firebase.ts` — exposed `updatedAt: string` on `AdminUser`
+  (same Timestamp/string/seconds coercion already used for
+  `createdAt`). This is what makes "active in the last 24h"
+  answerable client-side without a second Firestore read.
+- `app/admin/users.tsx` — reads `?filter=active-today|new-7d` via
+  `useLocalSearchParams`, filters the table by
+  `updatedAt ≥ 24h` or `createdAt ≥ 7d`, renders a removable filter
+  chip in the toolbar (tap → `router.replace('/admin/users')`),
+  adapts description + empty-state copy when a filter is active.
+- `app/admin/index.tsx` — wired `onPress` on the three dead KPIs:
+  Active today → `/admin/users?filter=active-today`,
+  New · 7d → `/admin/users?filter=new-7d`,
+  Reported → `/admin/community`.
+
+Verification: `npx tsc --noEmit` clean for the three touched files.
+21 pre-existing TS errors in `app/admin/marketing/*` and
+`services/marketing.ts` are unrelated. No dev-server / browser
+verification ran — was authored from a Nucleus worktree, so the
+MaaMitra dev server wasn't started. Open this project, start it,
+click each KPI card to confirm the navigation lands on the right
+filtered list before deploying.
+
+---
+
+## Previous action (2026-05-08) — Picker: drop blob-fetch, pass URL directly
 
 **Commit `2974afc` · hosting deployed · OTA `cc2823e6` published.**
 
