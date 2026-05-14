@@ -1,7 +1,7 @@
 /**
- * Publishing Calendar — shared month-grid calendar of approved + scheduled +
- * posted drafts, used on both /admin/marketing/calendar and the Calendar tab
- * inside /admin/marketing/posts.
+ * Publishing Calendar — shared month-grid calendar of queued rhythm drafts,
+ * approved, scheduled, and posted drafts, used on both /admin/marketing/calendar
+ * and the Calendar tab inside /admin/marketing/posts.
  *
  * Layout: 6-week month grid (7 cols × 6 rows). Each cell shows the day
  * number, up to 2 thumbnails, and a "+N more" overflow chip. Mobile
@@ -75,7 +75,7 @@ export function PublishingCalendar() {
     setLoading(true);
     setError(null);
     try {
-      const rows = await listDrafts({ limitN: 500 });
+      const rows = await listDrafts({ limitN: 1000 });
       setDrafts(rows);
     } catch (e: any) {
       setError(e?.message ?? String(e));
@@ -154,20 +154,19 @@ export function PublishingCalendar() {
     const out: Record<string, MarketingDraft[]> = { unscheduled: [] };
     month.cells.forEach((c) => { out[c.iso] = []; });
     for (const draft of drafts) {
-      if (draft.status === 'pending_review' || draft.status === 'rejected') continue;
-      const ts = draft.scheduledAt ?? draft.approvedAt ?? draft.postedAt;
-      if (!ts) {
+      if (draft.status === 'rejected' || draft.status === 'failed') continue;
+      const dayKey = calendarDayKey(draft);
+      if (!dayKey) {
         out.unscheduled.push(draft);
         continue;
       }
-      const dayKey = istDayKey(ts);
       if (out[dayKey]) out[dayKey].push(draft);
       else if (draft.status === 'approved') out.unscheduled.push(draft);
     }
     for (const key of Object.keys(out)) {
       out[key].sort((a, b) => {
-        const ta = a.scheduledAt ?? a.postedAt ?? '';
-        const tb = b.scheduledAt ?? b.postedAt ?? '';
+        const ta = calendarSortKey(a);
+        const tb = calendarSortKey(b);
         return ta.localeCompare(tb);
       });
     }
@@ -187,6 +186,8 @@ export function PublishingCalendar() {
           <Text style={styles.barSub}>
             {drafts.filter((d) => {
               const ts = d.scheduledAt ?? d.postedAt;
+              const rhythmDay = d.status === 'pending_review' ? d.generatedForDate : null;
+              if (rhythmDay) return month.cells.some((c) => c.iso === rhythmDay && c.inMonth);
               if (!ts) return false;
               const k = istDayKey(ts);
               return month.cells.some((c) => c.iso === k && c.inMonth);
@@ -538,7 +539,7 @@ function DraggableThumb({
 }) {
   const ref = useRef<View>(null);
   const tone = draft.status === 'posted' ? Colors.success : draft.status === 'scheduled' ? Colors.primary : Colors.textMuted;
-  const time = draft.scheduledAt ? istHHmm(draft.scheduledAt) : null;
+  const time = calendarTimeLabel(draft);
   const draggable = DND && draft.status !== 'posted' && !isPast;
 
   // Imperative listeners — Pressable + ref + addEventListener was the
@@ -613,7 +614,7 @@ function DraftCardCompact({
 }) {
   const ref = useRef<View>(null);
   const tone = draft.status === 'posted' ? Colors.success : draft.status === 'scheduled' ? Colors.primary : Colors.textMuted;
-  const time = draft.scheduledAt ? istHHmm(draft.scheduledAt) : null;
+  const time = calendarTimeLabel(draft);
   const draggable = DND && draft.status !== 'posted' && !isPast && !!onDragStart;
 
   // Belt-and-suspenders: try every avenue to make this draggable on web.
@@ -851,7 +852,7 @@ function DayPostsModal({
             <View style={{ flex: 1 }}>
               <Text style={styles.modalTitle}>{formatLongDayLabel(dayIso)}</Text>
               <Text style={styles.modalSub}>
-                {items.length} {items.length === 1 ? 'post' : 'posts'} scheduled
+                {items.length} {items.length === 1 ? 'post' : 'posts'} queued or scheduled
                 {!isPast && DND ? ' · drag to another day to reschedule' : ''}
               </Text>
             </View>
@@ -890,7 +891,14 @@ function PostPreviewModal({
   onClose: () => void;
 }) {
   const tone = draft.status === 'posted' ? Colors.success : draft.status === 'scheduled' ? Colors.primary : Colors.textMuted;
-  const time = draft.scheduledAt ? formatLongDayLabel(istDayKey(draft.scheduledAt)) + ' · ' + istHHmm(draft.scheduledAt) : draft.postedAt ? 'Posted ' + formatLongDayLabel(istDayKey(draft.postedAt)) : 'Unscheduled';
+  const queuedDay = draft.status === 'pending_review' ? draft.generatedForDate : null;
+  const time = draft.scheduledAt
+    ? formatLongDayLabel(istDayKey(draft.scheduledAt)) + ' · ' + istHHmm(draft.scheduledAt)
+    : draft.postedAt
+      ? 'Posted ' + formatLongDayLabel(istDayKey(draft.postedAt))
+      : queuedDay
+        ? `Queued for ${formatLongDayLabel(queuedDay)}${draft.slotTime ? ` · ${draft.slotTime}` : ''}`
+        : 'Unscheduled';
   return (
     <Modal transparent animationType="fade" visible onRequestClose={onClose}>
       <Pressable style={styles.modalScrim} onPress={onClose}>
@@ -992,6 +1000,27 @@ function istHHmm(iso: string): string {
   const h = String(d.getUTCHours()).padStart(2, '0');
   const m = String(d.getUTCMinutes()).padStart(2, '0');
   return `${h}:${m}`;
+}
+
+function calendarDayKey(draft: MarketingDraft): string | null {
+  if (draft.scheduledAt) return istDayKey(draft.scheduledAt);
+  if (draft.postedAt) return istDayKey(draft.postedAt);
+  if (draft.status === 'pending_review' && draft.generatedForDate) return draft.generatedForDate;
+  if (draft.status === 'approved' && draft.approvedAt) return istDayKey(draft.approvedAt);
+  return null;
+}
+
+function calendarTimeLabel(draft: MarketingDraft): string | null {
+  if (draft.scheduledAt) return istHHmm(draft.scheduledAt);
+  if (draft.status === 'pending_review' && draft.slotTime) return draft.slotTime;
+  return null;
+}
+
+function calendarSortKey(draft: MarketingDraft): string {
+  if (draft.scheduledAt) return draft.scheduledAt;
+  if (draft.postedAt) return draft.postedAt;
+  if (draft.status === 'pending_review' && draft.generatedForDate) return `${draft.generatedForDate}T${draft.slotTime ?? '99:99'}`;
+  return draft.approvedAt ?? draft.generatedAt ?? '';
 }
 
 function composeIstIso(targetDayIso: string, hhmm: string): string {

@@ -33,6 +33,7 @@ import { countByStatus as countInboxByStatus } from '../../../services/marketing
 import { countDraftsByStatus, listDrafts } from '../../../services/marketingDrafts';
 import {
   generateAheadDrafts,
+  MARKETING_QUEUE_AHEAD_DAYS,
   previewScheduledSlots,
   saveCronOverride,
   subscribeBrandKit,
@@ -198,7 +199,7 @@ export default function MarketingTodayScreen() {
           />
         </View>
 
-        <Section title="Next 7 days" right={
+        <Section title="Upcoming posts" right={
           state.loading ? <ActivityIndicator size="small" color={Colors.primary} /> :
           <Pressable onPress={onRefresh} hitSlop={8}><Ionicons name="refresh" size={16} color={Colors.textLight} /></Pressable>
         }>
@@ -232,7 +233,7 @@ export default function MarketingTodayScreen() {
                 if (aheadBusy) return;
                 setAheadBusy(true);
                 try {
-                  const r = await generateAheadDrafts(7);
+                  const r = await generateAheadDrafts(MARKETING_QUEUE_AHEAD_DAYS);
                   if (r.ok) {
                     setAheadBanner({
                       ok: true,
@@ -254,7 +255,7 @@ export default function MarketingTodayScreen() {
             <EmptyCard
               icon="calendar-outline"
               title="Nothing lined up"
-              body="No scheduled posts or automation previews in the next 7 days."
+              body="No scheduled posts or automation previews right now."
               ctaLabel="Plan a post"
               onPress={() => router.push('/admin/marketing/create' as any)}
             />
@@ -360,7 +361,7 @@ function UpcomingWeekCard({
         </View>
         <Pressable onPress={onPreGenerate} disabled={aheadBusy} style={styles.weekPrimaryBtn}>
           {aheadBusy ? <ActivityIndicator size="small" color={Colors.white} /> : <Ionicons name="flash-outline" size={13} color={Colors.white} />}
-          <Text style={styles.weekPrimaryBtnLabel}>Queue 7 days</Text>
+          <Text style={styles.weekPrimaryBtnLabel}>Queue 6 months</Text>
         </Pressable>
       </View>
 
@@ -581,7 +582,7 @@ function TomorrowCard({
           ) : (
             <>
               <Ionicons name="flash-outline" size={13} color={Colors.white} />
-              <Text style={styles.tomorrowBtnPrimaryLabel}>Queue 7 days</Text>
+              <Text style={styles.tomorrowBtnPrimaryLabel}>Queue 6 months</Text>
             </>
           )}
         </Pressable>

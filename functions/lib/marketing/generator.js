@@ -63,6 +63,7 @@ const imageSources_1 = require("./imageSources");
 const renderer_1 = require("./renderer");
 const integrationConfig_1 = require("../lib/integrationConfig");
 const styleReferences_1 = require("./styleReferences");
+const MAX_GENERATE_AHEAD_DAYS = 183;
 const VETTED_INDIAN_PARENTING_PEXELS_IDS = [
     11527695, // mother holding child at Indian cultural event
     11527697, // mother holding child at Indian cultural event
@@ -1598,7 +1599,7 @@ function buildDailyMarketingDraftCron() {
     });
 }
 // ── Admin callable: pre-generate drafts for the next N days ─────────────────
-// Lets the admin "queue" tomorrow through +7d so they can review and adjust
+// Lets the admin queue roughly six months ahead so they can review and adjust
 // content before it goes live. The cron automatically skips any date that
 // already has a draft, so pre-generated drafts are not duplicated.
 function buildGenerateAheadDrafts(allowList) {
@@ -1616,7 +1617,9 @@ function buildGenerateAheadDrafts(allowList) {
         if ((brandData?.personas?.length ?? 0) === 0 || (brandData?.pillars?.length ?? 0) === 0) {
             return { ok: false, code: 'strategy-incomplete', message: 'Add at least one enabled persona and pillar first.' };
         }
-        const rawDays = typeof data?.days === 'number' ? Math.min(7, Math.max(1, Math.round(data.days))) : 7;
+        const rawDays = typeof data?.days === 'number'
+            ? Math.min(MAX_GENERATE_AHEAD_DAYS, Math.max(1, Math.round(data.days)))
+            : MAX_GENERATE_AHEAD_DAYS;
         const actorEmail = context.auth?.token?.email ?? null;
         const overrides = (brandData?.cronOverrides ?? {});
         const slots = Array.isArray(brandData?.automationSlots) && brandData.automationSlots.length

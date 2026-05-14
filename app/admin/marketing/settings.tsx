@@ -19,6 +19,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -28,6 +29,7 @@ import {
   fetchBrandKit,
   probeMarketingHealthNow,
   saveBrandKit,
+  ScheduledSlotPreview,
   subscribeBrandKit,
   subscribeMarketingHealth,
 } from '../../../services/marketing';
@@ -38,6 +40,7 @@ import {
   DEFAULT_STYLE_PROFILE,
   MarketingHealth,
   StyleProfile,
+  AutomationSlot,
 } from '../../../lib/marketingTypes';
 import { useAuthStore } from '../../../store/useAuthStore';
 
@@ -353,7 +356,7 @@ function AutomationSchedulerSection({
               style={[styles.schedulerActionBtn, aheadBusy && { opacity: 0.6 }]}
             >
               {aheadBusy ? <ActivityIndicator size="small" color={Colors.primary} /> : <Ionicons name="flash-outline" size={14} color={Colors.primary} />}
-              <Text style={styles.schedulerActionLabel}>Queue 7 days</Text>
+              <Text style={styles.schedulerActionLabel}>Queue 6 months</Text>
             </Pressable>
             <View style={[styles.schedulerToggle, brand.cronEnabled && styles.schedulerToggleOn]}>
               <Text style={[styles.schedulerToggleLabel, brand.cronEnabled && { color: Colors.white }]}>
@@ -547,6 +550,7 @@ function AutomationSlotsCard({
         platforms: ['instagram', 'facebook'],
         enabled: true,
         autoSchedule: false,
+        frequency: 'daily',
       },
     ]);
   };

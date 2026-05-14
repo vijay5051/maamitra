@@ -16,6 +16,7 @@ import { Colors, FontSize, Radius, Shadow, Spacing } from '../../../constants/th
 import {
   fetchBrandKit,
   generateAheadDrafts,
+  MARKETING_QUEUE_AHEAD_DAYS,
   previewScheduledSlots,
   saveBrandKit,
   saveCronOverride,
@@ -131,7 +132,7 @@ export default function MarketingPlannerScreen() {
               if (aheadBusy) return;
               setAheadBusy(true);
               try {
-                const r = await generateAheadDrafts(7);
+                const r = await generateAheadDrafts(MARKETING_QUEUE_AHEAD_DAYS);
                 if (r.ok) {
                   showBanner('ok', r.generated > 0 ? `${r.generated} draft${r.generated === 1 ? '' : 's'} queued for review` : 'All upcoming dates already have drafts');
                 } else {
@@ -419,7 +420,7 @@ function PlannerSchedulerCard({
         <View style={styles.schedulerActionRow}>
           <Pressable onPress={aheadBusy ? undefined : onPreGenerate} disabled={aheadBusy} style={styles.primaryPill}>
             {aheadBusy ? <ActivityIndicator size="small" color={Colors.white} /> : <Ionicons name="flash-outline" size={14} color={Colors.white} />}
-            <Text style={styles.primaryPillLabel}>Queue 7 days</Text>
+            <Text style={styles.primaryPillLabel}>Queue 6 months</Text>
           </Pressable>
         </View>
       </View>
@@ -447,7 +448,7 @@ function PlannerSchedulerCard({
       <View style={styles.subSection}>
         <View style={styles.subSectionHead}>
           <Text style={styles.subSectionTitle}>Upcoming automation</Text>
-          <Text style={styles.subSectionHint}>Skip or restore individual slots for the next 7 days. Slot-level overrides do not mute the whole day.</Text>
+          <Text style={styles.subSectionHint}>Skip or restore individual visible preview slots. Slot-level overrides do not mute the whole day.</Text>
         </View>
         <View style={styles.previewList}>
           {brand.cronEnabled && upcomingSlots.length > 0 ? upcomingSlots.map((slot) => (

@@ -570,6 +570,12 @@ export interface MarketingDraft {
   /** Per-draft cost (₹) attributable to this generation (caption + image). */
   costInr: number;
   generatedAt: string | null;
+  /** Intended calendar date for auto-generated rhythm drafts (YYYY-MM-DD). */
+  generatedForDate: string | null;
+  generatedForKey: string | null;
+  slotId: string | null;
+  slotLabel: string | null;
+  slotTime: string | null;
   generatedBy: string | null;
   approvedAt: string | null;
   approvedBy: string | null;

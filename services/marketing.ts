@@ -768,6 +768,8 @@ function sanitiseStyleProfile(raw: any): StyleProfile {
 // generateAheadDrafts — calls the generateAheadDrafts Cloud Function, which
 //   pre-generates pending_review drafts for the next N days.
 
+export const MARKETING_QUEUE_AHEAD_DAYS = 183;
+
 /** Write (or clear) a per-date cron override. Pass `override: null` to remove. */
 export async function saveCronOverride(
   actor: { uid: string; email: string | null | undefined },
@@ -848,6 +850,18 @@ function toIstDate(d: Date): { isoDate: string; weekdayIdx: number } {
   };
 }
 
+function shouldRunSlotOnDate(slot: AutomationSlot, isoDate: string, weekdayKey: WeekDay): boolean {
+  const freq = slot.frequency ?? 'daily';
+  if (freq === 'daily') return true;
+  if (freq === 'alternate_day') return Math.floor(new Date(isoDate).getTime() / 86400000) % 2 === 0;
+  if (freq === 'weekly') return weekdayKey === (slot.runOnWeekDay ?? 'mon');
+  if (freq === 'monthly') {
+    const dayOfMonth = new Date(`${isoDate}T12:00:00+05:30`).getDate();
+    return dayOfMonth === (slot.runOnMonthDay ?? 1);
+  }
+  return true;
+}
+
 /** Pure-client simulation of the enabled automation slots for `targetDate`. */
 export function previewScheduledSlots(brand: BrandKit, targetDate: Date): ScheduledSlotPreview[] {
   const { isoDate, weekdayIdx } = toIstDate(targetDate);
@@ -866,28 +880,8 @@ export function previewScheduledSlots(brand: BrandKit, targetDate: Date): Schedu
     (e) => e.date.slice(5) === todayMd || e.date === isoDate,
   ) ?? null;
 
-  // Pillar: override → event pillarHint → first enabled
-  let pillar = enabledPillars[0] ?? null;
-  const pillarIdOverride = override?.pillarId ?? null;
-  if (pillarIdOverride) {
-    pillar = enabledPillars.find((p) => p.id === pillarIdOverride) ?? pillar;
-  } else if (event?.pillarHint) {
-    pillar = enabledPillars.find((p) => p.id === event.pillarHint) ?? pillar;
-  }
-
-  // Persona: override → day-of-month round-robin
-  let persona: typeof enabledPersonas[0] | null = null;
-  const personaIdOverride = override?.personaId ?? null;
-  if (personaIdOverride) {
-    persona = enabledPersonas.find((p) => p.id === personaIdOverride) ?? null;
-  }
-  if (!persona && enabledPersonas.length > 0) {
-    const dayOfMonth = parseInt(isoDate.slice(8, 10), 10) || 1;
-    persona = enabledPersonas[(dayOfMonth - 1) % enabledPersonas.length];
-  }
-
   return brand.automationSlots
-    .filter((slot) => slot.enabled !== false)
+    .filter((slot) => slot.enabled !== false && shouldRunSlotOnDate(slot, isoDate, weekdayKey))
     .map((slot) => {
       const dateOverride = dayOverride?.default ?? null;
       const slotOverride = dayOverride?.slots?.[slot.id] ?? null;
@@ -896,28 +890,50 @@ export function previewScheduledSlots(brand: BrandKit, targetDate: Date): Schedu
         ...(slotOverride ?? {}),
       };
       const hasOverride = Object.keys(override).length > 0;
+
+      // Pillar: override -> event pillarHint -> first enabled
+      let pillar = enabledPillars[0] ?? null;
+      const pillarIdOverride = override?.pillarId ?? null;
+      if (pillarIdOverride) {
+        pillar = enabledPillars.find((p) => p.id === pillarIdOverride) ?? pillar;
+      } else if (event?.pillarHint) {
+        pillar = enabledPillars.find((p) => p.id === event.pillarHint) ?? pillar;
+      }
+
+      // Persona: override -> day-of-month round-robin
+      let persona: typeof enabledPersonas[0] | null = null;
+      const personaIdOverride = override?.personaId ?? null;
+      if (personaIdOverride) {
+        persona = enabledPersonas.find((p) => p.id === personaIdOverride) ?? null;
+      }
+      if (!persona && enabledPersonas.length > 0) {
+        const dayOfMonth = parseInt(isoDate.slice(8, 10), 10) || 1;
+        persona = enabledPersonas[(dayOfMonth - 1) % enabledPersonas.length];
+      }
+
       return {
-      dateIso: isoDate,
-      slotId: slot.id,
-      slotLabel: slot.label,
-      slotTime: slot.time,
-      slotTemplate: override?.template ?? slot.template,
-      slotPlatforms: slot.platforms,
-      autoSchedule: slot.autoSchedule,
-      weekdayName,
-      themeLabel: theme?.label ?? weekdayKey,
-      personaId: persona?.id ?? null,
-      personaLabel: persona?.label ?? null,
-      pillarId: pillar?.id ?? null,
-      pillarLabel: pillar?.label ?? null,
-      pillarEmoji: pillar?.emoji ?? null,
-      eventId: event?.id ?? null,
-      eventLabel: event?.label ?? null,
-      skipped: override.skip === true,
-      dateOverride,
-      slotOverride,
-      override: hasOverride ? override : null,
-    };});
+        dateIso: isoDate,
+        slotId: slot.id,
+        slotLabel: slot.label,
+        slotTime: slot.time,
+        slotTemplate: override?.template ?? slot.template,
+        slotPlatforms: slot.platforms,
+        autoSchedule: slot.autoSchedule,
+        weekdayName,
+        themeLabel: theme?.label ?? weekdayKey,
+        personaId: persona?.id ?? null,
+        personaLabel: persona?.label ?? null,
+        pillarId: pillar?.id ?? null,
+        pillarLabel: pillar?.label ?? null,
+        pillarEmoji: pillar?.emoji ?? null,
+        eventId: event?.id ?? null,
+        eventLabel: event?.label ?? null,
+        skipped: override.skip === true,
+        dateOverride,
+        slotOverride,
+        override: hasOverride ? override : null,
+      };
+    });
 }
 
 /** Back-compat helper for screens that only want the first upcoming slot. */
@@ -934,7 +950,7 @@ export interface GenerateAheadResult {
   results: { date: string; ok: boolean; draftId?: string; skipped?: string }[];
 }
 
-export async function generateAheadDrafts(days = 7): Promise<GenerateAheadResult | { ok: false; code: string; message: string }> {
+export async function generateAheadDrafts(days = MARKETING_QUEUE_AHEAD_DAYS): Promise<GenerateAheadResult | { ok: false; code: string; message: string }> {
   if (!app) return { ok: false, code: 'no-firebase', message: 'Not connected.' };
   const { getFunctions, httpsCallable } = await import('firebase/functions');
   const fn = httpsCallable<{ days: number }, GenerateAheadResult | { ok: false; code: string; message: string }>(

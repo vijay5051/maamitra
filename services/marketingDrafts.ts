@@ -43,7 +43,7 @@ export async function listDrafts(opts: ListDraftsOpts = {}): Promise<MarketingDr
   if (!db) return [];
   try {
     const { status = 'all', limitN = 50 } = opts;
-    const constraints: any[] = [orderBy('generatedAt', 'desc'), limit(Math.min(limitN, 200))];
+    const constraints: any[] = [orderBy('generatedAt', 'desc'), limit(Math.min(limitN, 1000))];
     if (status !== 'all') constraints.unshift(where('status', '==', status));
     const q = query(collection(db, DRAFTS_COL), ...constraints);
     const snap = await getDocs(q);
@@ -59,7 +59,7 @@ export function subscribeDrafts(opts: ListDraftsOpts, cb: (rows: MarketingDraft[
     return () => {};
   }
   const { status = 'all', limitN = 50 } = opts;
-  const constraints: any[] = [orderBy('generatedAt', 'desc'), limit(Math.min(limitN, 200))];
+  const constraints: any[] = [orderBy('generatedAt', 'desc'), limit(Math.min(limitN, 1000))];
   if (status !== 'all') constraints.unshift(where('status', '==', status));
   const q = query(collection(db, DRAFTS_COL), ...constraints);
   return onSnapshot(
@@ -463,6 +463,11 @@ function rowToDraft(snap: { id: string; data: () => DocumentData }): MarketingDr
     imageAttribution: typeof d.imageAttribution === 'string' ? d.imageAttribution : null,
     costInr: typeof d.costInr === 'number' ? d.costInr : 0,
     generatedAt: tsToIso(d.generatedAt),
+    generatedForDate: typeof d.generatedForDate === 'string' ? d.generatedForDate : null,
+    generatedForKey: typeof d.generatedForKey === 'string' ? d.generatedForKey : null,
+    slotId: typeof d.slotId === 'string' ? d.slotId : null,
+    slotLabel: typeof d.slotLabel === 'string' ? d.slotLabel : null,
+    slotTime: typeof d.slotTime === 'string' ? d.slotTime : null,
     generatedBy: typeof d.generatedBy === 'string' ? d.generatedBy : null,
     approvedAt: tsToIso(d.approvedAt),
     approvedBy: typeof d.approvedBy === 'string' ? d.approvedBy : null,

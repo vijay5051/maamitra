@@ -585,6 +585,7 @@ function DraftSlideOver({
   }
 
   function openScheduleEditor() {
+    if (!draft) return;
     setActionError(null);
     setShowSchedule(true);
     setScheduleDraftAt(draft.scheduledAt ? isoToLocalInput(draft.scheduledAt) : defaultScheduleAt());

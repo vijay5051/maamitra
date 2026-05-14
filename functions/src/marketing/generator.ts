@@ -45,9 +45,11 @@ interface GenerateInput {
 }
 
 interface GenerateAheadInput {
-  /** How many future days to pre-generate (1-7). Default: 7. */
+  /** How many future days to pre-generate (1-183). Default: 183 (~6 months). */
   days?: unknown;
 }
+
+const MAX_GENERATE_AHEAD_DAYS = 183;
 
 interface RegenerateDraftInput {
   draftId?: unknown;
@@ -1824,7 +1826,7 @@ export function buildDailyMarketingDraftCron() {
 }
 
 // ── Admin callable: pre-generate drafts for the next N days ─────────────────
-// Lets the admin "queue" tomorrow through +7d so they can review and adjust
+// Lets the admin queue roughly six months ahead so they can review and adjust
 // content before it goes live. The cron automatically skips any date that
 // already has a draft, so pre-generated drafts are not duplicated.
 
@@ -1845,7 +1847,9 @@ export function buildGenerateAheadDrafts(allowList: ReadonlySet<string>) {
         return { ok: false, code: 'strategy-incomplete', message: 'Add at least one enabled persona and pillar first.' };
       }
 
-      const rawDays = typeof data?.days === 'number' ? Math.min(7, Math.max(1, Math.round(data.days))) : 7;
+      const rawDays = typeof data?.days === 'number'
+        ? Math.min(MAX_GENERATE_AHEAD_DAYS, Math.max(1, Math.round(data.days)))
+        : MAX_GENERATE_AHEAD_DAYS;
       const actorEmail = context.auth?.token?.email ?? null;
       const overrides = (brandData?.cronOverrides ?? {}) as Record<string, any>;
       const slots = Array.isArray(brandData?.automationSlots) && brandData.automationSlots.length
