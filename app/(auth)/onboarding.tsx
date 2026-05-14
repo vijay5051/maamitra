@@ -192,7 +192,23 @@ export default function OnboardingScreen() {
       if (!stage) e.stage = 'Pick the option that best describes you right now.';
     }
     if (s === 1) {
-      if (!keyDate) e.keyDate = 'A date helps us personalise every tip to the right week.';
+      if (!keyDate) {
+        e.keyDate = 'A date helps us personalise every tip to the right week.';
+      } else {
+        // Plausibility check — prevents the "Shiv · 2002 years old" cascade
+        // that happens when the date picker silently accepts a 2-digit year.
+        const parsed = new Date(keyDate + 'T00:00:00');
+        const now = Date.now();
+        const earliest = now - 18 * 365 * 86400000;       // 18 years ago
+        const latest   = now + 2 * 365 * 86400000;        // 2 years ahead (pregnancy)
+        if (isNaN(parsed.getTime()) || parsed.getFullYear() < 2010) {
+          e.keyDate = 'Please pick a date — the year should be 2010 or later.';
+        } else if (parsed.getTime() < earliest) {
+          e.keyDate = 'That date is more than 18 years ago. Tap to pick a recent date.';
+        } else if (parsed.getTime() > latest) {
+          e.keyDate = 'That date is too far in the future.';
+        }
+      }
       if (showKidGender && !kidGender) e.kidGender = 'Pick one so we can personalise the experience.';
     }
     if (s === 2) {

@@ -91,8 +91,17 @@ if (isFirebaseConfigured()) {
   //   3. (Dev only) set EXPO_PUBLIC_APP_CHECK_DEBUG_TOKEN=true to allow local
   //      dev; paste the debug token the console prints into Firebase → App
   //      Check → Apps → Debug tokens.
+  // Web App Check is OPT-IN via EXPO_PUBLIC_APP_CHECK_ENABLED=true. Until the
+  // reCAPTCHA secret in Firebase Console is confirmed to match the site key
+  // in .env, the exchangeRecaptchaV3Token endpoint returns 403, which
+  // (a) self-throttles the SDK for 24h on the affected browser,
+  // (b) spams `Error while retrieving App Check token` in every Firestore /
+  //     Auth call, and (c) was masking real Firestore permission errors
+  // during /qa-only triage (2026-05-14). With Firestore App Check enforcement
+  // OFF, we lose nothing by skipping init until the console side is verified.
   const siteKey = process.env.EXPO_PUBLIC_RECAPTCHA_SITE_KEY;
-  if (Platform.OS === 'web' && siteKey && typeof window !== 'undefined') {
+  const appCheckEnabled = process.env.EXPO_PUBLIC_APP_CHECK_ENABLED === 'true';
+  if (appCheckEnabled && Platform.OS === 'web' && siteKey && typeof window !== 'undefined') {
     if (process.env.EXPO_PUBLIC_APP_CHECK_DEBUG_TOKEN === 'true') {
       (globalThis as any).FIREBASE_APPCHECK_DEBUG_TOKEN = true;
     }
@@ -358,7 +367,12 @@ function sanitiseProfilePayload(data: Record<string, any>): Record<string, any> 
       .map((v: string) => neutraliseProfileString(v, 60))
       .filter((v: string) => v.length > 0);
   }
-  // Kids array: cap count + sanitise each kid's free-text fields.
+  // Kids array: cap count + sanitise each kid's free-text fields + clamp
+  // denormalised age. The QA audit (/qa-only 2026-05-14) found one user with
+  // `kids[0].dob = "0023-..."` from a date-picker accepting a 2-digit year —
+  // that cascaded `ageInMonths: 24030` and "Shiv · 2002 years old" labels
+  // into 12 separate screens. Clamp here so even legacy bad data can't
+  // re-propagate on the next write.
   if (Array.isArray(out.kids)) {
     out.kids = (out.kids as any[]).slice(0, 10).map((k: any) => {
       if (!k || typeof k !== 'object') return k;
@@ -366,6 +380,23 @@ function sanitiseProfilePayload(data: Record<string, any>): Record<string, any> 
       if (typeof kk.name === 'string') kk.name = neutraliseProfileString(kk.name, 60);
       if (typeof kk.notes === 'string') kk.notes = neutraliseProfileString(kk.notes, 240);
       if (typeof kk.gender === 'string') kk.gender = neutraliseProfileString(kk.gender, 20);
+      // DOB plausibility — null out a bad value so app paths show "Set DOB"
+      // instead of computing garbage. Year < 2010 = definitely not a kid.
+      if (typeof kk.dob === 'string') {
+        const birth = new Date(kk.dob.includes('T') ? kk.dob : kk.dob + 'T00:00:00');
+        const cutoff = Date.now() + 2 * 365 * 86400000; // pregnancy
+        if (isNaN(birth.getTime()) || birth.getFullYear() < 2010 || birth.getTime() > cutoff) {
+          kk.dob = null;
+        }
+      }
+      // Clamp denormalised age fields if they're outside the plausible range.
+      // 25 years = 300 months / 1300 weeks — anything past that is corruption.
+      if (typeof kk.ageInMonths === 'number' && (kk.ageInMonths < 0 || kk.ageInMonths > 300)) {
+        kk.ageInMonths = 0;
+      }
+      if (typeof kk.ageInWeeks === 'number' && (kk.ageInWeeks < 0 || kk.ageInWeeks > 1300)) {
+        kk.ageInWeeks = 0;
+      }
       return kk;
     });
   }

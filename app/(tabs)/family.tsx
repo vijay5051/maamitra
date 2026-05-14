@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useProfileStore, Kid } from '../../store/useProfileStore';
+import { useProfileStore, Kid, formatKidAge } from '../../store/useProfileStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { saveFullProfile } from '../../services/firebase';
 import { useActiveKid } from '../../hooks/useActiveKid';
@@ -52,8 +52,13 @@ function ChildCard({
   const _diffMs = kid.dob ? Date.now() - new Date(kid.dob).getTime() : 0;
   const _months = Math.max(0, Math.floor(_diffMs / (1000 * 60 * 60 * 24 * 30.44)));
   const _weeks = Math.max(0, Math.floor(_diffMs / (1000 * 60 * 60 * 24 * 7)));
+  // Defensive — clamp to MAX_AGE_MONTHS so a corrupted DOB doesn't render
+  // "2002y". Plausibility check covers the year-23 case from /qa 2026-05-14.
+  const isPlausible = isActuallyExpecting || (kid.dob && new Date(kid.dob).getFullYear() >= 2010 && _months <= 300);
   const ageText = isActuallyExpecting
     ? 'Due soon'
+    : !isPlausible
+    ? 'Set DOB'
     : _months < 1
     ? `${_weeks}w`
     : _months < 24
@@ -602,17 +607,7 @@ export default function FamilyScreen() {
                     <View style={{ flex: 1 }}>
                       <Text style={styles.manageTitle}>{activeKid.name || 'Your child'}</Text>
                       <Text style={styles.manageMeta}>
-                        {activeKid.isExpecting
-                          ? 'Expecting'
-                          : activeKid.dob
-                          ? (() => {
-                              const months = Math.max(
-                                0,
-                                Math.floor((Date.now() - new Date(activeKid.dob).getTime()) / (1000 * 60 * 60 * 24 * 30.44)),
-                              );
-                              return months < 24 ? `${months} months old` : `${Math.floor(months / 12)} years old`;
-                            })()
-                          : 'Child profile'}
+                        {formatKidAge(activeKid)}
                         {' · '}
                         {activeKid.gender === 'surprise'
                           ? 'Surprise'

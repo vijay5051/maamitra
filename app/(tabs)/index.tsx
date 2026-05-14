@@ -2688,6 +2688,10 @@ function FeatureGuideCarousel({
               setPage(Math.max(0, Math.min(FEATURE_GUIDE_CARDS.length - 1, next)));
             }}
             contentContainerStyle={styles.featureGuideTrack}
+            // Explicit height — without this, React Native Web collapses a
+            // horizontal ScrollView to 0px, leaving the modal body blank.
+            // /qa-only 2026-05-14 caught this on the live site.
+            style={{ height: cardSize + 24 + Spacing.xl }}
           >
             {FEATURE_GUIDE_CARDS.map((item, index) => (
               <FeatureGuideSlide

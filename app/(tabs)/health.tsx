@@ -1596,13 +1596,18 @@ export default function HealthScreen() {
 
   const ageLabel = (() => {
     if (!activeKid || activeKid.isExpecting) return '';
-    const m = Math.max(
+    if (!activeKid.dob) return 'Set DOB';
+    const birthYear = new Date(activeKid.dob).getFullYear();
+    // Plausibility floor — mirrors store/useProfileStore.isPlausibleDob. Was
+    // rendering "2002y" before this guard.
+    if (birthYear < 2010 || birthYear > new Date().getFullYear() + 2) return 'Set DOB';
+    const m = Math.min(300, Math.max(
       0,
       Math.floor(
-        (Date.now() - new Date(activeKid.dob ?? '').getTime()) /
+        (Date.now() - new Date(activeKid.dob).getTime()) /
           (1000 * 60 * 60 * 24 * 30.44),
       ),
-    );
+    ));
     return m < 24 ? `${m}mo` : `${Math.floor(m / 12)}y`;
   })();
 
