@@ -10,11 +10,30 @@
 
 **No active coding task.**
 
-Admin dashboard KPI fix (commits `819a2b0` + `86b32fc`) fully shipped:
-- Pushed to `origin/main` on 2026-05-12
-- Firebase Hosting deployed (https://maa-mitra-7kird8.web.app)
-- OTA published — update group `e12d0f7f-eb2a-4a11-8338-e796fcd6e9eb`,
-  runtime `1.0.5`, both Android + iOS
+Security + health hardening (commits `a621f2b` + `e33ed5c`) fully shipped
+on 2026-05-14:
+
+- /cso comprehensive findings closed: F1 Meta webhook fail-closed when
+  META_APP_SECRET unset, F2 stripped secret-leaking diagnostic, F3
+  crypto.timingSafeEqual for factoryReset token, F4 pinned all GH Action
+  SHAs (Codecov-2021 defense).
+- /health findings closed: H1 biome 1.9.4 lint added (auto-fixed 88
+  files, 0 errors, 37 warns tracked), H2 bun:test wired with 46 smoke
+  tests for sanitizer + DOB helpers (locks down jailbreak regexes + the
+  "Shiv 2002 years old" cascade), H3 PublishingCalendar console.log
+  gated behind __DEV__.
+- Refactor: pure DOB helpers moved to lib/dob.ts so they're testable
+  without zustand/AsyncStorage. useProfileStore re-exports.
+- Infra: restored missing expo-audio dep (was dynamically imported but
+  not in package.json — pre-existing TS error surfaced by clean tsc).
+- Pushed to origin/main, Cloud Functions deployed (metaWebhookReceiver,
+  factoryReset, adminFactoryReset), hosting deployed twice (once after
+  build, once after `npm run update` clobbered dist/), OTA published
+  group `3d098f25-c0a7-4258-b0b4-8e28124ca5ff` runtime 1.0.5
+  Android + iOS.
+
+Earlier work still live: Admin dashboard KPI fix (commits `819a2b0` +
+`86b32fc`) from 2026-05-12.
 
 Side note: git credential setup updated on this machine to handle
 multiple GitHub accounts cleanly — `credential.useHttpPath = true`
