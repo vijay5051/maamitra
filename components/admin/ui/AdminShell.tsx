@@ -117,7 +117,8 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Safety',
     items: [
-      { href: '/admin/safety', label: 'Crisis queue', icon: 'shield-checkmark-outline', cap: 'moderate_posts', fresh: true },
+      { href: '/admin/safety',          label: 'Crisis queue',    icon: 'shield-checkmark-outline', cap: 'moderate_posts', fresh: true },
+      { href: '/admin/security-events', label: 'Security events', icon: 'alert-circle-outline',     cap: 'moderate_posts', fresh: true },
     ],
   },
   {

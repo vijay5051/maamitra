@@ -142,6 +142,28 @@ service cloud.firestore {
       allow write: if isOwner(uid);
     }
 
+    // ── Security events — chat jailbreak attempts logged by the Worker ───────
+    // The Cloudflare Worker (cloudflare-worker/claude-proxy.ts) writes one
+    // doc here every time detectBypassAttempt() matches on a user message.
+    // The Worker uses the user's own ID token as the bearer, so this rule
+    // pins create-only to the authenticated caller's uid. Read is admin-only
+    // so the /admin/security-events page can surface attempts to moderators.
+    //
+    // Schema: { uid, mode, patterns: string[], msgPreview, ts }
+    match /securityEvents/{eventId} {
+      allow read:   if isAdmin();
+      allow create: if isSignedIn() &&
+                       request.resource.data.uid == request.auth.uid &&
+                       request.resource.data.keys().hasOnly(['uid', 'mode', 'patterns', 'msgPreview', 'ts']) &&
+                       shortText(request.resource.data.mode, 32) &&
+                       shortText(request.resource.data.msgPreview, 240) &&
+                       request.resource.data.patterns is list &&
+                       request.resource.data.patterns.size() <= 12;
+      // Owners cannot read or modify their own logs — only admins read,
+      // nobody updates/deletes (delete handled via the GDPR sweep).
+      allow delete: if isSuperAdmin();
+    }
+
     // Legacy chats/{uid}/threads docs — kept readable by owner/admin so
     // the GDPR delete sweep can clean up any remaining bodies. Writes
     // are denied so no new content can be added.

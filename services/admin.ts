@@ -1360,3 +1360,41 @@ export function subscribeActivity(
 
   return () => unsubs.forEach((u) => { try { u(); } catch {} });
 }
+
+// ─── Security events (chat jailbreak attempts) ───────────────────────────────
+// Written by the Cloudflare Worker on every detectBypassAttempt match. Admin
+// reads here power the /admin/security-events dashboard. Schema:
+//   { uid, mode, patterns: string[], msgPreview, ts }
+
+export interface SecurityEvent {
+  id: string;
+  uid: string;
+  mode: string;
+  patterns: string[];
+  msgPreview: string;
+  ts: string;
+}
+
+export async function getSecurityEvents(limitN = 200): Promise<SecurityEvent[]> {
+  if (!db) return [];
+  try {
+    const snap = await getDocs(
+      query(collection(db, 'securityEvents'), orderBy('ts', 'desc'), limit(Math.min(limitN, 1000))),
+    );
+    return snap.docs.map((d) => {
+      const data = d.data() as any;
+      const ts = data.ts;
+      return {
+        id: d.id,
+        uid: typeof data.uid === 'string' ? data.uid : '',
+        mode: typeof data.mode === 'string' ? data.mode : '',
+        patterns: Array.isArray(data.patterns) ? data.patterns.filter((p: any) => typeof p === 'string') : [],
+        msgPreview: typeof data.msgPreview === 'string' ? data.msgPreview : '',
+        ts: ts instanceof Timestamp ? ts.toDate().toISOString() : typeof ts === 'string' ? ts : new Date().toISOString(),
+      };
+    });
+  } catch (err) {
+    console.warn('getSecurityEvents failed:', err);
+    return [];
+  }
+}

@@ -4,20 +4,14 @@
 // Closes /cso Finding #1 + Codex G1/G2/G3 (worker no longer trusts
 // caller-supplied systemPrompt).
 //
-// The prompt builder lives in lib/promptBuilder.ts so the worker bundle
-// can import it directly via esbuild. Client callers (chat.tsx,
-// ChatBubble.tsx, etc.) keep using the re-exports below.
+// IMPORTANT: do NOT runtime-import buildSystemPrompt or anything from
+// lib/promptBuilder beyond TYPES. The full prompt template (OPERATING
+// POLICY block, ROUTE MAP, EXAMPLES) lives there, and we don't want it
+// shipped to the browser bundle — it's worker-only code now. Closes
+// Codex G4 (system prompt extractable from web JS bundle).
 import { auth } from './firebase';
-import {
-  buildSystemPrompt,
-  sanitizeForPrompt,
-  sanitizeStringArray,
-  detectBypassAttempt,
-  type ChatContext,
-  type ParentGenderCtx,
-} from '../lib/promptBuilder';
+import type { ChatContext, ParentGenderCtx } from '../lib/promptBuilder';
 
-export { buildSystemPrompt, sanitizeForPrompt, sanitizeStringArray, detectBypassAttempt };
 export type { ChatContext, ParentGenderCtx };
 
 const WORKER_URL = process.env.EXPO_PUBLIC_CLAUDE_WORKER_URL ?? '';

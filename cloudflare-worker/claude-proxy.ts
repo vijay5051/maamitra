@@ -90,7 +90,7 @@ interface AdminSummaryBody {
 type RequestBody = ChatModeBody | AdminTicketBody | AdminSummaryBody;
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const origin = request.headers.get('Origin') || '';
 
     if (request.method === 'OPTIONS') return corsResponse(null, 204, origin);
@@ -175,18 +175,32 @@ export default {
     // ── Build system prompt SERVER-SIDE ───────────────────────────────────
     const systemPrompt = buildPromptForMode(req);
 
-    // ── Jailbreak telemetry (structured warn for log aggregation) ─────────
+    // ── Jailbreak telemetry — log to Cloudflare Tail + write to Firestore.
+    // The Firestore write is fire-and-forget (ctx.waitUntil) so it never
+    // blocks the chat response. Admins read the events from
+    // /admin/security-events; firestore.rules pins write-only to the
+    // owning uid and read-only to admins.
     if (req.mode === 'chat') {
       const latest = req.latestUserMessage ?? '';
       const bypassHits = detectBypassAttempt(latest);
       if (bypassHits.length > 0) {
+        const ts = new Date().toISOString();
         console.warn(JSON.stringify({
           event: 'jailbreak_attempt',
           uid: claims.sub,
           mode: req.mode,
           patterns: bypassHits,
           msg_preview: latest.slice(0, 140),
-          ts: new Date().toISOString(),
+          ts,
+        }));
+        ctx.waitUntil(logSecurityEvent({
+          uid: claims.sub,
+          mode: req.mode,
+          patterns: bypassHits,
+          msgPreview: latest.slice(0, 200),
+          ts,
+          userToken: token,
+          projectId: env.FIREBASE_PROJECT_ID,
         }));
       }
     }
@@ -452,3 +466,57 @@ function corsResponse(body: any, status: number, origin: string): Response {
 // re-sanitiser helpers we may need later for admin payload checks.
 const _unused = [sanitizeForPrompt, sanitizeStringArray];
 void _unused;
+
+// ─── Security-event Firestore writer ─────────────────────────────────────────
+// Writes a single doc to `securityEvents/{auto-id}` using the user's own
+// verified Firebase ID token as the Authorization bearer. The Firestore
+// rule (firestore.rules) requires the doc's `uid` field to match the
+// authenticated caller — so the worker can't write for a different user,
+// and the user themselves can't read what they wrote back (read is admin-only).
+//
+// Fired via ctx.waitUntil() so the chat response is never blocked. Errors
+// are logged and swallowed — telemetry is best-effort and must not break
+// the chat path.
+
+interface SecurityEventInput {
+  uid: string;
+  mode: string;
+  patterns: string[];
+  msgPreview: string;
+  ts: string;
+  userToken: string;
+  projectId: string;
+}
+
+async function logSecurityEvent(e: SecurityEventInput): Promise<void> {
+  try {
+    const url = `https://firestore.googleapis.com/v1/projects/${e.projectId}/databases/(default)/documents/securityEvents`;
+    const body = {
+      fields: {
+        uid:        { stringValue: e.uid },
+        mode:       { stringValue: e.mode },
+        msgPreview: { stringValue: e.msgPreview },
+        ts:         { timestampValue: e.ts },
+        patterns:   {
+          arrayValue: {
+            values: e.patterns.slice(0, 12).map((p) => ({ stringValue: String(p).slice(0, 64) })),
+          },
+        },
+      },
+    };
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${e.userToken}`,
+      },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => '');
+      console.warn(`securityEvents write failed: HTTP ${res.status} — ${txt.slice(0, 200)}`);
+    }
+  } catch (err: any) {
+    console.warn('securityEvents write threw:', err?.message || String(err));
+  }
+}
