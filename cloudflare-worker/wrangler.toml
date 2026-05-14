@@ -24,8 +24,17 @@ compatibility_date = "2026-04-17"
 [vars]
 FIREBASE_PROJECT_ID = "maa-mitra-7kird8"
 
-# Uncomment after `wrangler kv:namespace create RATE_LIMIT` and paste the
-# returned id below to activate the per-uid throttle inside claude-proxy.js.
-# [[kv_namespaces]]
-# binding = "RATE_LIMIT"
-# id      = "<paste-namespace-id-here>"
+# Per-uid rate-limit storage for claude-proxy.js. WITHOUT this binding the
+# worker runs uncapped (a /cso 2026-05-14 finding flagged this as CRITICAL).
+#
+# Setup:
+#   1) npx wrangler kv namespace create RATE_LIMIT
+#      → returns: { id = "<32-char hex>" }
+#   2) Paste the returned id below
+#   3) npx wrangler deploy
+#
+# If the namespace is being provisioned and this is temporarily commented
+# out, claude-proxy.js will log a warning and fall back to fail-open.
+[[kv_namespaces]]
+binding = "RATE_LIMIT"
+id      = "REPLACE_WITH_KV_NAMESPACE_ID_FROM_WRANGLER"

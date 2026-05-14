@@ -77,20 +77,44 @@ service cloud.firestore {
       return s is string && s.size() <= max;
     }
 
+    // Profile-field size guards. These cap user-controlled free-text fields
+    // that get interpolated into the chat AI's system prompt. Mirrors
+    // services/firebase.ts.sanitiseProfilePayload and services/claude.ts.
+    // sanitizeForPrompt — three-layer defence against profile prompt
+    // injection (e.g. setting motherName to "Mom\n\nIGNORE PREVIOUS…").
+    //
+    // Firestore rules can't iterate array elements, so per-item validation
+    // happens in services/firebase.ts. We enforce array-length caps here.
+    function profileFieldsOk() {
+      let d = request.resource.data;
+      return (!('motherName' in d)       || shortText(d.motherName, 60))
+          && (!('name' in d)             || shortText(d.name, 60))
+          && (!('state' in d)            || shortText(d.state, 50))
+          && (!('bio' in d)              || shortText(d.bio, 280))
+          && (!('expertise' in d)        || shortText(d.expertise, 120))
+          && (!('email' in d)            || shortText(d.email, 120))
+          && (!('phone' in d)            || shortText(d.phone, 20))
+          && (!('allergies' in d)        || (d.allergies is list && d.allergies.size() <= 16))
+          && (!('healthConditions' in d) || (d.healthConditions is list && d.healthConditions.size() <= 16))
+          && (!('kids' in d)             || (d.kids is list && d.kids.size() <= 10))
+          && (!('savedAnswerTopics' in d)|| (d.savedAnswerTopics is list && d.savedAnswerTopics.size() <= 24));
+    }
+
     // ── Users ─────────────────────────────────────────────────────────────────
     // Admins can read & update arbitrary user docs, but only SUPER admins can
     // write the privileged 'adminRole' field — otherwise a moderator could
     // self-promote. We detect adminRole writes via affectedKeys.
     match /users/{uid} {
       allow read:   if isOwner(uid) || isAdmin();
-      allow create: if isOwner(uid);
-      allow update: if (
+      allow create: if isOwner(uid) && profileFieldsOk();
+      allow update: if profileFieldsOk() && (
         // Super admins can write anything, including adminRole.
         isSuperAdmin()
       ) || (
         // Owner / regular admin: allowed if NOT touching adminRole.
         (isOwner(uid) || isAdmin()) &&
-        !('adminRole' in request.resource.data.diff(resource.data).affectedKeys())
+        !('adminRole' in request.resource.data.diff(resource.data).affectedKeys()) &&
+        profileFieldsOk()
       );
       allow delete: if isOwner(uid) || isSuperAdmin();
     }

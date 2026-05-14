@@ -243,10 +243,96 @@ export const DEFAULT_APP_SETTINGS = {
 
 // ─── User Profile ─────────────────────────────────────────────────────────────
 
+// Prompt-injection sanitizer for profile writes. Matches the rules in
+// services/claude.ts.sanitizeForPrompt and firestore.rules — three layers
+// because any one of them might be bypassed by a future write surface.
+// We do NOT throw on bypass attempts: we silently neutralise the value so
+// the UI write succeeds and the user keeps using the app. We also log a
+// console.warn so the next /cso run can see how often this fires.
+const PROFILE_FREE_TEXT_FIELDS: Record<string, number> = {
+  motherName: 60,
+  name: 60,
+  state: 50,
+  bio: 280,
+  expertise: 120,
+  email: 120,
+  phone: 20,
+};
+const PROFILE_STRING_ARRAY_FIELDS: Record<string, { maxItems: number; maxLen: number }> = {
+  allergies: { maxItems: 16, maxLen: 60 },
+  healthConditions: { maxItems: 16, maxLen: 80 },
+};
+const PROFILE_BYPASS_RES: RegExp[] = [
+  /ignore (?:all |the |any )?(?:previous|prior|above|earlier) (?:instructions?|prompts?|rules?|messages?)/i,
+  /disregard (?:all |the |any )?(?:previous|prior|above|earlier)/i,
+  /forget (?:all |the |any )?(?:previous|prior|above|earlier)/i,
+  /\byou (?:are|'re) now\s+\S/i,
+  /\byou (?:are|'re|are now|'re now) (?:a |an |the )?(?:new |different |another |unrestricted )?(?:assistant|bot|ai|model|agent|gpt|claude|persona|character|entity|chatbot|jailbroken)/i,
+  /(?:act|pretend|roleplay|behave|operate) (?:as|like) (?:a|an|the)\b/i,
+  /(?:developer|admin|root|raw|debug|jailbreak|sudo|test|god|maintenance) mode/i,
+  /\bDAN\b/,
+  /(?:no|without|zero|removed|bypass(?:ed|ing)?) (?:safety |content )?(?:restriction|filter|guardrail|limit|rule)s?/i,
+  /system\s*[:=]\s*['"`]/i,
+  /\[INST\]|<\|.*?\|>/,
+];
+
+function neutraliseProfileString(value: string, maxLen: number): string {
+  let s = value
+    // Strip newlines/tabs/control chars → single line.
+    .replace(/[\r\n\t\x00-\x1F\x7F]+/g, ' ')
+    // Drop tag-like wrappers + code fences + triple-quotes.
+    .replace(/<\/?[a-zA-Z][^>]{0,80}>/g, ' ')
+    .replace(/```+/g, ' ')
+    .replace(/"""|'''/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  // If any bypass pattern matches, redact the entire field — we don't try
+  // to preserve a "clean" subset, just kill the instruction shape.
+  for (const re of PROFILE_BYPASS_RES) {
+    if (re.test(s)) {
+      console.warn('saveUserProfile: profile-injection attempt redacted for field; pattern matched');
+      s = s.replace(re, '[redacted]');
+    }
+  }
+  if (s.length > maxLen) s = s.slice(0, maxLen);
+  return s;
+}
+
+function sanitiseProfilePayload(data: Record<string, any>): Record<string, any> {
+  if (!data || typeof data !== 'object') return data;
+  const out: Record<string, any> = { ...data };
+  for (const [field, maxLen] of Object.entries(PROFILE_FREE_TEXT_FIELDS)) {
+    if (typeof out[field] === 'string') {
+      out[field] = neutraliseProfileString(out[field], maxLen);
+    }
+  }
+  for (const [field, cfg] of Object.entries(PROFILE_STRING_ARRAY_FIELDS)) {
+    if (Array.isArray(out[field])) {
+      out[field] = (out[field] as any[])
+        .slice(0, cfg.maxItems)
+        .filter((v) => typeof v === 'string')
+        .map((v: string) => neutraliseProfileString(v, cfg.maxLen))
+        .filter((v: string) => v.length > 0);
+    }
+  }
+  // Kids array: cap count + sanitise each kid's free-text fields.
+  if (Array.isArray(out.kids)) {
+    out.kids = (out.kids as any[]).slice(0, 10).map((k: any) => {
+      if (!k || typeof k !== 'object') return k;
+      const kk = { ...k };
+      if (typeof kk.name === 'string') kk.name = neutraliseProfileString(kk.name, 60);
+      if (typeof kk.notes === 'string') kk.notes = neutraliseProfileString(kk.notes, 240);
+      return kk;
+    });
+  }
+  return out;
+}
+
 export async function saveUserProfile(uid: string, data: Record<string, any>): Promise<void> {
   if (!db) return;
   try {
-    await setDoc(doc(db, 'users', uid), { ...data, updatedAt: serverTimestamp() }, { merge: true });
+    const safe = sanitiseProfilePayload(data);
+    await setDoc(doc(db, 'users', uid), { ...safe, updatedAt: serverTimestamp() }, { merge: true });
   } catch (error) {
     console.error('saveUserProfile error:', error);
     throw error;
@@ -547,9 +633,10 @@ export async function syncGrowthTracking(uid: string, byKid: Record<string, Reco
 export async function syncWellnessData(uid: string, moodHistory: any[], healthConditions: string[] | null): Promise<void> {
   if (!db) return;
   try {
+    const safe = sanitiseProfilePayload({ healthConditions: healthConditions ?? [] });
     await setDoc(doc(db, 'users', uid), {
       moodHistory,
-      healthConditions: healthConditions ?? [],
+      healthConditions: safe.healthConditions,
       updatedAt: serverTimestamp(),
     }, { merge: true });
   } catch (error) {
@@ -562,7 +649,8 @@ export async function syncWellnessData(uid: string, moodHistory: any[], healthCo
 export async function syncAllergies(uid: string, allergies: string[]): Promise<void> {
   if (!db) return;
   try {
-    await setDoc(doc(db, 'users', uid), { allergies, updatedAt: serverTimestamp() }, { merge: true });
+    const safe = sanitiseProfilePayload({ allergies });
+    await setDoc(doc(db, 'users', uid), { allergies: safe.allergies, updatedAt: serverTimestamp() }, { merge: true });
   } catch (error) {
     console.error('syncAllergies error:', error);
     throw error;

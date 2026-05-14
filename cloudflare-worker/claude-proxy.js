@@ -75,14 +75,42 @@ export default {
       return corsResponse(JSON.stringify({ error: 'Invalid token', detail: String(err.message || err) }), 401, origin);
     }
 
-    // ── Rate limit (optional, requires KV binding named RATE_LIMIT) ──────────
+    // ── Rate limit (requires KV binding named RATE_LIMIT; see wrangler.toml).
+    // Two windows: 6 req/min (burst) AND 200 req/day (sustained). The day
+    // cap is the real cost-amplification ceiling — without it, an attacker
+    // who paces themselves at 5/min still burns ~7,200 calls/day. With it
+    // they get 200/day, which is well above a normal user (a heavy mom
+    // chats maybe 30-50 times a day) and well below abuse cost.
+    //
+    // If RATE_LIMIT is unbound we LOG and ALLOW. We do NOT silently allow
+    // unlimited traffic — fail open here is by design for the migration
+    // window when the KV namespace is being provisioned, but it must be
+    // bound in prod. /cso run on 2026-05-14 explicitly flagged the unbound
+    // state as CRITICAL.
     if (env.RATE_LIMIT) {
-      const key = `u:${claims.sub}:${Math.floor(Date.now() / 60_000)}`; // per-uid per-minute
-      const count = parseInt((await env.RATE_LIMIT.get(key)) || '0', 10);
-      if (count >= 20) {
-        return corsResponse(JSON.stringify({ error: 'Rate limit exceeded' }), 429, origin);
+      const minuteKey = `u:${claims.sub}:m:${Math.floor(Date.now() / 60_000)}`;
+      const dayKey    = `u:${claims.sub}:d:${new Date().toISOString().slice(0, 10)}`;
+      const [minStr, dayStr] = await Promise.all([
+        env.RATE_LIMIT.get(minuteKey),
+        env.RATE_LIMIT.get(dayKey),
+      ]);
+      const minuteCount = parseInt(minStr || '0', 10);
+      const dayCount    = parseInt(dayStr || '0', 10);
+      if (minuteCount >= 6) {
+        return corsResponse(JSON.stringify({ error: 'Rate limit exceeded — too many requests this minute. Try again shortly.' }), 429, origin);
       }
-      await env.RATE_LIMIT.put(key, String(count + 1), { expirationTtl: 120 });
+      if (dayCount >= 200) {
+        return corsResponse(JSON.stringify({ error: 'Daily limit reached. The chat will reset overnight.' }), 429, origin);
+      }
+      // Fire-and-forget increments — slight under-count under contention
+      // is acceptable; over-throttling a real user is worse than letting
+      // one extra call through during a race.
+      await Promise.all([
+        env.RATE_LIMIT.put(minuteKey, String(minuteCount + 1), { expirationTtl: 120 }),
+        env.RATE_LIMIT.put(dayKey,    String(dayCount + 1),    { expirationTtl: 90_000 }),
+      ]);
+    } else {
+      console.warn('claude-proxy: RATE_LIMIT KV not bound — running uncapped. Set up the KV namespace per wrangler.toml.');
     }
 
     // ── Parse + forward ──────────────────────────────────────────────────────

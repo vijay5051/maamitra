@@ -22,3 +22,6 @@ tmp/image-generation-tests/
 
 expo-env.d.ts
 # @end expo-cli.claude/scheduled_tasks.lock
+
+# gstack — local security reports & analytics, never commit
+.gstack/
