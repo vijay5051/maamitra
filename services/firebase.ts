@@ -298,6 +298,35 @@ function neutraliseProfileString(value: string, maxLen: number): string {
   return s;
 }
 
+// Nested `profile.*` free-text fields. saveFullProfile writes a `profile`
+// sub-object that mirrors the user's onboarding form (stage, state, diet,
+// familyType, etc.). buildSystemPrompt's `ctx.diet` is the smoking gun —
+// pulled directly from `profile.diet` and interpolated raw. We sanitise
+// every nested free-text field even though most of them go through enum
+// equality checks in claude.ts: any future code change that interpolates
+// a nested field gets the protection for free.
+const NESTED_PROFILE_FREE_TEXT_FIELDS: Record<string, number> = {
+  stage: 30,
+  state: 50,
+  diet: 40,
+  familyType: 30,
+  city: 60,
+  district: 60,
+  motherName: 60,
+  name: 60,
+};
+
+function sanitiseNestedProfile(p: any): any {
+  if (!p || typeof p !== 'object' || Array.isArray(p)) return p;
+  const out: Record<string, any> = { ...p };
+  for (const [field, maxLen] of Object.entries(NESTED_PROFILE_FREE_TEXT_FIELDS)) {
+    if (typeof out[field] === 'string') {
+      out[field] = neutraliseProfileString(out[field], maxLen);
+    }
+  }
+  return out;
+}
+
 function sanitiseProfilePayload(data: Record<string, any>): Record<string, any> {
   if (!data || typeof data !== 'object') return data;
   const out: Record<string, any> = { ...data };
@@ -315,6 +344,20 @@ function sanitiseProfilePayload(data: Record<string, any>): Record<string, any> 
         .filter((v: string) => v.length > 0);
     }
   }
+  // Nested `profile.*` sub-object (written by saveFullProfile during
+  // onboarding + settings edit). Codex 2026-05-14 challenge caught that
+  // `ctx.diet` flows from `profile.diet` straight into the system prompt.
+  if (out.profile && typeof out.profile === 'object') {
+    out.profile = sanitiseNestedProfile(out.profile);
+  }
+  // `expertise` is a string array on the user doc (not the nested profile).
+  if (Array.isArray(out.expertise)) {
+    out.expertise = (out.expertise as any[])
+      .slice(0, 12)
+      .filter((v) => typeof v === 'string')
+      .map((v: string) => neutraliseProfileString(v, 60))
+      .filter((v: string) => v.length > 0);
+  }
   // Kids array: cap count + sanitise each kid's free-text fields.
   if (Array.isArray(out.kids)) {
     out.kids = (out.kids as any[]).slice(0, 10).map((k: any) => {
@@ -322,6 +365,7 @@ function sanitiseProfilePayload(data: Record<string, any>): Record<string, any> 
       const kk = { ...k };
       if (typeof kk.name === 'string') kk.name = neutraliseProfileString(kk.name, 60);
       if (typeof kk.notes === 'string') kk.notes = neutraliseProfileString(kk.notes, 240);
+      if (typeof kk.gender === 'string') kk.gender = neutraliseProfileString(kk.gender, 20);
       return kk;
     });
   }
@@ -469,17 +513,30 @@ export async function saveFullProfile(uid: string, data: FullProfileData): Promi
   // nothing for anyone who onboarded before the email field was wired
   // (most users).
   const authUser = auth?.currentUser;
-  await setDoc(doc(db, 'users', uid), {
+  // Codex 2026-05-14 challenge caught that this writer bypassed
+  // sanitiseProfilePayload, so `profile.diet` (and any nested free-text
+  // field) flowed unfiltered into the chat AI's system prompt via
+  // services/claude.ts.ctx.diet. Route through the same sanitiser as
+  // saveUserProfile.
+  const safe = sanitiseProfilePayload({
     motherName: data.motherName,
     name: data.motherName ?? authUser?.displayName ?? '',
-    email: authUser?.email ?? '',
     profile: data.profile ?? null,
     kids: data.kids,
+    bio: data.bio ?? '',
+    expertise: data.expertise ?? [],
+  });
+  await setDoc(doc(db, 'users', uid), {
+    motherName: safe.motherName,
+    name: safe.name,
+    email: authUser?.email ?? '',
+    profile: safe.profile,
+    kids: safe.kids,
     completedVaccines: data.completedVaccines,
     onboardingComplete: data.onboardingComplete,
     parentGender: data.parentGender ?? '',
-    bio: data.bio ?? '',
-    expertise: data.expertise ?? [],
+    bio: safe.bio,
+    expertise: safe.expertise,
     photoUrl: data.photoUrl ?? '',
     visibilitySettings: data.visibilitySettings ?? null,
     audienceBuckets,
