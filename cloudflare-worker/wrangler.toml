@@ -37,4 +37,4 @@ FIREBASE_PROJECT_ID = "maa-mitra-7kird8"
 # out, claude-proxy.js will log a warning and fall back to fail-open.
 [[kv_namespaces]]
 binding = "RATE_LIMIT"
-id      = "REPLACE_WITH_KV_NAMESPACE_ID_FROM_WRANGLER"
+id      = "70ca798f013e480fa9575c9038bdbbac"
