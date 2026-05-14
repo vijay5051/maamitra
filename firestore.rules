@@ -91,7 +91,7 @@ service cloud.firestore {
           && (!('name' in d)             || shortText(d.name, 60))
           && (!('state' in d)            || shortText(d.state, 50))
           && (!('bio' in d)              || shortText(d.bio, 280))
-          && (!('expertise' in d)        || shortText(d.expertise, 120))
+          && (!('expertise' in d)        || (d.expertise is list && d.expertise.size() <= 12))
           && (!('email' in d)            || shortText(d.email, 120))
           && (!('phone' in d)            || shortText(d.phone, 20))
           && (!('allergies' in d)        || (d.allergies is list && d.allergies.size() <= 16))

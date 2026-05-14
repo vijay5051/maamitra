@@ -16,8 +16,12 @@
 #   npx wrangler kv:namespace create RATE_LIMIT
 
 name               = "round-grass-a27c"
-main               = "claude-proxy.js"
+main               = "claude-proxy.ts"
 compatibility_date = "2026-04-17"
+# Wrangler auto-bundles TS entry points + their imports (../lib/promptBuilder,
+# ../data/*) via esbuild. The shared prompt builder + curated data files
+# end up inlined into the deployed worker bundle.
+compatibility_flags = ["nodejs_compat"]
 
 # Plaintext env var — safe to commit. The Anthropic key stays a secret (set via
 # `wrangler secret put`) so it is NOT in this file.
