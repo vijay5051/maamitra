@@ -168,6 +168,13 @@ interface ChatState {
 
   // Firestore sync
   loadThreadsFromFirestore: () => Promise<void>;
+
+  // Persist-hydration flag — flipped by onRehydrateStorage. Surfaces to UI so
+  // chat.tsx can suppress the "no messages → show suggestions" empty state
+  // until the persisted thread has actually loaded from AsyncStorage. Without
+  // this, returning users saw a flash of generic "Namaste, Claudia! / TODAY"
+  // suggestions before their old thread snapped in (M5 in /qa-only 2026-05-14).
+  _hasHydrated: boolean;
 }
 
 export const useChatStore = create<ChatState>()(
@@ -177,6 +184,7 @@ export const useChatStore = create<ChatState>()(
       activeThreadId: null,
       isTyping: false,
       streamingId: null,
+      _hasHydrated: false,
       streamingContent: '',
       allergies: null,
       savedAnswers: [],
@@ -467,6 +475,12 @@ export const useChatStore = create<ChatState>()(
         };
       },
       version: 2,
+      onRehydrateStorage: () => (state) => {
+        // Fires after AsyncStorage rehydrate completes. UI gates the empty
+        // "show suggestions" block on this flag to suppress the brief flash
+        // of generic prompts before the user's last thread snaps in.
+        if (state) state._hasHydrated = true;
+      },
     }
   )
 );

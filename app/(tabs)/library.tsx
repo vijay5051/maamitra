@@ -1401,7 +1401,13 @@ export default function LibraryScreen() {
             {articles.length === 0 ? (
               <View style={styles.emptySearch}>
                 <Text style={styles.emptySearchEmoji}>🔍</Text>
-                <Text style={styles.emptySearchText}>No articles found for "{articleSearch}"</Text>
+                <Text style={styles.emptySearchText}>
+                  {articleSearch.trim()
+                    ? `No articles found for "${articleSearch}"`
+                    : articleTopicFilter !== 'All'
+                    ? `No articles in "${articleTopicFilter}" yet`
+                    : 'No articles match your filters'}
+                </Text>
                 <TouchableOpacity onPress={() => { setArticleSearch(''); setArticleTopicFilter('All'); }}>
                   <Text style={styles.emptySearchReset}>Clear filters</Text>
                 </TouchableOpacity>

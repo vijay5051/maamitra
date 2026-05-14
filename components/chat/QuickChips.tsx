@@ -7,7 +7,7 @@ import {
   View,
 } from 'react-native';
 import { useActiveKid } from '../../hooks/useActiveKid';
-import { useProfileStore, calculateAgeInMonths } from '../../store/useProfileStore';
+import { useProfileStore, calculateAgeInMonths, isPlausibleDob } from '../../store/useProfileStore';
 import { Fonts } from '../../constants/theme';
 import { Colors } from '../../constants/theme';
 
@@ -142,6 +142,12 @@ export default function QuickChips({ onSelect, showHeader = true }: QuickChipsPr
 
   const chips = useMemo(() => {
     if (!activeKid) return CHIPS_FALLBACK;
+    // If DOB is missing or implausible (pre-2010, far-future, unparseable),
+    // fall through to neutral fallback prompts rather than computing
+    // `months = 0` and rendering newborn chips for a 5-year-old whose DOB
+    // got lost — or worse, school-age chips for a corrupted profile. /qa-only
+    // 2026-05-14 caught the school-age default firing for testuser.
+    if (!activeKid.isExpecting && !isPlausibleDob(activeKid.dob)) return CHIPS_FALLBACK;
     const months = activeKid.isExpecting ? null : calculateAgeInMonths(activeKid.dob);
     return getChips(activeKid.name, months, activeKid.isExpecting ?? false);
   }, [activeKid]);

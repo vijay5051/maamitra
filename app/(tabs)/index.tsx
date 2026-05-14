@@ -2711,16 +2711,20 @@ function FeatureGuideCarousel({
           </View>
 
           <View style={styles.featureGuideActions}>
+            {/* L2 fix: "Skip for now" is the primary CTA — first-time users
+                should get a chance to see the tour later, not be pushed into
+                "Don't show again" with the bigger purple button (which was
+                the prior layout and made the tour look hostile). */}
             <TouchableOpacity
               style={styles.featureGuideGhostBtn}
-              onPress={onSkip}
+              onPress={onDontShowAgain}
               activeOpacity={0.8}
             >
-              <Text style={styles.featureGuideGhostText}>Skip for now</Text>
+              <Text style={styles.featureGuideGhostText}>Don’t show again</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.featureGuideSolidBtn}
-              onPress={onDontShowAgain}
+              onPress={onSkip}
               activeOpacity={0.85}
             >
               <LinearGradient
@@ -2729,7 +2733,7 @@ function FeatureGuideCarousel({
                 end={{ x: 1, y: 0 }}
                 style={styles.featureGuideSolidInner}
               >
-                <Text style={styles.featureGuideSolidText}>Don’t show again</Text>
+                <Text style={styles.featureGuideSolidText}>Skip for now</Text>
               </LinearGradient>
             </TouchableOpacity>
           </View>

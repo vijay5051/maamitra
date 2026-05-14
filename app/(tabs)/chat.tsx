@@ -228,6 +228,10 @@ export default function ChatScreen() {
   // Subscribe to threads + activeThreadId so messages re-render on thread switch
   const activeThreadId = useChatStore((s) => s.activeThreadId);
   const threads = useChatStore((s) => s.threads);
+  // Persist-hydration gate — see /qa-only M5: returning users were briefly
+  // shown the "Namaste! / TODAY / suggestions" empty state before AsyncStorage
+  // hydrated their last thread.
+  const chatHydrated = useChatStore((s) => s._hasHydrated);
   const messages = React.useMemo(() => {
     return threads.find((t) => t.id === activeThreadId)?.messages ?? [];
   }, [threads, activeThreadId]);
@@ -589,7 +593,7 @@ export default function ChatScreen() {
         {/* Radial glow bloom behind message list */}
         <View style={styles.radialGlow} pointerEvents="none" />
 
-        {messages.length === 0 && !isTyping ? (
+        {messages.length === 0 && !isTyping && chatHydrated ? (
           <View style={styles.emptyState}>
             <View style={styles.emptyIntro}>
               <Illustration name="chatMascot" style={styles.emptyMascot} contentFit="contain" />
@@ -604,6 +608,10 @@ export default function ChatScreen() {
               <QuickChips onSelect={handleSend} showHeader={false} />
             </View>
           </View>
+        ) : messages.length === 0 && !isTyping && !chatHydrated ? (
+          // Hydrating — leave the area blank so the suggestions don't flash
+          // before the user's persisted thread appears.
+          <View style={styles.emptyState} />
         ) : (
           <FlatList
             ref={flatListRef}

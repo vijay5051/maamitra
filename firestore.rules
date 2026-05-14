@@ -434,18 +434,18 @@ service cloud.firestore {
     }
 
     // ── App settings (admin only write) ──────────────────────────────────────
-    // Read open to all signed-in users so the banner + feature flags + theme
-    // hydrate on app open. Write is admin-gated; manage_banner role gets in
-    // through the same rule because content-editor needs banner access.
-    //
-    // Exception: app_settings/integrations contains live API keys and is
-    // restricted to admin-only read so keys never leak to regular users.
+    // Read is OPEN (no auth required) so the banner + feature flags + theme
+    // hydrate on app boot — `useAppSettingsStore.fetchSettings` fires from
+    // app/_layout.tsx before sign-in, so a signed-in-only rule produced
+    // PERMISSION_DENIED on every cold start (caught by /qa-only 2026-05-14).
+    // The doc only carries non-sensitive runtime config; the live API keys
+    // doc `/integrations` keeps its own admin-only rule above.
     match /app_settings/integrations {
       allow read:  if isAdmin();
       allow write: if isAdmin();
     }
     match /app_settings/{docId} {
-      allow read:  if isSignedIn();
+      allow read:  if true;
       allow write: if isAdmin();
     }
 
