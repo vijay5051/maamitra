@@ -20,7 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../store/useAuthStore';
 import SuccessCheck from './SuccessCheck';
-import { useProfileStore, Kid, Profile, ParentGender, calculateAgeInMonths, calculateAgeInWeeks, DEFAULT_VISIBILITY } from '../../store/useProfileStore';
+import { useProfileStore, Kid, ParentGender, calculateAgeInMonths, calculateAgeInWeeks, } from '../../store/useProfileStore';
 import {
   saveFullProfile,
   saveUserProfile,
@@ -38,7 +38,7 @@ import { uploadAvatar, uploadKidAvatar } from '../../services/storage';
 import DatePickerField from './DatePickerField';
 import StateSelectorComponent from '../onboarding/StateSelector';
 import { Fonts, ACCENT_PRESETS } from '../../constants/theme';
-import { useThemeStore, reloadForThemeChange } from '../../store/useThemeStore';
+import { useThemeStore, } from '../../store/useThemeStore';
 import {
   checkPushSupportDetailed,
   currentPushPermission,

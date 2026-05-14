@@ -25,7 +25,6 @@ import {
   ConfirmDialog,
   DataTable,
   StatCard,
-  StatusBadge,
   Toolbar,
   ToolbarButton,
 } from '../../components/admin/ui';

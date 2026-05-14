@@ -14,7 +14,6 @@
 import { Stack } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Image,
   Platform,
   Pressable,
   StyleSheet,
@@ -34,7 +33,6 @@ import {
 } from '../../../components/admin/ui';
 import {
   classifyInboxThread,
-  countByStatus,
   deleteThread,
   injectTestThread,
   markThreadRead,

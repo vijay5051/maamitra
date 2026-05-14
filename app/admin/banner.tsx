@@ -1,12 +1,4 @@
-/**
- * Admin · In-app banner.
- *
- * Wave 3 rebuild. Persists to app_settings/config.banner. Every signed-in
- * user reads app_settings/config on app open; a non-null banner renders
- * above the home content until they dismiss it. One banner at a time —
- * keep the surface minimal.
- */
-import { Ionicons } from '@expo/vector-icons';
+
 import { Stack } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useState } from 'react';

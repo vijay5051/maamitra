@@ -644,8 +644,10 @@ function DraftCardCompact({
     }
     el.setAttribute('draggable', 'true');
     const handleDragStart = (e: DragEvent) => {
-      // eslint-disable-next-line no-console
-      console.log('[PublishingCalendar] dragstart on', draft.id, draft.headline);
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.log('[PublishingCalendar] dragstart on', draft.id, draft.headline);
+      }
       if (!e.dataTransfer) return;
       e.dataTransfer.setData(DND_MIME, draft.id);
       e.dataTransfer.setData('text/plain', draft.id);
@@ -653,8 +655,10 @@ function DraftCardCompact({
       onDragStart?.();
     };
     const handleDragEnd = () => {
-      // eslint-disable-next-line no-console
-      console.log('[PublishingCalendar] dragend on', draft.id);
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.log('[PublishingCalendar] dragend on', draft.id);
+      }
       onDragEnd?.();
     };
     el.addEventListener('dragstart', handleDragStart);

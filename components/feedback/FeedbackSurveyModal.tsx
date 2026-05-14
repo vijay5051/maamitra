@@ -11,7 +11,7 @@
  * Writes to Firestore `testerFeedback` collection. Read back in
  * app/admin/feedback.tsx.
  */
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,

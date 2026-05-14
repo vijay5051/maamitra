@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { Animated, Platform, StyleSheet, Text, View } from 'react-native';
 import GradientAvatar from '../ui/GradientAvatar';
 import { Colors } from '../../constants/theme';

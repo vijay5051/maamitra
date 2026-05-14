@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { Platform, StyleSheet, View } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';

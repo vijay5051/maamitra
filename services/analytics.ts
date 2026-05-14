@@ -9,7 +9,7 @@
 // admin allow-list of a handful of people this is fine; if the user base
 // crosses ~10k we should move to scheduled summary docs.
 
-import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, query, where, } from 'firebase/firestore';
 import { db } from './firebase';
 
 // ─── Types ────────────────────────────────────────────────────────────────────

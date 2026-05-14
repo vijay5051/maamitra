@@ -20,9 +20,9 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { searchBooks, fetchBookByUrl, FetchedBook } from '../../services/bookFetch';
 import { fetchUrlMeta, PageMeta } from '../../services/metaFetch';
-import { useBookStore, DynamicBook } from '../../store/useBookStore';
-import { useArticleStore, DynamicArticle } from '../../store/useArticleStore';
-import { useProductStore, DynamicProduct } from '../../store/useProductStore';
+import { useBookStore, } from '../../store/useBookStore';
+import { useArticleStore, } from '../../store/useArticleStore';
+import { useProductStore, } from '../../store/useProductStore';
 import { Colors } from '../../constants/theme';
 
 // ─── Constants ────────────────────────────────────────────────────────────────

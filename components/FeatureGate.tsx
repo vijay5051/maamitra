@@ -9,7 +9,7 @@
 // to avoid a hidden→visible flicker.
 
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { Colors, FontSize, Radius, Shadow, Spacing } from '../constants/theme';
 import { FeatureKey } from '../services/featureFlags';

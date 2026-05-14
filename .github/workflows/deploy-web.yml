@@ -25,16 +25,18 @@ jobs:
     env:
       EAS_BUILD_NO_EXPO_GO_WARNING: 'true'
     steps:
-      - uses: actions/checkout@v4
+      # F4 — third-party actions pinned to commit SHA (Codecov-2021 defense).
+      # Bump the SHA + the comment together; never let them drift.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: '20'
           cache: 'npm'
 
       - name: Setup EAS CLI
-        uses: expo/expo-github-action@v8
+        uses: expo/expo-github-action@c7b66a9c327a43a8fa7c0158e7f30d6040d2481e  # v8
         with:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
@@ -51,7 +53,7 @@ jobs:
         run: npm run build:web
 
       - name: Deploy to Firebase Hosting
-        uses: FirebaseExtended/action-hosting-deploy@v0
+        uses: FirebaseExtended/action-hosting-deploy@e2eda2e106cfa35cdbcf4ac9ddaf6c4756df2c8c  # v0.10.0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}

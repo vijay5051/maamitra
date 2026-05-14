@@ -15,7 +15,7 @@
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 
 import { db } from './firebase';
-import { containsPII, redactPII, RedactionResult } from '../lib/piiRedact';
+import { redactPII, RedactionResult } from '../lib/piiRedact';
 import { detectCrisis, CrisisFinding } from '../lib/crisisDetect';
 import { useRuntimeConfigStore } from '../store/useRuntimeConfigStore';
 

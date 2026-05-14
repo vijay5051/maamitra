@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { View, StyleSheet, ViewStyle, StyleProp } from 'react-native';
+import { useEffect } from 'react';
+import { StyleSheet, ViewStyle, StyleProp } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import Animated, {
   useSharedValue,

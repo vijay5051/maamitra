@@ -17,13 +17,6 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
 } from 'react-native-reanimated';
-import Svg, {
-  Path,
-  Defs,
-  LinearGradient as SvgLinearGradient,
-  Stop,
-  Circle,
-} from 'react-native-svg';
 import { useWellnessStore, MOOD_DATA, MOOD_RESPONSES } from '../../store/useWellnessStore';
 import { useProfileStore } from '../../store/useProfileStore';
 import { useAuthStore } from '../../store/useAuthStore';

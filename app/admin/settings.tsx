@@ -5,7 +5,6 @@ import {
   Alert,
   Linking,
   Modal,
-  ScrollView,
   StyleSheet,
   Switch,
   Text,

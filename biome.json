@@ -1,0 +1,80 @@
+{
+  "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "ignoreUnknown": true,
+    "ignore": [
+      "node_modules/**",
+      "dist/**",
+      ".expo/**",
+      "android/**",
+      "ios/**",
+      "functions/lib/**",
+      "cloudflare-worker/dist/**",
+      "scripts/**/*.mjs",
+      ".gstack/**",
+      "public/**"
+    ]
+  },
+  "formatter": {
+    "enabled": false
+  },
+  "organizeImports": {
+    "enabled": false
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": false,
+      "correctness": {
+        "noUnusedVariables": "off",
+        "useExhaustiveDependencies": "off",
+        "noUnusedImports": "warn",
+        "noConstAssign": "error",
+        "noSwitchDeclarations": "error",
+        "noUnreachable": "error",
+        "useIsNan": "error"
+      },
+      "suspicious": {
+        "noExplicitAny": "off",
+        "noConsoleLog": "warn",
+        "noDoubleEquals": "error",
+        "noDuplicateCase": "error",
+        "noDuplicateObjectKeys": "error",
+        "noShadowRestrictedNames": "error",
+        "noUnsafeNegation": "error"
+      },
+      "style": {
+        "noVar": "error",
+        "useConst": "warn"
+      },
+      "security": {
+        "noDangerouslySetInnerHtml": "warn",
+        "noGlobalEval": "error"
+      },
+      "complexity": {
+        "noUselessCatch": "warn",
+        "noWith": "error"
+      }
+    }
+  },
+  "javascript": {
+    "globals": ["__DEV__"]
+  },
+  "overrides": [
+    {
+      "include": ["**/*.test.ts", "**/*.test.tsx", "scripts/**/*"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsoleLog": "off"
+          }
+        }
+      }
+    }
+  ]
+}

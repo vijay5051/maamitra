@@ -9,7 +9,7 @@
  */
 import { Stack } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Platform, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Colors, FontSize, Radius, Spacing } from '../../constants/theme';
 import {
@@ -25,7 +25,6 @@ import {
 import {
   ConsentEntry,
   CONSENT_LABELS,
-  ConsentType,
   listRecentConsents,
   processRtbf,
 } from '../../services/consent';

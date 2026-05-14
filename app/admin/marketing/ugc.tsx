@@ -12,7 +12,7 @@ import { Image, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'r
 import { Ionicons } from '@expo/vector-icons';
 
 import { Colors, FontSize, Radius, Shadow, Spacing } from '../../../constants/theme';
-import { AdminPage, EmptyState, SlideOver, StatusBadge, ToolbarButton } from '../../../components/admin/ui';
+import { AdminPage, EmptyState, SlideOver, StatusBadge, } from '../../../components/admin/ui';
 import {
   approveUgc,
   deleteUgcSubmission,

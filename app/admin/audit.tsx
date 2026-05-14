@@ -10,9 +10,9 @@
  */
 import { Stack } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 
-import { Colors, FontSize, Spacing } from '../../constants/theme';
+import { Colors, FontSize, } from '../../constants/theme';
 import {
   AdminPage,
   Column,

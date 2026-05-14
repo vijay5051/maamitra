@@ -15,7 +15,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, Stack } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Pressable,
   ScrollView,

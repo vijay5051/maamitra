@@ -17,6 +17,7 @@
 
 import * as functions from 'firebase-functions/v1';
 import * as admin from 'firebase-admin';
+import * as crypto from 'crypto';
 import textToSpeech from '@google-cloud/text-to-speech';
 
 import { buildCheckIntegrationHealth, buildUpdateIntegrationConfig } from './integrations';
@@ -838,12 +839,21 @@ async function runFactoryResetCore(
   return summary;
 }
 
+/**
+ * Static-token HTTPS rail for factory reset. DEPRECATED — prefer
+ * `adminFactoryReset` (callable, super-admin token, requires confirm string).
+ * This rail stays for ops scripts but should be removed once those are
+ * migrated. F3 fix — `token !== expected` was a non-constant-time compare,
+ * giving a timing oracle to anyone probing the endpoint. Now uses
+ * crypto.timingSafeEqual.
+ */
 export const factoryReset = functions
   .runWith({ memory: '512MB', timeoutSeconds: 540, secrets: ['FACTORY_RESET_TOKEN'] })
   .https.onRequest(async (req, res) => {
-    const token = req.get('x-reset-token');
-    const expected = process.env.FACTORY_RESET_TOKEN;
-    if (!expected || token !== expected) {
+    console.warn('[factoryReset] DEPRECATED rail invoked — use adminFactoryReset (callable) instead');
+    const token = req.get('x-reset-token') ?? '';
+    const expected = process.env.FACTORY_RESET_TOKEN ?? '';
+    if (!expected || !token || !timingSafeStringEqual(token, expected)) {
       res.status(403).json({ ok: false, error: 'forbidden' });
       return;
     }
@@ -859,6 +869,25 @@ export const factoryReset = functions
       res.status(500).json({ ok: false, error: err?.message || String(err) });
     }
   });
+
+/**
+ * Constant-time string equality. Pads to common length first because
+ * timingSafeEqual rejects mismatched-length buffers (which would itself
+ * leak the expected length).
+ */
+function timingSafeStringEqual(a: string, b: string): boolean {
+  const aBuf = Buffer.from(a, 'utf8');
+  const bBuf = Buffer.from(b, 'utf8');
+  const len = Math.max(aBuf.length, bBuf.length);
+  const aPad = Buffer.alloc(len, 0);
+  const bPad = Buffer.alloc(len, 0);
+  aBuf.copy(aPad);
+  bBuf.copy(bPad);
+  // timingSafeEqual + final length check — both branches run regardless
+  // of inputs so total time depends only on `len`, not on where they diverge.
+  const eq = crypto.timingSafeEqual(aPad, bPad);
+  return eq && aBuf.length === bBuf.length;
+}
 
 // Admin-callable variant: same destructive operation but auth is the
 // caller's super-admin token instead of a static secret. Wired to the

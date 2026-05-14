@@ -16,7 +16,6 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
-  Platform,
   Pressable,
   RefreshControl,
   ScrollView,

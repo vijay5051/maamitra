@@ -1,11 +1,10 @@
-import React from 'react';
+
 import {
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import GradientAvatar from '../ui/GradientAvatar';
 import { Kid } from '../../store/useProfileStore';
 import { Colors } from '../../constants/theme';

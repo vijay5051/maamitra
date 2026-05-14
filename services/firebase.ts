@@ -9,7 +9,6 @@ import {
   getAuth,
   initializeAuth,
   Auth,
-  browserLocalPersistence,
   browserSessionPersistence,
   indexedDBLocalPersistence,
   deleteUser,

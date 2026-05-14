@@ -1,11 +1,4 @@
-/**
- * Admin · Support inbox.
- *
- * Wave 3 rebuild. AdminPage shell + FilterBar tabs + DataTable
- * + SlideOver-based ticket detail with reply thread, quick replies,
- * status switcher, and push-on-reply toggle.
- */
-import { Ionicons } from '@expo/vector-icons';
+
 import { Stack } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {

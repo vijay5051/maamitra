@@ -18,7 +18,6 @@ import Animated, {
   useAnimatedStyle,
   withRepeat,
   withTiming,
-  withSequence,
   cancelAnimation,
   Easing,
 } from 'react-native-reanimated';

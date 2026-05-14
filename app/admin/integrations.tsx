@@ -33,7 +33,6 @@ import { AdminPage } from '../../components/admin/ui';
 import { Colors, FontSize, Radius, Shadow, Spacing } from '../../constants/theme';
 import {
   checkIntegrationHealth,
-  fetchIntegrationConfig,
   HealthCheckResults,
   IntegrationConfig,
   saveIntegrationConfig,

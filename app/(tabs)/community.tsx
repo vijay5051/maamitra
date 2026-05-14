@@ -23,14 +23,12 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
 import { useCommunityStore, CommunityFilter } from '../../store/useCommunityStore';
 import { useProfileStore } from '../../store/useProfileStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useSocialStore } from '../../store/useSocialStore';
 import GradientAvatar from '../../components/ui/GradientAvatar';
-import TagPill from '../../components/ui/TagPill';
 import SettingsModal from '../../components/ui/SettingsModal';
 import PostCardComponent from '../../components/community/PostCard';
 import UserProfileModalComponent, {

@@ -52,7 +52,7 @@ import {
   unscheduleDraft,
   updateDraftCaption,
 } from '../../../services/marketingDrafts';
-import { DraftStatus, MarketingDraft, MarketingPlatform } from '../../../lib/marketingTypes';
+import { DraftStatus, MarketingDraft, } from '../../../lib/marketingTypes';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { friendlyError, friendlyPublishError } from '../../../services/marketingErrors';
 import { buildBioLink } from '../../../services/attribution';

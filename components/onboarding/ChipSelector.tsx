@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import { useRef } from 'react';
 import {
   Animated,
   StyleSheet,
@@ -7,7 +7,7 @@ import {
   View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Colors, Gradients } from '../../constants/theme';
+import { Gradients } from '../../constants/theme';
 
 interface Option {
   label: string;

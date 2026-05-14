@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import { useCallback } from 'react';
 import { Pressable, StyleProp, ViewStyle, PressableProps, GestureResponderEvent } from 'react-native';
 import Animated, {
   useSharedValue,

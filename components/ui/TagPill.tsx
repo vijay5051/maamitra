@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { Fonts } from '../../constants/theme';
 import { Colors } from '../../constants/theme';

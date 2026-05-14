@@ -7,7 +7,7 @@
  * client-side can() check is a follow-up — see services/customRoles.ts.
  */
 import { Stack } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Modal,
   Pressable,
@@ -29,7 +29,6 @@ import {
   AdminCapability,
   ADMIN_ROLES,
   ADMIN_ROLE_LABELS,
-  AdminRole,
   can,
 } from '../../lib/admin';
 import { useAdminRole } from '../../lib/useAdminRole';

@@ -63,77 +63,24 @@ export interface Profile {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-// ─── Kid DOB plausibility ────────────────────────────────────────────────────
-// Hard limits on the kid's date of birth. A DOB outside this window is treated
-// as missing/invalid: display sites show "—" instead of a garbage age, retrieval
-// helpers return 0, and writes get clamped. Closes the "Shiv · 2002 years old"
-// bug that surfaced on 2026-05-14 when a user's onboarding date-picker
-// persisted year 23 AD.
-const MIN_DOB_YEAR = 2010;                                  // oldest plausible kid year
-const MAX_DOB_TIME_MS = Date.now() + 2 * 365 * 86400000;     // pregnancy: up to 2 years out
-const MAX_AGE_MONTHS  = 25 * 12;                             // 25 years — hard sanity cap
-const MAX_AGE_WEEKS   = 25 * 52;
-
-export function isPlausibleDob(dob: string | null | undefined): boolean {
-  if (!dob || typeof dob !== 'string') return false;
-  const birth = new Date(dob.includes('T') ? dob : dob + 'T00:00:00');
-  if (isNaN(birth.getTime())) return false;
-  if (birth.getFullYear() < MIN_DOB_YEAR) return false;
-  if (birth.getTime() > MAX_DOB_TIME_MS) return false;
-  return true;
-}
-
-export function calculateAgeInMonths(dob: string): number {
-  // Refuse anything before MIN_DOB_YEAR or in the far future — those values
-  // cascade to "2002 years old" garbage in every UI surface.
-  if (!isPlausibleDob(dob)) return 0;
-  // Append T00:00:00 only if no time component — prevents UTC-midnight day-shift in IST
-  const birth = new Date(dob.includes('T') ? dob : dob + 'T00:00:00');
-  const today = new Date();
-  const years = today.getFullYear() - birth.getFullYear();
-  const months = today.getMonth() - birth.getMonth();
-  const days = today.getDate() - birth.getDate();
-  let totalMonths = years * 12 + months;
-  if (days < 0) totalMonths -= 1;
-  return Math.min(MAX_AGE_MONTHS, Math.max(0, totalMonths));
-}
-
-export function calculateAgeInWeeks(dob: string): number {
-  if (!isPlausibleDob(dob)) return 0;
-  const birth = new Date(dob.includes('T') ? dob : dob + 'T00:00:00');
-  const today = new Date();
-  const diffMs = today.getTime() - birth.getTime();
-  return Math.min(MAX_AGE_WEEKS, Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24 * 7))));
-}
-
-// ─── Display helpers ─────────────────────────────────────────────────────────
-// Single source of truth for "how old is this kid" UI strings. Returns a
-// human-friendly label that's safe to render anywhere, including when DOB is
-// missing/implausible (was rendering "Shiv · 2002 years old" before this fix).
-export function formatKidAge(kid: { dob?: string; isExpecting?: boolean; ageInMonths?: number }): string {
-  if (kid.isExpecting) return 'Expecting';
-  if (!kid.dob || !isPlausibleDob(kid.dob)) return 'Set birthdate';
-  const months = typeof kid.ageInMonths === 'number' && kid.ageInMonths <= MAX_AGE_MONTHS
-    ? kid.ageInMonths
-    : calculateAgeInMonths(kid.dob);
-  if (months < 1) return 'Newborn';
-  if (months < 24) return `${months} ${months === 1 ? 'month' : 'months'} old`;
-  const years = Math.floor(months / 12);
-  return `${years} ${years === 1 ? 'year' : 'years'} old`;
-}
-
-// Compact variant: "12m", "2y", "Set DOB". Used in tight UI spots like nav chips
-// and stat tiles where the long form doesn't fit.
-export function formatKidAgeCompact(kid: { dob?: string; isExpecting?: boolean; ageInMonths?: number }): string {
-  if (kid.isExpecting) return 'Expecting';
-  if (!kid.dob || !isPlausibleDob(kid.dob)) return 'Set DOB';
-  const months = typeof kid.ageInMonths === 'number' && kid.ageInMonths <= MAX_AGE_MONTHS
-    ? kid.ageInMonths
-    : calculateAgeInMonths(kid.dob);
-  if (months < 1) return '<1m';
-  if (months < 24) return `${months}m`;
-  return `${Math.floor(months / 12)}y`;
-}
+// DOB plausibility + age math + display helpers live in lib/dob.ts now so they
+// can be unit-tested without dragging zustand/AsyncStorage into the test env.
+// Import locally so internal callers can use them, then re-export so existing
+// external callers keep working unchanged.
+import {
+  isPlausibleDob,
+  calculateAgeInMonths,
+  calculateAgeInWeeks,
+  formatKidAge,
+  formatKidAgeCompact,
+} from '../lib/dob';
+export {
+  isPlausibleDob,
+  calculateAgeInMonths,
+  calculateAgeInWeeks,
+  formatKidAge,
+  formatKidAgeCompact,
+};
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 

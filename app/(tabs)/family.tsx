@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Image,
   Modal,
@@ -12,21 +12,17 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { useProfileStore, Kid, formatKidAge } from '../../store/useProfileStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { saveFullProfile } from '../../services/firebase';
 import { useActiveKid } from '../../hooks/useActiveKid';
 import { MILESTONES } from '../../data/milestones';
-import { filterByAudience, parentGenderToAudience } from '../../data/audience';
 import GradientButton from '../../components/ui/GradientButton';
 import DatePickerField from '../../components/ui/DatePickerField';
 import Card from '../../components/ui/Card';
-import TagPill from '../../components/ui/TagPill';
 import SettingsModal from '../../components/ui/SettingsModal';
 import NotificationsSheet from '../../components/community/NotificationsSheet';
 import ConversationsSheet from '../../components/community/ConversationsSheet';
-import ContextualAskChip from '../../components/ui/ContextualAskChip';
 import { Illustration } from '../../components/ui/Illustration';
 import { AppIcon } from '../../components/ui/AppIcon';
 import { useSocialStore } from '../../store/useSocialStore';
