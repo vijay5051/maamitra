@@ -56,6 +56,7 @@ exports.syncArticleSocialDraft = exports.syncPublishedArticleToMarketingDraft = 
 exports.expireStaleLibrary = exports.dailyLibraryAiCron = exports.archiveLibraryItem = exports.generateProductsNow = exports.generateBooksNow = void 0;
 const functions = __importStar(require("firebase-functions/v1"));
 const admin = __importStar(require("firebase-admin"));
+const crypto = __importStar(require("crypto"));
 const text_to_speech_1 = __importDefault(require("@google-cloud/text-to-speech"));
 const integrations_1 = require("./integrations");
 const library_1 = require("./library");
@@ -674,12 +675,21 @@ async function runFactoryResetCore(db, auth, summary) {
     summary.ok = true;
     return summary;
 }
+/**
+ * Static-token HTTPS rail for factory reset. DEPRECATED — prefer
+ * `adminFactoryReset` (callable, super-admin token, requires confirm string).
+ * This rail stays for ops scripts but should be removed once those are
+ * migrated. F3 fix — `token !== expected` was a non-constant-time compare,
+ * giving a timing oracle to anyone probing the endpoint. Now uses
+ * crypto.timingSafeEqual.
+ */
 exports.factoryReset = functions
     .runWith({ memory: '512MB', timeoutSeconds: 540, secrets: ['FACTORY_RESET_TOKEN'] })
     .https.onRequest(async (req, res) => {
-    const token = req.get('x-reset-token');
-    const expected = process.env.FACTORY_RESET_TOKEN;
-    if (!expected || token !== expected) {
+    console.warn('[factoryReset] DEPRECATED rail invoked — use adminFactoryReset (callable) instead');
+    const token = req.get('x-reset-token') ?? '';
+    const expected = process.env.FACTORY_RESET_TOKEN ?? '';
+    if (!expected || !token || !timingSafeStringEqual(token, expected)) {
         res.status(403).json({ ok: false, error: 'forbidden' });
         return;
     }
@@ -696,6 +706,24 @@ exports.factoryReset = functions
         res.status(500).json({ ok: false, error: err?.message || String(err) });
     }
 });
+/**
+ * Constant-time string equality. Pads to common length first because
+ * timingSafeEqual rejects mismatched-length buffers (which would itself
+ * leak the expected length).
+ */
+function timingSafeStringEqual(a, b) {
+    const aBuf = Buffer.from(a, 'utf8');
+    const bBuf = Buffer.from(b, 'utf8');
+    const len = Math.max(aBuf.length, bBuf.length);
+    const aPad = Buffer.alloc(len, 0);
+    const bPad = Buffer.alloc(len, 0);
+    aBuf.copy(aPad);
+    bBuf.copy(bPad);
+    // timingSafeEqual + final length check — both branches run regardless
+    // of inputs so total time depends only on `len`, not on where they diverge.
+    const eq = crypto.timingSafeEqual(aPad, bPad);
+    return eq && aBuf.length === bBuf.length;
+}
 // Admin-callable variant: same destructive operation but auth is the
 // caller's super-admin token instead of a static secret. Wired to the
 // /admin "Factory reset" button. Requires an explicit confirm string in

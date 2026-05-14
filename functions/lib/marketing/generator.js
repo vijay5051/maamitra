@@ -360,7 +360,7 @@ function pickSlot(brand, override, today, stats, promptOverride) {
     // Cultural event matching today's date — checks YYYY-MM-DD or YYYY-MM-DD
     // suffix of an event date (handles yearly events stored with a year).
     const todayMd = today.isoDate.slice(5); // "MM-DD"
-    let event = brand.culturalCalendar.find((e) => {
+    const event = brand.culturalCalendar.find((e) => {
         const overrideId = typeof override.eventId === 'string' ? override.eventId : '';
         if (overrideId && e.id === overrideId)
             return true;
@@ -1208,7 +1208,7 @@ async function runGenerator(input, actorEmail) {
     // the props the renderer needs (e.g. realStoryCard without story /
     // attribution), downgrade to tipCard with safe content so we never bake
     // the literal word "undefined" into a published image.
-    let requestedTemplate = forcedTemplate ?? captionOut.template;
+    const requestedTemplate = forcedTemplate ?? captionOut.template;
     captionOut = {
         ...captionOut,
         templateProps: sanitizeCaptionTemplateProps(requestedTemplate, captionOut.templateProps),

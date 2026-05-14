@@ -121,21 +121,24 @@ function buildMetaWebhookReceiver() {
         // using HMAC-SHA256, sent as `X-Hub-Signature-256: sha256=<hex>`.
         const sig = String(req.headers['x-hub-signature-256'] ?? '');
         if (!META_APP_SECRET) {
-            // Webhook isn't fully configured — accept but log. Returning 200
-            // matters because Meta retries on non-200.
-            console.warn('[metaWebhookReceiver] meta.appSecret not set, skipping signature check');
+            // F1 fix — fail closed when secret isn't configured. Previously this
+            // accepted unsigned events, which would let anyone POST to the
+            // webhook URL and pollute the inbox. 503 tells Meta we're misconfigured
+            // (they'll back off / retry later) without claiming success.
+            console.error('[metaWebhookReceiver] META_APP_SECRET not configured — refusing event');
+            res.status(503).send('webhook not configured');
+            return;
         }
         else {
             const rb = req.rawBody;
             const verify = verifySignatureDiag(rb, sig, META_APP_SECRET);
             if (!verify.ok) {
-                // Heavy diagnostic — full sigs + body hash + small body hex window
-                // so we can post-hoc compute alternate HMAC variants if the secret
-                // value or encoding is suspect.
+                // F2 fix — minimal diagnostic. Previously this dump leaked
+                // secretFirst2/secretLast2 (4 chars of the App Secret) and up to
+                // 4KB of raw body base64 to Cloud Logging on every signature
+                // mismatch. Anyone with logs-viewer could exfiltrate the secret
+                // by sending crafted requests. Keep only non-sensitive fields.
                 const bodyHash = rb ? crypto.createHash('sha256').update(rb).digest('hex') : null;
-                const bodyB64 = rb && rb.length <= 4096 ? rb.toString('base64') : null; // small bodies only
-                // Capture every Meta-related and HTTP-layer header so we can rule out
-                // content-encoding (gzip), proxy stripping, app-id mismatch, etc.
                 const interestingHeaders = [
                     'content-type', 'content-length', 'content-encoding',
                     'x-hub-signature', 'x-hub-signature-256',
@@ -147,20 +150,15 @@ function buildMetaWebhookReceiver() {
                     headerDump[h] = req.headers[h] ?? null;
                 console.warn('[metaWebhookReceiver] signature verification failed:', JSON.stringify({
                     reason: verify.reason,
-                    headerSig256Full: sig,
-                    headerSig1Full: req.headers['x-hub-signature'] ?? null,
-                    expectedPrefix: verify.expectedPrefix ?? null,
-                    actualPrefix: verify.actualPrefix ?? null,
+                    headerSig256Present: Boolean(sig),
+                    headerSig1Present: Boolean(req.headers['x-hub-signature']),
                     rawBodyType: typeof rb,
                     rawBodyLen: rb?.length ?? null,
                     rawBodySha256: bodyHash,
-                    rawBodyBase64: bodyB64,
                     bodyKeys: Object.keys(req.body ?? {}),
                     bodyObject: req.body?.object ?? null,
                     entryIds: (req.body?.entry ?? []).map((e) => e.id ?? null),
                     secretLen: META_APP_SECRET.length,
-                    secretFirst2: META_APP_SECRET.slice(0, 2),
-                    secretLast2: META_APP_SECRET.slice(-2),
                     metaHeaders: headerDump,
                 }));
                 // Permissive mode: META_WEBHOOK_PERMISSIVE=1 in env makes us still
