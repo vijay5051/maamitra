@@ -41,14 +41,12 @@ export default function MarketingLayout() {
   const isOnboarding = pathname.startsWith(ONBOARDING_PATH);
 
   useEffect(() => {
-    let unsubBrand: (() => void) | undefined;
-    let unsubHealth: (() => void) | undefined;
     void fetchBrandKit().then(setBrand);
-    unsubBrand = subscribeBrandKit(setBrand);
-    unsubHealth = subscribeMarketingHealth(setHealth);
+    const unsubBrand = subscribeBrandKit(setBrand);
+    const unsubHealth = subscribeMarketingHealth(setHealth);
     return () => {
-      if (unsubBrand) unsubBrand();
-      if (unsubHealth) unsubHealth();
+      unsubBrand();
+      unsubHealth();
     };
   }, []);
 

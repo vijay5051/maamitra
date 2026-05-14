@@ -75,6 +75,26 @@
           }
         }
       }
+    },
+    {
+      "include": ["functions/**/*.ts"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsoleLog": "off"
+          }
+        }
+      }
+    },
+    {
+      "include": ["components/marketing/PublishingCalendar.tsx"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsoleLog": "off"
+          }
+        }
+      }
     }
   ]
 }

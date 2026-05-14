@@ -1,0 +1,67 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "rules": {
+    "files": "error",
+    "dependencies": "error",
+    "unlisted": "warn",
+    "binaries": "warn",
+    "unresolved": "warn",
+    "exports": "warn",
+    "types": "warn",
+    "nsExports": "warn",
+    "nsTypes": "warn",
+    "enumMembers": "warn",
+    "classMembers": "warn",
+    "duplicates": "warn"
+  },
+  "ignoreBinaries": ["eas", "eas-cli"],
+  "workspaces": {
+    ".": {
+      "entry": [
+        "app/**/*.{ts,tsx}",
+        "app.config.{ts,js,mjs}",
+        "metro.config.{ts,js,mjs}",
+        "babel.config.{ts,js,mjs}",
+        "scripts/**/*.{ts,mts,mjs,js}",
+        "tests/**/*.test.{ts,tsx}",
+        "expo-env.d.ts"
+      ],
+      "project": [
+        "{app,components,hooks,lib,services,store}/**/*.{ts,tsx}",
+        "scripts/**/*.{ts,mts,mjs,js}",
+        "tests/**/*.{ts,tsx}"
+      ],
+      "ignore": [
+        "dist/**",
+        ".expo/**",
+        ".claude/**",
+        "android/**",
+        "ios/**",
+        "public/**",
+        "node_modules/**",
+        "functions/lib/**",
+        "cloudflare-worker/**"
+      ],
+      "ignoreDependencies": [
+        "@biomejs/biome",
+        "@types/bun",
+        "knip",
+        "shellcheck",
+        "@babel/core",
+        "firebase-tools",
+        "@types/react",
+        "typescript",
+        "expo-build-properties",
+        "expo-system-ui",
+        "expo-router",
+        "firebase-admin",
+        "babel-preset-expo"
+      ]
+    },
+    "functions": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"],
+      "ignore": ["lib/**", "node_modules/**"]
+    }
+  }
+}
