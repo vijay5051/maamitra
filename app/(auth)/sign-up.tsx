@@ -136,6 +136,8 @@ function AnimatedField({
             returnKeyType={returnKeyType}
             onSubmitEditing={onSubmitEditing}
             secureTextEntry={secureTextEntry}
+            accessibilityLabel={label}
+            aria-label={label}
           />
         </View>
         {rightElement}

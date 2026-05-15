@@ -127,6 +127,11 @@ function AnimatedField({
             returnKeyType={returnKeyType}
             onSubmitEditing={onSubmitEditing}
             secureTextEntry={secureTextEntry}
+            // a11y — floating-label pattern needs the label exposed to
+            // screen readers because the visible label animates. Without
+            // this, axe-core / VoiceOver announce "edit text" with no name.
+            accessibilityLabel={label}
+            aria-label={label}
           />
         </View>
         {rightElement}
