@@ -3,6 +3,13 @@
     "public": "dist",
     "_ignore_note": "Do NOT add **/node_modules/** to ignore. Expo Export writes asset URLs that resolve to dist/assets/node_modules/@expo-google-fonts/... at runtime. Adding that pattern strips the font files from hosting and the browser falls through the SPA rewrite to index.html — manifests as 'OTS parsing error: invalid sfntVersion' for every Lora/icon font load.",
     "ignore": ["firebase.json", "**/.*"],
+    "redirects": [
+      {
+        "source": "/assets/node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.:hash.ttf",
+        "destination": "/assets/assets/fonts/Ionicons.:hash.ttf",
+        "type": 301
+      }
+    ],
     "rewrites": [{ "source": "**", "destination": "/index.html" }],
     "headers": [
       {
