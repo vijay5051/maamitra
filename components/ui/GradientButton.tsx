@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import {
   Animated,
   ActivityIndicator,
+  Platform,
   StyleSheet,
   Text,
   TouchableWithoutFeedback,
@@ -9,6 +10,12 @@ import {
   ViewStyle,
   TextStyle,
 } from 'react-native';
+
+// useNativeDriver=true on web triggers a per-animation console warning
+// ("native animated module is missing — falling back to JS-based animation")
+// because RN-Web has no native driver. Pass false on web, true on native,
+// so we keep the perf win where it exists and quiet the console elsewhere.
+const NATIVE_DRIVER = Platform.OS !== 'web';
 import { Ionicons } from '@expo/vector-icons';
 import { Fonts } from '../../constants/theme';
 import { Colors } from '../../constants/theme';
@@ -55,7 +62,7 @@ export default function GradientButton({
   const handlePressIn = () => {
     Animated.spring(scale, {
       toValue: 0.97,
-      useNativeDriver: true,
+      useNativeDriver: NATIVE_DRIVER,
       speed: 24,
       bounciness: 3,
     }).start();
@@ -64,7 +71,7 @@ export default function GradientButton({
   const handlePressOut = () => {
     Animated.spring(scale, {
       toValue: 1,
-      useNativeDriver: true,
+      useNativeDriver: NATIVE_DRIVER,
       speed: 24,
       bounciness: 3,
     }).start();
