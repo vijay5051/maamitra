@@ -18,6 +18,19 @@ type Props = {
  *   - Caches on disk + memory
  *   - Fades in softly (200ms) so it never pops
  */
+// Humanise an illustration key (e.g. "homeWelcome" → "Home welcome") so
+// screen readers announce something descriptive when callers don't pass
+// an explicit accessibilityLabel. Not as good as a real curator-written
+// label, but vastly better than "image".
+function humanise(name: string): string {
+  return name
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/[_-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^./, (c) => c.toUpperCase());
+}
+
 export function Illustration({
   name,
   style,
@@ -25,14 +38,19 @@ export function Illustration({
   transitionMs = 200,
   accessibilityLabel,
 }: Props) {
+  const label = accessibilityLabel ?? humanise(String(name)) + ' illustration';
   return (
     <Image
       source={illustrations[name]}
       style={style}
       contentFit={contentFit}
       transition={transitionMs}
-      accessibilityLabel={accessibilityLabel}
+      accessibilityLabel={label}
       accessibilityIgnoresInvertColors
+      // expo-image renders to <img> on web — `alt` is what axe-core /
+      // Lighthouse a11y check. Set both so each platform's a11y tree picks
+      // the right one.
+      alt={label}
     />
   );
 }

@@ -471,6 +471,8 @@ export default function ChatScreen() {
                 onPress={handleNewChat}
                 style={[styles.gearBtn, { backgroundColor: Colors.primary }]}
                 activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Start new chat"
               >
                 <Ionicons name="add" size={22} color="#ffffff" />
               </TouchableOpacity>
@@ -527,6 +529,7 @@ export default function ChatScreen() {
               onPress={() => setView('list')}
               style={styles.gearBtn}
               activeOpacity={0.7}
+              accessibilityRole="button"
               accessibilityLabel="Back to chats"
             >
               <Ionicons name="chevron-back" size={22} color={Colors.primary} />
@@ -557,6 +560,8 @@ export default function ChatScreen() {
               onPress={() => setSettingsVisible(true)}
               style={styles.gearBtn}
               activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Open settings"
             >
               <AppIcon name="nav.settings" size={20} color={Colors.primary} />
             </TouchableOpacity>
@@ -663,6 +668,8 @@ export default function ChatScreen() {
                 style={styles.suggestBtn}
                 onPress={() => setShowSuggestions((v) => !v)}
                 activeOpacity={0.75}
+                accessibilityRole="button"
+                accessibilityLabel={showSuggestions ? 'Hide suggested prompts' : 'Show suggested prompts'}
               >
                 <AppIcon
                   name="object.idea"

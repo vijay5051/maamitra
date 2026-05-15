@@ -798,6 +798,7 @@ export default function HomeTab() {
             <TouchableOpacity
               style={styles.avatar}
               onPress={() => setProfileOpen(true)}
+              accessibilityRole="button"
               accessibilityLabel="Profile menu"
             >
               {photoUrl ? (
@@ -827,6 +828,7 @@ export default function HomeTab() {
           <TouchableOpacity
             style={styles.iconBtn}
             onPress={() => setNotifsOpen(true)}
+            accessibilityRole="button"
             accessibilityLabel="Notifications"
           >
             <AppIcon name="nav.notifications" size={22} color={Colors.textDark} />
@@ -840,6 +842,7 @@ export default function HomeTab() {
           <TouchableOpacity
             style={[styles.iconBtn, { marginLeft: 8 }]}
             onPress={() => setMessagesOpen(true)}
+            accessibilityRole="button"
             accessibilityLabel="Messages"
           >
             <AppIcon name="nav.messages" size={20} color={Colors.textDark} />
@@ -1426,6 +1429,7 @@ export default function HomeTab() {
                   }}
                   style={styles.sheetEditBtn}
                   activeOpacity={0.7}
+                  accessibilityRole="button"
                   accessibilityLabel="Edit profile"
                 >
                   <AppIcon name="object.pencil" size={16} />
@@ -2982,14 +2986,18 @@ const styles = StyleSheet.create({
   },
   todayCard: {
     width: '100%',
-    minHeight: 78,
+    minHeight: 92,
     borderRadius: 12,
     padding: Spacing.md,
-    gap: 3,
+    gap: 4,
     borderWidth: 1,
     borderColor: Colors.borderSoft,
+    overflow: 'hidden',
   },
-  todayCardIllus: { width: 32, height: 32, marginBottom: 2 },
+  // QA L1 fix — bumped illustration 32→36 + minHeight 78→92 so the glyph
+  // never visually crowds the card edge. `overflow: 'hidden'` on the
+  // card frame protects against children spilling.
+  todayCardIllus: { width: 36, height: 36, marginBottom: 2 },
   todayCardEmoji: { fontSize: 28, lineHeight: 32, marginBottom: 2 },
 
   // Today-for-<kid> hero card — promoted from todayCards[0]. Full-width,

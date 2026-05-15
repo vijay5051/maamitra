@@ -295,6 +295,8 @@ function PostCardInner({
         <TouchableOpacity
           onPress={() => onViewProfile(post.authorUid ?? '', post.authorName)}
           activeOpacity={0.75}
+          accessibilityRole="button"
+          accessibilityLabel={`View ${post.authorName}'s profile`}
         >
           {isUsableUri(post.authorPhotoUrl) && !authorPhotoErrored ? (
             <Image
@@ -342,6 +344,8 @@ function PostCardInner({
                 onPress={() => setMenuOpen((v) => !v)}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 style={styles.moreBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Post options"
               >
                 <Ionicons name="ellipsis-horizontal" size={18} color="#9ca3af" />
               </TouchableOpacity>
@@ -417,6 +421,8 @@ function PostCardInner({
         <TouchableOpacity
           onPress={() => setShowReactionPicker((v) => !v)}
           style={styles.addReactionBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Add reaction"
         >
           <Text style={styles.addReactionText}>+</Text>
         </TouchableOpacity>
@@ -426,13 +432,19 @@ function PostCardInner({
         <TouchableOpacity
           onPress={handleShare}
           style={styles.shareBtn}
+          accessibilityRole="button"
           accessibilityLabel="Share post"
           activeOpacity={0.7}
         >
           <Ionicons name="share-social-outline" size={16} color="#9ca3af" />
           <Text style={styles.shareText}>Share</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => onToggleComments(post.id)} style={styles.commentCountRow}>
+        <TouchableOpacity
+          onPress={() => onToggleComments(post.id)}
+          style={styles.commentCountRow}
+          accessibilityRole="button"
+          accessibilityLabel={`View comments, ${commentCount}`}
+        >
           <Ionicons name="chatbubble-outline" size={16} color="#9ca3af" />
           <Text style={styles.commentCount}>{commentCount}</Text>
         </TouchableOpacity>

@@ -1320,6 +1320,8 @@ export default function LibraryScreen() {
               onPress={() => router.push('/admin')}
               style={styles.adminBtn}
               activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityLabel="Open admin dashboard"
             >
               <AppIcon name="status.shield" size={20} color="rgba(255,255,255,0.7)" />
             </TouchableOpacity>
@@ -1348,7 +1350,12 @@ export default function LibraryScreen() {
               placeholderTextColor="#9ca3af"
             />
             {articleSearch.length > 0 && (
-              <TouchableOpacity onPress={() => setArticleSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <TouchableOpacity
+                onPress={() => setArticleSearch('')}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="Clear search"
+              >
                 <AppIcon name="nav.close-circle" size={16} />
               </TouchableOpacity>
             )}

@@ -577,7 +577,12 @@ function StatePickerModal({
           <View style={spStyles.handleBar} />
           <View style={spStyles.header}>
             <Text style={spStyles.title}>Select State</Text>
-            <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <TouchableOpacity
+              onPress={onClose}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="Close state picker"
+            >
               <Ionicons name="close" size={22} color="#6b7280" />
             </TouchableOpacity>
           </View>
@@ -1707,7 +1712,12 @@ export default function SettingsModal({
       <View style={[s.container, { paddingTop: insets.top }]}>
         {/* Light header — matches the rest of the refreshed UI. */}
         <View style={s.header}>
-          <TouchableOpacity onPress={showBack ? handleBack : handleClose} style={s.closeBtn}>
+          <TouchableOpacity
+            onPress={showBack ? handleBack : handleClose}
+            style={s.closeBtn}
+            accessibilityRole="button"
+            accessibilityLabel={showBack ? 'Back' : 'Close settings'}
+          >
             <Ionicons name={showBack ? 'arrow-back' : 'close'} size={20} color="#6b7280" />
           </TouchableOpacity>
           <Text style={s.headerTitle}>{headerTitle}</Text>

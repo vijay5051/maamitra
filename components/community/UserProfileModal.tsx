@@ -121,7 +121,12 @@ export function FollowListModal({ visible, title, items, onClose, onViewProfile 
         <View style={innerStyles.followListContainer}>
           <View style={innerStyles.followListHeader}>
             <Text style={innerStyles.followListTitle}>{title}</Text>
-            <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <TouchableOpacity
+              onPress={onClose}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="Close list"
+            >
               <Ionicons name="close" size={22} color="#1C1033" />
             </TouchableOpacity>
           </View>
@@ -687,7 +692,12 @@ export default function UserProfileModal({ uid, visible, onClose, onEditProfile 
           {/* Light profile header — was a dark purple→plum gradient; now a
               plain light section that matches the rest of the refreshed UI. */}
           <View style={styles.header}>
-            <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel="Close profile"
+            >
               <Ionicons name="close" size={20} color="#6b7280" />
             </TouchableOpacity>
 

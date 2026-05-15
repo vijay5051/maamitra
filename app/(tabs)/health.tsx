@@ -503,6 +503,8 @@ function MilestonesSection({
                 style={[styles.milestoneToggle, reached && styles.milestoneToggleOn]}
                 activeOpacity={0.82}
                 onPress={() => onToggle(milestone.id, !reached, milestone)}
+                accessibilityRole="button"
+                accessibilityLabel={reached ? `Mark ${milestone.title} as not reached` : `Mark ${milestone.title} as reached`}
               >
                 {reached ? (
                   <AppIcon name="status.success" size={16} color="#ffffff" />
@@ -666,7 +668,12 @@ function VaccinesSection({
         onRequestClose={() => setChangeOpen(false)}
       >
         <View style={vStyles.changeHeader}>
-          <TouchableOpacity onPress={() => setChangeOpen(false)} style={{ padding: 6 }}>
+          <TouchableOpacity
+            onPress={() => setChangeOpen(false)}
+            style={{ padding: 6 }}
+            accessibilityRole="button"
+            accessibilityLabel="Close schedule picker"
+          >
             <AppIcon name="nav.close" size={22} color={Colors.textLight} />
           </TouchableOpacity>
           <Text style={vStyles.changeHeaderTitle}>Change schedule</Text>

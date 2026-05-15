@@ -264,7 +264,11 @@ function AddChildModal({
           <View style={addChildStyles.handle} />
           <View style={addChildStyles.headerRow}>
             <Text style={addChildStyles.title}>Add a Child 👶</Text>
-            <TouchableOpacity onPress={() => { reset(); onClose(); }}>
+            <TouchableOpacity
+              onPress={() => { reset(); onClose(); }}
+              accessibilityRole="button"
+              accessibilityLabel="Close add child"
+            >
               <AppIcon name="nav.close-circle-outline" size={26} />
             </TouchableOpacity>
           </View>
@@ -477,6 +481,7 @@ export default function FamilyScreen() {
               style={styles.headerBtn}
               onPress={() => setShowAddModal(true)}
               activeOpacity={0.8}
+              accessibilityRole="button"
               accessibilityLabel="Add child"
             >
               <AppIcon name="action.add" size={20} color="#ffffff" />
@@ -488,6 +493,7 @@ export default function FamilyScreen() {
               style={styles.headerBtn}
               onPress={() => setShowNotifications(true)}
               activeOpacity={0.75}
+              accessibilityRole="button"
               accessibilityLabel="Notifications"
             >
               <AppIcon name="nav.notifications" size={18} color="#6b7280" />
@@ -501,6 +507,7 @@ export default function FamilyScreen() {
               style={styles.headerBtn}
               onPress={() => setShowMessages(true)}
               activeOpacity={0.75}
+              accessibilityRole="button"
               accessibilityLabel="Messages"
             >
               <AppIcon name="nav.messages" size={18} color="#6b7280" />

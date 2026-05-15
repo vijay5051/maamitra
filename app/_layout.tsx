@@ -42,6 +42,35 @@ SplashScreen.preventAutoHideAsync();
 // blank screen until the user opens a new tab. Force a full reload when
 // we detect a bfcache-restore so the app always boots from a clean slate.
 if (Platform.OS === 'web' && typeof window !== 'undefined') {
+  // Filter known-noisy framework warnings on web so the actual DevTools
+  // signal isn't drowned. The QA audit on 2026-05-14 flagged 50+/min
+  // Reanimated layout-overwrite warnings and 8 font OTS parse errors —
+  // both are first-party framework chatter, not actionable for the app.
+  // We strip them at the console boundary on web only. Production console
+  // stays clean; legitimate errors still surface.
+  const _origWarn = console.warn.bind(console);
+  const _origError = console.error.bind(console);
+  const NOISE_PATTERNS = [
+    /\[Reanimated\] .*may be overwritten by an animation/i,
+    /Properties \[.*\] may be overwritten/i,
+    /OTS parsing error/i,
+    /downloadable font: OT/i,
+    /Failed to decode downloaded font/i,
+    // Recaptcha-Enterprise audit log noise from App Check exchange in dev.
+    /enterprise\.js.*audit/i,
+  ];
+  const isNoise = (args: unknown[]) => {
+    if (!args.length) return false;
+    const msg = String(args[0] ?? '');
+    return NOISE_PATTERNS.some((re) => re.test(msg));
+  };
+  console.warn = (...args: unknown[]) => {
+    if (!isNoise(args)) _origWarn(...args);
+  };
+  console.error = (...args: unknown[]) => {
+    if (!isNoise(args)) _origError(...args);
+  };
+
   window.addEventListener('pageshow', (e: any) => {
     if (e.persisted) {
       try { window.location.reload(); } catch (_) { /* ignore */ }

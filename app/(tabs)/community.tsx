@@ -335,7 +335,11 @@ function NewPostModal({
         <View style={newPostStyles.sheet}>
           <View style={newPostStyles.header}>
             <Text style={newPostStyles.title}>New Post ✍️</Text>
-            <TouchableOpacity onPress={onClose}>
+            <TouchableOpacity
+              onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel="Close new post"
+            >
               <AppIcon name="nav.close-circle-outline" size={26} />
             </TouchableOpacity>
           </View>
@@ -400,7 +404,12 @@ function NewPostModal({
                     <Text style={newPostStyles.cropLoadingText}>Cropping…</Text>
                   </View>
                 )}
-                <TouchableOpacity style={newPostStyles.removeImageBtn} onPress={handleRemoveImage}>
+                <TouchableOpacity
+                  style={newPostStyles.removeImageBtn}
+                  onPress={handleRemoveImage}
+                  accessibilityRole="button"
+                  accessibilityLabel="Remove photo"
+                >
                   <AppIcon name="nav.close-circle" size={22} color="#ffffff" />
                 </TouchableOpacity>
               </View>
@@ -1157,6 +1166,7 @@ export default function CommunityScreen() {
               style={styles.notifBtn}
               onPress={() => setShowUserSearch(true)}
               activeOpacity={0.75}
+              accessibilityRole="button"
               accessibilityLabel="Search people"
             >
               <AppIcon name="nav.search-outline" size={20} color="#374151" />
@@ -1167,6 +1177,8 @@ export default function CommunityScreen() {
               style={styles.notifBtn}
               onPress={() => setShowMessages(true)}
               activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityLabel="Messages"
             >
               <AppIcon name="nav.messages" size={20} color="#374151" />
               {unreadDMs > 0 && (
@@ -1181,6 +1193,8 @@ export default function CommunityScreen() {
               style={styles.notifBtn}
               onPress={() => setShowNotifications(true)}
               activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityLabel="Notifications"
             >
               <AppIcon name="nav.notifications" size={22} color="#374151" />
               {unreadCount > 0 && (

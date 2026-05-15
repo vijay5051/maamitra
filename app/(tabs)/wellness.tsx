@@ -282,6 +282,8 @@ function MoodChart() {
             onPress={() => shiftWeek(-7)}
             style={chartStyles.navBtn}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel="Previous week"
           >
             <AppIcon name="nav.back" size={16} color={Colors.primary} />
           </TouchableOpacity>
@@ -290,6 +292,8 @@ function MoodChart() {
             disabled={isThisWeek}
             style={[chartStyles.navBtn, isThisWeek && { opacity: 0.3 }]}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel="Next week"
           >
             <AppIcon name="nav.forward" size={16} color={Colors.primary} />
           </TouchableOpacity>
@@ -363,7 +367,12 @@ function MoodChart() {
         <View style={chartStyles.calendarWrap}>
           {/* Month header */}
           <View style={chartStyles.calHeaderRow}>
-            <TouchableOpacity onPress={() => shiftCalMonth(-1)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <TouchableOpacity
+              onPress={() => shiftCalMonth(-1)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="Previous month"
+            >
               <AppIcon name="nav.back" size={18} color={Colors.primary} />
             </TouchableOpacity>
             <Text style={chartStyles.calMonthLabel}>{calMonthLabel}</Text>
@@ -371,6 +380,8 @@ function MoodChart() {
               onPress={() => shiftCalMonth(1)}
               disabled={isFutureMonth}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="Next month"
             >
               <AppIcon name="nav.forward" size={18} color={isFutureMonth ? '#D1D5DB' : Colors.primary} />
             </TouchableOpacity>
