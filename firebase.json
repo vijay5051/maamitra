@@ -1,7 +1,8 @@
 {
   "hosting": {
     "public": "dist",
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "_ignore_note": "Do NOT add **/node_modules/** to ignore. Expo Export writes asset URLs that resolve to dist/assets/node_modules/@expo-google-fonts/... at runtime. Adding that pattern strips the font files from hosting and the browser falls through the SPA rewrite to index.html — manifests as 'OTS parsing error: invalid sfntVersion' for every Lora/icon font load.",
+    "ignore": ["firebase.json", "**/.*"],
     "rewrites": [{ "source": "**", "destination": "/index.html" }],
     "headers": [
       {
