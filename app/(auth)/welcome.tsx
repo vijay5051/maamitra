@@ -84,25 +84,27 @@ export default function WelcomeScreen() {
               the focus chain. */}
           <View
             style={[styles.buttonsContainer, styles.heroCta]}
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-            // RN's accessibilityElementsHidden does NOT reach the DOM on
-            // react-native-web. Use the standard HTML `inert` attribute
-            // instead — removes the subtree from BOTH the accessibility
-            // tree AND the focus order in one shot. Cast to any because
-            // RN's View typings predate `inert`.
-            {...(Platform.OS === 'web' && ({ inert: '', 'aria-hidden': true } as any))}
+            // RN Web ignores `accessibilityElementsHidden` on <View> but
+            // honours `aria-hidden`. Mark the wrapper hidden for screen
+            // readers, then push tabIndex=-1 down to each focusable child
+            // (web filters unknown DOM props on <View>, so the children
+            // themselves must opt out of the tab chain).
+            {...(Platform.OS === 'web' && ({ 'aria-hidden': true } as any))}
           >
             <GradientButton
               title="Get started — it's free"
               onPress={() => router.push('/(auth)/sign-up')}
               style={styles.primaryButton}
+              a11yHidden
             />
             <TouchableOpacity
               style={styles.textCta}
               onPress={() => router.push('/(auth)/sign-in')}
               activeOpacity={0.6}
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
               focusable={false}
+              {...(Platform.OS === 'web' && ({ tabIndex: -1, 'aria-hidden': true } as any))}
             >
               <Text style={styles.textCtaLabel}>Already have an account?</Text>
               <Text style={styles.textCtaAction}>Sign in</Text>

@@ -38,6 +38,13 @@ interface GradientButtonProps {
   outline?: boolean;
   icon?: keyof typeof Ionicons.glyphMap;
   loading?: boolean;
+  /**
+   * Remove this button from the web keyboard tab chain (tabIndex=-1) and
+   * native a11y tree. Use when a visually-duplicated CTA exists elsewhere
+   * on the page and should be the single screen-reader / keyboard entry
+   * point. See welcome.tsx for the canonical pair-of-CTAs use case.
+   */
+  a11yHidden?: boolean;
 }
 
 const BRAND = Colors.primary;
@@ -52,6 +59,7 @@ export default function GradientButton({
   outline = false,
   icon,
   loading = false,
+  a11yHidden = false,
 }: GradientButtonProps) {
   const scale = useRef(new Animated.Value(1)).current;
   const handlePress = () => {
@@ -79,6 +87,20 @@ export default function GradientButton({
 
   const isDisabled = disabled || loading;
 
+  // When the caller marks this CTA as a11yHidden — there's an equivalent
+  // primary CTA elsewhere on the page and this one is visual-only — we
+  // pull it out of both the native a11y tree and (on web) the keyboard
+  // tab chain. Cast to any because RN's prop types don't include
+  // tabIndex on TouchableWithoutFeedback even though RN Web honours it.
+  const a11yProps = a11yHidden
+    ? ({
+        accessibilityElementsHidden: true,
+        importantForAccessibility: 'no-hide-descendants',
+        focusable: false,
+        ...(Platform.OS === 'web' ? { tabIndex: -1, 'aria-hidden': true } : {}),
+      } as any)
+    : {};
+
   if (outline) {
     return (
       <TouchableWithoutFeedback
@@ -86,6 +108,7 @@ export default function GradientButton({
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         disabled={isDisabled}
+        {...a11yProps}
       >
         <Animated.View
           style={[
@@ -120,6 +143,7 @@ export default function GradientButton({
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       disabled={isDisabled}
+      {...a11yProps}
     >
       <Animated.View
         style={[
