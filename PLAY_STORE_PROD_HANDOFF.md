@@ -42,7 +42,10 @@ Bundles all internal-testing work since v1.0.3 (versionCode 11, 2026-04-29):
 In order:
 
 ### 1. Wait for EAS build to finish (~15–20 min from now)
-Track at: https://expo.dev/accounts/rockingvsr/projects/maamitra/builds
+Build ID: `07442625-cda5-4890-b5ed-408c04e8d16c`
+Track at: https://expo.dev/accounts/rockingvsr/projects/maamitra/builds/07442625-cda5-4890-b5ed-408c04e8d16c
+Status: IN_PROGRESS (~6 min in as of 15:37 IST 2026-05-18).
+versionCode 30 · appVersion 1.0.6 · runtimeVersion 1.0.6 · channel production · git commit 1f33254.
 You'll get an AAB download link when ready. Save it locally.
 
 ### 2. Upload AAB to **Internal testing** track first
@@ -113,9 +116,10 @@ All in `tmp/` (gitignored).
 
 - `31b6b03` — D1 critical (404, redirects, splash gate, devPreviewAdmin, friendlyAuthError, contact email, Google G, no-trim password)
 - `c173195` — D2 polish (Lora wordmark, font gate, taller inputs, hidden hero CTAs, AA divider)
-- `246aa17` — D2.5 QA fixes (web `inert` for tab order, inputs 40→44)
-- `1f33254` — version bump 1.0.6 / vC 29
-- *(pending)* EAS auto-increment commit when build finishes
+- `246aa17` — D2.5 QA fixes (web `inert` attempt for tab order, inputs 40→44)
+- `1f33254` — version bump 1.0.6 / vC 29 (this is the commit EAS built from)
+- `ffeb4f9` — EAS auto-increment vC 29→30 + this handoff doc
+- `44945ef` — D2.6 web tab-order proper fix (RN Web filters `inert` on View, so tabIndex=-1 had to be pushed down to focusable children + new `a11yHidden` prop on GradientButton). Web is live with this fix. Will OTA to 1.0.6 channel so new AAB users get it at first launch.
 
 ---
 
