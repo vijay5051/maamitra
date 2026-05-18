@@ -170,17 +170,17 @@ const fieldStyles = StyleSheet.create({
     pointerEvents: 'none',
   },
   textInput: {
-    // Bumped to 16px so iOS Safari does NOT auto-zoom on focus (browser
-    // behaviour for any input < 16px). Bumped to height 40 + paddingTop 10
-    // so the wrapped row (label + input + icon) hits the 44px tap-target
-    // minimum on mobile. The previous 28px height made the input feel
-    // cramped on mobile and missed Play-Store-prod touch-target guidance.
+    // 16px to defeat iOS Safari auto-zoom on focus (browser zooms any
+    // input < 16px). Height 44 (with paddingTop 12) to hit the WCAG 2.5.5
+    // Target Size minimum directly on the visible input, not just on the
+    // wrapped row — the QA pass caught that 40px on the input itself was
+    // still below the bar.
     fontFamily: Fonts.sansRegular,
     fontSize: 16,
     color: '#1C1033',
     padding: 0,
-    paddingTop: 10,
-    height: 40,
+    paddingTop: 12,
+    height: 44,
   },
 });
 

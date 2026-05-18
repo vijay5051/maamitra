@@ -86,6 +86,12 @@ export default function WelcomeScreen() {
             style={[styles.buttonsContainer, styles.heroCta]}
             accessibilityElementsHidden
             importantForAccessibility="no-hide-descendants"
+            // RN's accessibilityElementsHidden does NOT reach the DOM on
+            // react-native-web. Use the standard HTML `inert` attribute
+            // instead — removes the subtree from BOTH the accessibility
+            // tree AND the focus order in one shot. Cast to any because
+            // RN's View typings predate `inert`.
+            {...(Platform.OS === 'web' && ({ inert: '', 'aria-hidden': true } as any))}
           >
             <GradientButton
               title="Get started — it's free"

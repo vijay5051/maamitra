@@ -166,15 +166,15 @@ const fieldStyles = StyleSheet.create({
     pointerEvents: 'none',
   },
   textInput: {
-    // 16px to defeat iOS Safari auto-zoom on focus; height 40 +
-    // paddingTop 10 to clear the 44px Play-Store-prod tap-target
-    // minimum once label + icon padding is added by the row.
+    // 16px to defeat iOS Safari auto-zoom on focus. Height 44 +
+    // paddingTop 12 so the visible input meets WCAG 2.5.5 Target Size
+    // directly (was 40, flagged by /qa as borderline below the 44 bar).
     fontFamily: Fonts.sansRegular,
     fontSize: 16,
     color: '#1C1033',
     padding: 0,
-    paddingTop: 10,
-    height: 40,
+    paddingTop: 12,
+    height: 44,
   },
 });
 
