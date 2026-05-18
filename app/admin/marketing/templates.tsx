@@ -123,7 +123,19 @@ export default function MarketingTemplatesScreen() {
     return rows.filter((r) => {
       if (filterCategory !== 'all' && (r.category || 'Uncategorised') !== filterCategory) return false;
       if (!needle) return true;
-      return r.label.toLowerCase().includes(needle) || r.category.toLowerCase().includes(needle);
+      const haystack = [
+        r.label,
+        r.category,
+        r.ageRange ?? '',
+        r.setting ?? '',
+        r.mood ?? '',
+        r.searchText ?? '',
+        ...r.characters,
+        ...r.topics,
+        ...r.useCases,
+        ...r.tags,
+      ].join(' ').toLowerCase();
+      return haystack.includes(needle);
     });
   }, [rows, filterCategory, search]);
 

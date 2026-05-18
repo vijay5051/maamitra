@@ -37,10 +37,23 @@ export interface TemplateImageDoc {
   bytes: number;
   width: number | null;
   height: number | null;
+  ageRange: string | null;
+  characters: string[];
+  topics: string[];
+  setting: string | null;
+  mood: string | null;
+  useCases: string[];
+  tags: string[];
+  searchText: string | null;
   uploadedBy: string | null;
   uploadedAt: string | null;
   /** Original filename when imported from the static seed manifest. */
   legacyFileName: string | null;
+}
+
+function asStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === 'string' && !!item.trim()).map((item) => item.trim());
 }
 
 function tsToIso(ts: unknown): string | null {
@@ -60,6 +73,14 @@ function rowToDoc(snap: { id: string; data: () => DocumentData }): TemplateImage
     bytes: typeof d.bytes === 'number' ? d.bytes : 0,
     width: typeof d.width === 'number' ? d.width : null,
     height: typeof d.height === 'number' ? d.height : null,
+    ageRange: typeof d.ageRange === 'string' ? d.ageRange : null,
+    characters: asStringArray(d.characters),
+    topics: asStringArray(d.topics),
+    setting: typeof d.setting === 'string' ? d.setting : null,
+    mood: typeof d.mood === 'string' ? d.mood : null,
+    useCases: asStringArray(d.useCases),
+    tags: asStringArray(d.tags),
+    searchText: typeof d.searchText === 'string' ? d.searchText : null,
     uploadedBy: typeof d.uploadedBy === 'string' ? d.uploadedBy : null,
     uploadedAt: tsToIso(d.uploadedAt),
     legacyFileName: typeof d.legacyFileName === 'string' ? d.legacyFileName : null,
