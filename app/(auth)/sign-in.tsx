@@ -27,8 +27,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useProfileStore } from '../../store/useProfileStore';
 import { isAdminEmail } from '../../lib/admin';
+import { friendlyAuthError } from '../../lib/friendlyAuthError';
 import { Fonts } from '../../constants/theme';
 import GradientButton from '../../components/ui/GradientButton';
+import GoogleGIcon from '../../components/ui/GoogleGIcon';
 import { useGoogleSignIn } from '../../hooks/useGoogleSignIn';
 import { Colors } from '../../constants/theme';
 
@@ -260,19 +262,14 @@ export default function SignInScreen() {
     setApiError('');
     setLoading(true);
     try {
-      await signIn(email.trim(), password.trim());
+      // Never trim the password — a user who pasted one with leading/
+      // trailing whitespace at sign-up would silently lock themselves out
+      // here. Email is safe to trim (it's case/space-insensitive in
+      // Firebase auth).
+      await signIn(email.trim(), password);
       routeAfterSignIn();
     } catch (e: any) {
-      const code = e?.code ?? '';
-      if (code === 'auth/user-not-found' || code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
-        setApiError('Incorrect email or password. Please try again.');
-      } else if (code === 'auth/too-many-requests') {
-        setApiError('Too many attempts. Please wait a moment and try again.');
-      } else if (code === 'auth/network-request-failed') {
-        setApiError('No internet connection. Please try again.');
-      } else {
-        setApiError(e?.message ?? 'Sign in failed. Please try again.');
-      }
+      setApiError(friendlyAuthError(e, 'sign-in'));
       triggerShake();
     } finally {
       setLoading(false);
@@ -297,16 +294,7 @@ export default function SignInScreen() {
         else router.replace('/(auth)/onboarding');
       })
       .catch((e: any) => {
-        const code = e?.code ?? '';
-        if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
-          setApiError('Sign-in window closed before completing. Please try again.');
-        } else if (code === 'auth/unauthorized-domain') {
-          setApiError('This domain is not authorized for Google sign-in.');
-        } else if (code === 'auth/network-request-failed') {
-          setApiError('No internet connection. Please try again.');
-        } else {
-          setApiError(e?.message ?? 'Google sign-in failed. Please try again.');
-        }
+        setApiError(friendlyAuthError(e, 'google'));
         triggerShake();
       })
       .finally(() => setGoogleLoading(false));
@@ -352,7 +340,7 @@ export default function SignInScreen() {
             disabled={googleLoading || !googleReady}
             activeOpacity={0.85}
           >
-            <Text style={styles.googleG}>G</Text>
+            <GoogleGIcon size={18} />
             <Text style={styles.googleText}>
               {googleLoading ? 'Signing in…' : 'Continue with Google'}
             </Text>

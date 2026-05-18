@@ -114,13 +114,35 @@ if (Platform.OS === 'web' && typeof window !== 'undefined') {
   }, 30_000);
 }
 
+// The branded splash plays once per browser session and only when the
+// landing path is the root or welcome route. Deep links to /forgot-password,
+// /sign-in, /privacy, etc. used to sit behind ~1.8s of mascot animation and
+// looked broken; suppress the overlay in those cases.
+const SPLASH_SESSION_KEY = '__maamitra_splash_played__';
+const SPLASH_PATHS = ['/', '/welcome', '/(auth)/welcome'];
+
+function shouldShowSplash(initialPath: string): boolean {
+  if (Platform.OS !== 'web') return true;
+  if (typeof window === 'undefined') return false;
+  try {
+    if (window.sessionStorage?.getItem(SPLASH_SESSION_KEY) === '1') return false;
+  } catch {
+    /* sessionStorage may be unavailable (Safari private mode) — fall through */
+  }
+  if (!SPLASH_PATHS.includes(initialPath)) return false;
+  return true;
+}
+
 export default function RootLayout() {
   const { initAuth, user } = useAuthStore();
   const { fetchSettings } = useAppSettingsStore();
   const { markInstalledIfNeeded, manualOpen, closeSurvey } = useFeedbackStore();
   const pathname = usePathname();
   const [autoSurveyVisible, setAutoSurveyVisible] = useState(false);
-  const [splashDone, setSplashDone] = useState(false);
+  // Lock the splash decision to whatever the path was at first mount.
+  // Subsequent in-app navigation must not retrigger the overlay.
+  const [splashVisible, setSplashVisible] = useState(() => shouldShowSplash(pathname || '/'));
+  const [splashDone, setSplashDone] = useState(() => !shouldShowSplash(pathname || '/'));
   const surveyVisible = autoSurveyVisible || manualOpen;
 
   // All fonts loaded from local assets — guarantees they're bundled and served
@@ -240,9 +262,17 @@ export default function RootLayout() {
               during a forced rollout still wins. */}
           <ForceUpdateOverlay />
           <MaintenanceOverlay />
-          {!splashDone && (fontsLoaded || fontError) && (
+          {splashVisible && !splashDone && (fontsLoaded || fontError) && (
             <View style={StyleSheet.absoluteFill} pointerEvents="none">
-              <SplashAnimation onComplete={() => setSplashDone(true)} />
+              <SplashAnimation onComplete={() => {
+                setSplashDone(true);
+                setSplashVisible(false);
+                try {
+                  if (typeof window !== 'undefined') {
+                    window.sessionStorage?.setItem(SPLASH_SESSION_KEY, '1');
+                  }
+                } catch { /* private mode etc — silently ignore */ }
+              }} />
             </View>
           )}
         </SafeAreaProvider>

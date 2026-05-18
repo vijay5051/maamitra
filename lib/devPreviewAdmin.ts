@@ -97,6 +97,10 @@ function deactivate(): void {
  * fake user is in place before any child layout's auth gate fires.
  */
 export function maybeEnablePreviewAdmin(): void {
+  // Defense in depth: even though the import-site call is `__DEV__`-gated,
+  // also refuse to run when the global is false. Production bundlers strip
+  // `if (!__DEV__) return;` cleanly and constant-fold the rest away.
+  if (!__DEV__) return;
   if (Platform.OS !== 'web') return;
   if (!isLocalhost()) return;
 
@@ -124,7 +128,7 @@ export function maybeEnablePreviewAdmin(): void {
 // We also subscribe to store changes so the real Firebase onAuthStateChanged
 // listener doesn't immediately wipe the fake user back to null. While the
 // preview flag is on, every transition to user=null is reverted.
-if (typeof window !== 'undefined') {
+if (__DEV__ && typeof window !== 'undefined') {
   try { maybeEnablePreviewAdmin(); } catch { /* noop */ }
   let resubscribed = false;
   if (Platform.OS === 'web' && isLocalhost() && !resubscribed) {

@@ -26,8 +26,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../store/useAuthStore';
 import { isAdminEmail } from '../../lib/admin';
+import { friendlyAuthError } from '../../lib/friendlyAuthError';
 import { Fonts } from '../../constants/theme';
 import GradientButton from '../../components/ui/GradientButton';
+import GoogleGIcon from '../../components/ui/GoogleGIcon';
 import { useGoogleSignIn } from '../../hooks/useGoogleSignIn';
 import { Colors } from '../../constants/theme';
 
@@ -299,7 +301,10 @@ export default function SignUpScreen() {
     setApiError('');
     setLoading(true);
     try {
-      await signUp(email.trim(), password.trim(), name.trim());
+      // Don't trim the password — see matching note in sign-in.tsx. If we
+      // strip whitespace on one side and not the other, the user locks
+      // themselves out on the next sign-in.
+      await signUp(email.trim(), password, name.trim());
       // Admin email registering via the same form: skip verify-email gate
       // (we still auto-send the verification mail server-side) and go
       // straight to /admin so they can work immediately.
@@ -309,12 +314,7 @@ export default function SignUpScreen() {
       }
       router.replace('/(auth)/verify-email');
     } catch (e: any) {
-      const code = e?.code ?? '';
-      if (code === 'auth/email-already-in-use') setApiError('This email is already registered. Try signing in instead.');
-      else if (code === 'auth/invalid-email') setApiError('Please enter a valid email address.');
-      else if (code === 'auth/weak-password') setApiError('Password must be at least 6 characters.');
-      else if (code === 'auth/network-request-failed') setApiError('No internet connection. Please try again.');
-      else setApiError(e?.message ?? 'Something went wrong. Please try again.');
+      setApiError(friendlyAuthError(e, 'sign-up'));
       triggerShake();
     } finally {
       setLoading(false);
@@ -336,16 +336,7 @@ export default function SignUpScreen() {
         else router.replace('/(auth)/onboarding');
       })
       .catch((e: any) => {
-        const code = e?.code ?? '';
-        if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
-          setApiError('Sign-in window closed before completing. Please try again.');
-        } else if (code === 'auth/unauthorized-domain') {
-          setApiError('This domain is not authorized for Google sign-in.');
-        } else if (code === 'auth/network-request-failed') {
-          setApiError('No internet connection. Please try again.');
-        } else {
-          setApiError(e?.message ?? 'Google sign-in failed. Please try again.');
-        }
+        setApiError(friendlyAuthError(e, 'google'));
         triggerShake();
       })
       .finally(() => setGoogleLoading(false));
@@ -388,7 +379,7 @@ export default function SignUpScreen() {
             disabled={googleLoading || !googleReady}
             activeOpacity={0.85}
           >
-            <Text style={styles.googleG}>G</Text>
+            <GoogleGIcon size={18} />
             <Text style={styles.googleText}>
               {googleLoading ? 'Signing in…' : 'Continue with Google'}
             </Text>

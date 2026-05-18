@@ -156,12 +156,38 @@ export default function WelcomeScreen() {
 
         <View style={styles.footer}>
           <View style={styles.footerLinks}>
-            <TouchableOpacity onPress={() => router.push('/privacy')}><Text style={styles.footerLink}>Privacy</Text></TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => router.push('/privacy')}
+              hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+              accessibilityRole="link"
+              accessibilityLabel="Privacy policy"
+            >
+              <Text style={styles.footerLink}>Privacy</Text>
+            </TouchableOpacity>
             <Text style={styles.footerDot}>·</Text>
-            <TouchableOpacity onPress={() => router.push('/terms')}><Text style={styles.footerLink}>Terms</Text></TouchableOpacity>
-            <Text style={styles.footerDot}>·</Text>
-            <TouchableOpacity onPress={() => Linking.openURL('mailto:info@maamitra.co.in')}><Text style={styles.footerLink}>Contact</Text></TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => router.push('/terms')}
+              hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+              accessibilityRole="link"
+              accessibilityLabel="Terms of service"
+            >
+              <Text style={styles.footerLink}>Terms</Text>
+            </TouchableOpacity>
           </View>
+          {/* Always-visible contact email — `mailto:` silently no-ops in
+              browsers without a configured handler, so we render the
+              address itself as copyable text and only attempt mailto on
+              tap. */}
+          <TouchableOpacity
+            onPress={() => Linking.openURL('mailto:info@maamitra.co.in')}
+            hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+            accessibilityRole="link"
+            accessibilityLabel="Email MaaMitra at info@maamitra.co.in"
+          >
+            <Text style={styles.footerContact}>
+              Contact: <Text style={styles.footerContactEmail} selectable>info@maamitra.co.in</Text>
+            </Text>
+          </TouchableOpacity>
           <Text style={styles.footerMeta}>
             © {new Date().getFullYear()} MaaMitra · Made in India
           </Text>
@@ -324,10 +350,14 @@ const styles = StyleSheet.create({
 
   footer: { marginTop: 24, alignItems: 'center', gap: 8 },
   footerLinks: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  footerLink: { fontFamily: Fonts.sansBold, fontSize: 12, color: Colors.primary },
-  footerDot: { color: '#9ca3af', fontSize: 12 },
+  footerLink: { fontFamily: Fonts.sansBold, fontSize: 12, color: Colors.primary, paddingVertical: 4 },
+  footerDot: { color: Colors.textLight, fontSize: 12 },
+  footerContact: {
+    fontFamily: Fonts.sansRegular, fontSize: 12, color: Colors.textLight, textAlign: 'center',
+  },
+  footerContactEmail: { fontFamily: Fonts.sansBold, color: Colors.primary },
   footerMeta: {
-    fontFamily: Fonts.sansRegular, fontSize: 11, color: '#9ca3af', textAlign: 'center',
+    fontFamily: Fonts.sansRegular, fontSize: 11, color: Colors.textLight, textAlign: 'center',
   },
 });
 
