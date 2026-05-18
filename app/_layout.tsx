@@ -241,10 +241,25 @@ export default function RootLayout() {
     if (fontsLoaded || fontError) SplashScreen.hideAsync();
   }, [fontsLoaded, fontError]);
 
-  // Don't block the whole app render on fonts on web — a slow font fetch
-  // used to leave the user staring at a blank screen after refresh. System
-  // fonts fall back and custom fonts swap in when they finish loading.
+  // Web font-gate: block first paint for up to FONT_GATE_MS so the brand
+  // wordmark, "Welcome back" headline, etc. don't FOUT into Times on
+  // initial load. Falls through to system fonts after the timeout so a
+  // genuinely slow font fetch never leaves the user staring at a blank
+  // screen (the failure mode the prior unconditional non-gate fixed).
+  const FONT_GATE_MS = 600;
+  const [webFontGateOpen, setWebFontGateOpen] = useState(Platform.OS !== 'web');
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    if (fontsLoaded || fontError) {
+      setWebFontGateOpen(true);
+      return;
+    }
+    const t = setTimeout(() => setWebFontGateOpen(true), FONT_GATE_MS);
+    return () => clearTimeout(t);
+  }, [fontsLoaded, fontError]);
+
   if (Platform.OS !== 'web' && !fontsLoaded && !fontError) return null;
+  if (Platform.OS === 'web' && !webFontGateOpen) return null;
 
   return (
     <RootErrorBoundary>

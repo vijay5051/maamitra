@@ -75,9 +75,18 @@ export default function WelcomeScreen() {
           </Text>
 
           {/* Above-the-fold CTA — visible without scrolling. The full
-              finalCta block stays at the bottom for visitors who scroll
-              through the marketing first. */}
-          <View style={[styles.buttonsContainer, styles.heroCta]}>
+              finalCta block at the bottom is the conversion-anchored copy,
+              so keyboard and screen-reader users get ONE pass through
+              "Get started / Sign in" via that block. Hide this hero pair
+              from the a11y tree to avoid the duplicate-tab-order finding
+              from the pre-Play-Store audit. Mouse / touch users still see
+              and click these — they're visually present, just removed from
+              the focus chain. */}
+          <View
+            style={[styles.buttonsContainer, styles.heroCta]}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+          >
             <GradientButton
               title="Get started — it's free"
               onPress={() => router.push('/(auth)/sign-up')}
@@ -87,6 +96,7 @@ export default function WelcomeScreen() {
               style={styles.textCta}
               onPress={() => router.push('/(auth)/sign-in')}
               activeOpacity={0.6}
+              focusable={false}
             >
               <Text style={styles.textCtaLabel}>Already have an account?</Text>
               <Text style={styles.textCtaAction}>Sign in</Text>
@@ -274,8 +284,12 @@ const styles = StyleSheet.create({
   logoImage: { width: 56, height: 56, marginBottom: 6 },
   featureIllus: { width: 56, height: 56, marginBottom: 8, alignSelf: 'flex-start' },
   wordmark: {
-    fontFamily: 'DMSans_700Bold', fontSize: 38, color: '#1C1033',
-    letterSpacing: -0.6, marginBottom: 10,
+    // Lora (Fonts.serif) is the brand's headline face — pairs the welcome
+    // wordmark with the "Welcome back" / "Create your account" headings on
+    // the sign-in/sign-up screens. Previously this was DMSans 700, which
+    // made the wordmark feel different from every adjacent screen.
+    fontFamily: Fonts.serif, fontSize: 40, color: Colors.textDark,
+    letterSpacing: -0.4, marginBottom: 10,
   },
   tagline: {
     fontFamily: Fonts.sansBold, fontSize: 18, color: '#1C1033',

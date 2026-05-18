@@ -166,12 +166,15 @@ const fieldStyles = StyleSheet.create({
     pointerEvents: 'none',
   },
   textInput: {
+    // 16px to defeat iOS Safari auto-zoom on focus; height 40 +
+    // paddingTop 10 to clear the 44px Play-Store-prod tap-target
+    // minimum once label + icon padding is added by the row.
     fontFamily: Fonts.sansRegular,
-    fontSize: 15,
+    fontSize: 16,
     color: '#1C1033',
     padding: 0,
-    paddingTop: 4,
-    height: 28,
+    paddingTop: 10,
+    height: 40,
   },
 });
 
@@ -543,9 +546,12 @@ const styles = StyleSheet.create({
   },
   dividerLine: { flex: 1, height: 1, backgroundColor: '#E5E1EE' },
   dividerText: {
+    // Bumped 11 -> 12 (WCAG label minimum) and #9ca3af -> Colors.textLight
+    // (#6b7280) so "OR SIGN UP WITH EMAIL" clears AA contrast on
+    // Colors.bgLight. See matching change in sign-in.tsx for rationale.
     fontFamily: Fonts.sansMedium,
-    fontSize: 11,
-    color: '#9ca3af',
+    fontSize: 12,
+    color: Colors.textLight,
     letterSpacing: 0.5,
     textTransform: 'uppercase',
   },

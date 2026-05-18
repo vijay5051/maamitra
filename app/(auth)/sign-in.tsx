@@ -170,12 +170,17 @@ const fieldStyles = StyleSheet.create({
     pointerEvents: 'none',
   },
   textInput: {
+    // Bumped to 16px so iOS Safari does NOT auto-zoom on focus (browser
+    // behaviour for any input < 16px). Bumped to height 40 + paddingTop 10
+    // so the wrapped row (label + input + icon) hits the 44px tap-target
+    // minimum on mobile. The previous 28px height made the input feel
+    // cramped on mobile and missed Play-Store-prod touch-target guidance.
     fontFamily: Fonts.sansRegular,
-    fontSize: 15,
+    fontSize: 16,
     color: '#1C1033',
     padding: 0,
-    paddingTop: 4,
-    height: 28,
+    paddingTop: 10,
+    height: 40,
   },
 });
 
@@ -502,9 +507,13 @@ const styles = StyleSheet.create({
   },
   dividerLine: { flex: 1, height: 1, backgroundColor: '#E5E1EE' },
   dividerText: {
+    // Bumped 11 -> 12 (WCAG label minimum) and #9ca3af -> Colors.textLight
+    // (#6b7280) so the "OR SIGN IN WITH EMAIL" divider clears AA contrast
+    // on Colors.bgLight (#fbf7f1). Prior 3.2:1 ratio failed both AA body
+    // (4.5:1) and AA large (3:1).
     fontFamily: Fonts.sansMedium,
-    fontSize: 11,
-    color: '#9ca3af',
+    fontSize: 12,
+    color: Colors.textLight,
     letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
