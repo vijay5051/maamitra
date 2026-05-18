@@ -28,3 +28,6 @@ expo-env.d.ts
 cloudflare-worker/node_modules/
 bun.lock
 firebase-debug.log
+
+# Local scratch / audit screenshots — never publish
+tmp/
