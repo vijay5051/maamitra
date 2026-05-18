@@ -103,6 +103,8 @@ Play Console → **Main store listing → Phone screenshots**. If they show the 
 3. **Codex's parked work** in `stash@{0}` — marketing template-image batch generator script + 1 sample thumbnail. Either land or formally drop next time you sit down with Codex.
 4. **iOS App Store** — separate path, gated on Apple Developer enrollment under Vijay Singh Rathore (per `project_ios_apple_developer_path` memory).
 5. **`/canary` post-deploy monitoring** — run after rollout hits 20% to catch console errors, perf regressions, screenshots vs baseline.
+6. **Android 15 edge-to-edge deprecation** (Play Console suggestion, surfaced on v1.0.5 build 27) — `setStatusBarColor` / `setNavigationBarColor` / `LAYOUT_IN_DISPLAY_CUTOUT_MODE_*` are deprecated. Source is React Native core (`StatusBarModule`, `WindowUtilKt`) + Material Design lib, not our code. Fix = bump RN 0.83.6 → 0.84+ (or whatever the next stable is). Plan for v1.1. Not user-visible today; deprecated ≠ broken.
+7. **Android 16 large-screen orientation lock** (Play Console suggestion) — `MainActivity android:screenOrientation="PORTRAIT"` (set by `"orientation": "portrait"` in `app.json:6`) will be ignored by Android 16 on foldables / tablets, causing stretched portrait layouts on those devices. Fix is more than one line: remove the lock AND add responsive landscape layouts (welcome, auth, chat, profile, marketing) using `useWindowDimensions()` breakpoints. ~1–2 days. Plan for v1.x. <5% of Indian Android users today; defer is reasonable.
 
 ## Verification snapshots saved
 
