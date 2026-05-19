@@ -1461,6 +1461,7 @@ export default function CommunityScreen() {
         onSelectUser={(uid) => {
           setViewingUid(uid);
         }}
+        suggestedState={profile?.state}
       />
 
       {/* Reactors sheet — opened from PostCard's "See who reacted" chip or

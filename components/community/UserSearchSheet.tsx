@@ -17,7 +17,7 @@ import GradientAvatar from '../ui/GradientAvatar';
 import { Fonts } from '../../constants/theme';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useSocialStore } from '../../store/useSocialStore';
-import { searchPublicProfiles, UserPublicProfile } from '../../services/social';
+import { searchPublicProfiles, fetchProfilesByState, UserPublicProfile } from '../../services/social';
 import { Colors } from '../../constants/theme';
 
 // ─── Props ───────────────────────────────────────────────────────────────────
@@ -27,6 +27,8 @@ interface Props {
   onClose: () => void;
   /** Open the profile modal for the tapped user. */
   onSelectUser: (uid: string) => void;
+  /** When set, pre-load profiles from this state and show them in the idle state. */
+  suggestedState?: string;
 }
 
 // ─── Row ─────────────────────────────────────────────────────────────────────
@@ -68,7 +70,7 @@ function UserRow({
 
 // ─── Sheet ───────────────────────────────────────────────────────────────────
 
-export default function UserSearchSheet({ visible, onClose, onSelectUser }: Props) {
+export default function UserSearchSheet({ visible, onClose, onSelectUser, suggestedState }: Props) {
   const insets = useSafeAreaInsets();
   const myUid = useAuthStore((s) => s.user?.uid) || '';
   // Exclude users I've blocked from search results.
@@ -78,6 +80,8 @@ export default function UserSearchSheet({ visible, onClose, onSelectUser }: Prop
   const [results, setResults] = useState<UserPublicProfile[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [suggested, setSuggested] = useState<UserPublicProfile[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
 
   const excludeUids = useMemo(() => {
     const all = new Set<string>();
@@ -85,6 +89,16 @@ export default function UserSearchSheet({ visible, onClose, onSelectUser }: Prop
     if (myUid) all.add(myUid); // don't surface yourself in search
     return Array.from(all);
   }, [blockedUids, myUid]);
+
+  // Load suggested profiles when the sheet opens with a state context.
+  useEffect(() => {
+    if (!visible || !suggestedState) return;
+    setSuggestionsLoading(true);
+    fetchProfilesByState(suggestedState, excludeUids, 20)
+      .then((profiles) => setSuggested(profiles))
+      .catch(() => setSuggested([]))
+      .finally(() => setSuggestionsLoading(false));
+  }, [visible, suggestedState]); // excludeUids intentionally omitted — stable on open
 
   // Debounce typing so we don't hammer Firestore on every keystroke.
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -118,6 +132,7 @@ export default function UserSearchSheet({ visible, onClose, onSelectUser }: Prop
       setResults([]);
       setHasSearched(false);
       setLoading(false);
+      setSuggested([]);
     }
   }, [visible]);
 
@@ -173,23 +188,29 @@ export default function UserSearchSheet({ visible, onClose, onSelectUser }: Prop
         </View>
 
         {/* Body */}
-        {loading ? (
+        {loading || suggestionsLoading ? (
           <View style={styles.centered}>
             <ActivityIndicator size="large" color={Colors.primary} />
           </View>
         ) : (
           <FlatList
-            data={results}
+            data={hasSearched ? results : suggested}
             keyExtractor={(p) => p.uid}
             renderItem={({ item }) => <UserRow profile={item} onPress={() => handlePick(item.uid)} />}
+            ListHeaderComponent={
+              !hasSearched && suggested.length > 0 ? (
+                <View style={styles.sectionHeader}>
+                  <Ionicons name="location-outline" size={13} color={Colors.primary} />
+                  <Text style={styles.sectionHeaderText}>
+                    Parents in {suggestedState}
+                  </Text>
+                </View>
+              ) : null
+            }
             ListEmptyComponent={
               <View style={styles.empty}>
                 {!hasSearched ? (
                   <>
-                    {/* Idle state — illustrated hero + 3-line tip list.
-                        Was a single magnifier emoji + muted text; the screen
-                        looked blank before typing. Tips teach users what the
-                        search actually does without needing a dead-end page. */}
                     <View style={styles.emptyIconWrap}>
                       <Ionicons name="search" size={28} color={Colors.primary} />
                     </View>
@@ -198,21 +219,6 @@ export default function UserSearchSheet({ visible, onClose, onSelectUser }: Prop
                       Search by first name to connect with other parents — follow,
                       chat, and swap notes from pregnancy to preschool.
                     </Text>
-
-                    <View style={styles.tipsCard}>
-                      {[
-                        { icon: 'person-outline',         text: 'Try a first name — "Priya", "Rahul"' },
-                        { icon: 'at-outline',             text: 'Matches parents on MaaMitra, not kids' },
-                        { icon: 'shield-checkmark-outline', text: 'Only public profiles appear in results' },
-                      ].map((tip) => (
-                        <View key={tip.text} style={styles.tipRow}>
-                          <View style={styles.tipIconWrap}>
-                            <Ionicons name={tip.icon as any} size={13} color={Colors.primary} />
-                          </View>
-                          <Text style={styles.tipText}>{tip.text}</Text>
-                        </View>
-                      ))}
-                    </View>
                   </>
                 ) : (
                   <>
@@ -227,7 +233,9 @@ export default function UserSearchSheet({ visible, onClose, onSelectUser }: Prop
                 )}
               </View>
             }
-            contentContainerStyle={results.length === 0 ? styles.emptyList : styles.list}
+            contentContainerStyle={
+              (hasSearched ? results : suggested).length === 0 ? styles.emptyList : styles.list
+            }
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           />
@@ -328,36 +336,20 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     maxWidth: 300,
   },
-  tipsCard: {
-    marginTop: 22,
-    width: '100%',
-    maxWidth: 320,
-    backgroundColor: '#ffffff',
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: Colors.borderSoft,
-    gap: 10,
-  },
-  tipRow: {
+  sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 6,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 8,
   },
-  tipIconWrap: {
-    width: 26,
-    height: 26,
-    borderRadius: 8,
-    backgroundColor: Colors.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tipText: {
-    flex: 1,
-    fontFamily: Fonts.sansRegular,
-    fontSize: 12.5,
-    color: Colors.textLight,
-    lineHeight: 17,
+  sectionHeaderText: {
+    fontFamily: Fonts.sansMedium,
+    fontSize: 12,
+    color: Colors.primary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
   },
   row: {
     flexDirection: 'row',

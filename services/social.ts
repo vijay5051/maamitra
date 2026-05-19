@@ -1654,6 +1654,33 @@ export async function searchPublicProfiles(
   }
 }
 
+/**
+ * Fetch up to `cap` public profiles in a given state, excluding the provided
+ * UIDs (self + blocked). Results are sorted client-side by followersCount desc
+ * so the most-connected moms appear first — no composite index needed.
+ */
+export async function fetchProfilesByState(
+  state: string,
+  excludeUids: string[] = [],
+  cap: number = 20,
+): Promise<UserPublicProfile[]> {
+  if (!db || !state) return [];
+  try {
+    const col = collection(db, 'publicProfiles');
+    const q = query(col, where('state', '==', state), limit(cap + excludeUids.length));
+    const snap = await getDocs(q);
+    const excluded = new Set(excludeUids);
+    return snap.docs
+      .map((d) => d.data() as UserPublicProfile)
+      .filter((p) => !excluded.has(p.uid))
+      .sort((a, b) => (b.followersCount ?? 0) - (a.followersCount ?? 0))
+      .slice(0, cap);
+  } catch (error) {
+    console.warn('fetchProfilesByState error:', error);
+    return [];
+  }
+}
+
 // ─── Reactor list ────────────────────────────────────────────────────────────
 // Post docs already store `reactionsByUser: Record<uid, emoji[]>`. We don't
 // need another Firestore read to know WHO reacted — we just need to resolve
