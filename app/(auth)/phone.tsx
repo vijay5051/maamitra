@@ -77,6 +77,14 @@ export default function PhoneScreen() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialDigits]);
+  // Clear the reCAPTCHA verifier when the screen unmounts. Prevents stale
+  // verifier state from persisting across navigations on web.
+  useEffect(() => {
+    return () => {
+      resetPhoneRecaptcha();
+    };
+  }, []);
+
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);

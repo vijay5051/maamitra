@@ -880,13 +880,17 @@ export async function sendPhoneOtp(e164Phone: string): Promise<PhoneOtpHandle> {
   const mode: PhoneOtpMode = user ? 'link' : 'signin';
 
   if (Platform.OS === 'web') {
-    // Reuse the verifier across attempts — recreating it on every send leaks
-    // reCAPTCHA widgets into the DOM and starts rate-limiting.
-    if (!_recaptchaVerifier) {
-      _recaptchaVerifier = new RecaptchaVerifier(auth, PHONE_OTP_CONTAINER_ID, {
-        size: 'invisible',
-      });
+    // Always create a fresh verifier per send. Reusing across sends produced
+    // "reCAPTCHA client element has been removed: 0" on the first tap when
+    // the iOS Safari + RN Web + Firebase iframe interaction left the cached
+    // verifier in a broken state. Constructing a new verifier is ~1ms.
+    if (_recaptchaVerifier) {
+      try { _recaptchaVerifier.clear(); } catch {}
+      _recaptchaVerifier = null;
     }
+    _recaptchaVerifier = new RecaptchaVerifier(auth, PHONE_OTP_CONTAINER_ID, {
+      size: 'invisible',
+    });
     const confirmation = mode === 'link'
       ? await linkWithPhoneNumber(user!, e164Phone, _recaptchaVerifier)
       : await signInWithPhoneNumber(auth, e164Phone, _recaptchaVerifier);
