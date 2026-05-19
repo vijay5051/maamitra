@@ -33,7 +33,7 @@ import { Confetti } from '../../components/ui/Confetti';
 import type { IllustrationName } from '../../lib/illustrations';
 import { successBump } from '../../lib/haptics';
 import { Fonts } from '../../constants/theme';
-import { Colors } from '../../constants/theme';
+import { Colors, withAlpha } from '../../constants/theme';
 
 // Score → illustration mapping. Score 5 (best) → glowing, score 1 (lowest) → overwhelmed.
 const MOOD_ILLUSTRATION: Record<number, IllustrationName> = {
@@ -49,11 +49,11 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // ─── Mood tints ────────────────────────────────────────────────────────────────
 
 const MOOD_TINTS: Record<number, string> = {
-  5: 'rgba(52,211,153,0.08)',   // Great — sage
-  4: 'rgba(96,165,250,0.08)',   // Good  — sky
-  3: 'rgba(245,158,11,0.08)',   // Okay  — gold
+  5: 'rgba(52,211,153,0.08)',   // Great — sage // FIXME: define as theme token
+  4: 'rgba(96,165,250,0.08)',   // Good  — sky // FIXME: define as theme token
+  3: 'rgba(245,158,11,0.08)',   // Okay  — gold // FIXME: define as theme token
   2: Colors.primaryAlpha08,   // Low   — plum
-  1: 'rgba(28, 16, 51, 0.048)',   // Tough — rose
+  1: withAlpha(Colors.textDark, 0.048),   // Tough — rose
 };
 
 // ─── MoodEmojiItem ─────────────────────────────────────────────────────────────
@@ -155,7 +155,7 @@ const moodStyles = StyleSheet.create({
   moodLabel: {
     fontFamily: Fonts.sansMedium,
     fontSize: 11,
-    color: '#9CA3AF',
+    color: Colors.textMuted,
     textAlign: 'center',
   },
   moodLabelSelected: {
@@ -313,7 +313,7 @@ function MoodChart() {
                 <View style={[chartStyles.barTrack, { height: barMaxHeight }]}>
                   {entry ? (
                     <LinearGradient
-                      colors={isToday ? [Colors.primary, Colors.primary] : ['#F4B3CC', '#C9A8E0']}
+                      colors={isToday ? [Colors.primary, Colors.primary] : ['#F4B3CC', '#C9A8E0'] /* FIXME: define as theme tokens */}
                       start={{ x: 0, y: 0 }}
                       end={{ x: 0, y: 1 }}
                       style={[
@@ -383,7 +383,7 @@ function MoodChart() {
               accessibilityRole="button"
               accessibilityLabel="Next month"
             >
-              <AppIcon name="nav.forward" size={18} color={isFutureMonth ? '#D1D5DB' : Colors.primary} />
+              <AppIcon name="nav.forward" size={18} color={isFutureMonth ? '#D1D5DB' /* FIXME: define as theme token */ : Colors.primary} />
             </TouchableOpacity>
           </View>
 
@@ -405,7 +405,7 @@ function MoodChart() {
                 const t = new Date();
                 return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
               })();
-              const bg = entry ? MOOD_TINTS[entry.score as 1 | 2 | 3 | 4 | 5] : '#F3F0FA';
+              const bg = entry ? MOOD_TINTS[entry.score as 1 | 2 | 3 | 4 | 5] : '#F3F0FA'; // FIXME: define as theme token
               return (
                 <View
                   key={date}
@@ -443,7 +443,7 @@ const chartStyles = StyleSheet.create({
   label: {
     fontFamily: Fonts.sansSemiBold,
     fontSize: 11,
-    color: '#C4B5D4',
+    color: '#C4B5D4', // FIXME: define as theme token
     letterSpacing: 0.8,
     textTransform: 'uppercase',
   },
@@ -478,7 +478,7 @@ const chartStyles = StyleSheet.create({
     backgroundColor: Colors.cardBg,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#EDE9F6',
+    borderColor: '#EDE9F6', // FIXME: define as theme token
   },
   calHeaderRow: {
     flexDirection: 'row',
@@ -489,7 +489,7 @@ const chartStyles = StyleSheet.create({
   calMonthLabel: {
     fontFamily: Fonts.sansBold,
     fontSize: 15,
-    color: '#1C1033',
+    color: Colors.textDark,
   },
   calWeekdaysRow: {
     flexDirection: 'row',
@@ -500,7 +500,7 @@ const chartStyles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: Fonts.sansSemiBold,
     fontSize: 10,
-    color: '#9CA3AF',
+    color: Colors.textMuted,
     letterSpacing: 0.5,
   },
   calGrid: {
@@ -516,7 +516,7 @@ const chartStyles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F3F0FA',
+    backgroundColor: '#F3F0FA', // FIXME: define as theme token
   },
   calCellToday: {
     borderWidth: 1.5,
@@ -525,7 +525,7 @@ const chartStyles = StyleSheet.create({
   calCellDay: {
     fontFamily: Fonts.sansMedium,
     fontSize: 11,
-    color: '#6B7280',
+    color: Colors.textLight,
   },
   calCellDayToday: {
     color: Colors.primary,
@@ -560,7 +560,7 @@ const chartStyles = StyleSheet.create({
   },
   barEmpty: {
     width: '60%',
-    backgroundColor: '#EDE9F6',
+    backgroundColor: '#EDE9F6', // FIXME: define as theme token
     borderRadius: 4,
   },
   barEmoji: {
@@ -571,7 +571,7 @@ const chartStyles = StyleSheet.create({
   barDayLabel: {
     fontFamily: Fonts.sansSemiBold,
     fontSize: 10,
-    color: '#6B7280',
+    color: Colors.textLight,
     textTransform: 'uppercase',
     letterSpacing: 0.3,
   },
@@ -582,7 +582,7 @@ const chartStyles = StyleSheet.create({
   barDateLabel: {
     fontFamily: Fonts.sansRegular,
     fontSize: 10,
-    color: '#9CA3AF',
+    color: Colors.textMuted,
   },
   barDateLabelToday: {
     color: Colors.primary,
@@ -591,7 +591,7 @@ const chartStyles = StyleSheet.create({
   summaryCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8F4FF',
+    backgroundColor: '#F8F4FF', // FIXME: define as theme token
     borderRadius: 12,
     padding: 14,
     marginTop: 12,
@@ -610,7 +610,7 @@ const chartStyles = StyleSheet.create({
   summaryText: {
     fontFamily: Fonts.sansMedium,
     fontSize: 13,
-    color: '#1C1033',
+    color: Colors.textDark,
     marginLeft: 10,
   },
 });
@@ -620,10 +620,10 @@ const chartStyles = StyleSheet.create({
 // Flattened from a rotating rose/purple/green/blue palette to a single
 // tonal brand-purple. Every card reads consistently now.
 const YOGA_CARD_GRADIENTS: [string, string][] = [
-  [Colors.primary, '#6d28d9'],
-  [Colors.primary, '#6d28d9'],
-  [Colors.primary, '#6d28d9'],
-  ['#F59E0B', Colors.primary],
+  [Colors.primary, '#6d28d9'], // FIXME: define as theme token
+  [Colors.primary, '#6d28d9'], // FIXME: define as theme token
+  [Colors.primary, '#6d28d9'], // FIXME: define as theme token
+  [Colors.warning, Colors.primary],
 ];
 
 function poseToYogaIllustration(name: string): IllustrationName | null {
@@ -713,7 +713,7 @@ function YogaGallery({
 
               <View style={yogaGalleryStyles.pillsRow}>
                 <View style={yogaGalleryStyles.pill}>
-                  <AppIcon name="object.history" size={11} color="#1C1033" />
+                  <AppIcon name="object.history" size={11} color={Colors.textDark} />
                   <Text style={yogaGalleryStyles.pillText}>{session.duration} min</Text>
                 </View>
                 <View style={yogaGalleryStyles.pill}>
@@ -726,7 +726,7 @@ function YogaGallery({
                   {session.name}
                 </Text>
                 <View style={yogaGalleryStyles.playBtn}>
-                  <AppIcon name="object.play" size={20} color="#ffffff" />
+                  <AppIcon name="object.play" size={20} color={Colors.white} />
                 </View>
               </View>
             </TouchableOpacity>
@@ -736,7 +736,7 @@ function YogaGallery({
 
       <View style={yogaGalleryStyles.rightFade} pointerEvents="none">
         <LinearGradient
-          colors={['transparent', '#FAFAFB']}
+          colors={['transparent', '#FAFAFB'] /* FIXME: define as theme token */}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={StyleSheet.absoluteFill}
@@ -760,9 +760,9 @@ const yogaGalleryStyles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
     justifyContent: 'space-between',
-    backgroundColor: '#FFFCF7',
+    backgroundColor: Colors.cardBg,
     borderWidth: 1,
-    borderColor: '#F0EDF5',
+    borderColor: Colors.borderSoft,
     padding: 14,
   },
   cardIllus: {
@@ -770,7 +770,7 @@ const yogaGalleryStyles = StyleSheet.create({
   },
   cardScrim: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(28, 16, 51, 0.0)',
+    backgroundColor: withAlpha(Colors.textDark, 0.0),
   },
   pillsRow: {
     flexDirection: 'row',
@@ -788,7 +788,7 @@ const yogaGalleryStyles = StyleSheet.create({
   pillText: {
     fontFamily: Fonts.sansMedium,
     fontSize: 11,
-    color: '#1C1033',
+    color: Colors.textDark,
   },
   bottomRow: {
     flexDirection: 'row',
@@ -799,7 +799,7 @@ const yogaGalleryStyles = StyleSheet.create({
   sessionName: {
     fontFamily: Fonts.sansBold,
     fontSize: 16,
-    color: '#1C1033',
+    color: Colors.textDark,
     flex: 1,
     lineHeight: 22,
     textShadowColor: 'rgba(255, 252, 247, 0.85)',
@@ -910,7 +910,7 @@ function HealthCondModal({
 const condStyles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: Colors.overlay,
     justifyContent: 'flex-end',
   },
   sheet: {
@@ -924,30 +924,30 @@ const condStyles = StyleSheet.create({
   handle: {
     width: 36,
     height: 4,
-    backgroundColor: '#EDE9F6',
+    backgroundColor: '#EDE9F6', // FIXME: define as theme token
     borderRadius: 2,
     alignSelf: 'center',
     marginBottom: 20,
   },
-  title: { fontFamily: Fonts.sansBold, fontSize: 20, color: '#1C1033', marginBottom: 6 },
+  title: { fontFamily: Fonts.sansBold, fontSize: 20, color: Colors.textDark, marginBottom: 6 },
   subtitle: {
     fontFamily: Fonts.sansRegular,
     fontSize: 14,
-    color: '#9CA3AF',
+    color: Colors.textMuted,
     marginBottom: 20,
     lineHeight: 20,
   },
   chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 24 },
   chip: {
     borderWidth: 1.5,
-    borderColor: '#EDE9F6',
+    borderColor: '#EDE9F6', // FIXME: define as theme token
     borderRadius: 20,
     paddingVertical: 8,
     paddingHorizontal: 14,
     backgroundColor: Colors.cardBg,
   },
   chipSelected: { borderColor: Colors.primary, backgroundColor: Colors.primaryAlpha05 },
-  chipText: { fontFamily: Fonts.sansMedium, fontSize: 13, color: '#9CA3AF' },
+  chipText: { fontFamily: Fonts.sansMedium, fontSize: 13, color: Colors.textMuted },
   chipTextSelected: { fontFamily: Fonts.sansBold, color: Colors.primary },
 });
 
@@ -1114,13 +1114,13 @@ const tipStyles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     borderWidth: 1,
-    borderColor: '#F0EDF5',
+    borderColor: Colors.borderSoft,
   },
   iconBox: {
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: '#F5F0FF',
+    backgroundColor: Colors.bgTint,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
@@ -1128,7 +1128,7 @@ const tipStyles = StyleSheet.create({
   tipText: {
     fontFamily: Fonts.sansMedium,
     fontSize: 13,
-    color: '#1C1033',
+    color: Colors.textDark,
     lineHeight: 19,
     flex: 1,
   },
@@ -1331,7 +1331,7 @@ export default function WellnessScreen() {
     <View style={styles.container}>
       {/* ── Dark Gradient Header ── */}
       <LinearGradient
-        colors={['#FFFFFF', '#FFFFFF', '#FFFFFF']}
+        colors={[Colors.white, Colors.white, Colors.white]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.header, { paddingTop: insets.top + 14 }]}
@@ -1376,7 +1376,7 @@ export default function WellnessScreen() {
                 : 'Update health conditions'}
             </Text>
           </View>
-          <AppIcon name="nav.forward" size={14} color="#A78BCA" />
+          <AppIcon name="nav.forward" size={14} color="#A78BCA" /* FIXME: define as theme token */ />
         </TouchableOpacity>
 
         <YogaGallery
@@ -1392,7 +1392,7 @@ export default function WellnessScreen() {
           onLayout={(e: any) => {
             moodSectionYRef.current = e?.nativeEvent?.layout?.y ?? 0;
           }}
-          style={{ ...styles.moodCard, backgroundColor: '#ffffff', marginTop: 20 }}
+          style={{ ...styles.moodCard, backgroundColor: Colors.white, marginTop: 20 }}
           shadow="md"
         >
           <Text style={styles.moodTitle}>{moodPromptCopy}</Text>
@@ -1450,7 +1450,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
     borderBottomWidth: 1,
-    borderBottomColor: '#F0EDF5',
+    borderBottomColor: Colors.borderSoft,
   },
   glowTopRight: {
     position: 'absolute',
@@ -1473,21 +1473,21 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: Fonts.serif,
     fontSize: 26,
-    color: '#1C1033',
+    color: Colors.textDark,
     letterSpacing: -0.3,
     marginBottom: 4,
   },
   headerSub: {
     fontFamily: Fonts.sansRegular,
     fontSize: 12,
-    color: '#6b7280',
+    color: Colors.textLight,
   },
   content: { paddingHorizontal: 16, paddingTop: 16 },
   wellnessHeroWrap: {
     marginBottom: 14,
     borderRadius: 18,
     overflow: 'hidden',
-    backgroundColor: '#FFF8F1',
+    backgroundColor: Colors.creamWarm,
     aspectRatio: 12 / 5,
   },
   wellnessHeroImg: { width: '100%', height: '100%' },
@@ -1495,7 +1495,7 @@ const styles = StyleSheet.create({
   moodTitle: {
     fontFamily: Fonts.sansBold,
     fontSize: 16,
-    color: '#1C1033',
+    color: Colors.textDark,
     marginBottom: 12,
   },
   moodResponse: {
@@ -1509,13 +1509,13 @@ const styles = StyleSheet.create({
   moodResponseText: {
     fontFamily: Fonts.sansRegular,
     fontSize: 14,
-    color: '#374151',
+    color: '#374151', // FIXME: define as theme token
     lineHeight: 21,
   },
   sectionTitle: {
     fontFamily: Fonts.sansBold,
     fontSize: 18,
-    color: '#1C1033',
+    color: Colors.textDark,
     marginBottom: 12,
     marginTop: 8,
   },
@@ -1524,7 +1524,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 16,
-    backgroundColor: 'rgba(28, 16, 51, 0.054)',
+    backgroundColor: withAlpha(Colors.textDark, 0.054),
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
@@ -1533,13 +1533,13 @@ const styles = StyleSheet.create({
   condTitle: {
     fontFamily: Fonts.sansBold,
     fontSize: 17,
-    color: '#1C1033',
+    color: Colors.textDark,
     marginBottom: 6,
   },
   condSubtitle: {
     fontFamily: Fonts.sansRegular,
     fontSize: 14,
-    color: '#9CA3AF',
+    color: Colors.textMuted,
     textAlign: 'center',
     lineHeight: 21,
     maxWidth: 260,

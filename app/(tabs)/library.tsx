@@ -39,7 +39,7 @@ import TagPill from '../../components/ui/TagPill';
 import { TabIcon, AppIcon } from '../../components/ui/AppIcon';
 import { Illustration } from '../../components/ui/Illustration';
 import { Fonts } from '../../constants/theme';
-import { Colors } from '../../constants/theme';
+import { Colors, withAlpha } from '../../constants/theme';
 
 type SubTab = 'read' | 'books' | 'products' | 'saved' | 'journey';
 type SortMode = 'Featured' | 'Price ↑' | 'Price ↓' | 'Top Rated';
@@ -162,7 +162,7 @@ const subTabStyles = StyleSheet.create({
   wrapper: {
     backgroundColor: Colors.bgLight,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0EBF8',
+    borderBottomColor: '#F0EBF8', // FIXME: define as theme token
     paddingVertical: 10,
     paddingHorizontal: 16,
   },
@@ -186,9 +186,9 @@ const subTabStyles = StyleSheet.create({
   },
   btnInactive: {
     width: 36,        // icon-only: fixed square pill
-    backgroundColor: '#EDE9F6',
+    backgroundColor: '#EDE9F6', // FIXME: define as theme token
   },
-  activeBtnText: { fontFamily: Fonts.sansBold, color: '#ffffff', fontSize: 12.5 },
+  activeBtnText: { fontFamily: Fonts.sansBold, color: Colors.white, fontSize: 12.5 },
 });
 
 // ─── Article topic → Ionicons icon ───────────────────────────────────────────
@@ -214,13 +214,14 @@ function getTopicIcon(topic: string): string {
 // ─── Article topic → gradient colors ─────────────────────────────────────────
 
 function getArticleGradient(topic: string): [string, string] {
+  // FIXME: define gradient pair tokens for these topic accents
   const map: Record<string, [string, string]> = {
     Feeding: [Colors.primary, '#f472b6'],
     Sleep: [Colors.primary, '#a78bfa'],
-    Development: ['#f59e0b', '#fbbf24'],
+    Development: [Colors.warning, '#fbbf24'],
     Postpartum: ['#10b981', '#34d399'],
     Vaccination: ['#3b82f6', '#60a5fa'],
-    Nutrition: ['#22c55e', '#4ade80'],
+    Nutrition: [Colors.success, '#4ade80'],
     'Mental Health': ['#6366f1', '#818cf8'],
     Yoga: ['#a855f7', '#c084fc'],
     'Baby Care': ['#f97316', '#fb923c'],
@@ -275,7 +276,7 @@ function ArticleCard({
               <Text style={articleStyles.tagBadgeText}>{article.tag}</Text>
             </View>
             <View style={articleStyles.readTimeBadge}>
-              <AppIcon name="object.history" size={11} color="#374151" />
+              <AppIcon name="object.history" size={11} color="#374151" /* FIXME: define as theme token */ />
               <Text style={articleStyles.readTimeText}>{article.readTime}</Text>
             </View>
           </View>
@@ -287,11 +288,11 @@ function ArticleCard({
             </View>
             {/* Big icon centered */}
             <View style={articleStyles.coverIconWrap}>
-              <Ionicons name={getTopicIcon(article.topic) as any} size={36} color="#374151" />
+              <Ionicons name={getTopicIcon(article.topic) as any} size={36} color="#374151" /* FIXME: define as theme token */ />
             </View>
             {/* Read time bottom-right */}
             <View style={articleStyles.readTimeBadge}>
-              <AppIcon name="object.history" size={11} color="#374151" />
+              <AppIcon name="object.history" size={11} color="#374151" /* FIXME: define as theme token */ />
               <Text style={articleStyles.readTimeText}>{article.readTime}</Text>
             </View>
           </LinearGradient>
@@ -403,7 +404,7 @@ const articleStyles = StyleSheet.create({
     paddingVertical: 3,
   },
   tagBadgeText: {
-    color: '#ffffff',
+    color: Colors.white,
     fontSize: 11,
     fontWeight: '700',
     letterSpacing: 0.3,
@@ -440,18 +441,18 @@ const articleStyles = StyleSheet.create({
   title: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#1a1a2e',
+    color: Colors.textDark, // was #1a1a2e — close to textDark
     lineHeight: 21,
     marginBottom: 4,
   },
   preview: {
     fontSize: 13,
-    color: '#6b7280',
+    color: Colors.textLight,
     lineHeight: 19,
   },
   bodyText: {
     fontSize: 14,
-    color: '#374151',
+    color: '#374151', // FIXME: define as theme token
     lineHeight: 22,
   },
   articleBodyWrap: {
@@ -460,14 +461,14 @@ const articleStyles = StyleSheet.create({
   },
   bodyHeading: {
     fontSize: 15,
-    color: '#1f2937',
+    color: '#1f2937', // FIXME: define as theme token
     fontWeight: '800',
     lineHeight: 22,
     marginTop: 4,
   },
   bodyBold: {
     fontWeight: '800',
-    color: '#1f2937',
+    color: '#1f2937', // FIXME: define as theme token
   },
   actions: {
     flexDirection: 'row',
@@ -476,7 +477,7 @@ const articleStyles = StyleSheet.create({
     marginTop: 4,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#f3f4f6',
+    borderTopColor: '#f3f4f6', // FIXME: define as theme token
   },
   readBtn: {
     flexDirection: 'row',
@@ -499,7 +500,7 @@ const articleStyles = StyleSheet.create({
     paddingVertical: 5,
     paddingHorizontal: 10,
     borderRadius: 8,
-    backgroundColor: 'rgba(28, 16, 51, 0.048)',
+    backgroundColor: withAlpha(Colors.textDark, 0.048),
   },
   openBtnText: {
     fontSize: 12,
@@ -544,7 +545,7 @@ function BookCover({ book }: { book: Book }) {
         </View>
       )}
       <View style={bookStyles.coverIconWrap}>
-        <AppIcon name="object.book" size={32} color="#374151" />
+        <AppIcon name="object.book" size={32} color="#374151" /* FIXME: define as theme token */ />
       </View>
     </LinearGradient>
   );
@@ -617,7 +618,7 @@ function BookCard({ book, highlighted }: { book: Book; highlighted?: boolean }) 
           activeOpacity={0.8}
           onPress={() => Linking.openURL(book.url)}
         >
-          <AppIcon name="object.cart" size={13} color="#ffffff" />
+          <AppIcon name="object.cart" size={13} color={Colors.white} />
           <Text style={bookStyles.buyBtnText}>Buy on Amazon</Text>
         </TouchableOpacity>
       </View>
@@ -641,15 +642,15 @@ const bookStyles = StyleSheet.create({
   } as any,
   cardHighlighted: {
     borderWidth: 1.5,
-    borderColor: 'rgba(28, 16, 51, 0.15)',
-    backgroundColor: '#fffbfe',
+    borderColor: withAlpha(Colors.textDark, 0.15),
+    backgroundColor: '#fffbfe', // FIXME: define as theme token
   },
   forYouBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(28, 16, 51, 0.048)',
+    backgroundColor: withAlpha(Colors.textDark, 0.048),
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -674,7 +675,7 @@ const bookStyles = StyleSheet.create({
     flexShrink: 0,
     position: 'relative',
     overflow: 'hidden',
-    shadowColor: '#000',
+    shadowColor: '#000', // FIXME: define as theme token
     shadowOffset: { width: 2, height: 4 },
     shadowOpacity: 0.18,
     shadowRadius: 6,
@@ -714,12 +715,12 @@ const bookStyles = StyleSheet.create({
   title: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#1a1a2e',
+    color: Colors.textDark, // was #1a1a2e — close to textDark
     lineHeight: 20,
   },
   author: {
     fontSize: 12,
-    color: '#6b7280',
+    color: Colors.textLight,
     fontWeight: '500',
   },
   ratingRow: {
@@ -729,18 +730,18 @@ const bookStyles = StyleSheet.create({
     marginTop: 2,
   },
   stars: {
-    color: '#f59e0b',
+    color: Colors.warning,
     fontSize: 11,
     letterSpacing: -0.5,
   },
   ratingNum: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#1a1a2e',
+    color: Colors.textDark, // was #1a1a2e — close to textDark
   },
   reviews: {
     fontSize: 11,
-    color: '#9ca3af',
+    color: Colors.textMuted,
   },
   topicPill: {
     alignSelf: 'flex-start',
@@ -748,7 +749,7 @@ const bookStyles = StyleSheet.create({
   },
   brief: {
     fontSize: 13,
-    color: '#6b7280',
+    color: Colors.textLight,
     lineHeight: 19,
   },
   briefMore: {
@@ -772,7 +773,7 @@ const bookStyles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: Colors.primaryAlpha08,
     borderWidth: 1,
-    borderColor: 'rgba(139,92,246,0.2)',
+    borderColor: 'rgba(139,92,246,0.2)', // FIXME: define as theme token
   },
   sampleBtnText: {
     fontSize: 12,
@@ -795,7 +796,7 @@ const bookStyles = StyleSheet.create({
   buyBtnText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#ffffff',
+    color: Colors.white,
   },
 });
 
@@ -859,14 +860,14 @@ const productCardStyles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
     borderWidth: 1,
-    borderColor: '#EDE9F6',
+    borderColor: '#EDE9F6', // FIXME: define as theme token
     overflow: 'hidden',
     boxShadow: '0px 2px 8px rgba(28, 16, 51, 0.042)',
   },
   emojiBox: {
     width: '100%',
     aspectRatio: 1.4,
-    backgroundColor: 'rgba(28, 16, 51, 0.036)',
+    backgroundColor: withAlpha(Colors.textDark, 0.036),
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -876,7 +877,7 @@ const productCardStyles = StyleSheet.create({
   emoji: { fontSize: 40 }, // kept for type compat, not rendered
   productImg: { width: '100%', height: '100%' },
   badge: {
-    backgroundColor: 'rgba(28, 16, 51, 0.06)',
+    backgroundColor: withAlpha(Colors.textDark, 0.06),
     borderRadius: 6,
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -884,14 +885,14 @@ const productCardStyles = StyleSheet.create({
     marginBottom: 6,
   },
   badgeText: { fontSize: 10, color: Colors.primary, fontWeight: '700' },
-  name: { fontSize: 12, fontWeight: '600', color: '#1a1a2e', marginBottom: 6, lineHeight: 17 },
+  name: { fontSize: 12, fontWeight: '600', color: Colors.textDark, marginBottom: 6, lineHeight: 17 }, // was #1a1a2e — close to textDark
   priceRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
-  price: { fontSize: 14, fontWeight: '800', color: '#1a1a2e' },
-  discount: { fontSize: 11, color: '#22c55e', fontWeight: '700' },
+  price: { fontSize: 14, fontWeight: '800', color: Colors.textDark }, // was #1a1a2e — close to textDark
+  discount: { fontSize: 11, color: Colors.success, fontWeight: '700' },
   ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 8 },
-  rating: { fontSize: 12, color: '#f59e0b', fontWeight: '600' },
-  reviews: { fontSize: 11, color: '#9ca3af' },
-  buyBtn: { backgroundColor: 'rgba(28, 16, 51, 0.036)', borderRadius: 8, paddingVertical: 6, paddingHorizontal: 10, borderWidth: 1, borderColor: '#f9a8d4', alignItems: 'center' },
+  rating: { fontSize: 12, color: Colors.warning, fontWeight: '600' },
+  reviews: { fontSize: 11, color: Colors.textMuted },
+  buyBtn: { backgroundColor: withAlpha(Colors.textDark, 0.036), borderRadius: 8, paddingVertical: 6, paddingHorizontal: 10, borderWidth: 1, borderColor: '#f9a8d4', /* FIXME: define as theme token */ alignItems: 'center' },
   buyBtnText: { fontSize: 12, fontWeight: '700', color: Colors.primary },
 });
 
@@ -925,36 +926,36 @@ function JourneyItem({ event, isLast }: { event: JourneyEvent; isLast: boolean }
     const kidVaccines = completedVaccinesAll[activeKid?.id ?? ''] ?? {};
     const isDone = !!kidVaccines[event.vaccineId]?.done;
     if (isDone) {
-      dotColor = '#22c55e';
+      dotColor = Colors.success;
       statusLabel = 'Given ✓';
-      statusColor = '#16a34a';
-      statusBg = '#dcfce7';
+      statusColor = '#16a34a'; // FIXME: define as theme token
+      statusBg = '#dcfce7'; // FIXME: define as theme token (success-light)
     } else if (isToday) {
       dotColor = Colors.primary;
       statusLabel = 'Due Today 🔔';
       statusColor = Colors.primary;
-      statusBg = 'rgba(28, 16, 51, 0.06)';
+      statusBg = withAlpha(Colors.textDark, 0.06);
     } else if (isPast) {
-      dotColor = '#f97316';
+      dotColor = '#f97316'; // FIXME: define as theme token
       statusLabel = 'Overdue ⚠️';
-      statusColor = '#ea580c';
-      statusBg = '#fff7ed';
+      statusColor = '#ea580c'; // FIXME: define as theme token
+      statusBg = '#fff7ed'; // FIXME: define as theme token (warning-light)
     } else {
-      dotColor = '#e5e7eb';
+      dotColor = '#e5e7eb'; // FIXME: define as theme token
       statusLabel = 'Upcoming';
-      statusColor = '#9ca3af';
-      statusBg = '#f3f4f6';
+      statusColor = Colors.textMuted;
+      statusBg = '#f3f4f6'; // FIXME: define as theme token
     }
   } else {
     // Birth / milestone / pregnancy events — date-based status
     const isCompleted = isPast || isToday;
-    dotColor = isCompleted ? '#22c55e' : isToday ? Colors.primary : '#e5e7eb';
+    dotColor = isCompleted ? Colors.success : isToday ? Colors.primary : '#e5e7eb'; // FIXME: define as theme token
     statusLabel = isPast ? 'Done ✓' : isToday ? 'Today 🎉' : 'Upcoming';
-    statusColor = isPast ? '#16a34a' : isToday ? Colors.primary : '#9ca3af';
-    statusBg = isPast ? '#dcfce7' : isToday ? 'rgba(28, 16, 51, 0.06)' : '#f3f4f6';
+    statusColor = isPast ? '#16a34a' /* FIXME: define as theme token */ : isToday ? Colors.primary : Colors.textMuted;
+    statusBg = isPast ? '#dcfce7' /* FIXME: define as theme token (success-light) */ : isToday ? withAlpha(Colors.textDark, 0.06) : '#f3f4f6'; /* FIXME: define as theme token */
   }
 
-  const borderColor = dotColor === '#e5e7eb' ? '#d1d5db' : dotColor;
+  const borderColor = dotColor === '#e5e7eb' ? '#d1d5db' /* FIXME: define as theme token */ : dotColor;
 
   return (
     <View style={journeyStyles.row}>
@@ -964,7 +965,7 @@ function JourneyItem({ event, isLast }: { event: JourneyEvent; isLast: boolean }
       </View>
       <View style={journeyStyles.card}>
         <View style={journeyStyles.cardHeader}>
-          <View style={[journeyStyles.iconBox, { backgroundColor: dotColor === '#22c55e' ? 'rgba(34,197,94,0.1)' : dotColor === '#e5e7eb' ? 'rgba(28, 16, 51, 0.042)' : `${dotColor}18` }]}>
+          <View style={[journeyStyles.iconBox, { backgroundColor: dotColor === Colors.success ? withAlpha(Colors.success, 0.1) : dotColor === '#e5e7eb' ? withAlpha(Colors.textDark, 0.042) : `${dotColor}18` }]}>
             <Ionicons name={JOURNEY_ICONS[event.type] as any} size={16} color={dotColor === '#e5e7eb' ? Colors.primary : dotColor} />
           </View>
           <View style={journeyStyles.headerText}>
@@ -985,7 +986,7 @@ const journeyStyles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 10, marginBottom: 4 },
   timelineCol: { alignItems: 'center', width: 18, paddingTop: 16 },
   dot: { width: 14, height: 14, borderRadius: 7, borderWidth: 2 },
-  line: { width: 2, flex: 1, backgroundColor: '#f3e8ff', marginVertical: 2 },
+  line: { width: 2, flex: 1, backgroundColor: '#f3e8ff', /* FIXME: define as theme token */ marginVertical: 2 },
   card: {
     flex: 1,
     backgroundColor: Colors.cardBg,
@@ -993,7 +994,7 @@ const journeyStyles = StyleSheet.create({
     padding: 14,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#EDE9F6',
+    borderColor: '#EDE9F6', // FIXME: define as theme token
     shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
@@ -1004,15 +1005,15 @@ const journeyStyles = StyleSheet.create({
   cardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 6 },
   iconBox: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   headerText: { flex: 1 },
-  title: { fontSize: 14, fontWeight: '700', color: '#1a1a2e', marginBottom: 2 },
+  title: { fontSize: 14, fontWeight: '700', color: Colors.textDark, marginBottom: 2 }, // was #1a1a2e — close to textDark
   date: { fontSize: 12, color: Colors.primary, fontWeight: '600' },
   statusBadge: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start' },
   statusText: { fontSize: 11, fontWeight: '700' },
-  detail: { fontSize: 13, color: '#6b7280', lineHeight: 19 },
+  detail: { fontSize: 13, color: Colors.textLight, lineHeight: 19 },
   legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 16, alignItems: 'center' },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   legendDot: { width: 10, height: 10, borderRadius: 5 },
-  legendText: { fontSize: 12, color: '#9ca3af', fontWeight: '500' },
+  legendText: { fontSize: 12, color: Colors.textMuted, fontWeight: '500' },
 });
 
 // ─── Article Modal ─────────────────────────────────────────────────────────────
@@ -1299,7 +1300,7 @@ export default function LibraryScreen() {
     <View style={styles.container}>
       {/* ── Dark Gradient Header ── */}
       <LinearGradient
-        colors={['#FFFFFF', '#FFFFFF', '#FFFFFF']}
+        colors={[Colors.white, Colors.white, Colors.white]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.header, { paddingTop: insets.top + 14 }]}
@@ -1347,7 +1348,7 @@ export default function LibraryScreen() {
               value={articleSearch}
               onChangeText={setArticleSearch}
               placeholder="Search articles…"
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={Colors.textMuted}
             />
             {articleSearch.length > 0 && (
               <TouchableOpacity
@@ -1388,7 +1389,7 @@ export default function LibraryScreen() {
           >
             {/* Personalisation banner */}
             <LinearGradient
-              colors={['rgba(28, 16, 51, 0.06)', Colors.primaryAlpha05]}
+              colors={[withAlpha(Colors.textDark, 0.06), Colors.primaryAlpha05]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.personalisationBanner}
@@ -1493,7 +1494,7 @@ export default function LibraryScreen() {
             ListHeaderComponent={
               activeKid ? (
                 <LinearGradient
-                  colors={['rgba(28, 16, 51, 0.06)', Colors.primaryAlpha05]}
+                  colors={[withAlpha(Colors.textDark, 0.06), Colors.primaryAlpha05]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={styles.personalisationBanner}
@@ -1589,7 +1590,7 @@ export default function LibraryScreen() {
               return (
                 <Card key={answer.id} style={styles.savedCard} shadow="sm">
                   <View style={styles.savedCardHeader}>
-                    <TagPill label={answer.tag?.tag ?? '💬 General'} color={answer.tag?.color ?? '#9ca3af'} />
+                    <TagPill label={answer.tag?.tag ?? '💬 General'} color={answer.tag?.color ?? Colors.textMuted} />
                     <View style={styles.savedCardRight}>
                       <Text style={styles.savedDate}>{formattedDate}</Text>
                       <TouchableOpacity
@@ -1635,11 +1636,11 @@ export default function LibraryScreen() {
               {!activeKid?.isExpecting && (
                 <View style={journeyStyles.legend}>
                   <View style={journeyStyles.legendItem}>
-                    <View style={[journeyStyles.legendDot, { backgroundColor: '#22c55e' }]} />
+                    <View style={[journeyStyles.legendDot, { backgroundColor: Colors.success }]} />
                     <Text style={journeyStyles.legendText}>Achieved</Text>
                   </View>
                   <View style={journeyStyles.legendItem}>
-                    <View style={[journeyStyles.legendDot, { backgroundColor: '#e5e7eb', borderWidth: 1.5, borderColor: '#d1d5db' }]} />
+                    <View style={[journeyStyles.legendDot, { backgroundColor: '#e5e7eb' /* FIXME: define as theme token */, borderWidth: 1.5, borderColor: '#d1d5db' /* FIXME: define as theme token */ }]} />
                     <Text style={journeyStyles.legendText}>Upcoming</Text>
                   </View>
                   <View style={journeyStyles.legendItem}>
@@ -1672,7 +1673,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
     borderBottomWidth: 1,
-    borderBottomColor: '#F0EDF5',
+    borderBottomColor: Colors.borderSoft,
   },
   glowTopRight: {
     position: 'absolute', width: 180, height: 180, borderRadius: 90,
@@ -1687,8 +1688,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  headerTitle: { fontFamily: Fonts.serif, fontSize: 26, color: '#1C1033', letterSpacing: -0.3 },
-  headerSub: { fontFamily: Fonts.sansRegular, fontSize: 12, color: '#6b7280', marginTop: 3 },
+  headerTitle: { fontFamily: Fonts.serif, fontSize: 26, color: Colors.textDark, letterSpacing: -0.3 },
+  headerSub: { fontFamily: Fonts.sansRegular, fontSize: 12, color: Colors.textLight, marginTop: 3 },
   adminBtn: {
     width: 34, height: 34, borderRadius: 17,
     backgroundColor: 'rgba(255,255,255,0.1)',
@@ -1709,10 +1710,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderWidth: 1.5,
-    borderColor: '#EDE9F6',
+    borderColor: '#EDE9F6', // FIXME: define as theme token
   },
   searchIcon: { marginRight: 8 },
-  searchInput: { fontFamily: Fonts.sansRegular, flex: 1, fontSize: 14, color: '#1C1033' },
+  searchInput: { fontFamily: Fonts.sansRegular, flex: 1, fontSize: 14, color: Colors.textDark },
   topicFilterScroll: {
     flexShrink: 0,
     flexGrow: 0,
@@ -1730,13 +1731,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     backgroundColor: Colors.cardBg,
     borderWidth: 1.5,
-    borderColor: '#EDE9F6',
+    borderColor: '#EDE9F6', // FIXME: define as theme token
   },
   topicChipActive: {
     backgroundColor: Colors.primaryAlpha08,
     borderColor: Colors.primary,
   },
-  topicChipText: { fontFamily: Fonts.sansMedium, fontSize: 12, color: '#9CA3AF' },
+  topicChipText: { fontFamily: Fonts.sansMedium, fontSize: 12, color: Colors.textMuted },
   topicChipTextActive: { fontFamily: Fonts.sansBold, color: Colors.primary },
   emptySearch: {
     alignItems: 'center',
@@ -1744,7 +1745,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   emptySearchEmoji: { fontSize: 36 },
-  emptySearchText: { fontFamily: Fonts.sansRegular, fontSize: 14, color: '#9CA3AF', textAlign: 'center' },
+  emptySearchText: { fontFamily: Fonts.sansRegular, fontSize: 14, color: Colors.textMuted, textAlign: 'center' },
   emptySearchReset: { fontFamily: Fonts.sansBold, fontSize: 13, color: Colors.primary, marginTop: 4 },
 
   personalisationBanner: {
@@ -1757,7 +1758,7 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   personalisationText: { fontFamily: Fonts.sansSemiBold, fontSize: 13, color: Colors.primary, flex: 1 },
-  sectionTitle: { fontFamily: Fonts.sansBold, fontSize: 18, color: '#1C1033', marginBottom: 12 },
+  sectionTitle: { fontFamily: Fonts.sansBold, fontSize: 18, color: Colors.textDark, marginBottom: 12 },
   bookSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.primaryAlpha05, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 14 },
   bookPersonalBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   bookPersonalBadgeText: { fontFamily: Fonts.sansSemiBold, fontSize: 12, color: Colors.primary, flex: 1 },
@@ -1766,7 +1767,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     backgroundColor: Colors.bgLight,
     borderBottomWidth: 1,
-    borderBottomColor: '#EDE9F6',
+    borderBottomColor: '#EDE9F6', // FIXME: define as theme token
   },
   categoriesRow: {
     paddingHorizontal: 16,
@@ -1780,10 +1781,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     backgroundColor: Colors.cardBg,
     borderWidth: 1.5,
-    borderColor: '#EDE9F6',
+    borderColor: '#EDE9F6', // FIXME: define as theme token
   },
-  catChipActive: { backgroundColor: 'rgba(28, 16, 51, 0.048)', borderColor: Colors.primary },
-  catChipText: { fontFamily: Fonts.sansMedium, fontSize: 13, color: '#9CA3AF' },
+  catChipActive: { backgroundColor: withAlpha(Colors.textDark, 0.048), borderColor: Colors.primary },
+  catChipText: { fontFamily: Fonts.sansMedium, fontSize: 13, color: Colors.textMuted },
   catChipTextActive: { fontFamily: Fonts.sansBold, color: Colors.primary },
   sortBtn: {
     flexDirection: 'row',
@@ -1807,8 +1808,8 @@ const styles = StyleSheet.create({
     marginTop: 4,
     paddingHorizontal: 4,
   },
-  productSectionDividerLine: { flex: 1, height: 1, backgroundColor: '#EDE9F6' },
-  productSectionDividerText: { fontFamily: Fonts.sansSemiBold, fontSize: 11, color: '#C4B5D4', letterSpacing: 0.5 },
+  productSectionDividerLine: { flex: 1, height: 1, backgroundColor: '#EDE9F6' /* FIXME: define as theme token */ },
+  productSectionDividerText: { fontFamily: Fonts.sansSemiBold, fontSize: 11, color: '#C4B5D4', /* FIXME: define as theme token */ letterSpacing: 0.5 },
   sortModalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.35)',
@@ -1820,29 +1821,29 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 20,
     width: 220,
-    shadowColor: '#000',
+    shadowColor: '#000', // FIXME: define as theme token
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,
     shadowRadius: 24,
     elevation: 10,
     boxShadow: '0px 8px 24px rgba(0, 0, 0, 0.15)',
   } as any,
-  sortTitle: { fontFamily: Fonts.sansBold, fontSize: 15, color: '#1C1033', marginBottom: 14 },
+  sortTitle: { fontFamily: Fonts.sansBold, fontSize: 15, color: Colors.textDark, marginBottom: 14 },
   sortOption: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#EDE9F6',
+    borderBottomColor: '#EDE9F6', // FIXME: define as theme token
   },
-  sortOptionText: { fontFamily: Fonts.sansRegular, fontSize: 14, color: '#9CA3AF' },
+  sortOptionText: { fontFamily: Fonts.sansRegular, fontSize: 14, color: Colors.textMuted },
   sortOptionTextActive: { fontFamily: Fonts.sansBold, color: Colors.primary },
   emptyState: { flex: 1, alignItems: 'center', paddingTop: 56, paddingHorizontal: 32 },
   emptyEmoji: { fontSize: 56, marginBottom: 16 },
   emptyIllus: { width: 220, height: 180, marginBottom: 12 },
-  emptyTitle: { fontFamily: Fonts.sansBold, fontSize: 18, color: '#1C1033', marginBottom: 8 },
-  emptyText: { fontFamily: Fonts.sansRegular, fontSize: 14, color: '#9CA3AF', textAlign: 'center', lineHeight: 22 },
+  emptyTitle: { fontFamily: Fonts.sansBold, fontSize: 18, color: Colors.textDark, marginBottom: 8 },
+  emptyText: { fontFamily: Fonts.sansRegular, fontSize: 14, color: Colors.textMuted, textAlign: 'center', lineHeight: 22 },
   emptyHighlight: { fontFamily: Fonts.sansBold, color: Colors.primary },
   savedCard: { marginBottom: 12 },
   savedCardHeader: {
@@ -1852,6 +1853,6 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   savedCardRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  savedDate: { fontFamily: Fonts.sansRegular, fontSize: 11, color: '#C4B5D4' },
-  savedContent: { fontFamily: Fonts.sansRegular, fontSize: 14, color: '#374151', lineHeight: 22 },
+  savedDate: { fontFamily: Fonts.sansRegular, fontSize: 11, color: '#C4B5D4' /* FIXME: define as theme token */ },
+  savedContent: { fontFamily: Fonts.sansRegular, fontSize: 14, color: '#374151', /* FIXME: define as theme token */ lineHeight: 22 },
 });
