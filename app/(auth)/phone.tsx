@@ -1,14 +1,15 @@
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
+  BackHandler,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -25,6 +26,10 @@ import {
 import GradientButton from '../../components/ui/GradientButton';
 import { Fonts } from '../../constants/theme';
 import { Colors } from '../../constants/theme';
+import { logAuthEvent } from '../../lib/authObservability';
+import { useSignOut } from '../../hooks/useSignOut';
+import SignOutConfirmModal from '../../components/auth/SignOutConfirmModal';
+import SignOutOverlay from '../../components/auth/SignOutOverlay';
 
 // Indian mobile numbers: 10 digits starting with 6-9.
 function validateIndianMobile(digits: string): string | null {
@@ -42,9 +47,19 @@ export default function PhoneScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
   const setPhone = useProfileStore((s) => s.setPhone);
+  const signOut = useSignOut();
+
+  // Accept ?e164=... from deep-link (Plan B Task 9 SmartInputCard).
+  // Pre-fills the digits field. NOT auto-submitted on mount — user taps Send.
+  const params = useLocalSearchParams<{ e164?: string }>();
+  const initialE164 = typeof params.e164 === 'string' ? params.e164 : '';
+  // Strip +91 prefix if the deep-link passes a full E.164 string
+  const initialDigits = initialE164.startsWith('+91')
+    ? initialE164.slice(3).replace(/\D/g, '').slice(0, 10)
+    : initialE164.replace(/\D/g, '').slice(0, 10);
 
   const [step, setStep] = useState<Step>('enter-number');
-  const [digits, setDigits] = useState('');
+  const [digits, setDigits] = useState(initialDigits);
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -55,6 +70,19 @@ export default function PhoneScreen() {
   const confirmationRef = useRef<PhoneOtpHandle | null>(null);
 
   const e164 = `+91${digits.replace(/\D/g, '')}`;
+
+  // ─── Hardware back interception (Android) ────────────────────────────────
+  // This screen is an unbypassable gate. Hardware back is blocked entirely.
+  // The only exit is the Sign-out link in the footer.
+  useFocusEffect(
+    useCallback(() => {
+      const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+        // Block the system back — return true consumes the event.
+        return true;
+      });
+      return () => sub.remove();
+    }, [])
+  );
 
   // ─── Step 1: Send OTP ──────────────────────────────────────────────────────
   const handleSendOtp = async () => {
@@ -73,6 +101,10 @@ export default function PhoneScreen() {
       const handle = await sendPhoneOtp(e164);
       confirmationRef.current = handle;
       setStep('enter-code');
+      logAuthEvent({
+        type: 'auth:phone-otp-sent',
+        e164Masked: e164.slice(0, 6) + '****',
+      });
     } catch (e: any) {
       // Previously we used to silently save the unverified phone and route to
       // home when OTP was unsupported. That bypassed verification entirely
@@ -84,6 +116,10 @@ export default function PhoneScreen() {
       } else {
         setError(friendlyOtpError(e));
       }
+      logAuthEvent({
+        type: 'auth:phone-otp-failed',
+        reason: String(e?.code ?? e?.message ?? 'unknown'),
+      });
       resetPhoneRecaptcha();
     } finally {
       setBusy(false);
@@ -106,15 +142,24 @@ export default function PhoneScreen() {
     setBusy(true);
     try {
       await verifyPhoneOtp(confirmationRef.current, cleanCode);
+      logAuthEvent({
+        type: 'auth:phone-otp-verified',
+        uid: user?.uid ?? '',
+      });
       await savePhoneAndContinue(e164, true);
     } catch (e: any) {
       setError(friendlyOtpError(e));
+      logAuthEvent({
+        type: 'auth:phone-otp-failed',
+        reason: String(e?.code ?? e?.message ?? 'unknown'),
+      });
     } finally {
       setBusy(false);
     }
   };
 
-  const handleResend = async () => {
+  // "Change number" — stays inside the gate, goes back to step 1.
+  const handleChangeNumber = async () => {
     confirmationRef.current = null;
     resetPhoneRecaptcha();
     setCode('');
@@ -159,16 +204,19 @@ export default function PhoneScreen() {
         behavior={Platform.OS === 'ios' || Platform.OS === 'web' ? 'padding' : 'height'}
       >
         <View style={styles.content}>
-          {/* Top-left back — step 2 goes back to step 1, step 1 closes the flow */}
-          <TouchableOpacity
-            style={styles.backBtn}
-            onPress={isEnterNumber ? () => router.back() : handleResend}
-            activeOpacity={0.7}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Ionicons name="chevron-back" size={22} color="#6b7280" />
-            {!isEnterNumber && <Text style={styles.backText}>Change number</Text>}
-          </TouchableOpacity>
+          {/* Step 2 only: "← Change number" stays inside the gate */}
+          {!isEnterNumber && (
+            <Pressable
+              style={styles.changeNumberBtn}
+              onPress={handleChangeNumber}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityRole="button"
+              accessibilityLabel="Change number"
+            >
+              <Ionicons name="chevron-back" size={22} color="#6b7280" />
+              <Text style={styles.changeNumberText}>Change number</Text>
+            </Pressable>
+          )}
 
           <View style={styles.iconCircle}>
             <Ionicons
@@ -241,33 +289,43 @@ export default function PhoneScreen() {
           />
 
           {!isEnterNumber && (
-            <TouchableOpacity onPress={handleResend} activeOpacity={0.6} style={styles.resendBtn}>
-              <Text style={styles.resendText}>Didn't get the code? Resend</Text>
-            </TouchableOpacity>
-          )}
-
-          {isEnterNumber && (
-            <TouchableOpacity
-              onPress={() => {
-                const onboardingComplete = useProfileStore.getState().onboardingComplete;
-                router.replace(onboardingComplete ? '/(tabs)' : '/(auth)/onboarding');
-              }}
-              activeOpacity={0.6}
-              style={styles.skipBtn}
+            <Pressable
+              onPress={handleChangeNumber}
+              accessibilityRole="button"
+              accessibilityLabel="Resend OTP"
+              style={styles.resendBtn}
             >
-              <Text style={styles.skipText}>Skip for now — add later in Profile</Text>
-            </TouchableOpacity>
+              <Text style={styles.resendText}>Didn't get the code? Resend</Text>
+            </Pressable>
           )}
 
           <Text style={styles.privacyHint}>
             By continuing you agree to receive transactional SMS on this number. Standard carrier rates may apply.
           </Text>
+
+          {/* Sign-out is the ONLY exit from this gate */}
+          <Pressable
+            onPress={() => signOut.open()}
+            hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel="Sign out"
+            style={styles.signOutLink}
+          >
+            <Text style={styles.signOutText}>Sign out</Text>
+          </Pressable>
         </View>
       </KeyboardAvoidingView>
 
       {/* Invisible reCAPTCHA container — required by Firebase Phone Auth on
           web. React Native Web renders nativeID as the HTML id. */}
       <View nativeID={PHONE_OTP_CONTAINER_ID} style={styles.recaptchaContainer} />
+
+      <SignOutConfirmModal
+        visible={signOut.isConfirmOpen}
+        onCancel={signOut.cancel}
+        onConfirm={signOut.confirm}
+      />
+      <SignOutOverlay state={signOut.overlayState} />
     </View>
   );
 }
@@ -306,14 +364,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingTop: 8,
   },
-  backBtn: {
+  changeNumberBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 20,
     alignSelf: 'flex-start',
     paddingVertical: 4,
   },
-  backText: {
+  changeNumberText: {
     fontFamily: Fonts.sansMedium,
     fontSize: 14,
     color: '#6b7280',
@@ -412,22 +470,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.primary,
   },
-  skipBtn: {
-    marginTop: 14,
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  skipText: {
-    fontFamily: Fonts.sansMedium,
-    fontSize: 14,
-    color: '#6b7280',
-  },
   privacyHint: {
     fontFamily: Fonts.sansRegular,
     fontSize: 12,
     color: '#9ca3af',
     lineHeight: 17,
     marginTop: 24,
+  },
+  signOutLink: {
+    alignSelf: 'center',
+    marginTop: 24,
+    padding: 8,
+  },
+  signOutText: {
+    fontFamily: Fonts.sansMedium,
+    fontSize: 12,
+    color: Colors.textLight,
+    textDecorationLine: 'underline',
   },
   // reCAPTCHA container must exist in DOM — kept 1x1 and invisible.
   recaptchaContainer: {
