@@ -29,6 +29,7 @@ import { useSocialStore } from '../../store/useSocialStore';
 import { useDMStore } from '../../store/useDMStore';
 import { Fonts } from '../../constants/theme';
 import { Colors } from '../../constants/theme';
+import KidGenderPrompt from '../../components/jit/KidGenderPrompt';
 
 // ─── ChildCard ─────────────────────────────────────────────────────────────────
 
@@ -549,6 +550,7 @@ export default function FamilyScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]}
         showsVerticalScrollIndicator={false}
       >
+        <KidGenderPrompt />
         <Text style={styles.sectionTitle}>Children</Text>
         <Text style={styles.sectionSub}>
           Add, switch, and update each child here. Milestones and routines now live inside Health.

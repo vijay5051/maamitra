@@ -61,6 +61,7 @@ import { AppIcon } from '../../components/ui/AppIcon';
 import type { IllustrationName } from '../../lib/illustrations';
 import { affirmationForDate } from '../../data/affirmations';
 import { getTimeOfDay } from '../../lib/timeOfDay';
+import KidNamePrompt from '../../components/jit/KidNamePrompt';
 
 // Quick-action card id → brand illustration. Cards without a mapping fall back
 // to the existing Lucide/Ionicons glyph. Keep this small — over-illustrated
@@ -863,6 +864,10 @@ export default function HomeTab() {
               {affirmationToday}
             </Text>
           </View>
+        </View>
+
+        <View style={{ paddingHorizontal: 22 }}>
+          <KidNamePrompt />
         </View>
 
         {/* HERO: Ask Maamitra AI bar — flat lilac card, brand-purple icon.

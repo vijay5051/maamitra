@@ -37,6 +37,7 @@ import VaccineCardComponent from '../../components/health/VaccineCard';
 import VaccineScheduleChooser from '../../components/health/VaccineScheduleChooser';
 import TeethTab from '../../components/health/TeethTab';
 import FoodTrackerTab from '../../components/health/FoodTrackerTab';
+import DietPrompt from '../../components/jit/DietPrompt';
 import GrowthTab, { RoutineTab } from '../../components/health/GrowthTab';
 import NuskheTab from '../../components/health/NuskheTab';
 import { Illustration } from '../../components/ui/Illustration';
@@ -1708,7 +1709,14 @@ export default function HealthScreen() {
         {subTab === 'teeth' && <TeethTab />}
 
         {/* ── FOODS ── */}
-        {subTab === 'foods' && <FoodTrackerTab />}
+        {subTab === 'foods' && (
+          <>
+            <View style={{ paddingHorizontal: 22 }}>
+              <DietPrompt />
+            </View>
+            <FoodTrackerTab />
+          </>
+        )}
 
         {/* ── GROWTH (weight / height / head) ── */}
         {subTab === 'growth' && <GrowthTab />}

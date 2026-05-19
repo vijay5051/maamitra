@@ -45,6 +45,7 @@ import type { CommunityPost } from '../../services/social';
 import { countProfilesInState } from '../../services/social';
 import ContextualAskChip from '../../components/ui/ContextualAskChip';
 import { EmailVerifyBanner } from '../../components/ui/EmailVerifyBanner';
+import StatePrompt from '../../components/jit/StatePrompt';
 import { Illustration } from '../../components/ui/Illustration';
 import { AppIcon } from '../../components/ui/AppIcon';
 import { SkeletonPostCard } from '../../components/ui/Skeleton';
@@ -1274,6 +1275,9 @@ export default function CommunityScreen() {
         }
         ListHeaderComponent={
           <>
+            <View style={{ paddingHorizontal: 22 }}>
+              <StatePrompt />
+            </View>
             <EmailVerifyBanner />
             <View style={styles.communityHeroWrap}>
               <Illustration
