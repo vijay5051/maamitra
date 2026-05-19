@@ -8,7 +8,7 @@
  * Grep test in tests/grep-signout.test.ts enforces that no other
  * file calls `signOut()` from `useAuthStore` directly.
  */
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../store/useAuthStore';
 
@@ -17,6 +17,11 @@ type Stage = 'idle' | 'confirm-open' | 'signing-out' | 'signed-out';
 export function useSignOut() {
   const router = useRouter();
   const [stage, setStage] = useState<Stage>('idle');
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+  }, []);
 
   const open = useCallback(() => setStage('confirm-open'), []);
   const cancel = useCallback(() => setStage('idle'), []);
@@ -29,7 +34,7 @@ export function useSignOut() {
       // Hold the success overlay 1200ms so any in-flight tab renders
       // settle before we navigate. Prevents the historical "onboarding
       // form flashes during signout" bug.
-      setTimeout(() => {
+      timerRef.current = setTimeout(() => {
         setStage('idle');
         router.replace('/(auth)/welcome');
       }, 1200);
