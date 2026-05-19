@@ -399,6 +399,32 @@ export const useProfileStore = create<ProfileState>()(
       onRehydrateStorage: () => (state) => {
         if (state) {
           state._hasHydrated = true;
+          // Reconcile `isExpecting` against today's date. If a previously-
+          // expecting kid's DOB has now passed, flip the flag and recompute
+          // age fields. Without this, the kid stays "Expecting" indefinitely
+          // and every age-in-months reader returns 0 (stores MEDIUM #19).
+          const now = Date.now();
+          let mutated = false;
+          state.kids = state.kids.map((k) => {
+            if (!k.isExpecting) return k;
+            const dobTime = k.dob ? new Date(k.dob).getTime() : NaN;
+            if (Number.isFinite(dobTime) && dobTime <= now) {
+              mutated = true;
+              return {
+                ...k,
+                isExpecting: false,
+                stage: 'newborn' as Stage,
+                ageInMonths: calculateAgeInMonths(k.dob),
+                ageInWeeks: calculateAgeInWeeks(k.dob),
+              };
+            }
+            return k;
+          });
+          if (mutated) {
+            // No-op assignment to keep TS happy and surface the change to
+            // any subscribers that read `kids` synchronously after hydrate.
+            state.kids = [...state.kids];
+          }
         }
       },
     }

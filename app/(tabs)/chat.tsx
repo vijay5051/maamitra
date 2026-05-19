@@ -34,8 +34,7 @@ import GradientAvatar from '../../components/ui/GradientAvatar';
 import { Illustration } from '../../components/ui/Illustration';
 import { AppIcon } from '../../components/ui/AppIcon';
 import SettingsModal from '../../components/ui/SettingsModal';
-import { Fonts } from '../../constants/theme';
-import { Colors } from '../../constants/theme';
+import { Colors, Fonts, withAlpha } from '../../constants/theme';
 
 // ─── Allergy Modal ─────────────────────────────────────────────────────────────
 
@@ -128,24 +127,24 @@ const allergyStyles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 40,
   },
-  handle: { width: 36, height: 4, backgroundColor: '#EDE9F6', borderRadius: 2, alignSelf: 'center', marginBottom: 24 },
-  title: { fontFamily: Fonts.sansBold, fontSize: 20, color: '#1C1033', marginBottom: 6 },
-  subtitle: { fontFamily: Fonts.sansRegular, fontSize: 14, color: '#9CA3AF', marginBottom: 20, lineHeight: 20 },
+  handle: { width: 36, height: 4, backgroundColor: Colors.borderSoft, borderRadius: 2, alignSelf: 'center', marginBottom: 24 },
+  title: { fontFamily: Fonts.sansBold, fontSize: 20, color: Colors.textDark, marginBottom: 6 },
+  subtitle: { fontFamily: Fonts.sansRegular, fontSize: 14, color: Colors.textMuted, marginBottom: 20, lineHeight: 20 },
   chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 24 },
   chip: {
     borderWidth: 1.5,
-    borderColor: '#EDE9F6',
+    borderColor: Colors.borderSoft,
     borderRadius: 20,
     paddingVertical: 8,
     paddingHorizontal: 14,
     backgroundColor: Colors.cardBg,
   },
-  chipSelected: { borderColor: Colors.primary, backgroundColor: 'rgba(28, 16, 51, 0.048)' },
-  chipText: { fontFamily: Fonts.sansMedium, fontSize: 14, color: '#9CA3AF' },
+  chipSelected: { borderColor: Colors.primary, backgroundColor: withAlpha(Colors.textDark, 0.048) },
+  chipText: { fontFamily: Fonts.sansMedium, fontSize: 14, color: Colors.textMuted },
   chipTextSelected: { color: Colors.primary, fontFamily: Fonts.sansBold },
   doneBtn: { borderRadius: 18, overflow: 'hidden' },
   doneBtnGrad: { paddingVertical: 16, alignItems: 'center' },
-  doneBtnText: { fontFamily: Fonts.sansBold, color: '#ffffff', fontSize: 16 },
+  doneBtnText: { fontFamily: Fonts.sansBold, color: Colors.white, fontSize: 16 },
 });
 
 // ─── TODAY Separator with gradient lines ──────────────────────────────────────
@@ -156,7 +155,7 @@ function TodaySeparator() {
       {/* Left gradient line */}
       <View style={sepStyles.lineWrap}>
         <LinearGradient
-          colors={['transparent', 'rgba(28, 16, 51, 0.12)', 'transparent']}
+          colors={['transparent', withAlpha(Colors.textDark, 0.12), 'transparent']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={sepStyles.gradLine}
@@ -166,7 +165,7 @@ function TodaySeparator() {
       {/* Right gradient line */}
       <View style={sepStyles.lineWrap}>
         <LinearGradient
-          colors={['transparent', 'rgba(28, 16, 51, 0.12)', 'transparent']}
+          colors={['transparent', withAlpha(Colors.textDark, 0.12), 'transparent']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={sepStyles.gradLine}
@@ -195,7 +194,7 @@ const sepStyles = StyleSheet.create({
   label: {
     fontFamily: Fonts.sansRegular,
     fontSize: 11,
-    color: '#6B7280',
+    color: Colors.textLight,
     letterSpacing: 1.5,
     textTransform: 'uppercase',
     marginHorizontal: 12,
@@ -748,7 +747,7 @@ const styles = StyleSheet.create({
     position: 'absolute', bottom: 1, right: 1,
     width: 10, height: 10, borderRadius: 5,
     backgroundColor: '#22c55e',
-    borderWidth: 2, borderColor: '#ffffff',
+    borderWidth: 2, borderColor: Colors.white,
   },
 
   headerInfo: { flex: 1, minWidth: 0 },
@@ -756,13 +755,13 @@ const styles = StyleSheet.create({
   headerName: {
     fontFamily: Fonts.serif,
     fontSize: 20,
-    color: '#1C1033',
+    color: Colors.textDark,
     letterSpacing: -0.3,
   },
   headerSub: {
     fontFamily: Fonts.sansRegular,
     fontSize: 11,
-    color: '#6b7280',
+    color: Colors.textLight,
     marginTop: 1,
   },
 
@@ -794,7 +793,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 300,
-    backgroundColor: 'rgba(28, 16, 51, 0.024)',
+    backgroundColor: withAlpha(Colors.textDark, 0.024),
     borderBottomLeftRadius: 200,
     borderBottomRightRadius: 200,
     zIndex: 0,
@@ -820,7 +819,7 @@ const styles = StyleSheet.create({
     boxShadow: '0px 4px 12px rgba(28, 16, 51, 0.3)',
   },
   savedToastText: {
-    color: '#ffffff',
+    color: Colors.white,
     fontFamily: Fonts.sansSemiBold,
     fontSize: 13,
   },
@@ -837,10 +836,10 @@ const styles = StyleSheet.create({
   emptyQuickChips: { marginTop: 'auto', paddingTop: 16 },
   emptyAvatar: { alignSelf: 'center', marginBottom: 12 },
   emptyMascot: { width: 160, height: 160, alignSelf: 'center', marginBottom: 8 },
-  emptyGreet: { fontFamily: Fonts.sansBold, fontSize: 18, color: '#1C1033', textAlign: 'center', marginBottom: 6 },
-  emptyDesc: { fontFamily: Fonts.sansRegular, fontSize: 13, color: '#9ca3af', textAlign: 'center', lineHeight: 20, paddingHorizontal: 32, marginBottom: 20 },
+  emptyGreet: { fontFamily: Fonts.sansBold, fontSize: 18, color: Colors.textDark, textAlign: 'center', marginBottom: 6 },
+  emptyDesc: { fontFamily: Fonts.sansRegular, fontSize: 13, color: Colors.textMuted, textAlign: 'center', lineHeight: 20, paddingHorizontal: 32, marginBottom: 20 },
   emptySeparator: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 20, marginBottom: 16, gap: 10 },
-  separatorLine: { flex: 1, height: 1, backgroundColor: 'rgba(28, 16, 51, 0.072)' },
+  separatorLine: { flex: 1, height: 1, backgroundColor: withAlpha(Colors.textDark, 0.072) },
   separatorText: { fontFamily: Fonts.sansSemiBold, fontSize: 10, color: '#C4B5D4', letterSpacing: 1 },
 
   // ── Medical-advice disclaimer (persistent, above input) ──
@@ -851,7 +850,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sansRegular,
     fontSize: 10,
     lineHeight: 14,
-    color: '#9ca3af',
+    color: Colors.textMuted,
     textAlign: 'center',
     paddingHorizontal: 20,
     paddingTop: 6,
@@ -862,14 +861,14 @@ const styles = StyleSheet.create({
   footerStack: {
     backgroundColor: 'rgba(255,248,252,0.98)',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(28, 16, 51, 0.04)',
+    borderTopColor: withAlpha(Colors.textDark, 0.04),
     paddingBottom: Platform.OS === 'web' ? 4 : 0,
   },
   inputRow: { flexDirection: 'row', alignItems: 'flex-end' },
   inputFlex: { flex: 1 },
   suggestBtn: {
     width: 32, height: 32, borderRadius: 16,
-    backgroundColor: 'rgba(28, 16, 51, 0.048)',
+    backgroundColor: withAlpha(Colors.textDark, 0.048),
     alignItems: 'center', justifyContent: 'center',
     marginLeft: 8, marginBottom: 10,
   },
