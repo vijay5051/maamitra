@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import {
   Alert,
   Image,
+  Modal,
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -339,9 +341,9 @@ function PostCardInner({
           ) : null}
           {/* 3-dot menu — own posts only */}
           {isOwnPost && (onDeletePost || onEditPost) && (
-            <View style={{ position: 'relative' }}>
+            <>
               <TouchableOpacity
-                onPress={() => setMenuOpen((v) => !v)}
+                onPress={() => setMenuOpen(true)}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 style={styles.moreBtn}
                 accessibilityRole="button"
@@ -349,29 +351,54 @@ function PostCardInner({
               >
                 <Ionicons name="ellipsis-horizontal" size={18} color="#9ca3af" />
               </TouchableOpacity>
-              {menuOpen && (
-                <View style={styles.menuDropdown}>
-                  {onEditPost && (
+              <Modal
+                visible={menuOpen}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setMenuOpen(false)}
+                accessibilityViewIsModal
+              >
+                <Pressable
+                  style={styles.menuBackdrop}
+                  onPress={() => setMenuOpen(false)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Close menu"
+                >
+                  <Pressable style={styles.menuSheet} onPress={(e) => e.stopPropagation()}>
+                    {onEditPost && (
+                      <TouchableOpacity
+                        style={styles.menuItem}
+                        onPress={() => { setMenuOpen(false); onEditPost(post.id); }}
+                        accessibilityRole="button"
+                        accessibilityLabel="Edit post"
+                      >
+                        <Ionicons name="pencil-outline" size={18} color="#1a1a2e" />
+                        <Text style={styles.menuItemText}>Edit</Text>
+                      </TouchableOpacity>
+                    )}
+                    {onDeletePost && (
+                      <TouchableOpacity
+                        style={styles.menuItem}
+                        onPress={() => { setMenuOpen(false); confirmDeletePost(); }}
+                        accessibilityRole="button"
+                        accessibilityLabel="Delete post"
+                      >
+                        <Ionicons name="trash-outline" size={18} color="#ef4444" />
+                        <Text style={[styles.menuItemText, { color: '#ef4444' }]}>Delete</Text>
+                      </TouchableOpacity>
+                    )}
                     <TouchableOpacity
-                      style={styles.menuItem}
-                      onPress={() => { setMenuOpen(false); onEditPost(post.id); }}
+                      style={[styles.menuItem, styles.menuItemCancel]}
+                      onPress={() => setMenuOpen(false)}
+                      accessibilityRole="button"
+                      accessibilityLabel="Cancel"
                     >
-                      <Ionicons name="pencil-outline" size={15} color="#1a1a2e" />
-                      <Text style={styles.menuItemText}>Edit</Text>
+                      <Text style={[styles.menuItemText, { color: '#6b7280', textAlign: 'center', flex: 1 }]}>Cancel</Text>
                     </TouchableOpacity>
-                  )}
-                  {onDeletePost && (
-                    <TouchableOpacity
-                      style={styles.menuItem}
-                      onPress={() => { setMenuOpen(false); confirmDeletePost(); }}
-                    >
-                      <Ionicons name="trash-outline" size={15} color="#ef4444" />
-                      <Text style={[styles.menuItemText, { color: '#ef4444' }]}>Delete</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              )}
-            </View>
+                  </Pressable>
+                </Pressable>
+              </Modal>
+            </>
           )}
         </View>
       </View>
@@ -602,7 +629,7 @@ function PostCardInner({
                 {(canEditComment || canDeleteComment) && !isEditing ? (
                   <View style={styles.commentOwnerActions}>
                     <TouchableOpacity
-                      onPress={() => setCommentMenuOpenId((openId) => openId === comment.id ? null : comment.id)}
+                      onPress={() => setCommentMenuOpenId(comment.id)}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                       style={styles.commentMoreBtn}
                       disabled={isBusy}
@@ -610,28 +637,53 @@ function PostCardInner({
                     >
                       <Ionicons name="ellipsis-horizontal" size={16} color="#9ca3af" />
                     </TouchableOpacity>
-                    {isCommentMenuOpen ? (
-                      <View style={styles.commentMenuDropdown}>
-                        {canEditComment ? (
+                    <Modal
+                      visible={isCommentMenuOpen}
+                      transparent
+                      animationType="fade"
+                      onRequestClose={() => setCommentMenuOpenId(null)}
+                      accessibilityViewIsModal
+                    >
+                      <Pressable
+                        style={styles.menuBackdrop}
+                        onPress={() => setCommentMenuOpenId(null)}
+                        accessibilityRole="button"
+                        accessibilityLabel="Close menu"
+                      >
+                        <Pressable style={styles.menuSheet} onPress={(e) => e.stopPropagation()}>
+                          {canEditComment ? (
+                            <TouchableOpacity
+                              style={styles.menuItem}
+                              onPress={() => startEditComment(comment.id, comment.text)}
+                              accessibilityRole="button"
+                              accessibilityLabel="Edit comment"
+                            >
+                              <Ionicons name="pencil-outline" size={18} color="#1a1a2e" />
+                              <Text style={styles.menuItemText}>Edit</Text>
+                            </TouchableOpacity>
+                          ) : null}
+                          {canDeleteComment ? (
+                            <TouchableOpacity
+                              style={styles.menuItem}
+                              onPress={() => confirmDeleteComment(comment.id)}
+                              accessibilityRole="button"
+                              accessibilityLabel="Delete comment"
+                            >
+                              <Ionicons name="trash-outline" size={18} color="#ef4444" />
+                              <Text style={[styles.menuItemText, { color: '#ef4444' }]}>Delete</Text>
+                            </TouchableOpacity>
+                          ) : null}
                           <TouchableOpacity
-                            style={styles.menuItem}
-                            onPress={() => startEditComment(comment.id, comment.text)}
+                            style={[styles.menuItem, styles.menuItemCancel]}
+                            onPress={() => setCommentMenuOpenId(null)}
+                            accessibilityRole="button"
+                            accessibilityLabel="Cancel"
                           >
-                            <Ionicons name="pencil-outline" size={15} color="#1a1a2e" />
-                            <Text style={styles.menuItemText}>Edit</Text>
+                            <Text style={[styles.menuItemText, { color: '#6b7280', textAlign: 'center', flex: 1 }]}>Cancel</Text>
                           </TouchableOpacity>
-                        ) : null}
-                        {canDeleteComment ? (
-                          <TouchableOpacity
-                            style={styles.menuItem}
-                            onPress={() => confirmDeleteComment(comment.id)}
-                          >
-                            <Ionicons name="trash-outline" size={15} color="#ef4444" />
-                            <Text style={[styles.menuItemText, { color: '#ef4444' }]}>Delete</Text>
-                          </TouchableOpacity>
-                        ) : null}
-                      </View>
-                    ) : null}
+                        </Pressable>
+                      </Pressable>
+                    </Modal>
                   </View>
                 ) : null}
               </View>
@@ -754,34 +806,35 @@ const styles = StyleSheet.create({
   moreBtn: {
     padding: 2,
   },
-  menuDropdown: {
-    position: 'absolute',
-    top: 24,
-    right: 0,
-    minWidth: 140,
-    backgroundColor: '#ffffff',
-    borderRadius: 10,
+  menuBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(28, 16, 51, 0.4)',
+    justifyContent: 'flex-end',
+  },
+  menuSheet: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
     paddingVertical: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
-    zIndex: 100,
+    paddingBottom: 18,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    minHeight: 52,
   },
   menuItemText: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#1a1a2e',
     fontWeight: '500',
+  },
+  menuItemCancel: {
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.05)',
+    marginTop: 4,
   },
   commentOwnerActions: {
     position: 'relative',
@@ -795,23 +848,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#F5F0FF',
-  },
-  commentMenuDropdown: {
-    position: 'absolute',
-    top: 32,
-    right: 0,
-    minWidth: 128,
-    backgroundColor: '#ffffff',
-    borderRadius: 10,
-    paddingVertical: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
-    zIndex: 120,
   },
   postText: {
     fontSize: 15,

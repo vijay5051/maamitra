@@ -18,7 +18,7 @@ export function EmailVerifyBanner() {
   const [sending, setSending] = useState(false);
   const [checking, setChecking] = useState(false);
 
-  if (!user || user.emailVerified || user.isGoogleSignIn) return null;
+  if (!user || !user.email || user.emailVerified || user.isGoogleSignIn) return null;
 
   const handleResend = async () => {
     try {
