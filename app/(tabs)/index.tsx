@@ -289,22 +289,47 @@ export default function HomeTab() {
   // Latest community post for the "From the community" card. Subscribes
   // live so a new post or reaction/comment update on the latest post
   // refreshes the card without leaving Home. Hidden when feed is empty.
-  const [latestPost, setLatestPost] = useState<any | null>(null);
+  //
+  // We pull a small page (not just one) so a single moderated / blocked /
+  // followers-only top post doesn't make Home render "Be the first to
+  // share" while Community is full of visible posts. Hidden posts are
+  // already filtered server-side by subscribeRecentPosts; we additionally
+  // apply blocked + followers-only filters at render time, mirroring the
+  // Community tab.
+  const [recentPosts, setRecentPosts] = useState<any[]>([]);
+  const blockedUids = useSocialStore((s) => s.blockedUids);
+  const followingList = useSocialStore((s) => s.following);
+  const myUid = user?.uid;
   useEffect(() => {
-    const unsub = subscribeRecentPosts(1, (posts) => {
-      setLatestPost(posts[0] ?? null);
+    const unsub = subscribeRecentPosts(5, (posts) => {
+      setRecentPosts(posts);
     });
     // Fallback for environments where subscription isn't available
     // (Firebase not initialised / SSR) — keep the original one-shot.
     if (!unsub) {
       let cancelled = false;
-      fetchRecentPosts(1).then((res) => {
-        if (!cancelled) setLatestPost(res.posts[0] ?? null);
+      fetchRecentPosts(5).then((res) => {
+        if (!cancelled) setRecentPosts(res.posts);
       }).catch(() => {});
       return () => { cancelled = true; };
     }
     return () => { try { unsub(); } catch (_) {} };
   }, []);
+  const latestPost = useMemo(() => {
+    const followingUids = new Set(followingList.map((f) => f.uid));
+    return recentPosts.find((p) => {
+      if (blockedUids.includes(p.authorUid)) return false;
+      if (
+        p.authorFollowersOnly &&
+        p.authorUid &&
+        p.authorUid !== myUid &&
+        !followingUids.has(p.authorUid)
+      ) {
+        return false;
+      }
+      return true;
+    }) ?? null;
+  }, [recentPosts, blockedUids, followingList, myUid]);
 
   // The "moms in state" count + tile lives on the Community tab now.
   // (Removed from Home so users encounter it where the action lands.)
