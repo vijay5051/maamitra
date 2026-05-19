@@ -13,7 +13,7 @@ export interface Kid {
   name: string;
   dob: string; // ISO date string
   stage: Stage;
-  gender: 'boy' | 'girl' | 'surprise';
+  gender: 'boy' | 'girl' | 'surprise' | 'not-set';
   photoUrl?: string;
   /**
    * Parent-managed milestone overrides. If absent, milestone progress falls
