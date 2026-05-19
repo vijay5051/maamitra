@@ -1,6 +1,8 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import JustInTimePrompt from './JustInTimePrompt';
 import { useProfileStore } from '../../store/useProfileStore';
+import { useAuthStore } from '../../store/useAuthStore';
+import { saveUserProfile } from '../../services/firebase';
 import { Colors, Fonts } from '../../constants/theme';
 
 type Diet = 'vegetarian' | 'eggetarian' | 'non-vegetarian' | 'vegan';
@@ -21,8 +23,13 @@ export default function DietPrompt() {
 
   const handlePick = (v: Diet) => {
     if (!profile) return;
-    setProfile({ ...profile, diet: v });
+    const updated = { ...profile, diet: v };
+    setProfile(updated);
     dismiss('diet');
+    const uid = useAuthStore.getState().user?.uid;
+    if (uid) {
+      saveUserProfile(uid, { profile: updated }).catch(console.error);
+    }
   };
 
   return (

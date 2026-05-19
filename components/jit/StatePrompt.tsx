@@ -4,6 +4,9 @@ import { Ionicons } from '@expo/vector-icons';
 import JustInTimePrompt from './JustInTimePrompt';
 import StateSelector from '../onboarding/StateSelector';
 import { useProfileStore } from '../../store/useProfileStore';
+import { useAuthStore } from '../../store/useAuthStore';
+import { useSocialStore } from '../../store/useSocialStore';
+import { saveUserProfile } from '../../services/firebase';
 import { Colors, Fonts } from '../../constants/theme';
 
 export default function StatePrompt() {
@@ -16,9 +19,18 @@ export default function StatePrompt() {
 
   const handleSelect = (v: string) => {
     if (!profile) return;
-    setProfile({ ...profile, state: v });
+    const updated = { ...profile, state: v };
+    setProfile(updated);
     dismiss('state');
     setOpen(false);
+    // Persist to Firestore so the state survives app restarts. Without this
+    // only AsyncStorage is updated; Firestore overwrites it on next load and
+    // the prompt reappears every session.
+    const uid = useAuthStore.getState().user?.uid;
+    if (uid) {
+      saveUserProfile(uid, { profile: updated }).catch(console.error);
+      useSocialStore.getState().syncPublicProfile();
+    }
   };
 
   return (
