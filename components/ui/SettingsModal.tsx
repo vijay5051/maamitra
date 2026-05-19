@@ -20,8 +20,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useSignOut } from '../../hooks/useSignOut';
+import { useDeleteAccount } from '../../hooks/useDeleteAccount';
 import SignOutConfirmModal from '../auth/SignOutConfirmModal';
 import SignOutOverlay from '../auth/SignOutOverlay';
+import DeleteAccountConfirmModal from '../auth/DeleteAccountConfirmModal';
+import DeleteAccountOverlay from '../auth/DeleteAccountOverlay';
 import SuccessCheck from './SuccessCheck';
 import { useProfileStore, Kid, ParentGender, calculateAgeInMonths, calculateAgeInWeeks, } from '../../store/useProfileStore';
 import {
@@ -1539,10 +1542,10 @@ export default function SettingsModal({
 }: SettingsModalProps) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { user, deleteAccount } = useAuthStore();
+  const { user } = useAuthStore();
   const signOut = useSignOut();
+  const deleteAccount = useDeleteAccount();
   const { motherName, profile, kids, visibilitySettings, setVisibilitySettings, removeKid, photoUrl, phone, phoneVerified } = useProfileStore();
-  const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>(initialView ?? 'main');
   const [editingKidId, setEditingKidId] = useState<string | null>(null);
   // Refs for scrolling the main view to the Privacy section on demand.
@@ -1650,47 +1653,6 @@ export default function SettingsModal({
     }
   };
 
-  const handleDeleteAccount = () => {
-    if (typeof window !== 'undefined') {
-      const confirmed = window.confirm(
-        'Delete account permanently?\n\nThis will delete all your data and cannot be undone.'
-      );
-      if (confirmed) performDelete();
-    } else {
-      Alert.alert(
-        'Delete Account',
-        'This will permanently delete all your data. This cannot be undone.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Delete', style: 'destructive', onPress: performDelete },
-        ]
-      );
-    }
-  };
-
-  const performDelete = async () => {
-    try {
-      setLoading(true);
-      await deleteAccount();
-      handleClose();
-      router.replace('/(auth)/welcome');
-    } catch (e: any) {
-      console.error('deleteAccount failed:', e);
-      // Firebase Auth deletion requires a recent sign-in — if the session is old,
-      // the user must sign in again before their account can actually be deleted.
-      const code = e?.code ?? '';
-      const isStale = code === 'auth/requires-recent-login' ||
-                      String(e?.message || '').includes('requires-recent-login');
-      Alert.alert(
-        'Could not delete account',
-        isStale
-          ? 'For security, please sign out and sign back in, then try deleting your account again.'
-          : 'Something went wrong. Please check your connection and try again.',
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const initials = (motherName || user?.name || 'M').slice(0, 1).toUpperCase();
 
@@ -1946,7 +1908,7 @@ export default function SettingsModal({
                 icon="trash-outline"
                 label="Delete account"
                 value="Permanent and cannot be undone"
-                onPress={loading ? undefined : handleDeleteAccount}
+                onPress={() => deleteAccount.open()}
                 danger
               />
             </View>
@@ -2002,6 +1964,12 @@ export default function SettingsModal({
         onConfirm={signOut.confirm}
       />
       <SignOutOverlay state={signOut.overlayState} />
+      <DeleteAccountConfirmModal
+        visible={deleteAccount.isConfirmOpen}
+        onCancel={deleteAccount.cancel}
+        onConfirm={deleteAccount.confirm}
+      />
+      <DeleteAccountOverlay state={deleteAccount.overlayState} />
     </Modal>
   );
 }

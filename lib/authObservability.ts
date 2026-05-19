@@ -27,7 +27,10 @@ export type AuthEvent =
   | { type: 'auth:apple-success'; uid: string; email?: string }
   | { type: 'auth:method-cancelled'; method: 'google' | 'apple' | 'phone' }
   | { type: 'auth:web-persistence-failed'; error: string }
-  | { type: 'auth:cache-escape-hatch-triggered' };
+  | { type: 'auth:cache-escape-hatch-triggered' }
+  | { type: 'auth:delete-started'; uid?: string }
+  | { type: 'auth:delete-completed'; uid?: string }
+  | { type: 'auth:delete-failed'; uid?: string; error: string; reason?: 'stale-session' | 'network' | 'unknown' };
 
 function maskEmail(email?: string): string | undefined {
   if (!email) return undefined;
