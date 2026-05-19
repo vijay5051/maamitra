@@ -63,17 +63,40 @@ import { affirmationForDate } from '../../data/affirmations';
 import { getTimeOfDay } from '../../lib/timeOfDay';
 import KidNamePrompt from '../../components/jit/KidNamePrompt';
 
-// Quick-action card id → brand illustration. Cards without a mapping fall back
-// to the existing Lucide/Ionicons glyph. Keep this small — over-illustrated
-// quick-action grids feel busy.
-const QUICK_ILLUS: Partial<Record<string, IllustrationName>> = {
-  newborn: 'quickSleep',
-  solids: 'quickDiet',
-  foods: 'quickDiet',
-  vaccine: 'quickVaccines',
-  scheme: 'quickSchemes',
-  milestone: 'quickMilestones',
-  dev: 'quickMilestones',
+// Quick-action card id → brand illustration.
+// Every possible TodayCard id must resolve here so we NEVER fall back to
+// emoji or Ionicons. The render sites use a two-level lookup:
+//   1. c.illustration  (card explicitly set one, e.g. mood face)
+//   2. QUICK_ILLUS[c.id] ?? QUICK_ILLUS[c.id.split('-')[0]] ?? 'quickMilestones'
+// The prefix-strip handles future hyphenated variants (e.g. milestone-crawl →
+// milestone, teeth-shedding → teeth) automatically. 'quickMilestones' is the
+// final guaranteed-non-null safety net.
+const QUICK_ILLUS: Record<string, IllustrationName> = {
+  // ── Age/stage tiles ──
+  newborn: 'quickSleep',       // sleep tips for <6mo
+  solids: 'quickDiet',         // start solids prompt
+  dev: 'quickMilestones',      // development card for 24mo+
+  pregnancy: 'topicPregnancy', // pregnancy tips (isExpecting)
+
+  // ── Health tiles ──
+  vaccine: 'quickVaccines',    // next vaccine reminder
+  teeth: 'quickMilestones',    // tooth eruption is a milestone
+  foods: 'quickDiet',          // first-foods tracker
+
+  // ── Scheme ──
+  scheme: 'quickSchemes',      // government scheme
+
+  // ── Wellness / activity ──
+  yoga: 'wellnessHero',        // yoga session pick
+  gentle: 'wellnessHero',      // gentle check-in (low mood)
+  mood: 'wellnessHero',        // mood card when not yet logged today
+
+  // ── AI / library tiles ──
+  'continue-chat': 'featureAi',  // continue recent AI chat
+  saved: 'featureLibrary',       // saved AI answers
+
+  // ── Milestone ──
+  milestone: 'quickMilestones',  // upcoming developmental milestone
 };
 import Reanimated, {
   FadeInDown,
@@ -929,27 +952,16 @@ export default function HomeTab() {
                 onPress={hero.onPress}
                 style={[styles.todayHeroCard, { backgroundColor: hero.bg }]}
               >
-                {hero.illustration ? (
-                  <Illustration
-                    name={hero.illustration}
-                    style={styles.todayHeroIllus}
-                    contentFit="contain"
-                  />
-                ) : QUICK_ILLUS[hero.id] ? (
-                  <Illustration
-                    name={QUICK_ILLUS[hero.id]!}
-                    style={styles.todayHeroIllus}
-                    contentFit="contain"
-                  />
-                ) : hero.emoji ? (
-                  <View style={[styles.todayHeroIconWrap, { backgroundColor: '#ffffff' }]}>
-                    <Text style={{ fontSize: 28, lineHeight: 32 }}>{hero.emoji}</Text>
-                  </View>
-                ) : (
-                  <View style={[styles.todayHeroIconWrap, { backgroundColor: '#ffffff' }]}>
-                    <Ionicons name={hero.icon as any} size={22} color={hero.tint} />
-                  </View>
-                )}
+                <Illustration
+                  name={
+                    hero.illustration ??
+                    QUICK_ILLUS[hero.id] ??
+                    QUICK_ILLUS[hero.id.split('-')[0]] ??
+                    'quickMilestones'
+                  }
+                  style={styles.todayHeroIllus}
+                  contentFit="contain"
+                />
                 <View style={styles.todayHeroContent}>
                   <Text style={styles.todayHeroLabel} numberOfLines={1}>{heroLabel}</Text>
                   <Text style={styles.todayHeroValue} numberOfLines={2}>{hero.value}</Text>
@@ -981,23 +993,16 @@ export default function HomeTab() {
                 onPress={c.onPress}
                 style={[styles.todayCard, { backgroundColor: c.bg }]}
               >
-                {c.illustration ? (
-                  <Illustration
-                    name={c.illustration}
-                    style={styles.todayCardIllus}
-                    contentFit="contain"
-                  />
-                ) : QUICK_ILLUS[c.id] ? (
-                  <Illustration
-                    name={QUICK_ILLUS[c.id]!}
-                    style={styles.todayCardIllus}
-                    contentFit="contain"
-                  />
-                ) : c.emoji ? (
-                  <Text style={styles.todayCardEmoji}>{c.emoji}</Text>
-                ) : (
-                  <Ionicons name={c.icon as any} size={16} color={c.tint} />
-                )}
+                <Illustration
+                  name={
+                    c.illustration ??
+                    QUICK_ILLUS[c.id] ??
+                    QUICK_ILLUS[c.id.split('-')[0]] ??
+                    'quickMilestones'
+                  }
+                  style={styles.todayCardIllus}
+                  contentFit="contain"
+                />
                 <Text style={styles.todayVal} numberOfLines={2}>{c.value}</Text>
                 <Text style={styles.todaySub} numberOfLines={1}>{c.label}</Text>
               </AnimatedPressable>
