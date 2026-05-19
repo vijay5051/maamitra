@@ -5,6 +5,27 @@ import { useProfileStore } from '../store/useProfileStore';
 import { isAdminEmail } from '../lib/admin';
 import { logAuthEvent } from '../lib/authObservability';
 
+// Module-level dedup set for gate-pending logs. On a slow Firestore
+// round-trip the component re-renders many times while the gate is
+// pending — we only want one log line per (reason, uid) per session,
+// not one per render. Cleared when the gate releases (logTransition()
+// resets the set).
+const loggedGatePending = new Set<string>();
+
+function logGatePending(reason: 'auth-loading' | 'profile-hydrating' | 'firestore-fetching', uid?: string) {
+  const key = `${reason}:${uid ?? ''}`;
+  if (loggedGatePending.has(key)) return;
+  loggedGatePending.add(key);
+  logAuthEvent({ type: 'auth:gate-pending', reason, uid });
+}
+
+function logTransition(to: 'UNAUTHED' | 'PHONE_GATE' | 'ONBOARDING' | 'APP', uid?: string) {
+  // Once we make a real routing decision, clear the gate-pending dedup
+  // so a subsequent sign-out + sign-in will re-log gate progress.
+  loggedGatePending.clear();
+  logAuthEvent({ type: 'auth:transition', from: 'SPLASH', to, uid });
+}
+
 export default function Index() {
   const { isAuthenticated, isLoading, user, firestoreHydratedForUid } = useAuthStore();
   const onboardingComplete = useProfileStore((s) => s.onboardingComplete);
@@ -15,17 +36,17 @@ export default function Index() {
   // ── Three-gate cold-start guard ────────────────────────────────────────
   // G1: Firebase auth resolved.
   if (isLoading) {
-    logAuthEvent({ type: 'auth:gate-pending', reason: 'auth-loading' });
+    logGatePending('auth-loading');
     return <View style={{ flex: 1, backgroundColor: '#fdf6ff' }} />;
   }
   // G2: zustand-persist finished reading local cache.
   if (!profileHydrated) {
-    logAuthEvent({ type: 'auth:gate-pending', reason: 'profile-hydrating' });
+    logGatePending('profile-hydrating');
     return <View style={{ flex: 1, backgroundColor: '#fdf6ff' }} />;
   }
 
   if (!isAuthenticated) {
-    logAuthEvent({ type: 'auth:transition', from: 'SPLASH', to: 'UNAUTHED' });
+    logTransition('UNAUTHED');
     return <Redirect href="/(auth)/welcome" />;
   }
 
@@ -33,27 +54,29 @@ export default function Index() {
   // THIS user. If not, block until Firestore round-trip has resolved for
   // their uid. This is the gate that was missing; its absence sent returning
   // users to the signup form when their local cache was stale, missing, or
-  // from another identity.
+  // from another identity. One trusted signal is sufficient — we don't need
+  // both cache-trust AND firestore-ready.
   const cacheTrusted = !!user && isCacheTrustedFor(user.uid);
   const firestoreReady = !!user && firestoreHydratedForUid === user.uid;
   if (!cacheTrusted && !firestoreReady) {
-    logAuthEvent({ type: 'auth:gate-pending', reason: 'firestore-fetching', uid: user?.uid });
+    logGatePending('firestore-fetching', user?.uid);
     return <View style={{ flex: 1, backgroundColor: '#fdf6ff' }} />;
   }
 
-  // ── Five legal states from here on ─────────────────────────────────────
+  // ── Routing decisions — four branches mapping to five named states
+  // (admin + tabs both → APP).
   if (isAdminEmail(user?.email)) {
-    logAuthEvent({ type: 'auth:transition', from: 'SPLASH', to: 'APP', uid: user?.uid });
+    logTransition('APP', user?.uid);
     return <Redirect href="/admin" />;
   }
   if (!phoneVerified) {
-    logAuthEvent({ type: 'auth:transition', from: 'SPLASH', to: 'PHONE_GATE', uid: user?.uid });
+    logTransition('PHONE_GATE', user?.uid);
     return <Redirect href="/(auth)/phone" />;
   }
   if (!onboardingComplete) {
-    logAuthEvent({ type: 'auth:transition', from: 'SPLASH', to: 'ONBOARDING', uid: user?.uid });
+    logTransition('ONBOARDING', user?.uid);
     return <Redirect href="/(auth)/onboarding" />;
   }
-  logAuthEvent({ type: 'auth:transition', from: 'SPLASH', to: 'APP', uid: user?.uid });
+  logTransition('APP', user?.uid);
   return <Redirect href="/(tabs)" />;
 }
