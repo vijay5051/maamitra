@@ -27,11 +27,6 @@ import RootErrorBoundary from '../components/ui/RootErrorBoundary';
 import { SplashAnimation } from '../components/ui/SplashAnimation';
 import { hasSubmittedTesterFeedback } from '../services/firebase';
 import { captureFirstVisitAttribution, writeAttributionToUser } from '../services/attribution';
-// Importing useThemeStore at the root runs its rehydration (via zustand
-// persist's onRehydrateStorage) which calls setPrimaryAtRuntime() before
-// any screen renders. That's how the user's picked accent colour is
-// applied at startup — otherwise first paint flashes the default.
-import '../store/useThemeStore';
 
 SplashScreen.preventAutoHideAsync();
 

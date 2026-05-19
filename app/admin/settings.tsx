@@ -80,35 +80,6 @@ function ToggleRow({
 
 // ─── Color Row ────────────────────────────────────────────────────────────────
 
-function ColorRow({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <View style={styles.colorRow}>
-      <Text style={styles.colorLabel}>{label}</Text>
-      <View style={styles.colorRight}>
-        <View style={[styles.colorCircle, { backgroundColor: value || Colors.primary }]} />
-        <TextInput
-          style={styles.colorInput}
-          value={value}
-          onChangeText={onChange}
-          placeholder={Colors.primary}
-          placeholderTextColor="#d1d5db"
-          autoCapitalize="none"
-          autoCorrect={false}
-          maxLength={7}
-        />
-      </View>
-    </View>
-  );
-}
-
 // ─── Tab Config Row ───────────────────────────────────────────────────────────
 
 function TabConfigRow({
@@ -296,14 +267,6 @@ export default function AdminSettings() {
     settingsStore.settings.featureFlags ?? DEFAULT_FEATURES
   );
 
-  // Theme
-  const [primaryColor, setPrimaryColor] = useState<string>(
-    settingsStore.settings.theme?.primary ?? Colors.primary
-  );
-  const [secondaryColor, setSecondaryColor] = useState<string>(
-    settingsStore.settings.theme?.secondary ?? '#8b5cf6'
-  );
-
   // Tabs
   const [tabs, setTabs] = useState<TabConfig[]>(
     settingsStore.settings.tabs ?? DEFAULT_TABS
@@ -343,7 +306,6 @@ export default function AdminSettings() {
     try {
       await settingsStore.updateSettings({
         featureFlags: features,
-        theme: { primary: primaryColor, secondary: secondaryColor },
         tabs,
         notificationTexts: {
           ...notifs,
@@ -426,21 +388,6 @@ export default function AdminSettings() {
 
       {/* Section 1c: Admin team — RBAC */}
       <AdminTeamSection />
-
-      {/* Section 2: App Theme */}
-      <Section title="App Theme">
-        <ColorRow label="Primary Color" value={primaryColor} onChange={setPrimaryColor} />
-        <View style={styles.divider} />
-        <ColorRow label="Secondary Color" value={secondaryColor} onChange={setSecondaryColor} />
-        <View style={styles.divider} />
-        <TouchableOpacity
-          style={styles.resetBtn}
-          onPress={() => { setPrimaryColor(Colors.primary); setSecondaryColor('#8b5cf6'); }}
-        >
-          <Ionicons name="refresh" size={14} color="#9ca3af" />
-          <Text style={styles.resetBtnText}>Reset to Defaults</Text>
-        </TouchableOpacity>
-      </Section>
 
       {/* Section 3: Tab Configuration */}
       <Section title="Tab Configuration">
@@ -776,25 +723,6 @@ const styles = StyleSheet.create({
   toggleIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#EDE9F6', alignItems: 'center', justifyContent: 'center' },
   toggleLabel: { fontSize: 14, color: '#1a1a2e', fontWeight: '500' },
 
-  colorRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14 },
-  colorLabel: { fontSize: 14, color: '#1a1a2e', fontWeight: '500' },
-  colorRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  colorCircle: { width: 28, height: 28, borderRadius: 14, borderWidth: 2, borderColor: '#f3f4f6' },
-  colorInput: {
-    width: 90,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    fontSize: 13,
-    color: '#1a1a2e',
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-  },
-
-  resetBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, padding: 14, justifyContent: 'center' },
-  resetBtnText: { fontSize: 13, color: '#9ca3af' },
-
   tabConfigRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 10, gap: 10 },
   tabConfigOrder: { alignItems: 'center', width: 36 },
   tabConfigIndex: { fontSize: 12, fontWeight: '700', color: Colors.primary },
@@ -919,6 +847,4 @@ const styles = StyleSheet.create({
   saveAllText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });
 
-// Platform import for fontFamily
-import { Platform } from 'react-native';
 import { Colors } from '../../constants/theme';

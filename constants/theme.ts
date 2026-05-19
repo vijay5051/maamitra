@@ -12,17 +12,15 @@ import { TextStyle, ViewStyle } from 'react-native';
 //   - Status / semantic colours (success/warning/error) remain — reserve
 //     them for their meanings (success = green, error = red, etc.).
 export const Colors = {
-  primary: '#7C3AED',           // brand purple — sole accent
-  primarySoft: '#F5F0FF',       // tinted tile bg for icons / active chips
+  primary: '#7B5E9C',           // brand purple — sole accent (Deep dupatta)
+  primarySoft: '#EFEAF5',       // tinted tile bg for icons / active chips
   // Pre-computed alpha variants of the brand primary. Use these for tinted
-  // fills/borders (instead of hard-coded rgba(124,58,237,…) strings) so
-  // they update when the user picks a new accent colour. Values get
-  // rewritten in setPrimaryAtRuntime() on every theme swap.
-  primaryAlpha05: 'rgba(124,58,237,0.05)',
-  primaryAlpha08: 'rgba(124,58,237,0.08)',
-  primaryAlpha12: 'rgba(124,58,237,0.12)',
-  primaryAlpha20: 'rgba(124,58,237,0.20)',
-  primaryAlpha25: 'rgba(124,58,237,0.25)',
+  // fills/borders instead of inline rgba() strings.
+  primaryAlpha05: 'rgba(123,94,156,0.05)',
+  primaryAlpha08: 'rgba(123,94,156,0.08)',
+  primaryAlpha12: 'rgba(123,94,156,0.12)',
+  primaryAlpha20: 'rgba(123,94,156,0.20)',
+  primaryAlpha25: 'rgba(123,94,156,0.25)',
   bgLight: '#FBF7F1',           // warm cream page bg (lifted from neutral grey)
   bgPink: '#F5F0FF',            // alias retained for older screens — lilac
   bgTint: '#F5F0FF',            // preferred name for the tinted tile bg
@@ -57,7 +55,7 @@ export const Colors = {
   // Kept only for backward compatibility. Touching a file? Replace these
   // with primary/neutrals or the new semantic accents above. They'll be
   // removed once every screen is migrated.
-  secondary: '#7C3AED',
+  secondary: '#7B5E9C',
   gold: '#F59E0B',
   sage: '#34D399',
   sky: '#60A5FA',
@@ -67,72 +65,26 @@ export const Colors = {
 
 // ─── Gradients ─────────────────────────────────────────────────────────────────
 // Most screens should prefer a solid `Colors.primary` over these gradients.
-// Kept as tuples for backward compatibility; values are now tonal variations
-// of brand purple rather than the old rose→purple rainbow.
-//
-// IMPORTANT: these are `as const` tuples at build time — at runtime we
-// overwrite the .primary / .avatar / .childRose / .childPurple entries via
-// setPrimaryAtRuntime() so the user-picked accent colour flows through
-// components that render gradients (avatars, buttons that still use
-// Gradients.primary, etc.). `as const` makes the type readonly but the
-// underlying JS object is still mutable.
+// Kept as tuples for backward compatibility; values are tonal variations
+// of brand purple. Brand is a single constant — no runtime overrides.
 export const Gradients = {
-  primary: ['#7C3AED', '#6d28d9'] as const,               // brand-only, subtle depth
+  primary: ['#7B5E9C', '#674E84'] as const,               // brand-only, subtle depth
   header: ['#1C1033', '#3b1060', '#6d1a7a'] as const,      // dark hero header kept
-  avatar: ['#7C3AED', '#6d28d9'] as const,
+  avatar: ['#7B5E9C', '#674E84'] as const,
   warmPink: ['#F5F0FF', '#EDE9F6'] as const,               // renamed in spirit — lilac now
   softPurple: ['#FAFAFB', '#F5F0FF'] as const,
   dark: ['#1C1033', '#4c1d95'] as const,
   momCard: ['#1C1033', '#3b1060'] as const,
-  childRose: ['#7C3AED', '#6d28d9'] as const,
-  childPurple: ['#7C3AED', '#6d28d9'] as const,
+  childRose: ['#7B5E9C', '#674E84'] as const,
+  childPurple: ['#7B5E9C', '#674E84'] as const,
 } as const;
-
-// ─── Runtime theming ──────────────────────────────────────────────────────────
-//
-// The accent colour is user-pickable from Settings → Appearance. The picker
-// writes the chosen hex into useThemeStore, which on every successful write
-// (including the initial hydration from AsyncStorage / Firestore) calls
-// setPrimaryAtRuntime(hex). That mutates the module-level `Colors` and
-// `Gradients` objects.
-//
-// Caveat: StyleSheet.create() snapshots values at module-load time. Styles
-// created BEFORE the user's preference is known will keep the default
-// #7C3AED. So the theme store triggers a soft reload on web after a change
-// (see useThemeStore) to rebuild every stylesheet cache cleanly. On native
-// the user is prompted to restart the app.
-//
-// This trade-off keeps the implementation sane (zero refactors across
-// ~500 Colors.primary references) while delivering a live-looking result
-// to the user.
-
-/** Darken a hex colour by mixing toward black. `amount` 0–1. */
-function shade(hex: string, amount: number): string {
-  const h = hex.replace('#', '');
-  const num = parseInt(h.length === 3 ? h.split('').map((c) => c + c).join('') : h, 16);
-  const r = Math.max(0, Math.min(255, Math.round(((num >> 16) & 0xff) * (1 - amount))));
-  const g = Math.max(0, Math.min(255, Math.round(((num >> 8) & 0xff) * (1 - amount))));
-  const b = Math.max(0, Math.min(255, Math.round((num & 0xff) * (1 - amount))));
-  return '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('');
-}
-
-/** Lighten a hex colour by mixing toward white. `amount` 0–1. */
-function tint(hex: string, amount: number): string {
-  const h = hex.replace('#', '');
-  const num = parseInt(h.length === 3 ? h.split('').map((c) => c + c).join('') : h, 16);
-  const r = Math.max(0, Math.min(255, Math.round(((num >> 16) & 0xff) + (255 - ((num >> 16) & 0xff)) * amount)));
-  const g = Math.max(0, Math.min(255, Math.round(((num >> 8) & 0xff) + (255 - ((num >> 8) & 0xff)) * amount)));
-  const b = Math.max(0, Math.min(255, Math.round((num & 0xff) + (255 - (num & 0xff)) * amount)));
-  return '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('');
-}
 
 /**
  * Convert a #RRGGBB hex to a rgba() string with the given alpha (0–1).
- * Used for brand-tinted surfaces (button hover, chip fill, divider glow)
- * that must track the user's accent colour at runtime.
+ * Used for brand-tinted surfaces (button hover, chip fill, divider glow).
  *
- * Prefer the `Colors.primaryAlpha*` presets below for hot paths — they're
- * pre-computed once per theme swap so they don't bust StyleSheet caches.
+ * Prefer the `Colors.primaryAlpha*` presets for hot paths — they're
+ * pre-computed constants that don't bust StyleSheet caches.
  */
 export function withAlpha(hex: string, alpha: number): string {
   const h = hex.replace('#', '');
@@ -143,93 +95,6 @@ export function withAlpha(hex: string, alpha: number): string {
   const b = num & 0xff;
   const a = Math.max(0, Math.min(1, alpha));
   return `rgba(${r},${g},${b},${a})`;
-}
-
-/**
- * Overwrite the module-level Colors.primary / Colors.primarySoft /
- * Colors.secondary and the relevant Gradients entries with values derived
- * from a user-picked accent colour. Safe to call during app bootstrap
- * before any components render, or at runtime (followed by a reload).
- */
-export function setPrimaryAtRuntime(hex: string): void {
-  if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return;
-  const soft = tint(hex, 0.92);                        // ~#F5F0FF-equivalent
-  const dark = shade(hex, 0.12);
-  // Colors is `as const` at the type level but plain JS at runtime — these
-  // writes do reach every call site that reads Colors.primary NEXT render.
-  (Colors as any).primary = hex;
-  (Colors as any).primarySoft = soft;
-  (Colors as any).bgPink = soft;
-  (Colors as any).bgTint = soft;
-  (Colors as any).secondary = hex;
-  (Colors as any).cloud = soft;
-  // Pre-computed alpha variants — referenced as `Colors.primaryAlpha06`
-  // etc. so styles that need a tinted fill/border don't have to compose
-  // an rgba() string each render. These recompute on every accent swap
-  // and stay in lockstep with `Colors.primary`.
-  (Colors as any).primaryAlpha05 = withAlpha(hex, 0.05);
-  (Colors as any).primaryAlpha08 = withAlpha(hex, 0.08);
-  (Colors as any).primaryAlpha12 = withAlpha(hex, 0.12);
-  (Colors as any).primaryAlpha20 = withAlpha(hex, 0.20);
-  (Colors as any).primaryAlpha25 = withAlpha(hex, 0.25);
-  // Tonal gradients take the same accent + a subtle darkening.
-  (Gradients as any).primary  = [hex, dark];
-  (Gradients as any).avatar   = [hex, dark];
-  (Gradients as any).childRose   = [hex, dark];
-  (Gradients as any).childPurple = [hex, dark];
-}
-
-/**
- * Curated palette shown in the Settings colour picker. Kept short and
- * tonally varied so every choice still reads premium against the neutral
- * canvas we built. `name` is shown in the picker label.
- */
-export const ACCENT_PRESETS: ReadonlyArray<{ name: string; hex: string }> = [
-  { name: 'Purple',  hex: '#7C3AED' }, // default
-  { name: 'Indigo',  hex: '#4F46E5' },
-  { name: 'Blue',    hex: '#2563EB' },
-  { name: 'Teal',    hex: '#0D9488' },
-  { name: 'Emerald', hex: '#059669' },
-  { name: 'Amber',   hex: '#D97706' },
-  { name: 'Coral',   hex: '#EA580C' },
-  { name: 'Rose',    hex: '#E11D48' },
-  { name: 'Pink',    hex: '#DB2777' },
-  { name: 'Slate',   hex: '#475569' },
-];
-
-/** Synchronous web-storage key. MUST stay in sync with the mirror write
- *  done from useThemeStore.setPrimary(). */
-export const ACCENT_STORAGE_KEY = 'maamitra-accent-primary';
-
-// ─── Self-hydration (runs at module evaluation) ──────────────────────────────
-//
-// StyleSheet.create() in every other module snapshots Colors.primary at the
-// moment THAT module is evaluated. If we wait for the async AsyncStorage
-// rehydration (see useThemeStore.onRehydrateStorage) to apply the user's
-// colour, the stylesheets in already-imported tabs have already cached
-// the default — which is exactly why only the first tab showed the new
-// colour in testing.
-//
-// The fix is to do a synchronous read from `localStorage` RIGHT HERE, at
-// the bottom of this module's top-level code. All other modules that
-// `import { Colors } from '../../constants/theme'` will get the mutated
-// Colors object because module evaluation is strictly ordered.
-//
-// localStorage is only available on web. On native, AsyncStorage-backed
-// rehydration via zustand's onRehydrateStorage still runs — native is
-// single-screen-on-mount so the first-render delay isn't visible in
-// the same way.
-try {
-  if (typeof globalThis !== 'undefined' && typeof (globalThis as any).localStorage !== 'undefined') {
-    const ls = (globalThis as any).localStorage;
-    const raw = ls.getItem(ACCENT_STORAGE_KEY);
-    if (typeof raw === 'string' && /^#[0-9a-fA-F]{6}$/.test(raw)) {
-      setPrimaryAtRuntime(raw);
-    }
-  }
-} catch (_) {
-  // localStorage can throw in private-mode Safari / sandboxed iframes.
-  // Falling through leaves the default purple — harmless.
 }
 
 // ─── Border Radius ─────────────────────────────────────────────────────────────

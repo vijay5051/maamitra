@@ -24,7 +24,6 @@ import {
   shouldAssumeExistingAccountFromAuth,
 } from '../lib/returningUserAuthGuard';
 import { useWellnessStore } from './useWellnessStore';
-import { useThemeStore } from './useThemeStore';
 import { useChatStore } from './useChatStore';
 import { useTeethStore } from './useTeethStore';
 import { useFoodTrackerStore } from './useFoodTrackerStore';
@@ -220,11 +219,6 @@ async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
     if ((fullProfile as any).growthTracking && Object.keys((fullProfile as any).growthTracking).length > 0) {
       useGrowthStore.getState().hydrate((fullProfile as any).growthTracking);
     }
-
-    // Apply the user's picked accent colour (if any saved in Firestore).
-    // Fire-and-forget — non-blocking, missing colour just keeps the
-    // locally-persisted / default one.
-    useThemeStore.getState().loadFromFirestore(uid);
 
     useAuthStore.setState({ firestoreHydratedForUid: uid });
     return fullProfile.onboardingComplete;

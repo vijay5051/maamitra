@@ -231,10 +231,6 @@ export const DEFAULT_APP_SETTINGS = {
     health: true,
     family: true,
   },
-  theme: {
-    primary: '#7C3AED',
-    secondary: '#8b5cf6',
-  },
   tabs: [
     { key: 'chat', label: 'Chat', icon: 'chatbubble', visible: true },
     { key: 'family', label: 'Family', icon: 'people', visible: true },

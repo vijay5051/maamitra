@@ -43,8 +43,7 @@ import { isAdminEmail } from '../../lib/admin';
 import { uploadAvatar, uploadKidAvatar } from '../../services/storage';
 import DatePickerField from './DatePickerField';
 import StateSelectorComponent from '../onboarding/StateSelector';
-import { Fonts, ACCENT_PRESETS } from '../../constants/theme';
-import { useThemeStore, } from '../../store/useThemeStore';
+import { Fonts } from '../../constants/theme';
 import {
   checkPushSupportDetailed,
   currentPushPermission,
@@ -491,51 +490,6 @@ function NotificationsPanel({ uid }: { uid?: string }) {
           ))}
         </>
       )}
-    </View>
-  );
-}
-
-// ─── Accent colour picker ─────────────────────────────────────────────────────
-// 10-swatch curated palette (see ACCENT_PRESETS in constants/theme.ts).
-// Tap a swatch → writes to useThemeStore, syncs to Firestore, triggers a
-// soft web reload so every StyleSheet.create() cache rebuilds.
-function AccentPicker({
-  uid,
-  onChosen,
-}: {
-  uid?: string;
-  onChosen: (hex: string) => void;
-}) {
-  const currentPrimary = useThemeStore((state) => state.primary);
-  const setPrimary = useThemeStore((state) => state.setPrimary);
-
-  const handlePick = async (hex: string) => {
-    if (hex === currentPrimary) return;
-    await setPrimary(hex, uid);
-    onChosen(hex);
-  };
-
-  return (
-    <View style={s.accentGrid}>
-      {ACCENT_PRESETS.map((preset) => {
-        const isActive = preset.hex.toLowerCase() === currentPrimary.toLowerCase();
-        return (
-          <TouchableOpacity
-            key={preset.hex}
-            onPress={() => handlePick(preset.hex)}
-            activeOpacity={0.8}
-            style={[s.accentSwatchWrap, isActive && s.accentSwatchWrapActive]}
-            accessibilityLabel={`${preset.name} accent`}
-          >
-            <View style={[s.accentSwatch, { backgroundColor: preset.hex }]}>
-              {isActive && <Ionicons name="checkmark" size={16} color="#ffffff" />}
-            </View>
-            <Text style={[s.accentSwatchLabel, isActive && s.accentSwatchLabelActive]}>
-              {preset.name}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
     </View>
   );
 }
@@ -2236,51 +2190,6 @@ const s = StyleSheet.create({
     fontFamily: Fonts.sansRegular,
     color: '#6b7280',
     marginTop: 2,
-  },
-
-  // Accent picker — 5-up grid of swatches.
-  accentPickerWrap: {
-    padding: 12,
-  },
-  accentGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  accentSwatchWrap: {
-    width: '18%',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 6,
-    borderRadius: 10,
-  },
-  accentSwatchWrapActive: {
-    backgroundColor: '#F5F0FF',
-  },
-  accentSwatch: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#ffffff',
-    // Subtle neutral lift so the swatches pop against the card bg.
-    shadowColor: '#1C1033',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  accentSwatchLabel: {
-    fontFamily: Fonts.sansMedium,
-    fontSize: 10,
-    color: '#6b7280',
-    textAlign: 'center',
-  },
-  accentSwatchLabelActive: {
-    color: '#1C1033',
-    fontFamily: Fonts.sansBold,
   },
 
   // Notifications row — same shape as SettingsRow but with a toggle on
