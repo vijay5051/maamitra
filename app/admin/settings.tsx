@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Stack, useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
 import { useState } from 'react';
 import {
   Alert,
@@ -22,6 +22,9 @@ import { useAdminRole } from '../../lib/useAdminRole';
 import { logAdminAction } from '../../services/audit';
 import { confirmAction, infoAlert } from '../../lib/cross-platform-alerts';
 import { AdminPage } from '../../components/admin/ui';
+import { useSignOut } from '../../hooks/useSignOut';
+import SignOutConfirmModal from '../../components/auth/SignOutConfirmModal';
+import SignOutOverlay from '../../components/auth/SignOutOverlay';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -284,8 +287,8 @@ function ReleaseRow({
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function AdminSettings() {
-  const { user, signOut } = useAuthStore();
-  const router = useRouter();
+  const { user } = useAuthStore();
+  const signOut = useSignOut();
   const settingsStore = useAppSettingsStore();
 
   // Feature Flags
@@ -358,17 +361,7 @@ export default function AdminSettings() {
   }
 
   function handleSignOut() {
-    Alert.alert('Sign Out', 'Sign out of admin?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign Out',
-        style: 'destructive',
-        onPress: async () => {
-          await signOut();
-          router.replace('/(tabs)/chat');
-        },
-      },
-    ]);
+    signOut.open();
   }
 
   const [factoryResetting, setFactoryResetting] = useState(false);
@@ -609,6 +602,12 @@ export default function AdminSettings() {
 
       <View style={{ height: 40 }} />
       </AdminPage>
+      <SignOutConfirmModal
+        visible={signOut.isConfirmOpen}
+        onCancel={signOut.cancel}
+        onConfirm={signOut.confirm}
+      />
+      <SignOutOverlay state={signOut.overlayState} />
     </>
   );
 }
