@@ -90,6 +90,17 @@ function escalate(a: CrisisSeverity, b: CrisisSeverity): CrisisSeverity {
   return SEVERITY_RANK[a] >= SEVERITY_RANK[b] ? a : b;
 }
 
+// Escapes a literal phrase for use inside a RegExp, then wraps it with
+// word boundaries so "suicidal" matches a real sentence but not the
+// substring inside "suicidal ideation academically" being discussed at a
+// research level — and so "ppd" doesn't match "happened". Apostrophes are
+// allowed at the boundary because terms like `can't go on` are themselves
+// already a complete phrase.
+function termToRegex(term: string): RegExp {
+  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(?:^|[^\\p{L}\\p{N}])${escaped}(?=$|[^\\p{L}\\p{N}])`, 'iu');
+}
+
 export function detectCrisis(input: string | null | undefined): CrisisFinding | null {
   if (!input) return null;
   const text = input.toLowerCase();
@@ -99,7 +110,7 @@ export function detectCrisis(input: string | null | undefined): CrisisFinding | 
 
   for (const p of PATTERNS) {
     for (const term of p.terms) {
-      if (text.includes(term)) {
+      if (termToRegex(term).test(text)) {
         matches.push(term);
         categories.add(p.category);
         severity = escalate(severity, p.severity);
