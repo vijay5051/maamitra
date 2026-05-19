@@ -57,8 +57,17 @@ export interface Profile {
   stage: Stage;
   keyDate: string; // due date or baby DOB
   state: string;
-  diet: 'vegetarian' | 'eggetarian' | 'non-vegetarian' | 'vegan';
-  familyType: 'nuclear' | 'joint' | 'in-laws' | 'single-parent';
+  /**
+   * Optional — collected later via the JIT DietPrompt (Foods tab).
+   * When undefined the AI prompt builder falls back to 'vegetarian' and
+   * the food tracker shows all foods. Do NOT auto-set at onboarding.
+   */
+  diet?: 'vegetarian' | 'eggetarian' | 'non-vegetarian' | 'vegan';
+  /**
+   * Optional — collected later via Settings. When undefined the AI prompt
+   * builder falls back to 'a nuclear family'. Do NOT auto-set at onboarding.
+   */
+  familyType?: 'nuclear' | 'joint' | 'in-laws' | 'single-parent';
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

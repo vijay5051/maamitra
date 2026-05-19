@@ -865,23 +865,6 @@ function EditProfileView({ onBack }: { onBack: () => void }) {
       <Text style={s.editSectionTitle}>Your Name</Text>
       <TextInput style={s.textInput} value={name} onChangeText={setName} placeholder="Your name" placeholderTextColor="#9ca3af" />
 
-      {/* Role is LOCKED at signup — the whole app is shaped around it
-          (content, AI framing, schemes, yoga picks). Showing it read-only
-          rather than editable so users can't accidentally switch roles
-          and end up in a half-correct experience. If a user genuinely
-          set the wrong role, they can reach out via Help & Support and
-          we can reset it from the admin tool. */}
-      <Text style={s.editSectionTitle}>I Am a</Text>
-      <View style={s.lockedRoleBox}>
-        <Text style={s.lockedRoleValue}>
-          {GENDER_OPTIONS.find((g) => g.key === gender)?.label ?? '—'}
-        </Text>
-        <Ionicons name="lock-closed" size={14} color="#9ca3af" />
-      </View>
-      <Text style={s.lockedRoleHint}>
-        MaaMitra is currently tailored for mothers in this launch phase.
-      </Text>
-
       <Text style={s.editSectionTitle}>State</Text>
       <TouchableOpacity
         style={s.statePickerBtn}

@@ -109,16 +109,15 @@ export default function OnboardingScreen() {
       const validKeyDate = !isNaN(parsed.getTime()) ? parsed.toISOString() : '';
       const isExpecting = stage === 'pregnant';
 
-      // state/diet/familyType are intentionally defaulted — collected later
-      // via JIT prompts (Community/Foods) and Settings (familyType).
-      // These defaults keep the form minimal while still giving downstream
-      // features a known starting value.
+      // diet and familyType are intentionally undefined — collected later
+      // via the JIT DietPrompt (Foods tab) and Settings (familyType).
+      // The AI prompt builder falls back to 'vegetarian' / 'nuclear' for
+      // undefined values, so the chat stays sensible until the user picks.
       setProfile({
         stage,
         keyDate: validKeyDate,
         state: '',
-        diet: 'vegetarian',
-        familyType: 'nuclear',
+        // diet and familyType omitted — JIT prompts and Settings collect them
       });
 
       const primaryName = kidName.trim() || 'Little one';
