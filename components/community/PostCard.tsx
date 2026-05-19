@@ -163,19 +163,13 @@ function PostCardInner({
   const [postImageErrored, setPostImageErrored] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const confirmDeletePost = () => {
-    Alert.alert(
+  const confirmDeletePost = async () => {
+    const ok = await confirmAction(
       'Delete post',
       'This will permanently remove your post and all its comments.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => onDeletePost?.(post.id),
-        },
-      ],
+      { confirmLabel: 'Delete', destructive: true },
     );
+    if (ok) onDeletePost?.(post.id);
   };
 
   const confirmDeleteComment = async (commentId: string) => {
