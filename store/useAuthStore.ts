@@ -232,6 +232,12 @@ async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
     return fullProfile.onboardingComplete;
   } catch (error) {
     console.error('hydrateProfileFromFirestore error:', error);
+    // Even on failure, mark the uid as "we tried" so G3 (cold-start gate)
+    // can release. Otherwise the user is stuck on splash forever because the
+    // welcome-screen 5-second escape link is unreachable when never routed
+    // to welcome. The router will fall through to onboarding (if no cached
+    // profile) or use whatever cached state exists.
+    useAuthStore.setState({ firestoreHydratedForUid: uid });
     return false;
   }
   })();

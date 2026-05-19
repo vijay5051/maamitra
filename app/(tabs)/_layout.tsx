@@ -105,6 +105,7 @@ export default function TabLayout() {
   const insets = useSafeAreaInsets();
   const { isAuthenticated, isLoading, user } = useAuthStore();
   const onboardingComplete = useProfileStore((s) => s.onboardingComplete);
+  const phoneVerified = useProfileStore((s) => s.phoneVerified);
   const profileHydrated = useProfileStore((s) => s._hasHydrated);
 
   // Auth/onboarding guards as <Redirect> rather than useEffect+router.replace.
@@ -114,6 +115,11 @@ export default function TabLayout() {
   if (!isLoading && profileHydrated) {
     if (!isAuthenticated) return <Redirect href="/(auth)/welcome" />;
     if (isAdminEmail(user?.email)) return <Redirect href="/admin" />;
+    // H8 hardening: phone gate must be enforced at every protected route,
+    // not just the cold-start gate in app/index.tsx — deep links and legacy
+    // accounts can reach /tabs without going through app/index.tsx.
+    // Admins bypass (checked above). Phone must precede onboarding.
+    if (!phoneVerified) return <Redirect href="/(auth)/phone" />;
     if (!onboardingComplete) return <Redirect href="/(auth)/onboarding" />;
   }
 
