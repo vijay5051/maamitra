@@ -17,11 +17,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 
-import { Colors } from '../../constants/theme';
+import { Colors, Spacing } from '../../constants/theme';
 import { useAppSettingsStore } from '../../store/useAppSettingsStore';
 
 const DISMISS_KEY = '@maamitra/dismissedBannerPublishedAt';
 
+// FIXME: extract banner gradients to theme
 const TONE_GRADIENTS: Record<string, [string, string]> = {
   info:      ['#DBEAFE', '#BFDBFE'],
   celebrate: ['#FCE7F3', '#F9A8D4'],
@@ -83,11 +84,11 @@ export default function AppBannerStrip() {
 const styles = StyleSheet.create({
   wrap: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 10,
-    borderRadius: 14, padding: 14, marginHorizontal: 16, marginTop: 12,
+    borderRadius: 14, padding: 14, marginHorizontal: Spacing.lg, marginTop: Spacing.md,
   },
   title: { fontSize: 14, fontWeight: '800', color: '#1a1a2e' },
   body: { fontSize: 12, color: '#1a1a2e', marginTop: 4, lineHeight: 17 },
   ctaWrap: { marginTop: 6 },
   cta: { fontSize: 12, fontWeight: '800', color: Colors.primary },
-  closeBtn: { padding: 4 },
+  closeBtn: { padding: Spacing.xs },
 });

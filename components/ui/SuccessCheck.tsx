@@ -9,6 +9,7 @@ import Animated, {
   withTiming,
   Easing,
 } from 'react-native-reanimated';
+import { Colors, withAlpha } from '../../constants/theme';
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const AnimatedPath = Animated.createAnimatedComponent(Path);
@@ -36,8 +37,8 @@ const CHECK_PATH_LEN = 60;
 
 export default function SuccessCheck({
   size = 72,
-  color = '#16a34a',
-  bgColor = '#dcfce7',
+  color = Colors.success,
+  bgColor = withAlpha(Colors.success, 0.15),
   style,
   playKey,
 }: Props) {

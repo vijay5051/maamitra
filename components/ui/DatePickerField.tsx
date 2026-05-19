@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors } from '../../constants/theme';
+import { Colors, Radius, Spacing } from '../../constants/theme';
 
 interface DatePickerFieldProps {
   value: string; // ISO date string YYYY-MM-DD, or ''
@@ -175,7 +175,7 @@ function NativeDatePickerField({
         <Text style={[styles.displayText, !value && styles.placeholder]}>
           {displayValue || placeholder}
         </Text>
-        <Ionicons name="chevron-down" size={16} color="#9ca3af" />
+        <Ionicons name="chevron-down" size={16} color={Colors.textMuted} />
       </TouchableOpacity>
 
       <Modal
@@ -366,18 +366,18 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#6b7280',
+    color: Colors.textLight,
     marginBottom: 6,
   },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#f9fafb',
-    borderRadius: 12,
+    borderRadius: Radius.sm,
     borderWidth: 1,
     borderColor: '#e5e7eb',
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: Spacing.md,
     position: 'relative',
     minHeight: 48,
   },
@@ -389,7 +389,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   placeholder: {
-    color: '#9ca3af',
+    color: Colors.textMuted,
     fontWeight: '400',
   },
   backdrop: {
@@ -402,7 +402,7 @@ const styles = StyleSheet.create({
   sheet: {
     width: '100%',
     maxWidth: 360,
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.white,
     borderRadius: 18,
     paddingHorizontal: 14,
     paddingVertical: 14,
@@ -456,7 +456,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   yearTextSelected: {
-    color: '#ffffff',
+    color: Colors.white,
     fontWeight: '700',
   },
   weekRow: {
@@ -470,7 +470,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 12,
     fontWeight: '600',
-    color: '#9ca3af',
+    color: Colors.textMuted,
   },
   gridWrap: {
     flexDirection: 'row',
@@ -499,7 +499,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   dayTextSelected: {
-    color: '#ffffff',
+    color: Colors.white,
     fontWeight: '700',
   },
   dayTextDisabled: {
@@ -518,7 +518,7 @@ const styles = StyleSheet.create({
   },
   footerBtnTxt: {
     fontSize: 14,
-    color: '#6b7280',
+    color: Colors.textLight,
     fontWeight: '600',
   },
 });

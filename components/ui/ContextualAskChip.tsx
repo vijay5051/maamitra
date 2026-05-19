@@ -36,7 +36,7 @@ export default function ContextualAskChip({
         <View style={styles.inner}>
           <View style={styles.iconWrap}>
             <LinearGradient colors={Gradients.avatar} style={styles.iconGrad}>
-              <Ionicons name={icon as any} size={12} color="#fff" />
+              <Ionicons name={icon as any} size={12} color={Colors.white} />
             </LinearGradient>
           </View>
           <Text style={styles.label} numberOfLines={1}>
@@ -64,9 +64,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    backgroundColor: '#fff',
+    backgroundColor: Colors.white,
     borderRadius: Radius.full,
-    paddingVertical: 8,
+    paddingVertical: Spacing.sm,
     paddingHorizontal: 10,
   },
   iconWrap: { width: 24, height: 24 },

@@ -43,7 +43,7 @@ import { isAdminEmail } from '../../lib/admin';
 import { uploadAvatar, uploadKidAvatar } from '../../services/storage';
 import DatePickerField from './DatePickerField';
 import StateSelectorComponent from '../onboarding/StateSelector';
-import { Fonts } from '../../constants/theme';
+import { Fonts, Radius, Spacing } from '../../constants/theme';
 import {
   checkPushSupportDetailed,
   currentPushPermission,
@@ -55,7 +55,7 @@ import {
   type NotifPrefs,
   type PushSupportStatus,
 } from '../../services/push';
-import { Colors } from '../../constants/theme';
+import { Colors, withAlpha } from '../../constants/theme';
 
 type ViewMode = 'main' | 'edit-profile' | 'edit-kid' | 'change-phone';
 
@@ -107,7 +107,7 @@ function SettingsRow({
         <RNImage source={{ uri: avatarUri }} style={s.rowAvatar} />
       ) : (
         <View style={[s.rowIcon, danger && s.rowIconDanger]}>
-          <Ionicons name={icon as any} size={18} color={danger ? '#ef4444' : Colors.primary} />
+          <Ionicons name={icon as any} size={18} color={danger ? Colors.error : Colors.primary} />
         </View>
       )}
       <View style={s.rowContent}>
@@ -546,7 +546,7 @@ function StatePickerModal({
               accessibilityRole="button"
               accessibilityLabel="Close state picker"
             >
-              <Ionicons name="close" size={22} color="#6b7280" />
+              <Ionicons name="close" size={22} color={Colors.textLight} />
             </TouchableOpacity>
           </View>
 
@@ -571,9 +571,9 @@ const spStyles = StyleSheet.create({
   },
   sheet: {
     backgroundColor: '#fdf6ff',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingHorizontal: 20,
+    borderTopLeftRadius: Radius.xxl,
+    borderTopRightRadius: Radius.xxl,
+    paddingHorizontal: Spacing.xl,
     paddingTop: 10,
     paddingBottom: 36,
     maxHeight: '75%',
@@ -590,7 +590,7 @@ const spStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: Spacing.lg,
   },
   title: {
     fontSize: 17,
@@ -803,12 +803,12 @@ function EditProfileView({ onBack }: { onBack: () => void }) {
         {/* Buttons */}
         <View style={s.photoActions}>
           <TouchableOpacity style={s.photoUploadBtn} onPress={handlePickPhoto} activeOpacity={0.8} disabled={photoLoading}>
-            <Ionicons name="camera-outline" size={18} color="#ffffff" />
+            <Ionicons name="camera-outline" size={18} color={Colors.white} />
             <Text style={s.photoUploadText}>{photoLoading ? 'Processing…' : photo ? 'Change Photo' : 'Upload Photo'}</Text>
           </TouchableOpacity>
           {photo ? (
             <TouchableOpacity style={s.photoRemoveBtn} onPress={() => { setPhoto(''); setImgError(false); }} activeOpacity={0.7}>
-              <Ionicons name="trash-outline" size={16} color="#ef4444" />
+              <Ionicons name="trash-outline" size={16} color={Colors.error} />
               <Text style={s.photoRemoveText}>Remove</Text>
             </TouchableOpacity>
           ) : null}
@@ -817,7 +817,7 @@ function EditProfileView({ onBack }: { onBack: () => void }) {
 
       {/* ── Basic info ── */}
       <Text style={s.editSectionTitle}>Your Name</Text>
-      <TextInput style={s.textInput} value={name} onChangeText={setName} placeholder="Your name" placeholderTextColor="#9ca3af" />
+      <TextInput style={s.textInput} value={name} onChangeText={setName} placeholder="Your name" placeholderTextColor={Colors.textMuted} />
 
       <Text style={s.editSectionTitle}>State</Text>
       <TouchableOpacity
@@ -829,7 +829,7 @@ function EditProfileView({ onBack }: { onBack: () => void }) {
         <Text style={[s.statePickerText, !state && s.statePickerPlaceholder]}>
           {state || 'Select your state'}
         </Text>
-        <Ionicons name="chevron-down" size={16} color="#9ca3af" />
+        <Ionicons name="chevron-down" size={16} color={Colors.textMuted} />
       </TouchableOpacity>
       <StatePickerModal
         visible={showStatePicker}
@@ -858,7 +858,7 @@ function EditProfileView({ onBack }: { onBack: () => void }) {
         value={bioText}
         onChangeText={setBioText}
         placeholder="Share a little about yourself…"
-        placeholderTextColor="#9ca3af"
+        placeholderTextColor={Colors.textMuted}
         multiline
         numberOfLines={3}
       />
@@ -993,12 +993,12 @@ function EditKidView({ kid, onBack, onRemove }: { kid: Kid; onBack: () => void; 
         </View>
         <View style={s.photoActions}>
           <TouchableOpacity style={s.photoUploadBtn} onPress={handlePickKidPhoto} activeOpacity={0.8} disabled={photoLoading}>
-            <Ionicons name="camera-outline" size={18} color="#ffffff" />
+            <Ionicons name="camera-outline" size={18} color={Colors.white} />
             <Text style={s.photoUploadText}>{photoLoading ? 'Processing…' : photo ? 'Change Photo' : 'Upload Photo'}</Text>
           </TouchableOpacity>
           {photo ? (
             <TouchableOpacity style={s.photoRemoveBtn} onPress={() => { setPhoto(''); setImgError(false); }} activeOpacity={0.7}>
-              <Ionicons name="trash-outline" size={16} color="#ef4444" />
+              <Ionicons name="trash-outline" size={16} color={Colors.error} />
               <Text style={s.photoRemoveText}>Remove</Text>
             </TouchableOpacity>
           ) : null}
@@ -1006,7 +1006,7 @@ function EditKidView({ kid, onBack, onRemove }: { kid: Kid; onBack: () => void; 
       </View>
 
       <Text style={s.editSectionTitle}>Child's Name</Text>
-      <TextInput style={s.textInput} value={name} onChangeText={setName} placeholder="Name" placeholderTextColor="#9ca3af" />
+      <TextInput style={s.textInput} value={name} onChangeText={setName} placeholder="Name" placeholderTextColor={Colors.textMuted} />
 
       <Text style={s.editSectionTitle}>Date of Birth</Text>
       <DatePickerField value={dob} onChange={setDob} placeholder="Tap to pick date of birth" maxDate={new Date().toISOString().split('T')[0]} />
@@ -1030,7 +1030,7 @@ function EditKidView({ kid, onBack, onRemove }: { kid: Kid; onBack: () => void; 
         onPress={() => onRemove(kid.id)}
         activeOpacity={0.8}
       >
-        <Ionicons name="trash-outline" size={16} color="#ef4444" style={{ marginRight: 6 }} />
+        <Ionicons name="trash-outline" size={16} color={Colors.error} style={{ marginRight: 6 }} />
         <Text style={s.deleteKidBtnText}>Remove {kid.name || 'this child'}</Text>
       </TouchableOpacity>
     </ScrollView>
@@ -1241,7 +1241,7 @@ function ChangePhoneView({
                 value={digits}
                 onChangeText={(t) => { setDigits(t.replace(/\D/g, '').slice(0, 10)); setError(''); }}
                 placeholder="98765 43210"
-                placeholderTextColor="#9ca3af"
+                placeholderTextColor={Colors.textMuted}
                 keyboardType="phone-pad"
                 maxLength={10}
                 style={cp.input}
@@ -1256,7 +1256,7 @@ function ChangePhoneView({
                 value={code}
                 onChangeText={(t) => { setCode(t.replace(/\D/g, '').slice(0, 6)); setError(''); }}
                 placeholder="• • • • • •"
-                placeholderTextColor="#9ca3af"
+                placeholderTextColor={Colors.textMuted}
                 keyboardType="number-pad"
                 maxLength={6}
                 style={cp.codeInput}
@@ -1289,7 +1289,7 @@ function ChangePhoneView({
                   ? (isStep1 ? 'Sending…' : 'Verifying…')
                   : (isStep1 ? 'Send OTP' : 'Verify & Save')}
               </Text>
-              {!busy && <Ionicons name="arrow-forward" size={16} color="#ffffff" style={{ marginLeft: 6 }} />}
+              {!busy && <Ionicons name="arrow-forward" size={16} color={Colors.white} style={{ marginLeft: 6 }} />}
             </LinearGradient>
           </TouchableOpacity>
 
@@ -1317,16 +1317,16 @@ const cp = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: '#F5F0FF',
-    borderRadius: 12,
+    backgroundColor: Colors.bgTint,
+    borderRadius: Radius.sm,
     padding: 14,
     borderWidth: 1,
     borderColor: '#EDE9F6',
-    marginBottom: 20,
+    marginBottom: Spacing.xl,
   },
   currentLabel: {
     fontSize: 12,
-    color: '#9ca3af',
+    color: Colors.textMuted,
     marginBottom: 2,
   },
   currentValue: {
@@ -1337,10 +1337,10 @@ const cp = StyleSheet.create({
   removeBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: Spacing.xs,
     paddingVertical: 6,
     paddingHorizontal: 10,
-    borderRadius: 8,
+    borderRadius: Radius.xs,
     backgroundColor: '#FEE2E2',
     borderWidth: 1,
     borderColor: '#FCA5A5',
@@ -1352,22 +1352,22 @@ const cp = StyleSheet.create({
   },
   hint: {
     fontSize: 13,
-    color: '#6b7280',
+    color: Colors.textLight,
     lineHeight: 18,
-    marginBottom: 16,
+    marginBottom: Spacing.lg,
   },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
+    backgroundColor: Colors.white,
+    borderRadius: Radius.sm,
     borderWidth: 1,
     borderColor: '#e5e7eb',
-    paddingHorizontal: 4,
-    paddingVertical: 4,
+    paddingHorizontal: Spacing.xs,
+    paddingVertical: Spacing.xs,
   },
   inputRowError: {
-    borderColor: '#ef4444',
+    borderColor: Colors.error,
   },
   countryBox: {
     flexDirection: 'row',
@@ -1393,8 +1393,8 @@ const cp = StyleSheet.create({
     letterSpacing: 0.5,
   },
   codeRow: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
+    backgroundColor: Colors.white,
+    borderRadius: Radius.sm,
     borderWidth: 1,
     borderColor: '#e5e7eb',
   },
@@ -1408,16 +1408,16 @@ const cp = StyleSheet.create({
   },
   errorText: {
     fontSize: 13,
-    color: '#ef4444',
+    color: Colors.error,
     marginTop: 10,
-    marginLeft: 4,
+    marginLeft: Spacing.xs,
   },
   primaryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: Radius.sm,
   },
   primaryBtnDisabled: {
     opacity: 0.45,
@@ -1425,7 +1425,7 @@ const cp = StyleSheet.create({
   primaryBtnText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#ffffff',
+    color: Colors.white,
     letterSpacing: 0.2,
   },
   resendText: {
@@ -1436,9 +1436,9 @@ const cp = StyleSheet.create({
   },
   legal: {
     fontSize: 11,
-    color: '#9ca3af',
+    color: Colors.textMuted,
     lineHeight: 16,
-    marginTop: 20,
+    marginTop: Spacing.xl,
     textAlign: 'center',
   },
   recaptcha: {
@@ -1464,7 +1464,7 @@ const cp = StyleSheet.create({
   },
   successSub: {
     fontSize: 14,
-    color: '#6b7280',
+    color: Colors.textLight,
   },
 });
 
@@ -1614,7 +1614,7 @@ export default function SettingsModal({
             accessibilityRole="button"
             accessibilityLabel={showBack ? 'Back' : 'Close settings'}
           >
-            <Ionicons name={showBack ? 'arrow-back' : 'close'} size={20} color="#6b7280" />
+            <Ionicons name={showBack ? 'arrow-back' : 'close'} size={20} color={Colors.textLight} />
           </TouchableOpacity>
           <Text style={s.headerTitle}>{headerTitle}</Text>
           <View style={s.closeBtn} />
@@ -1917,31 +1917,31 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: Spacing.lg,
     paddingVertical: 14,
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.white,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0EDF5',
+    borderBottomColor: Colors.borderSoft,
   },
   headerTitle: {
-    color: '#1C1033',
+    color: Colors.textDark,
     fontSize: 18,
     fontFamily: Fonts.sansBold,
     letterSpacing: -0.2,
   },
   closeBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  content: { paddingHorizontal: 16, paddingTop: 20 },
+  content: { paddingHorizontal: Spacing.lg, paddingTop: Spacing.xl },
 
   profileCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.white,
     borderRadius: 14,
     padding: 14,
     marginBottom: 22,
     borderWidth: 1,
-    borderColor: '#F0EDF5',
+    borderColor: Colors.borderSoft,
   },
   avatar: {
     width: 52,
@@ -1952,7 +1952,7 @@ const s = StyleSheet.create({
     justifyContent: 'center',
   },
   avatarText: {
-    color: '#ffffff',
+    color: Colors.white,
     fontSize: 20,
     fontFamily: Fonts.sansBold,
   },
@@ -1960,13 +1960,13 @@ const s = StyleSheet.create({
   profileName: {
     fontSize: 16,
     fontFamily: Fonts.sansBold,
-    color: '#1C1033',
+    color: Colors.textDark,
     letterSpacing: -0.1,
   },
   profileEmail: {
     fontSize: 13,
     fontFamily: Fonts.sansRegular,
-    color: '#6b7280',
+    color: Colors.textLight,
     marginTop: 2,
   },
   // Identity-card Edit chip (replaces the old quick Sign Out chip which
@@ -1974,11 +1974,11 @@ const s = StyleSheet.create({
   identityEditBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: Spacing.xs,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: '#F5F0FF',
+    borderRadius: Radius.xs,
+    backgroundColor: Colors.bgTint,
     borderWidth: 1,
     borderColor: '#EDE9F6',
   },
@@ -1992,11 +1992,11 @@ const s = StyleSheet.create({
   signOutQuickBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: Spacing.xs,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: '#F5F0FF',
+    borderRadius: Radius.xs,
+    backgroundColor: Colors.bgTint,
     borderWidth: 1,
     borderColor: '#EDE9F6',
   },
@@ -2015,17 +2015,17 @@ const s = StyleSheet.create({
   quickTile: {
     width: '48.5%',
     minHeight: 104,
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
+    backgroundColor: Colors.white,
+    borderRadius: Radius.sm,
     borderWidth: 1,
-    borderColor: '#F0EDF5',
-    padding: 12,
+    borderColor: Colors.borderSoft,
+    padding: Spacing.md,
   },
   quickTileIcon: {
     width: 34,
     height: 34,
     borderRadius: 10,
-    backgroundColor: '#F5F0FF',
+    backgroundColor: Colors.bgTint,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
@@ -2033,43 +2033,43 @@ const s = StyleSheet.create({
   quickTileLabel: {
     fontSize: 14,
     fontFamily: Fonts.sansBold,
-    color: '#1C1033',
+    color: Colors.textDark,
   },
   quickTileSub: {
     fontSize: 12,
     lineHeight: 16,
     fontFamily: Fonts.sansRegular,
-    color: '#6b7280',
+    color: Colors.textLight,
     marginTop: 3,
   },
 
   // Section header wrapper — title + optional helper subtitle under it.
   sectionHeaderWrap: {
-    marginTop: 8,
-    marginBottom: 8,
-    paddingLeft: 4,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.sm,
+    paddingLeft: Spacing.xs,
   },
   sectionHeader: {
     fontSize: 11,
     fontFamily: Fonts.sansBold,
-    color: '#6b7280',
+    color: Colors.textLight,
     letterSpacing: 0.8,
     textTransform: 'uppercase',
   },
   sectionSubtitle: {
     fontSize: 12,
     fontFamily: Fonts.sansRegular,
-    color: '#9ca3af',
+    color: Colors.textMuted,
     marginTop: 3,
     letterSpacing: 0,
   },
 
   card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
+    backgroundColor: Colors.white,
+    borderRadius: Radius.sm,
     marginBottom: 18,
     borderWidth: 1,
-    borderColor: '#F0EDF5',
+    borderColor: Colors.borderSoft,
     overflow: 'hidden',
   },
   dangerCard: {
@@ -2085,13 +2085,13 @@ const s = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 14,
     paddingVertical: 14,
-    gap: 12,
+    gap: Spacing.md,
   },
   rowIcon: {
     width: 34,
     height: 34,
     borderRadius: 10,
-    backgroundColor: '#F5F0FF',
+    backgroundColor: Colors.bgTint,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2099,7 +2099,7 @@ const s = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 10,
-    backgroundColor: '#F5F0FF',
+    backgroundColor: Colors.bgTint,
   },
   rowIconDanger: {
     backgroundColor: 'rgba(239,68,68,0.08)',
@@ -2108,19 +2108,19 @@ const s = StyleSheet.create({
   rowLabel: {
     fontSize: 15,
     fontFamily: Fonts.sansSemiBold,
-    color: '#1C1033',
+    color: Colors.textDark,
   },
-  rowLabelDanger: { color: '#ef4444' },
+  rowLabelDanger: { color: Colors.error },
   rowValue: {
     fontSize: 13,
     fontFamily: Fonts.sansRegular,
-    color: '#6b7280',
+    color: Colors.textLight,
     marginTop: 2,
   },
 
   divider: {
     height: 1,
-    backgroundColor: '#F0EDF5',
+    backgroundColor: Colors.borderSoft,
     marginLeft: 60,
   },
 
@@ -2128,8 +2128,8 @@ const s = StyleSheet.create({
     textAlign: 'center',
     fontSize: 11,
     fontFamily: Fonts.sansRegular,
-    color: '#9ca3af',
-    marginTop: 12,
+    color: Colors.textMuted,
+    marginTop: Spacing.md,
     letterSpacing: 0.2,
   },
 
@@ -2138,15 +2138,15 @@ const s = StyleSheet.create({
     fontSize: 11,
     lineHeight: 16,
     fontFamily: Fonts.sansRegular,
-    color: '#9ca3af',
+    color: Colors.textMuted,
     paddingHorizontal: 18,
-    marginTop: 24,
+    marginTop: Spacing.xxl,
   },
   legalRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
+    gap: Spacing.sm,
     marginTop: 10,
   },
   legalLink: {
@@ -2156,17 +2156,17 @@ const s = StyleSheet.create({
   },
   legalDot: {
     fontSize: 12,
-    color: '#9ca3af',
+    color: Colors.textMuted,
   },
 
   privacyNoteCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
+    gap: Spacing.md,
+    backgroundColor: Colors.white,
+    borderRadius: Radius.sm,
     borderWidth: 1,
-    borderColor: '#F0EDF5',
+    borderColor: Colors.borderSoft,
     padding: 14,
     marginBottom: 18,
   },
@@ -2174,7 +2174,7 @@ const s = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 10,
-    backgroundColor: '#F5F0FF',
+    backgroundColor: Colors.bgTint,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2182,13 +2182,13 @@ const s = StyleSheet.create({
   privacyNoteTitle: {
     fontSize: 15,
     fontFamily: Fonts.sansSemiBold,
-    color: '#1C1033',
+    color: Colors.textDark,
   },
   privacyNoteText: {
     fontSize: 12,
     lineHeight: 16,
     fontFamily: Fonts.sansRegular,
-    color: '#6b7280',
+    color: Colors.textLight,
     marginTop: 2,
   },
 
@@ -2199,7 +2199,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 14,
     paddingVertical: 14,
-    gap: 12,
+    gap: Spacing.md,
   },
   // Per-topic sub-toggle. Slightly indented + quieter copy so the
   // hierarchy reads as "master switch ↓ five specific switches".
@@ -2208,65 +2208,65 @@ const s = StyleSheet.create({
     alignItems: 'center',
     paddingLeft: 60,
     paddingRight: 14,
-    paddingVertical: 12,
-    gap: 12,
+    paddingVertical: Spacing.md,
+    gap: Spacing.md,
   },
   prefContent: { flex: 1 },
   prefLabel: {
     fontFamily: Fonts.sansSemiBold,
     fontSize: 14,
-    color: '#1C1033',
+    color: Colors.textDark,
   },
   prefSub: {
     fontFamily: Fonts.sansRegular,
     fontSize: 12,
-    color: '#9ca3af',
+    color: Colors.textMuted,
     marginTop: 1,
   },
 
   // Edit views
   editContent: {
-    paddingHorizontal: 16,
-    paddingTop: 20,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.xl,
     paddingBottom: 40,
   },
   editSectionTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#6b7280',
-    marginBottom: 8,
-    marginTop: 16,
+    color: Colors.textLight,
+    marginBottom: Spacing.sm,
+    marginTop: Spacing.lg,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   textInput: {
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.white,
     borderWidth: 1.5,
     borderColor: '#e5e7eb',
-    borderRadius: 12,
+    borderRadius: Radius.sm,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: Spacing.md,
     fontSize: 15,
     color: '#1a1a2e',
   },
   chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: Spacing.sm,
   },
   chip: {
     borderWidth: 1.5,
     borderColor: '#e5e7eb',
-    borderRadius: 20,
-    paddingVertical: 8,
+    borderRadius: Radius.lg,
+    paddingVertical: Spacing.sm,
     paddingHorizontal: 14,
     backgroundColor: '#f9fafb',
   },
   chipActive: {
     borderColor: Colors.primary,
-    backgroundColor: 'rgba(28, 16, 51, 0.048)',
+    backgroundColor: withAlpha(Colors.textDark, 0.048),
   },
-  chipText: { fontSize: 13, color: '#6b7280', fontWeight: '500' },
+  chipText: { fontSize: 13, color: Colors.textLight, fontWeight: '500' },
   chipTextActive: { color: Colors.primary, fontWeight: '700' },
 
   saveBtn: {
@@ -2275,35 +2275,35 @@ const s = StyleSheet.create({
     marginTop: 28,
   },
   saveBtnGrad: {
-    paddingVertical: 16,
+    paddingVertical: Spacing.lg,
     alignItems: 'center',
   },
-  saveBtnText: { color: '#ffffff', fontWeight: '700', fontSize: 16 },
+  saveBtnText: { color: Colors.white, fontWeight: '700', fontSize: 16 },
 
   deleteKidBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
+    marginTop: Spacing.lg,
+    paddingVertical: Spacing.md,
+    borderRadius: Radius.sm,
     borderWidth: 1,
     borderColor: '#fca5a5',
     backgroundColor: '#fff5f5',
   },
-  deleteKidBtnText: { color: '#ef4444', fontWeight: '600', fontSize: 14 },
+  deleteKidBtnText: { color: Colors.error, fontWeight: '600', fontSize: 14 },
 
-  optional: { color: '#9ca3af', fontWeight: '400', textTransform: 'none' },
+  optional: { color: Colors.textMuted, fontWeight: '400', textTransform: 'none' },
 
   statePickerBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.white,
     borderWidth: 1.5,
     borderColor: '#e5e7eb',
-    borderRadius: 12,
+    borderRadius: Radius.sm,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: Spacing.md,
   },
   lockedRoleBox: {
     flexDirection: 'row',
@@ -2312,10 +2312,10 @@ const s = StyleSheet.create({
     backgroundColor: '#F3F0F8',
     borderWidth: 1,
     borderColor: '#EDE9F6',
-    borderRadius: 12,
+    borderRadius: Radius.sm,
     paddingHorizontal: 14,
     paddingVertical: 14,
-    gap: 8,
+    gap: Spacing.sm,
   },
   lockedRoleValue: {
     fontSize: 15,
@@ -2324,7 +2324,7 @@ const s = StyleSheet.create({
   },
   lockedRoleHint: {
     fontSize: 12,
-    color: '#9ca3af',
+    color: Colors.textMuted,
     marginTop: 6,
     lineHeight: 16,
   },
@@ -2334,21 +2334,21 @@ const s = StyleSheet.create({
     color: '#1a1a2e',
   },
   statePickerPlaceholder: {
-    color: '#9ca3af',
+    color: Colors.textMuted,
   },
 
-  textArea: { minHeight: 80, textAlignVertical: 'top', paddingTop: 12 },
+  textArea: { minHeight: 80, textAlignVertical: 'top', paddingTop: Spacing.md },
 
   photoPickerWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: Spacing.lg,
     backgroundColor: '#fdf6ff',
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: Radius.md,
+    padding: Spacing.lg,
     borderWidth: 1,
-    borderColor: '#F5F0FF',
-    marginBottom: 4,
+    borderColor: Colors.bgTint,
+    marginBottom: Spacing.xs,
   },
   photoPreviewCircle: {
     width: 80,
@@ -2356,13 +2356,13 @@ const s = StyleSheet.create({
     borderRadius: 40,
     overflow: 'hidden',
     borderWidth: 2,
-    borderColor: '#F5F0FF',
+    borderColor: Colors.bgTint,
   },
   photoPlaceholder: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#F0EDF5',
+    backgroundColor: Colors.borderSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2370,22 +2370,22 @@ const s = StyleSheet.create({
   photoUploadBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: Spacing.sm,
     backgroundColor: Colors.primary,
-    borderRadius: 12,
+    borderRadius: Radius.sm,
     paddingVertical: 10,
     paddingHorizontal: 14,
   },
-  photoUploadText: { color: '#ffffff', fontSize: 14, fontWeight: '600' },
+  photoUploadText: { color: Colors.white, fontSize: 14, fontWeight: '600' },
   photoRemoveBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingVertical: 4,
+    paddingVertical: Spacing.xs,
   },
-  photoRemoveText: { color: '#ef4444', fontSize: 13, fontWeight: '500' },
+  photoRemoveText: { color: Colors.error, fontSize: 13, fontWeight: '500' },
   // legacy — kept for safety
-  photoPreviewWrap: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 },
+  photoPreviewWrap: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, marginBottom: Spacing.sm },
   removePhotoBtn: { padding: 2 },
 
   toggleRow: {
@@ -2408,7 +2408,7 @@ const s = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.white,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.15,
