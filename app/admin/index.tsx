@@ -35,6 +35,9 @@ import {
   ToolbarButton,
 } from '../../components/admin/ui';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useSignOut } from '../../hooks/useSignOut';
+import SignOutConfirmModal from '../../components/auth/SignOutConfirmModal';
+import SignOutOverlay from '../../components/auth/SignOutOverlay';
 import { useAdminRole } from '../../lib/useAdminRole';
 import { ADMIN_ROLE_LABELS } from '../../lib/admin';
 import { getAnalyticsSnapshot, AnalyticsSnapshot, FeatureAdoption } from '../../services/analytics';
@@ -52,7 +55,8 @@ import {
 } from '../../services/admin';
 
 export default function AdminDashboard() {
-  const { user, signOut } = useAuthStore();
+  const { user } = useAuthStore();
+  const signOut = useSignOut();
   const router = useRouter();
   const role = useAdminRole();
   const { width } = useWindowDimensions();
@@ -105,18 +109,7 @@ export default function AdminDashboard() {
   }, [snap]);
 
   function handleSignOut() {
-    const doSignOut = async () => {
-      await signOut();
-      router.replace('/(auth)/welcome');
-    };
-    if (Platform.OS === 'web') {
-      void doSignOut();
-    } else {
-      Alert.alert('Sign out', 'Sign out of the admin panel?', [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Sign out', style: 'destructive', onPress: doSignOut },
-      ]);
-    }
+    signOut.open();
   }
 
   async function doApprove(id: string) {
@@ -456,6 +449,12 @@ export default function AdminDashboard() {
           </Card>
         ) : null}
       </AdminPage>
+      <SignOutConfirmModal
+        visible={signOut.isConfirmOpen}
+        onCancel={signOut.cancel}
+        onConfirm={signOut.confirm}
+      />
+      <SignOutOverlay state={signOut.overlayState} />
     </>
   );
 }
