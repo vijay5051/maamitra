@@ -39,7 +39,7 @@ interface PostCardProps {
   onViewProfile: (uid: string, name: string) => void;    // open UserProfileModal
   onDeletePost?: (postId: string) => void;               // only provided for own posts
   onEditPost?: (postId: string) => void;                 // only provided for own posts
-  onDeleteComment?: (postId: string, commentId: string) => void; // own comment or own post's comment
+  onDeleteComment?: (postId: string, commentId: string) => Promise<void> | void; // own comment or own post's comment
   onEditComment?: (postId: string, commentId: string, text: string) => Promise<void> | void;
   /** Tap on a reaction pill (long-press / secondary) → show who reacted.
       If omitted, the reaction pill is just a tap-to-toggle. */
@@ -272,7 +272,11 @@ function PostCardInner({
   const displayedComments = blockedUids.length > 0
     ? rawComments?.filter((c: any) => !blockedUids.includes(c.authorUid))
     : rawComments;
-  const lastComment = post.lastComment;
+  // Hide lastComment preview if its author is blocked so blocked users'
+  // text can't leak into the feed card even before comments are opened.
+  const lastComment = post.lastComment && (!post.lastComment.authorUid || !blockedUids.includes(post.lastComment.authorUid))
+    ? post.lastComment
+    : undefined;
   const commentCount = Math.max(
     0,
     post.commentCount ?? 0,
@@ -402,7 +406,7 @@ function PostCardInner({
 
       {/* Optional image area */}
       {isUsableUri(post.imageUri) && !postImageErrored ? (
-        <View style={[styles.imageWrap, post.imageAspectRatio ? { aspectRatio: post.imageAspectRatio } : {}]}>
+        <View style={[styles.imageWrap, post.imageAspectRatio != null && post.imageAspectRatio > 0 ? { aspectRatio: post.imageAspectRatio } : {}]}>
           <Image
             source={{ uri: post.imageUri }}
             style={StyleSheet.absoluteFill}
@@ -1114,9 +1118,14 @@ const styles = StyleSheet.create({
 // rows. Custom equality check skips rerenders when the post identity
 // hasn't changed AND the fields the card actually reads are stable.
 export default React.memo(PostCardInner, (prev, next) => {
-  if (prev.post === next.post && prev.blockedUids === next.blockedUids) return true;
+  // Reference equality short-circuit: if both refs are the same and
+  // blockedUids reference is the same, nothing the card renders has changed.
+  // Do NOT also short-circuit on blockedUids here — blockedUids is checked
+  // below by reference already, and length-only comparison would miss a
+  // swap from ['uid-A'] to ['uid-B'] (same length, different content).
+  if (prev.post === next.post && prev.blockedUids === next.blockedUids &&
+      prev.currentUserUid === next.currentUserUid) return true;
   if (prev.post.id !== next.post.id) return false;
-  // Cheap deep checks on the parts of the post that the card renders.
   return (
     prev.post.text === next.post.text &&
     prev.post.imageUri === next.post.imageUri &&
@@ -1133,6 +1142,6 @@ export default React.memo(PostCardInner, (prev, next) => {
     prev.currentUserUid === next.currentUserUid &&
     prev.currentUserName === next.currentUserName &&
     prev.currentUserPhotoUrl === next.currentUserPhotoUrl &&
-    (prev.blockedUids?.length ?? 0) === (next.blockedUids?.length ?? 0)
+    prev.blockedUids === next.blockedUids
   );
 });

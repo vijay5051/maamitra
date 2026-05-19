@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { useAuthStore } from './useAuthStore';
 import { useProfileStore } from './useProfileStore';
-import { useCommunityStore } from './useCommunityStore';
 import * as SocialService from '../services/social';
 import type { FollowEntry, FollowRequest, AppNotification } from '../services/social';
 import type { Unsubscribe } from 'firebase/firestore';
@@ -459,21 +458,13 @@ export const useSocialStore = create<SocialState>((set, get) => ({
       ? `${roleLabel} · ${profile.state}`
       : roleLabel;
 
-    // NOTE: do NOT include followersCount / followingCount here. They are
-    // server-authoritative — maintained by the onFollowCreate /
-    // onFollowDelete Cloud Function triggers. Earlier this function read
-    // them from the local Zustand store (which initialises to 0, 0 on
-    // every app open) and wrote those zeros over the server's true count
-    // before loadSocialData() had finished hydrating from /follows. The
-    // result: a user opens the app, syncs, and their public profile
-    // shows 0 followers to everyone else viewing them — even though the
-    // /follows collection is intact. (Postscount is included; it's only
-    // updated by incrementPublicProfilePostCount on this same client and
-    // is consistent with what the local feed knows about.)
-    const postsCount = useCommunityStore.getState().posts.filter(
-      (p) => p.authorUid === uid
-    ).length;
-
+    // NOTE: do NOT include followersCount / followingCount / postsCount here.
+    // All three are server-authoritative:
+    //   - followersCount/followingCount: maintained by onFollowCreate / onFollowDelete triggers
+    //   - postsCount: maintained by incrementPublicProfilePostCount on create/delete
+    // Writing local values here races with those triggers and can zero out
+    // correct server counts (e.g. local store only holds the first page of
+    // posts, so postsCount would be capped at the page size).
     try {
       await SocialService.upsertPublicProfile(uid, {
         uid,
@@ -484,7 +475,6 @@ export const useSocialStore = create<SocialState>((set, get) => ({
         state: profile?.state,
         parentGender,
         badge,
-        postsCount,
       });
     } catch (error) {
       console.error('syncPublicProfile error:', error);

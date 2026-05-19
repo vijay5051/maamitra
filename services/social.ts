@@ -352,7 +352,7 @@ export async function deleteComment(postId: string, commentId: string): Promise<
 export async function updateComment(
   postId: string,
   commentId: string,
-  _authorUid: string,
+  authorUid: string,
   text: string,
 ): Promise<void> {
   if (!db) return;
@@ -360,6 +360,10 @@ export async function updateComment(
   if (!trimmed) throw new Error('empty_comment');
   try {
     const commentRef = doc(db, 'communityPosts', postId, 'comments', commentId);
+    const snap = await getDoc(commentRef);
+    if (!snap.exists() || snap.data().authorUid !== authorUid) {
+      throw new Error('unauthorized');
+    }
     await updateDoc(commentRef, {
       text: trimmed,
       editedAt: serverTimestamp(),
@@ -423,7 +427,7 @@ export async function createPost(data: {
       reactionsByUser: {},
       commentCount: 0,
       approved: !safety.shouldHold,
-      hidden: safety.shouldAutoHide,
+      hidden: safety.shouldAutoHide || safety.shouldHold,
       hideReason: safety.shouldAutoHide ? `auto:${safety.matchedKeyword}` : undefined,
       // Tags surfaced to admin moderation UIs without leaking content
       // to non-admin clients (rules can deny if needed):

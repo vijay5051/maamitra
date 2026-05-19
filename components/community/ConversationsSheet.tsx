@@ -4,12 +4,12 @@ import {
   FlatList,
   Image,
   Modal,
-  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import GradientAvatar from '../ui/GradientAvatar';
@@ -96,6 +96,7 @@ function ConversationRow({
 
 export default function ConversationsSheet({ visible, onClose }: Props) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
   const myUid = user?.uid ?? '';
   const {
@@ -137,7 +138,7 @@ export default function ConversationsSheet({ visible, onClose }: Props) {
       <View style={styles.container}>
         {/* Light header — was a dark purple→plum gradient that clashed
             with the rest of the refreshed UI. Plain light section now. */}
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
           <View style={styles.headerRow}>
             <Text style={styles.headerTitle}>Messages</Text>
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
@@ -174,7 +175,7 @@ export default function ConversationsSheet({ visible, onClose }: Props) {
               </View>
             }
             contentContainerStyle={
-              conversations.length === 0 ? styles.emptyList : styles.list
+              visibleConversations.length === 0 ? styles.emptyList : styles.list
             }
             showsVerticalScrollIndicator={false}
           />

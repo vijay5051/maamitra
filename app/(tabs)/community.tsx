@@ -663,12 +663,13 @@ function MyProfileCard({
   } = useProfileStore();
   const { getUserPostCount } = useCommunityStore();
   const { followersCount, followingCount } = useSocialStore();
+  const myUid = useAuthStore((s) => s.user?.uid) ?? '';
   const [imgErr, setImgErr] = useState(false);
 
   // Reset error state when photoUrl changes (e.g. after upload)
   useEffect(() => { setImgErr(false); }, [photoUrl]);
 
-  const postCount = getUserPostCount(motherName);
+  const postCount = getUserPostCount(myUid);
   const initial = (motherName || 'M').charAt(0).toUpperCase();
   const genderLabel = 'Mother';
   const kidsLabel = kids.length === 0 ? 'No kids added' : kids.length === 1 ? `${genderLabel} of 1` : `${genderLabel} of ${kids.length}`;
@@ -1000,11 +1001,13 @@ export default function CommunityScreen() {
       loadSocialData();
       syncPublicProfile();
       loadDMCount();
+    } else {
+      // Auth signed out — close any open profile modal so cross-session
+      // post data doesn't bleed into a new login (BUG-20).
+      setViewingUid(null);
     }
     return () => {
       teardown();
-      // Sweep any per-post comment subscriptions so screen unmount
-      // doesn't leak Firestore listeners.
       __commentTeardowns.forEach((t) => { try { t(); } catch (_) {} });
       __commentTeardowns.clear();
     };
@@ -1051,7 +1054,11 @@ export default function CommunityScreen() {
     const post = useCommunityStore.getState().posts.find((p) => p.id === postId);
     if (post && !post.showComments && post.authorUid) {
       const teardown = subscribeToComments(postId);
-      __commentTeardowns.set(postId, teardown);
+      // Guard: subscribeToComments returns () => {} when db is uninitialised;
+      // only store real teardown functions to avoid calling null on unmount.
+      if (typeof teardown === 'function') {
+        __commentTeardowns.set(postId, teardown);
+      }
     } else if (post?.showComments) {
       const t = __commentTeardowns.get(postId);
       if (t) { t(); __commentTeardowns.delete(postId); }
@@ -1102,14 +1109,13 @@ export default function CommunityScreen() {
     return () => { cancelled = true; };
   }, [profile?.state, myUid]);
 
-  // Role-aware noun for the moms-in-state tile — father users shouldn't
-  // see "moms in <state>" either as recipient or as described group.
+  // Role-aware noun for the moms-in-state tile.
+  const parentGender = useProfileStore((s) => s.parentGender);
   const nearbyNoun = useMemo(() => {
-    const pg = useProfileStore.getState().parentGender;
     const n = momsInState;
-    if (pg === 'other') return n === 1 ? 'parent' : 'parents';
+    if (parentGender === 'other') return n === 1 ? 'parent' : 'parents';
     return n === 1 ? 'mom' : 'moms';
-  }, [momsInState]);
+  }, [momsInState, parentGender]);
   const [reactorsPost, setReactorsPost] = useState<CommunityPost | null>(null);
   const [reactorsEmoji, setReactorsEmoji] = useState<string | undefined>(undefined);
   const [editingPost, setEditingPost] = useState<import('../../store/useCommunityStore').Post | null>(null);
@@ -1134,16 +1140,14 @@ export default function CommunityScreen() {
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      // Re-arm the live subscription to force a clean first-page snapshot
-      // (clears pagination state so older pages reload from scratch). The
-      // subscription itself emits within ~1 RTT.
-      subscribeToFeed();
+      // The live feed subscription already reacts to Firestore changes —
+      // don't re-call subscribeToFeed() here, it would create a second
+      // listener whose teardown is discarded (leak). Refreshing social
+      // graph data is enough to pull in new follows/blocks.
       if (myUid) {
         await loadSocialData();
       }
     } catch (_) {}
-    // Brief delay so the spinner feels meaningful when the snapshot
-    // round-trip is sub-100ms.
     setTimeout(() => setRefreshing(false), 350);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [myUid]);
@@ -1472,6 +1476,7 @@ export default function CommunityScreen() {
         emojiFilter={reactorsEmoji}
         onClose={() => { setReactorsPost(null); setReactorsEmoji(undefined); }}
         onSelectUser={(uid) => setViewingUid(uid)}
+        blockedUids={blockedUids}
       />
 
       {/* Followers / Following lists — opened from the MyProfileCard

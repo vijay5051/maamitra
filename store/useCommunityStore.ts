@@ -104,7 +104,7 @@ interface CommunityState {
   toggleComments: (postId: string) => void;
   setFilter: (filter: CommunityFilter) => void;
   getFilteredPosts: () => Post[];
-  getUserPostCount: (authorName: string) => number;
+  getUserPostCount: (authorUid: string) => number;
 
   // Firestore-backed actions
   loadPostsFromFirestore: () => Promise<void>;
@@ -130,6 +130,10 @@ interface CommunityState {
 // any future persist middleware.
 let _feedUnsub: Unsubscribe | null = null;
 const _commentUnsubs = new Map<string, Unsubscribe>();
+// In-flight guard: prevents a double-tap from sending two concurrent
+// Firestore transactions for the same post, which can both be applied or
+// both rolled back, leaving the reaction count permanently wrong.
+const _reactionInFlight = new Set<string>();
 
 export const useCommunityStore = create<CommunityState>((set, get) => ({
   posts: [],
@@ -230,8 +234,8 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
     return posts.filter((p) => p.topic.toLowerCase() === activeFilter.toLowerCase());
   },
 
-  getUserPostCount: (authorName: string) => {
-    return get().posts.filter((p) => p.authorName === authorName).length;
+  getUserPostCount: (authorUid: string) => {
+    return get().posts.filter((p) => p.authorUid === authorUid).length;
   },
 
   // ─── Firestore-backed actions ────────────────────────────────────────────────
@@ -533,6 +537,8 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
   },
 
   toggleReactionFirestore: async (postId: string, myUid: string, myName: string, emoji: string) => {
+    if (_reactionInFlight.has(postId)) return;
+    _reactionInFlight.add(postId);
     // Optimistic update — the pill flips the instant the user taps instead
     // of waiting ~1-3s for the Firestore transaction (which goes through
     // App Check / reCAPTCHA). Users were confused seeing the pill visually
@@ -600,6 +606,8 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
         }));
       }
       throw error;
+    } finally {
+      _reactionInFlight.delete(postId);
     }
   },
 
@@ -736,7 +744,12 @@ export const useCommunityStore = create<CommunityState>((set, get) => ({
   loadCommentsForPost: async (postId: string) => {
     try {
       const comments = await fetchPostComments(postId);
-      repairPostCommentSummary(postId, comments);
+      // Only repair the server's commentCount/lastComment when the local
+      // count diverges — avoids an unnecessary write on every comment-open.
+      const post = get().posts.find((p) => p.id === postId);
+      if (!post || (post.commentCount ?? 0) !== comments.length) {
+        repairPostCommentSummary(postId, comments);
+      }
 
       set((state) => ({
         posts: state.posts.map((p) =>

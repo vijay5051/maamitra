@@ -4,12 +4,12 @@ import {
   FlatList,
   Image,
   Modal,
-  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import GradientAvatar from '../ui/GradientAvatar';
 import { Fonts } from '../../constants/theme';
@@ -28,6 +28,8 @@ interface Props {
   onClose: () => void;
   /** Open the profile modal for the tapped user. */
   onSelectUser: (uid: string) => void;
+  /** UIDs the current user has blocked — filtered from the reactor list. */
+  blockedUids?: string[];
 }
 
 function ReactorRow({
@@ -66,7 +68,8 @@ function ReactorRow({
   );
 }
 
-export default function ReactorsSheet({ visible, post, emojiFilter, onClose, onSelectUser }: Props) {
+export default function ReactorsSheet({ visible, post, emojiFilter, onClose, onSelectUser, blockedUids = [] }: Props) {
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const [entries, setEntries] = useState<ReactorEntry[]>([]);
 
@@ -76,11 +79,12 @@ export default function ReactorsSheet({ visible, post, emojiFilter, onClose, onS
       return;
     }
     let cancelled = false;
+    const blocked = new Set(blockedUids);
     (async () => {
       setLoading(true);
       try {
         const list = await fetchPostReactors(post, emojiFilter);
-        if (!cancelled) setEntries(list);
+        if (!cancelled) setEntries(list.filter((e) => !blocked.has(e.uid)));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -88,7 +92,7 @@ export default function ReactorsSheet({ visible, post, emojiFilter, onClose, onS
     return () => {
       cancelled = true;
     };
-  }, [visible, post, emojiFilter]);
+  }, [visible, post, emojiFilter, blockedUids]);
 
   const totalCount = entries.length;
   const title = emojiFilter
@@ -105,7 +109,7 @@ export default function ReactorsSheet({ visible, post, emojiFilter, onClose, onS
       <View style={styles.container}>
         {/* Light header to match the rest of the app — was a hard
             dark indigo-purple gradient that looked completely off-theme. */}
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
           <View style={styles.headerRow}>
             <Text style={styles.headerTitle}>{title}</Text>
             <TouchableOpacity style={styles.closeButton} onPress={onClose}>
@@ -150,7 +154,6 @@ export default function ReactorsSheet({ visible, post, emojiFilter, onClose, onS
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.bgLight },
   header: {
-    paddingTop: Platform.OS === 'ios' ? 16 : 24,
     paddingBottom: 16,
     paddingHorizontal: 20,
     backgroundColor: '#ffffff',

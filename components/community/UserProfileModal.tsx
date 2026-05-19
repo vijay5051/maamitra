@@ -92,7 +92,7 @@ export function followEntriesToProfiles(entries: FollowEntry[]): UserPublicProfi
   return entries.map((e) => ({
     uid: e.uid,
     name: e.name,
-    photoUrl: e.photoUrl ?? '',
+    photoUrl: e.photoUrl || undefined,
     badge: '',
     bio: '',
     state: '',
@@ -283,7 +283,8 @@ export default function UserProfileModal({ uid, visible, onClose, onEditProfile 
     ]).then(([prof, userPosts]) => {
       if (cancelled) return;
       setProfile(prof);
-      // Filter followers-only posts if I don't follow this user (and it's not me)
+      // loadFollowStatus has now resolved, so getFollowStatus returns the
+      // current (not stale) value from the cache — safe to filter on.
       const status = getFollowStatus(uid);
       const filteredPosts = (userPosts ?? []).filter((p: any) => {
         if (uid === myUid) return true;
@@ -339,11 +340,16 @@ export default function UserProfileModal({ uid, visible, onClose, onEditProfile 
     }
   }, [followers, following, outgoingRequests, uid, visible]);
 
-  const handleFollowPress = useCallback(() => {
+  const handleFollowPress = useCallback(async () => {
     if (!profile) return;
     if (followStatus === 'none') {
-      sendFollowRequest(uid, profile.name);
       setFollowStatus('pending_outgoing');
+      try {
+        await sendFollowRequest(uid, profile.name);
+      } catch (_err) {
+        setFollowStatus('none');
+        if (typeof window !== 'undefined') window.alert("Couldn't send follow request. Please try again.");
+      }
     } else if (followStatus === 'pending_outgoing') {
       const req = outgoingRequests?.find((r: any) => r.toUid === uid);
       if (req) {
@@ -591,7 +597,7 @@ export default function UserProfileModal({ uid, visible, onClose, onEditProfile 
                 }}
                 onAddComment={(postId, text) => {
                   if (!myUid) return;
-                  addCommentFirestore(postId, myUid, motherName || 'Anonymous', text, myPhotoUrl || undefined)
+                  return addCommentFirestore(postId, myUid, motherName || 'Anonymous', text, myPhotoUrl || undefined)
                     .then(() => {
                       const fresh = useCommunityStore.getState().posts.find((x) => x.id === postId);
                       if (fresh) {
@@ -604,7 +610,7 @@ export default function UserProfileModal({ uid, visible, onClose, onEditProfile 
                       if (typeof window !== 'undefined') window.alert('Failed to post comment');
                     });
                 }}
-                onViewProfile={() => {}}
+                onViewProfile={(targetUid) => openNestedProfile(targetUid)}
                 onDeletePost={myUid && p.authorUid === myUid ? (postId) => {
                   deletePostFirestore(postId, myUid)
                     .then(() => setPosts((prev) => prev.filter((x) => x.id !== postId)))

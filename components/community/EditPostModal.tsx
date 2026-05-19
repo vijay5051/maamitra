@@ -51,14 +51,16 @@ export default function EditPostModal({
       return;
     }
     setSaving(true);
+    let saved = false;
     try {
       await onSave({ text: trimmed, topic });
-      onClose();
+      saved = true;
     } catch {
       setError('Failed to save. Please try again.');
     } finally {
       setSaving(false);
     }
+    if (saved) onClose();
   };
 
   return (

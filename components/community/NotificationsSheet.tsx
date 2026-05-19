@@ -1,15 +1,15 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
   Image,
   Modal,
-  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import GradientAvatar from '../ui/GradientAvatar';
@@ -146,6 +146,7 @@ function NotifRow({ notif, handled, freshName, freshPhotoUrl, onAccept, onDeclin
 
 export default function NotificationsSheet({ visible, onClose, onViewProfile }: Props) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const {
     notifications,
     unreadCount,
@@ -167,44 +168,34 @@ export default function NotificationsSheet({ visible, onClose, onViewProfile }: 
   // Map of uid → {name, photoUrl} fetched live from publicProfiles so stale snapshots
   // (old name/photo frozen at notification-create time) are replaced with current data.
   const [freshProfiles, setFreshProfiles] = useState<Record<string, { name: string; photoUrl: string }>>({});
-  const markReadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (!visible) {
-      // Clear timer when sheet closes
-      if (markReadTimerRef.current) {
-        clearTimeout(markReadTimerRef.current);
-        markReadTimerRef.current = null;
-      }
-      return;
-    }
-
+    if (!visible) return;
     // Reset handled state so old Accept/Decline badges don't persist
     setHandledRequests({});
-    loadNotifications();
     setFreshProfiles({});
-    // Mark all read after 1.5s so user briefly sees unread state
-    markReadTimerRef.current = setTimeout(() => {
-      markAllRead();
-    }, 1500);
-
-    return () => {
-      if (markReadTimerRef.current) {
-        clearTimeout(markReadTimerRef.current);
-        markReadTimerRef.current = null;
-      }
-    };
+    // Only fetch from Firestore when the store has no data — the live
+    // subscription already keeps notifications current, so a redundant
+    // read on every open races the subscription and wastes reads.
+    if (!notifications || notifications.length === 0) {
+      loadNotifications();
+    }
+    // Per-notification markRead happens on tap (see onPress below).
+    // The old 1.5s auto-markAllRead timer was removed because it fired
+    // before a user could act on follow_request buttons, making the
+    // Accept/Decline disappear mid-decision.
   }, [visible]);
 
-  // Whenever notifications update, batch-refresh their senders' publicProfiles so the
-  // row shows the CURRENT name/photo, not the snapshot frozen at notification-create
-  // time. This prevents stale identities (e.g., after a user changed their name/photo
-  // or recreated their account on the same UID) from being shown to the recipient.
+  // Stable set of sender UIDs — only re-fetch when new UIDs appear, not on
+  // every length change (avoids re-fetching all profiles when one is marked read).
+  const senderUidKey = useMemo(
+    () => Array.from(new Set(filteredNotifications.map((n) => n.fromUid).filter(Boolean))).sort().join(','),
+    [filteredNotifications],
+  );
+
   useEffect(() => {
-    if (!visible || filteredNotifications.length === 0) return;
-    const uids = Array.from(new Set(
-      filteredNotifications.map((n) => n.fromUid).filter((u) => !!u)
-    ));
+    if (!visible || !senderUidKey) return;
+    const uids = senderUidKey.split(',').filter(Boolean);
     if (uids.length === 0) return;
     let cancelled = false;
     getPublicProfiles(uids).then((profs) => {
@@ -216,8 +207,7 @@ export default function NotificationsSheet({ visible, onClose, onViewProfile }: 
       setFreshProfiles(map);
     }).catch(() => {});
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, notifications?.length]);
+  }, [visible, senderUidKey]);
 
   const handleAccept = async (notif: AppNotification) => {
     if (!notif.requestId) return;
@@ -278,7 +268,7 @@ export default function NotificationsSheet({ visible, onClose, onViewProfile }: 
     >
       <View style={styles.container}>
         {/* Light header — was a dark purple→plum gradient. */}
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
           <View style={styles.headerRow}>
             <View style={styles.headerTitleRow}>
               <Text style={styles.headerTitle}>Notifications</Text>
@@ -361,7 +351,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.bgLight,
   },
   header: {
-    paddingTop: Platform.OS === 'ios' ? 16 : 24,
     paddingBottom: 16,
     paddingHorizontal: 20,
     backgroundColor: '#ffffff',
