@@ -1,5 +1,7 @@
 
+import { useEffect, useState } from 'react';
 import {
+  Alert,
   Image,
   Linking,
   Platform,
@@ -17,6 +19,8 @@ import GradientButton from '../../components/ui/GradientButton';
 import { Illustration } from '../../components/ui/Illustration';
 import type { IllustrationName } from '../../lib/illustrations';
 import { Fonts, Colors } from '../../constants/theme';
+import { useAuthStore } from '../../store/useAuthStore';
+import { wipeAllLocalStorage } from '../../lib/storageEscape';
 
 const LOGO = require('../../assets/logo.png');
 
@@ -48,7 +52,31 @@ export default function WelcomeScreen() {
   const { width } = useWindowDimensions();
   const isWide = width >= 900;
 
-  if (!IS_WEB) return <NativeWelcome router={router} insets={insets} />;
+  const isLoading = useAuthStore((s) => s.isLoading);
+  const [showEscape, setShowEscape] = useState(false);
+
+  useEffect(() => {
+    if (!isLoading) {
+      setShowEscape(false);
+      return;
+    }
+    const t = setTimeout(() => setShowEscape(true), 5000);
+    return () => clearTimeout(t);
+  }, [isLoading]);
+
+  const handleEscape = () => {
+    const confirmText = 'This will clear cached data and sign you out completely. Continue?';
+    if (typeof window !== 'undefined') {
+      if (window.confirm(confirmText)) void wipeAllLocalStorage();
+    } else {
+      Alert.alert('Reset local storage', confirmText, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Reset', style: 'destructive', onPress: () => void wipeAllLocalStorage() },
+      ]);
+    }
+  };
+
+  if (!IS_WEB) return <NativeWelcome router={router} insets={insets} showEscape={showEscape} handleEscape={handleEscape} />;
 
   return (
     <ScrollView
@@ -209,6 +237,16 @@ export default function WelcomeScreen() {
           <Text style={styles.footerMeta}>
             © {new Date().getFullYear()} MaaMitra · Made in India
           </Text>
+          {showEscape && (
+            <TouchableOpacity
+              onPress={handleEscape}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel="Reset local storage"
+            >
+              <Text style={styles.escapeLink}>Trouble signing in? Reset local storage.</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
       </View>
@@ -222,9 +260,13 @@ export default function WelcomeScreen() {
 function NativeWelcome({
   router,
   insets,
+  showEscape,
+  handleEscape,
 }: {
   router: ReturnType<typeof useRouter>;
   insets: { top: number; bottom: number; left: number; right: number };
+  showEscape: boolean;
+  handleEscape: () => void;
 }) {
   return (
     <ScrollView
@@ -274,6 +316,16 @@ function NativeWelcome({
         <Text style={nativeStyles.footer}>
           Protected under India's DPDP Act 2023 · IAP & FOGSI guidelines
         </Text>
+        {showEscape && (
+          <TouchableOpacity
+            onPress={handleEscape}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel="Reset local storage"
+          >
+            <Text style={styles.escapeLink}>Trouble signing in? Reset local storage.</Text>
+          </TouchableOpacity>
+        )}
     </ScrollView>
   );
 }
@@ -380,6 +432,14 @@ const styles = StyleSheet.create({
   footerContactEmail: { fontFamily: Fonts.sansBold, color: Colors.primary },
   footerMeta: {
     fontFamily: Fonts.sansRegular, fontSize: 11, color: Colors.textLight, textAlign: 'center',
+  },
+  escapeLink: {
+    fontFamily: Fonts.sansMedium,
+    fontSize: 11,
+    color: Colors.textLight,
+    textDecorationLine: 'underline',
+    marginTop: 8,
+    textAlign: 'center',
   },
 });
 
