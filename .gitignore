@@ -31,3 +31,6 @@ firebase-debug.log
 
 # Local scratch / audit screenshots — never publish
 tmp/
+
+# Superpowers brainstorming session scratch — visuals + state files
+.superpowers/
