@@ -13,10 +13,8 @@ import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/useAuthStore';
-import { useProfileStore } from '../../store/useProfileStore';
 import {
   auth as firebaseAuth,
-  saveUserProfile,
   sendPhoneOtp,
   verifyPhoneOtp,
   resetPhoneRecaptcha,
@@ -24,6 +22,7 @@ import {
   PHONE_OTP_UNSUPPORTED,
   type PhoneOtpHandle,
 } from '../../services/firebase';
+import { savePhoneVerification } from '../../lib/savePhoneVerification';
 import GradientButton from '../../components/ui/GradientButton';
 import { Fonts } from '../../constants/theme';
 import { Colors } from '../../constants/theme';
@@ -47,8 +46,6 @@ export default function PhoneScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
-  const setPhone = useProfileStore((s) => s.setPhone);
-  const setPhoneVerified = useProfileStore((s) => s.setPhoneVerified);
   const signOut = useSignOut();
 
   // Accept ?e164=... from deep-link (Plan B Task 9 SmartInputCard).
@@ -193,28 +190,13 @@ export default function PhoneScreen() {
   };
 
   const savePhoneAndContinue = async (phoneE164: string, verified: boolean) => {
-    // Prefer auth.currentUser over the Zustand `user` snapshot: in the
-    // primary-signin path (Bug 1 fix), Firebase has JUST created the user
-    // and the onAuthStateChanged listener may not have flushed into the
-    // store yet. Reading currentUser directly is the source of truth.
+    // Prefer auth.currentUser over the Zustand `user` snapshot: Firebase has
+    // JUST created or linked the user and onAuthStateChanged may not have
+    // flushed into the store yet.
     const uid = firebaseAuth?.currentUser?.uid ?? user?.uid ?? null;
     if (!uid) return;
-    setPhone(phoneE164);
-    // Bug 2 fix: also update the LOCAL phoneVerified flag. The Plan A phone
-    // gate in app/index.tsx and app/(tabs)/_layout.tsx reads phoneVerified
-    // from Zustand — without this, the gate sees `false` after the verify
-    // and bounces the user right back to /(auth)/phone forever.
-    setPhoneVerified(verified);
-    try {
-      await saveUserProfile(uid, {
-        phone: phoneE164,
-        phoneVerified: verified,
-      });
-    } catch (e) {
-      console.error('saveUserProfile(phone) failed:', e);
-    }
-    const onboardingComplete = useProfileStore.getState().onboardingComplete;
-    router.replace(onboardingComplete ? '/(tabs)' : '/(auth)/onboarding');
+    const destination = await savePhoneVerification({ uid, e164: phoneE164, verified });
+    router.replace(destination);
   };
 
   const handleChangeDigits = (text: string) => {

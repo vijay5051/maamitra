@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Image,
@@ -25,6 +25,8 @@ import { wipeAllLocalStorage } from '../../lib/storageEscape';
 import { friendlyAuthError } from '../../lib/friendlyAuthError';
 import { isAdminEmail } from '../../lib/admin';
 import { logAuthEvent } from '../../lib/authObservability';
+import { savePhoneVerification } from '../../lib/savePhoneVerification';
+import { auth as firebaseAuth } from '../../services/firebase';
 
 const LOGO = require('../../assets/logo.png');
 
@@ -60,7 +62,6 @@ export default function WelcomeScreen() {
   const { signIn: googleSignIn, ready: googleReady } = useGoogleSignIn();
 
   const [authError, setAuthError] = useState<string>('');
-  const [phoneLoading, setPhoneLoading] = useState(false);
   const [showEscape, setShowEscape] = useState(false);
 
   // Plan A: 5-second cache-stuck escape hatch
@@ -73,16 +74,25 @@ export default function WelcomeScreen() {
     return () => clearTimeout(t);
   }, [isLoading]);
 
-  // Event-handler navigation — not a mount-time guard, so router.push is correct (Rule 5).
-  const handleSubmitPhone = (e164: string) => {
-    setPhoneLoading(true);
-    setAuthError('');
-    try {
-      router.push({ pathname: '/(auth)/phone', params: { e164 } });
-    } finally {
-      setPhoneLoading(false);
+  // Phone-primary path: SmartInputCard has already done the OTP. We just
+  // persist the verified number and route onward.
+  // Read uid from auth.currentUser first — the Firebase user from
+  // signInWithPhoneNumber may not have flushed into Zustand yet.
+  const handlePhoneVerified = useCallback(async (e164: string) => {
+    const uid = firebaseAuth?.currentUser?.uid ?? useAuthStore.getState().user?.uid;
+    if (!uid) {
+      setAuthError('Could not establish your account. Please try again.');
+      return;
     }
-  };
+    const destination = await savePhoneVerification({ uid, e164, verified: true });
+    // Admin shortcut: phone-verified admins skip onboarding and go straight to /admin.
+    const email = firebaseAuth?.currentUser?.email ?? useAuthStore.getState().user?.email;
+    if (isAdminEmail(email)) {
+      router.replace('/admin');
+      return;
+    }
+    router.replace(destination);
+  }, [router]);
 
   const handleGoogle = async () => {
     setAuthError('');
@@ -143,11 +153,11 @@ export default function WelcomeScreen() {
         </View>
 
         <SmartInputCard
-          onSubmitPhone={handleSubmitPhone}
+          onPhoneVerified={handlePhoneVerified}
           onPressGoogle={handleGoogle}
           onPressApple={handleApple}
           showApple={false}
-          loading={phoneLoading || !googleReady}
+          googleLoading={!googleReady}
           error={authError}
         />
 
