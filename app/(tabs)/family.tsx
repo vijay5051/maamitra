@@ -211,7 +211,7 @@ function AddChildModal({
 }: {
   visible: boolean;
   onClose: () => void;
-  onAdd: (data: { name: string; dob: string; isExpecting: boolean; gender: 'girl' | 'boy' | 'surprise' | 'not-set' }) => void;
+  onAdd: (data: { name: string; dob: string; isExpecting: boolean; gender: 'girl' | 'boy' | 'surprise' }) => void;
 }) {
   const [name, setName] = useState('');
   const [dob, setDob] = useState('');
@@ -428,7 +428,7 @@ export default function FamilyScreen() {
     name: string;
     dob: string;
     isExpecting: boolean;
-    gender: 'girl' | 'boy' | 'surprise' | 'not-set';
+    gender: 'girl' | 'boy' | 'surprise';
   }) => {
     addKid({
       name,

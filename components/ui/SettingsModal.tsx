@@ -1057,7 +1057,7 @@ function EditKidView({ kid, onBack, onRemove }: { kid: Kid; onBack: () => void; 
       <ChipSelect
         options={GENDER_OPTIONS.map((g) => g.label)}
         selected={GENDER_OPTIONS.find((g) => g.key === gender)?.label ?? 'Surprise'}
-        onSelect={(v) => { const found = GENDER_OPTIONS.find((g) => g.label === v); if (found) setGender(found.key as 'boy' | 'girl' | 'surprise' | 'not-set'); }}
+        onSelect={(v) => { const found = GENDER_OPTIONS.find((g) => g.label === v); if (found) setGender(found.key as 'boy' | 'girl' | 'surprise'); }}
       />
 
       <TouchableOpacity style={s.saveBtn} onPress={handleSave} activeOpacity={0.85}>
