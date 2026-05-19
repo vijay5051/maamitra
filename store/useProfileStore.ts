@@ -116,6 +116,13 @@ interface ProfileState {
   /** True if the phone was verified via OTP. False = unverified fallback. */
   phoneVerified: boolean;
 
+  /**
+   * Persisted map of prompt keys the user has answered or dismissed.
+   * Used by just-in-time prompts (state, diet, kidName, kidGender) to ensure
+   * each prompt appears at most once per user.
+   */
+  dismissedPrompts: Record<string, boolean>;
+
   // UX flags (synced to Firestore users/{uid}.hasSeenIntro)
   hasSeenIntro: boolean;
   setHasSeenIntro: (v: boolean) => void;
@@ -173,6 +180,9 @@ interface ProfileState {
   setVisibilitySettings: (s: Partial<VisibilitySettings>) => void;
   setPhone: (phone: string) => void;
   setPhoneVerified: (verified: boolean) => void;
+
+  dismissPrompt: (key: string) => void;
+  isPromptDismissed: (key: string) => boolean;
 }
 
 export const useProfileStore = create<ProfileState>()(
@@ -193,6 +203,7 @@ export const useProfileStore = create<ProfileState>()(
       visibilitySettings: DEFAULT_VISIBILITY,
       phone: '',
       phoneVerified: false,
+      dismissedPrompts: {},
 
       hasSeenIntro: false,
       setHasSeenIntro: (v: boolean) => set({ hasSeenIntro: v }),
@@ -342,6 +353,7 @@ export const useProfileStore = create<ProfileState>()(
           hasDismissedFeatureGuide: false,
           phone: '',
           phoneVerified: false,
+          dismissedPrompts: {},
           cachedProfileUid: null,
           // Deliberately preserve knownProfilesByUid across sign-outs and
           // Safari refreshes. It's a fallback map, not live session state.
@@ -355,6 +367,12 @@ export const useProfileStore = create<ProfileState>()(
         set((state) => ({ visibilitySettings: { ...state.visibilitySettings, ...s } })),
       setPhone: (phone) => set({ phone }),
       setPhoneVerified: (verified) => set({ phoneVerified: verified }),
+
+      dismissPrompt: (key: string) =>
+        set((state) => ({
+          dismissedPrompts: { ...state.dismissedPrompts, [key]: true },
+        })),
+      isPromptDismissed: (key: string) => !!get().dismissedPrompts[key],
     }),
     {
       name: 'maamitra-profile',

@@ -1,0 +1,5 @@
+[test]
+# Preload the test environment setup before any test file runs.
+# Provides a `window.localStorage` stub so AsyncStorage's web shim
+# doesn't throw unhandled rejections in Bun's node-like test env.
+preload = ["./tests/setup.ts"]
