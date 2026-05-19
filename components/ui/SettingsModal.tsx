@@ -158,6 +158,9 @@ function ChipSelect({
           style={[s.chip, opt === selected && s.chipActive]}
           onPress={() => onSelect(opt)}
           activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={opt}
+          accessibilityState={{ selected: opt === selected }}
         >
           <Text style={[s.chipText, opt === selected && s.chipTextActive]}>{opt}</Text>
         </TouchableOpacity>
@@ -762,7 +765,12 @@ function EditProfileView({ onBack }: { onBack: () => void }) {
   };
 
   const DIET_OPTIONS = ['vegetarian', 'eggetarian', 'non-vegetarian', 'vegan'];
-  const FAMILY_OPTIONS = ['nuclear', 'joint', 'in-laws', 'single-parent'];
+  const FAMILY_OPTIONS: { key: 'nuclear' | 'joint' | 'in-laws' | 'single-parent'; label: string }[] = [
+    { key: 'nuclear', label: 'Nuclear' },
+    { key: 'joint', label: 'Joint' },
+    { key: 'in-laws', label: 'With in-laws' },
+    { key: 'single-parent', label: 'Single parent' },
+  ];
   const GENDER_OPTIONS: { key: ParentGender; label: string }[] = [
     { key: 'mother', label: 'Mother 👩' },
   ];
@@ -894,7 +902,14 @@ function EditProfileView({ onBack }: { onBack: () => void }) {
       <ChipSelect options={DIET_OPTIONS} selected={diet} onSelect={(v) => setDiet(v as 'vegetarian' | 'eggetarian' | 'non-vegetarian' | 'vegan')} />
 
       <Text style={s.editSectionTitle}>Family Setup</Text>
-      <ChipSelect options={FAMILY_OPTIONS} selected={familyType} onSelect={(v) => setFamilyType(v as 'nuclear' | 'joint' | 'in-laws' | 'single-parent')} />
+      <ChipSelect
+        options={FAMILY_OPTIONS.map((f) => f.label)}
+        selected={FAMILY_OPTIONS.find((f) => f.key === familyType)?.label ?? 'Nuclear'}
+        onSelect={(v) => {
+          const found = FAMILY_OPTIONS.find((f) => f.label === v);
+          if (found) setFamilyType(found.key);
+        }}
+      />
 
       {/* ── Bio ── */}
       <Text style={s.editSectionTitle}>Bio <Text style={s.optional}>(shown on your profile)</Text></Text>
@@ -1802,7 +1817,10 @@ export default function SettingsModal({
                   <SettingsRow
                     icon="home-outline"
                     label="Family"
-                    value={profile.familyType.charAt(0).toUpperCase() + profile.familyType.slice(1)}
+                    value={
+                      { nuclear: 'Nuclear', joint: 'Joint', 'in-laws': 'With in-laws', 'single-parent': 'Single parent' }[profile.familyType] ??
+                      (profile.familyType.charAt(0).toUpperCase() + profile.familyType.slice(1))
+                    }
                     onPress={() => setViewMode('edit-profile')}
                   />
                 </>
