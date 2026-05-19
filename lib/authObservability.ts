@@ -37,6 +37,21 @@ function maskEmail(email?: string): string | undefined {
   return `${local[0]}***@${domain}`;
 }
 
+/**
+ * Emit a structured auth event.
+ *
+ * PII-handling contract:
+ * - `email` fields on any event are auto-masked here (e.g. `priya@example.com` → `p***@example.com`).
+ * - Phone numbers are NOT auto-masked. Callers must pre-mask before constructing the
+ *   event payload — that's why the field is named `e164Masked`, not `e164`. The naming
+ *   is intentional: it forces the caller to think about masking at the call site.
+ * - All other fields (`uid`, `reason`, `error`, etc.) are emitted as-is. Do NOT add
+ *   raw PII (full name, address, etc.) to any AuthEvent variant.
+ *
+ * Output format: `console.warn(`[${type}]`, { ...payload, ts })`. The two-argument
+ * form is chosen for grep-friendliness in dev; structured aggregators may need to
+ * be wired via a future emit() abstraction.
+ */
 export function logAuthEvent(event: AuthEvent): void {
   const payload: Record<string, unknown> = { ...event, ts: Date.now() };
   // Mask any PII fields before emit
