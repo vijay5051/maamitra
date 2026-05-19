@@ -15,12 +15,16 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import GradientButton from '../../components/ui/GradientButton';
+import SmartInputCard from '../../components/auth/SmartInputCard';
 import { Illustration } from '../../components/ui/Illustration';
 import type { IllustrationName } from '../../lib/illustrations';
 import { Fonts, Colors } from '../../constants/theme';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useGoogleSignIn } from '../../hooks/useGoogleSignIn';
 import { wipeAllLocalStorage } from '../../lib/storageEscape';
+import { friendlyAuthError } from '../../lib/friendlyAuthError';
+import { isAdminEmail } from '../../lib/admin';
+import { logAuthEvent } from '../../lib/authObservability';
 
 const LOGO = require('../../assets/logo.png');
 
@@ -42,8 +46,7 @@ const STEPS: { n: string; title: string; text: string }[] = [
 // Web (maamitra.co.in) shows the full marketing landing page — required for
 // Play Console's public Website URL, privacy/terms discoverability, and search
 // engines. Installed mobile app users already *have* the app, so we keep the
-// original compact welcome there: hero + features + CTAs, no extra marketing
-// scroll.
+// original compact welcome there: hero + SmartInputCard, no extra marketing scroll.
 const IS_WEB = Platform.OS === 'web';
 
 export default function WelcomeScreen() {
@@ -52,9 +55,15 @@ export default function WelcomeScreen() {
   const { width } = useWindowDimensions();
   const isWide = width >= 900;
 
+  const { onGoogleCredential } = useAuthStore();
   const isLoading = useAuthStore((s) => s.isLoading);
+  const { signIn: googleSignIn, ready: googleReady } = useGoogleSignIn();
+
+  const [authError, setAuthError] = useState<string>('');
+  const [phoneLoading, setPhoneLoading] = useState(false);
   const [showEscape, setShowEscape] = useState(false);
 
+  // Plan A: 5-second cache-stuck escape hatch
   useEffect(() => {
     if (!isLoading) {
       setShowEscape(false);
@@ -63,6 +72,35 @@ export default function WelcomeScreen() {
     const t = setTimeout(() => setShowEscape(true), 5000);
     return () => clearTimeout(t);
   }, [isLoading]);
+
+  // Event-handler navigation — not a mount-time guard, so router.push is correct (Rule 5).
+  const handleSubmitPhone = (e164: string) => {
+    setPhoneLoading(true);
+    setAuthError('');
+    try {
+      router.push({ pathname: '/(auth)/phone', params: { e164 } });
+    } finally {
+      setPhoneLoading(false);
+    }
+  };
+
+  const handleGoogle = async () => {
+    setAuthError('');
+    try {
+      const credential = await googleSignIn();
+      const dest = await onGoogleCredential(credential);
+      if (isAdminEmail(credential.user.email)) return router.replace('/admin');
+      if (dest === 'tabs') return router.replace('/(tabs)');
+      if (dest === 'phone') return router.replace('/(auth)/phone');
+      return router.replace('/(auth)/onboarding');
+    } catch (e: any) {
+      logAuthEvent({ type: 'auth:method-cancelled', method: 'google' });
+      setAuthError(friendlyAuthError(e, 'google'));
+    }
+  };
+
+  // Apple is PARKED — SmartInputCard receives showApple={false} so this is never called.
+  const handleApple = () => {};
 
   const handleEscape = () => {
     const confirmText = 'This will clear cached data and sign you out completely. Continue?';
@@ -76,16 +114,15 @@ export default function WelcomeScreen() {
     }
   };
 
-  if (!IS_WEB) return <NativeWelcome router={router} insets={insets} showEscape={showEscape} handleEscape={handleEscape} />;
-
   return (
     <ScrollView
       style={styles.root}
       contentContainerStyle={[
-        styles.scroll,
+        IS_WEB ? styles.scroll : nativeStyles.container,
         { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 },
       ]}
       showsVerticalScrollIndicator={false}
+      bounces
     >
       <View style={[styles.container, isWide && styles.containerWide]}>
 
@@ -96,237 +133,141 @@ export default function WelcomeScreen() {
           <Text style={[styles.tagline, isWide && styles.taglineWide]}>
             Your AI companion for every step of parenthood.
           </Text>
-          <Text style={[styles.subTagline, isWide && styles.taglineWide]}>
-            An India-first AI mitra for new and expecting mothers — answers your
-            2 a.m. questions, remembers your baby, and connects you with parents
-            going through the same thing.
-          </Text>
-
-          {/* Above-the-fold CTA — visible without scrolling. The full
-              finalCta block at the bottom is the conversion-anchored copy,
-              so keyboard and screen-reader users get ONE pass through
-              "Get started / Sign in" via that block. Hide this hero pair
-              from the a11y tree to avoid the duplicate-tab-order finding
-              from the pre-Play-Store audit. Mouse / touch users still see
-              and click these — they're visually present, just removed from
-              the focus chain. */}
-          <View
-            style={[styles.buttonsContainer, styles.heroCta]}
-            // RN Web ignores `accessibilityElementsHidden` on <View> but
-            // honours `aria-hidden`. Mark the wrapper hidden for screen
-            // readers, then push tabIndex=-1 down to each focusable child
-            // (web filters unknown DOM props on <View>, so the children
-            // themselves must opt out of the tab chain).
-            {...(Platform.OS === 'web' && ({ 'aria-hidden': true } as any))}
-          >
-            <GradientButton
-              title="Get started — it's free"
-              onPress={() => router.push('/(auth)/sign-up')}
-              style={styles.primaryButton}
-              a11yHidden
-            />
-            <TouchableOpacity
-              style={styles.textCta}
-              onPress={() => router.push('/(auth)/sign-in')}
-              activeOpacity={0.6}
-              accessibilityElementsHidden
-              importantForAccessibility="no-hide-descendants"
-              focusable={false}
-              {...(Platform.OS === 'web' && ({ tabIndex: -1, 'aria-hidden': true } as any))}
-            >
-              <Text style={styles.textCtaLabel}>Already have an account?</Text>
-              <Text style={styles.textCtaAction}>Sign in</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Why MaaMitra</Text></View>
-        <View style={styles.featuresGrid}>
-          {FEATURES.map((f, i) => (
-            <View key={i} style={[styles.featureCard, isWide && styles.featureCardWide]}>
-              <Illustration name={f.illustration} style={styles.featureIllus} contentFit="contain" />
-              <Text style={styles.featureTitle}>{f.title}</Text>
-              <Text style={styles.featureText}>{f.text}</Text>
-            </View>
-          ))}
-        </View>
-
-        <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>How it works</Text></View>
-        <View style={styles.steps}>
-          {STEPS.map((s) => (
-            <View key={s.n} style={styles.step}>
-              <View style={styles.stepBadge}><Text style={styles.stepBadgeText}>{s.n}</Text></View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.stepTitle}>{s.title}</Text>
-                <Text style={styles.stepText}>{s.text}</Text>
-              </View>
-            </View>
-          ))}
-        </View>
-
-        <View style={styles.trustCard}>
-          <View style={styles.trustRow}>
-            <Ionicons name="shield-checkmark-outline" size={16} color={Colors.primary} />
-            <Text style={styles.trustText}>Protected under India's DPDP Act, 2023</Text>
-          </View>
-          <View style={styles.trustRow}>
-            <Ionicons name="medkit-outline" size={16} color={Colors.primary} />
-            <Text style={styles.trustText}>Medical content aligned with IAP & FOGSI guidelines</Text>
-          </View>
-          <View style={styles.trustRow}>
-            <Ionicons name="information-circle-outline" size={16} color={Colors.primary} />
-            <Text style={styles.trustText}>
-              Not a substitute for a doctor — always consult for medical emergencies (108 / 102).
+          {IS_WEB && (
+            <Text style={[styles.subTagline, isWide && styles.taglineWide]}>
+              An India-first AI mitra for new and expecting mothers — answers your
+              2 a.m. questions, remembers your baby, and connects you with parents
+              going through the same thing.
             </Text>
-          </View>
-        </View>
-
-        <View style={styles.finalCta}>
-          <Text style={styles.finalCtaTitle}>Millions of 2 a.m. questions,{'\n'}one trusted mitra.</Text>
-          <View style={styles.buttonsContainer}>
-            <GradientButton
-              title="Get started — it's free"
-              onPress={() => router.push('/(auth)/sign-up')}
-              style={styles.primaryButton}
-            />
-            <TouchableOpacity
-              style={styles.textCta}
-              onPress={() => router.push('/(auth)/sign-in')}
-              activeOpacity={0.6}
-            >
-              <Text style={styles.textCtaLabel}>Already have an account?</Text>
-              <Text style={styles.textCtaAction}>Sign in</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <View style={styles.footer}>
-          <View style={styles.footerLinks}>
-            <TouchableOpacity
-              onPress={() => router.push('/privacy')}
-              hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
-              accessibilityRole="link"
-              accessibilityLabel="Privacy policy"
-            >
-              <Text style={styles.footerLink}>Privacy</Text>
-            </TouchableOpacity>
-            <Text style={styles.footerDot}>·</Text>
-            <TouchableOpacity
-              onPress={() => router.push('/terms')}
-              hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
-              accessibilityRole="link"
-              accessibilityLabel="Terms of service"
-            >
-              <Text style={styles.footerLink}>Terms</Text>
-            </TouchableOpacity>
-          </View>
-          {/* Always-visible contact email — `mailto:` silently no-ops in
-              browsers without a configured handler, so we render the
-              address itself as copyable text and only attempt mailto on
-              tap. */}
-          <TouchableOpacity
-            onPress={() => Linking.openURL('mailto:info@maamitra.co.in')}
-            hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
-            accessibilityRole="link"
-            accessibilityLabel="Email MaaMitra at info@maamitra.co.in"
-          >
-            <Text style={styles.footerContact}>
-              Contact: <Text style={styles.footerContactEmail} selectable>info@maamitra.co.in</Text>
-            </Text>
-          </TouchableOpacity>
-          <Text style={styles.footerMeta}>
-            © {new Date().getFullYear()} MaaMitra · Made in India
-          </Text>
-          {showEscape && (
-            <TouchableOpacity
-              onPress={handleEscape}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              accessibilityRole="button"
-              accessibilityLabel="Reset local storage"
-            >
-              <Text style={styles.escapeLink}>Trouble signing in? Reset local storage.</Text>
-            </TouchableOpacity>
           )}
         </View>
 
-      </View>
-    </ScrollView>
-  );
-}
+        <SmartInputCard
+          onSubmitPhone={handleSubmitPhone}
+          onPressGoogle={handleGoogle}
+          onPressApple={handleApple}
+          showApple={false}
+          loading={phoneLoading || !googleReady}
+          error={authError}
+        />
 
-// ── Native (installed app) ── compact single-screen welcome: hero + 6-feature
-// grid + CTA. Matches the pre-landing layout so app installs don't scroll
-// through marketing copy they already bought into.
-function NativeWelcome({
-  router,
-  insets,
-  showEscape,
-  handleEscape,
-}: {
-  router: ReturnType<typeof useRouter>;
-  insets: { top: number; bottom: number; left: number; right: number };
-  showEscape: boolean;
-  handleEscape: () => void;
-}) {
-  return (
-    <ScrollView
-      style={styles.root}
-      contentContainerStyle={[
-        nativeStyles.container,
-        { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 20 },
-      ]}
-      showsVerticalScrollIndicator={false}
-      bounces
-    >
-        <View style={styles.hero}>
-          <Illustration name="onboardingWelcome" style={styles.heroIllus} contentFit="contain" />
-          <Image source={LOGO} style={styles.logoImage} resizeMode="contain" />
-          <Text style={styles.wordmark}>MaaMitra</Text>
-          <Text style={nativeStyles.tagline}>
-            Your AI companion for every step of parenthood.
+        {!IS_WEB && (
+          <Text style={nativeStyles.footer}>
+            Protected under India's DPDP Act 2023 · IAP & FOGSI guidelines
           </Text>
-        </View>
+        )}
 
-        <View style={[styles.buttonsContainer, nativeStyles.buttonsContainerTop]}>
-          <GradientButton
-            title="Get started — it's free"
-            onPress={() => router.push('/(auth)/sign-up')}
-            style={styles.primaryButton}
-          />
-          <TouchableOpacity
-            style={styles.textCta}
-            onPress={() => router.push('/(auth)/sign-in')}
-            activeOpacity={0.6}
-          >
-            <Text style={styles.textCtaLabel}>Already have an account?</Text>
-            <Text style={styles.textCtaAction}>Sign in</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.featuresGrid}>
-          {FEATURES.map((f, i) => (
-            <View key={i} style={styles.featureCard}>
-              <Illustration name={f.illustration} style={styles.featureIllus} contentFit="contain" />
-              <Text style={styles.featureTitle}>{f.title}</Text>
-              <Text style={styles.featureText}>{f.text}</Text>
-            </View>
-          ))}
-        </View>
-
-        <Text style={nativeStyles.footer}>
-          Protected under India's DPDP Act 2023 · IAP & FOGSI guidelines
-        </Text>
         {showEscape && (
           <TouchableOpacity
             onPress={handleEscape}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             accessibilityRole="button"
             accessibilityLabel="Reset local storage"
+            style={{ marginTop: 16, alignSelf: 'center' }}
           >
             <Text style={styles.escapeLink}>Trouble signing in? Reset local storage.</Text>
           </TouchableOpacity>
         )}
+
+        {IS_WEB && <WebMarketingSection isWide={isWide} router={router} />}
+
+      </View>
     </ScrollView>
+  );
+}
+
+function WebMarketingSection({
+  isWide,
+  router,
+}: {
+  isWide: boolean;
+  router: ReturnType<typeof useRouter>;
+}) {
+  return (
+    <>
+      {/* Why MaaMitra section + FEATURES grid */}
+      <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Why MaaMitra</Text></View>
+      <View style={styles.featuresGrid}>
+        {FEATURES.map((f, i) => (
+          <View key={i} style={[styles.featureCard, isWide && styles.featureCardWide]}>
+            <Illustration name={f.illustration} style={styles.featureIllus} contentFit="contain" />
+            <Text style={styles.featureTitle}>{f.title}</Text>
+            <Text style={styles.featureText}>{f.text}</Text>
+          </View>
+        ))}
+      </View>
+
+      {/* How it works STEPS */}
+      <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>How it works</Text></View>
+      <View style={styles.steps}>
+        {STEPS.map((s) => (
+          <View key={s.n} style={styles.step}>
+            <View style={styles.stepBadge}><Text style={styles.stepBadgeText}>{s.n}</Text></View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.stepTitle}>{s.title}</Text>
+              <Text style={styles.stepText}>{s.text}</Text>
+            </View>
+          </View>
+        ))}
+      </View>
+
+      {/* Trust card */}
+      <View style={styles.trustCard}>
+        <View style={styles.trustRow}>
+          <Ionicons name="shield-checkmark-outline" size={16} color={Colors.primary} />
+          <Text style={styles.trustText}>Protected under India's DPDP Act, 2023</Text>
+        </View>
+        <View style={styles.trustRow}>
+          <Ionicons name="medkit-outline" size={16} color={Colors.primary} />
+          <Text style={styles.trustText}>Medical content aligned with IAP & FOGSI guidelines</Text>
+        </View>
+        <View style={styles.trustRow}>
+          <Ionicons name="information-circle-outline" size={16} color={Colors.primary} />
+          <Text style={styles.trustText}>
+            Not a substitute for a doctor — always consult for medical emergencies (108 / 102).
+          </Text>
+        </View>
+      </View>
+
+      {/* Footer: Privacy / Terms / contact / copyright. No duplicate auth CTAs — SmartInputCard above handles sign-in. */}
+      <View style={styles.footer}>
+        <View style={styles.footerLinks}>
+          <TouchableOpacity
+            onPress={() => router.push('/privacy')}
+            hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+            accessibilityRole="link"
+            accessibilityLabel="Privacy policy"
+          >
+            <Text style={styles.footerLink}>Privacy</Text>
+          </TouchableOpacity>
+          <Text style={styles.footerDot}>·</Text>
+          <TouchableOpacity
+            onPress={() => router.push('/terms')}
+            hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+            accessibilityRole="link"
+            accessibilityLabel="Terms of service"
+          >
+            <Text style={styles.footerLink}>Terms</Text>
+          </TouchableOpacity>
+        </View>
+        {/* Always-visible contact email — `mailto:` silently no-ops in
+            browsers without a configured handler, so we render the
+            address itself as copyable text and only attempt mailto on tap. */}
+        <TouchableOpacity
+          onPress={() => Linking.openURL('mailto:info@maamitra.co.in')}
+          hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+          accessibilityRole="link"
+          accessibilityLabel="Email MaaMitra at info@maamitra.co.in"
+        >
+          <Text style={styles.footerContact}>
+            Contact: <Text style={styles.footerContactEmail} selectable>info@maamitra.co.in</Text>
+          </Text>
+        </TouchableOpacity>
+        <Text style={styles.footerMeta}>
+          © {new Date().getFullYear()} MaaMitra · Made in India
+        </Text>
+      </View>
+    </>
   );
 }
 
@@ -339,7 +280,6 @@ const styles = StyleSheet.create({
   },
 
   hero: { alignItems: 'center', marginTop: 10, marginBottom: 24 },
-  heroCta: { marginTop: 18, alignSelf: 'center' },
   heroIllus: { width: 220, height: 220, marginBottom: -8 },
   logoImage: { width: 56, height: 56, marginBottom: 6 },
   featureIllus: { width: 56, height: 56, marginBottom: 8, alignSelf: 'flex-start' },
@@ -408,20 +348,6 @@ const styles = StyleSheet.create({
     flex: 1, fontFamily: Fonts.sansRegular, fontSize: 12, color: '#4b5563', lineHeight: 18,
   },
 
-  finalCta: { marginTop: 26, alignItems: 'center' },
-  finalCtaTitle: {
-    fontFamily: Fonts.sansBold, fontSize: 20, color: '#1C1033',
-    textAlign: 'center', lineHeight: 28, marginBottom: 14,
-  },
-  buttonsContainer: { gap: 6, width: '100%', maxWidth: 360 },
-  primaryButton: { width: '100%' },
-  textCta: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    paddingVertical: 14, gap: 6,
-  },
-  textCtaLabel: { fontFamily: Fonts.sansRegular, fontSize: 14, color: '#6b7280' },
-  textCtaAction: { fontFamily: Fonts.sansBold, fontSize: 14, color: Colors.primary },
-
   footer: { marginTop: 24, alignItems: 'center', gap: 8 },
   footerLinks: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   footerLink: { fontFamily: Fonts.sansBold, fontSize: 12, color: Colors.primary, paddingVertical: 4 },
@@ -449,24 +375,12 @@ const nativeStyles = StyleSheet.create({
     paddingHorizontal: 22,
     justifyContent: 'space-between',
   },
-  buttonsContainerTop: {
-    alignSelf: 'center',
-    marginTop: 4,
-    marginBottom: 18,
-  },
-  tagline: {
-    fontFamily: Fonts.sansRegular,
-    fontSize: 14,
-    color: '#6b7280',
-    textAlign: 'center',
-    maxWidth: 280,
-    lineHeight: 21,
-  },
   footer: {
     fontFamily: Fonts.sansRegular,
     fontSize: 11,
     color: '#9ca3af',
     textAlign: 'center',
     lineHeight: 15,
+    marginTop: 20,
   },
 });
