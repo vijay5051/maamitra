@@ -131,7 +131,7 @@ export default function PublicPostScreen() {
     if (isAuthenticated) {
       router.replace('/(tabs)/community');
     } else {
-      router.replace('/(auth)/sign-up');
+      router.replace('/(auth)/welcome');
     }
   };
 
@@ -254,7 +254,7 @@ export default function PublicPostScreen() {
               />
               {!isAuthenticated && (
                 <TouchableOpacity
-                  onPress={() => router.replace('/(auth)/sign-in')}
+                  onPress={() => router.replace('/(auth)/welcome')}
                   style={styles.signInLink}
                   activeOpacity={0.6}
                 >

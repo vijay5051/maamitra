@@ -1,7 +1,5 @@
 import { create } from 'zustand';
 import {
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
   onAuthStateChanged,
   reload as reloadFirebaseUser,
@@ -271,8 +269,6 @@ interface AuthState {
   isLoading: boolean;
   isAuthenticated: boolean;
   firestoreHydratedForUid: string | null;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, name: string) => Promise<void>;
   /**
    * Hydrate the store from a Firebase UserCredential that the caller
    * obtained by calling `signInWithPopup` synchronously. The split is
@@ -292,87 +288,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isLoading: true,
   isAuthenticated: false,
   firestoreHydratedForUid: null,
-
-  signIn: async (email: string, password: string) => {
-    if (!isFirebaseConfigured() || !auth) {
-      throw NOT_CONFIGURED;
-    }
-    set({ isLoading: true });
-    try {
-      const credential = await signInWithEmailAndPassword(auth, email, password);
-      // Only wipe local profile state when a DIFFERENT user is signing
-      // in. For a returning user (same uid as the cached profile), we
-      // keep the cache as a fallback so a transient Firestore failure
-      // during hydrate doesn't flip onboardingComplete back to false
-      // and route them into the onboarding flow by mistake.
-      try { await awaitProfileHydration(); } catch {}
-      const cached = useProfileStore.getState().cachedProfileUid;
-      if (cached && cached !== credential.user.uid) {
-        useProfileStore.getState().resetProfile();
-      }
-      // CRITICAL: set the user in the store BEFORE awaiting hydrate. This
-      // primes onAuthStateChanged's same-uid guard so it doesn't race us
-      // by calling resetProfile() + hydrate concurrently. Without this,
-      // onboardingComplete can flip to false between here and the caller
-      // reading the store → user gets routed to onboarding by mistake.
-      const providerIds = credential.user.providerData.map((p) => p.providerId);
-      const preliminaryUser: AuthUser = {
-        uid: credential.user.uid,
-        name: credential.user.displayName || 'Mom',
-        email: credential.user.email ?? email,
-        emailVerified: credential.user.emailVerified,
-        isGoogleSignIn: providerIds.includes('google.com'),
-      };
-      set({ user: preliminaryUser, isAuthenticated: true });
-
-      // Hydrate profile — this reads users/{uid} once. Previously we also called
-      // getUserProfile() separately for the name, which was a redundant read
-      // through App Check (+1-2s). Pull the name from the hydrated store.
-      await hydrateProfileFromFirestore(credential.user.uid);
-      const hydratedName = useProfileStore.getState().motherName;
-      set({
-        user: { ...preliminaryUser, name: hydratedName || preliminaryUser.name },
-        isLoading: false,
-      });
-    } catch (error) {
-      set({ isLoading: false, user: null, isAuthenticated: false });
-      throw error;
-    }
-  },
-
-  signUp: async (email: string, password: string, name: string) => {
-    if (!isFirebaseConfigured() || !auth) {
-      throw NOT_CONFIGURED;
-    }
-    // Wipe any stale data from a previous user before creating new account
-    useProfileStore.getState().resetProfile();
-    set({ isLoading: true });
-    try {
-      const credential = await createUserWithEmailAndPassword(auth, email, password);
-      const authUser: AuthUser = {
-        uid: credential.user.uid,
-        name,
-        email: credential.user.email ?? email,
-        emailVerified: credential.user.emailVerified,
-        isGoogleSignIn: false,
-      };
-      await saveUserProfile(credential.user.uid, { name, email, createdAt: new Date().toISOString() });
-      // Pin this uid as the "owner" of the local profile cache. Without this,
-      // newly-signed-up users who complete onboarding but never trigger a
-      // full hydrate (= never cold-reboot the app) leave cachedProfileUid
-      // as null. When they later sign in from a new tab and Firestore is
-      // briefly unreachable, the cache-fallback branch in
-      // hydrateProfileFromFirestore can't match and they get routed back
-      // through onboarding. Setting it here closes that gap.
-      useProfileStore.getState().setCachedProfileUid(credential.user.uid);
-      // Send email verification
-      await sendVerificationEmail().catch(() => {}); // non-blocking
-      set({ user: authUser, isAuthenticated: true, isLoading: false });
-    } catch (error) {
-      set({ isLoading: false });
-      throw error;
-    }
-  },
 
   onGoogleCredential: async (credential: UserCredential): Promise<AuthDestination> => {
     logAuthEvent({ type: 'auth:google-success', uid: credential.user.uid, email: credential.user.email ?? undefined });
