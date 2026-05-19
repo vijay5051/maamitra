@@ -925,7 +925,7 @@ function EditKidView({ kid, onBack, onRemove }: { kid: Kid; onBack: () => void; 
   const { user } = useAuthStore();
   const [name, setName] = useState(kid.name || '');
   const [dob, setDob] = useState(kid.dob ? kid.dob.split('T')[0] : '');
-  const [gender, setGender] = useState<'boy' | 'girl' | 'surprise'>(kid.gender || 'surprise');
+  const [gender, setGender] = useState<'boy' | 'girl' | 'surprise' | 'not-set'>(kid.gender || 'surprise');
   const [photo, setPhoto] = useState(kid.photoUrl || '');
   const [photoLoading, setPhotoLoading] = useState(false);
   const [imgError, setImgError] = useState(false);
@@ -1057,7 +1057,7 @@ function EditKidView({ kid, onBack, onRemove }: { kid: Kid; onBack: () => void; 
       <ChipSelect
         options={GENDER_OPTIONS.map((g) => g.label)}
         selected={GENDER_OPTIONS.find((g) => g.key === gender)?.label ?? 'Surprise'}
-        onSelect={(v) => { const found = GENDER_OPTIONS.find((g) => g.label === v); if (found) setGender(found.key as 'boy' | 'girl' | 'surprise'); }}
+        onSelect={(v) => { const found = GENDER_OPTIONS.find((g) => g.label === v); if (found) setGender(found.key as 'boy' | 'girl' | 'surprise' | 'not-set'); }}
       />
 
       <TouchableOpacity style={s.saveBtn} onPress={handleSave} activeOpacity={0.85}>

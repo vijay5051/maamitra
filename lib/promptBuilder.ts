@@ -265,7 +265,10 @@ export function buildSystemPrompt(ctx: ChatContext, userQuery?: string): string 
     : ctx.familyType === 'single-parent' ? 'a single-parent household'
     : 'a nuclear family';
 
-  const kidGenderWord = ctx.kidGender === 'boy' ? 'son' : ctx.kidGender === 'girl' ? 'daughter' : 'baby';
+  const kidGenderWord =
+    ctx.kidGender === 'boy' ? 'son'
+    : ctx.kidGender === 'girl' ? 'daughter'
+    : 'baby'; // covers 'surprise', 'not-set', undefined
 
   const safeMotherName = sanitizeForPrompt(ctx.motherName, 60) || 'Mom';
   const safeKidName    = sanitizeForPrompt(ctx.kidName, 60);

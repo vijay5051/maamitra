@@ -211,7 +211,7 @@ function AddChildModal({
 }: {
   visible: boolean;
   onClose: () => void;
-  onAdd: (data: { name: string; dob: string; isExpecting: boolean; gender: 'girl' | 'boy' | 'surprise' }) => void;
+  onAdd: (data: { name: string; dob: string; isExpecting: boolean; gender: 'girl' | 'boy' | 'surprise' | 'not-set' }) => void;
 }) {
   const [name, setName] = useState('');
   const [dob, setDob] = useState('');
@@ -428,7 +428,7 @@ export default function FamilyScreen() {
     name: string;
     dob: string;
     isExpecting: boolean;
-    gender: 'girl' | 'boy' | 'surprise';
+    gender: 'girl' | 'boy' | 'surprise' | 'not-set';
   }) => {
     addKid({
       name,
@@ -611,10 +611,9 @@ export default function FamilyScreen() {
                       <Text style={styles.manageTitle}>{activeKid.name || 'Your child'}</Text>
                       <Text style={styles.manageMeta}>
                         {formatKidAge(activeKid)}
-                        {' · '}
-                        {activeKid.gender === 'surprise'
-                          ? 'Surprise'
-                          : activeKid.gender.charAt(0).toUpperCase() + activeKid.gender.slice(1)}
+                        {activeKid.gender && activeKid.gender !== 'surprise' && activeKid.gender !== 'not-set'
+                          ? ' · ' + activeKid.gender.charAt(0).toUpperCase() + activeKid.gender.slice(1)
+                          : null}
                       </Text>
                     </View>
                   </View>
