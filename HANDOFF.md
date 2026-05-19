@@ -10,6 +10,38 @@
 
 **No active coding task.**
 
+Plan A — Auth Hardening fully landed (2026-05-19).
+Plan B — New Signup Journey queued; let Plan A bake 24–48h in production first.
+
+---
+
+## Last action
+
+Landed Plan A — Auth Hardening (`docs/superpowers/plans/2026-05-19-auth-hardening.md`):
+
+- Schema: added `'not-set'` to Gender type; added `dismissedPrompts` map to profile store; added `isCacheTrustedFor` helper; added `firestoreHydratedForUid` tracking.
+- Three-gate cold-start guard in `app/index.tsx` (fixes "sign-in routes to signup form" bug). G1 auth resolved, G2 profile hydrated, G3 cache-trust or firestore-ready.
+- Universal phone-first gate: any authed non-admin user without `phoneVerified` now redirects to `/(auth)/phone` (new behaviour).
+- Unified sign-out: new `hooks/useSignOut.ts` + `SignOutConfirmModal` + `SignOutOverlay`. Replaced raw `signOut()` callsites in SettingsModal, admin/index, admin/settings. `tests/grep-signout.test.ts` enforces no raw callsites going forward.
+- Auth observability: `lib/authObservability.ts` with structured event logging (gate-pending, transitions, sign-out lifecycle, web-persistence failures). Wired into useAuthStore.
+- 5-second cache-stuck escape hatch on welcome screen: surfaces "Reset local storage" link after 5s `isLoading`. Backed by `lib/storageEscape.ts` (wipeAllLocalStorage).
+- 12 new tests, all in `tests/` (62 total tests passing). TypeScript clean.
+
+**Behaviour change to be aware of:** Existing users without `phoneVerified` will be redirected to `/(auth)/phone` on next launch. They cannot reach `/(tabs)` without verifying. This is the phone-first promise.
+
+## Next step
+
+Plan B — New Signup Journey (`docs/superpowers/plans/2026-05-19-new-signup-journey.md`):
+auth entry rewrite (Layout C), Apple SIWA, onboarding form rewrite (Layout B with morphing illustration), just-in-time prompts. Ship Plan A first; let it bake in production 24-48h; then start Plan B.
+
+## In-flight side processes
+
+None — Plan A is fully committed and ready for ship-chain.
+
+---
+
+## Previous last action (2026-05-19) — Security + health hardening
+
 Security + health hardening (commits `a621f2b` + `e33ed5c`) fully shipped
 on 2026-05-14:
 
@@ -43,7 +75,7 @@ automatically without overwriting each other in the keychain.
 
 ---
 
-## Last action (2026-05-12) — Admin dashboard: wire dead KPI cards + "who was active"
+## Previous last action (2026-05-12) — Admin dashboard: wire dead KPI cards + "who was active"
 
 **Commit `819a2b0` · local main only · NOT pushed · NOT deployed.**
 
