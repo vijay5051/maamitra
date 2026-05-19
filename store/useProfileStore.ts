@@ -183,6 +183,12 @@ interface ProfileState {
 
   dismissPrompt: (key: string) => void;
   isPromptDismissed: (key: string) => boolean;
+  /**
+   * Returns true iff the locally-cached profile UID matches the given user uid.
+   * Use as a cold-start gate: if false, the cache belongs to a different user
+   * (or is empty) and must not be used to skip onboarding for this uid.
+   */
+  isCacheTrustedFor: (uid: string) => boolean;
 }
 
 export const useProfileStore = create<ProfileState>()(
@@ -373,6 +379,10 @@ export const useProfileStore = create<ProfileState>()(
           dismissedPrompts: { ...state.dismissedPrompts, [key]: true },
         })),
       isPromptDismissed: (key: string) => !!get().dismissedPrompts[key],
+      isCacheTrustedFor: (uid: string) => {
+        const stored = get().cachedProfileUid;
+        return !!stored && stored === uid;
+      },
     }),
     {
       name: 'maamitra-profile',
