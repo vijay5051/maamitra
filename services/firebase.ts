@@ -26,6 +26,7 @@ import {
   RecaptchaVerifier,
   linkWithPhoneNumber,
   linkWithCredential,
+  signInWithPhoneNumber,
   PhoneAuthProvider,
   unlink,
   ConfirmationResult,
@@ -806,24 +807,33 @@ export async function getGoogleRedirectResult(): Promise<{ uid: string; name: st
 
 // ─── Phone OTP (cross-platform) ──────────────────────────────────────────────
 //
+// Dual-mode: phone OTP serves both PRIMARY auth (no current user — e.g. from
+// the welcome screen, phone is the *only* credential) and LINK (a user is
+// already signed in via Google/email and is attaching a phone). We pick the
+// mode based on `auth.currentUser` at send-time and record it on the handle
+// so `verifyPhoneOtp` calls the right finalizer.
+//
 // Web flow:
 //   1. phone screen mounts <View nativeID="recaptcha-container" />
 //   2. sendPhoneOtp(e164) creates an invisible RecaptchaVerifier against
-//      that div, calls linkWithPhoneNumber on the CURRENTLY SIGNED-IN user
-//      (Google/email). Linking means the phone becomes a second credential
-//      on the same account; the user doesn't get signed out of Google.
+//      that div. If auth.currentUser exists → linkWithPhoneNumber (attaches
+//      phone to that account, Google session preserved). If not →
+//      signInWithPhoneNumber (creates a new Firebase user, or signs in an
+//      existing one keyed by phone).
 //   3. Firebase sends the SMS. We stash the ConfirmationResult in the handle.
-//   4. verifyPhoneOtp(handle, code) calls confirmation.confirm(code).
+//   4. verifyPhoneOtp(handle, code) calls confirmation.confirm(code). Same
+//      call for both modes — the ConfirmationResult is bound to the right
+//      operation already.
 //
 // Android flow (uses @react-native-firebase/auth, dynamically required):
 //   1. sendPhoneOtp(e164) calls rnAuth().verifyPhoneNumber(e164) — this
 //      sends the SMS via Firebase's native Android SDK, which uses Play
 //      Integrity for app verification (no reCAPTCHA WebView). Returns a
-//      verificationId.
+//      verificationId. Mode ('signin' or 'link') is recorded on the handle.
 //   2. verifyPhoneOtp(handle, code) constructs a JS-SDK PhoneAuthCredential
-//      from the verificationId+code and calls linkWithCredential against
-//      auth.currentUser, so the phone provider is linked to the SAME
-//      Firebase user that's already signed in via Google/email.
+//      from the verificationId+code. If mode='link' → linkWithCredential
+//      against auth.currentUser (phone provider attached to existing user).
+//      If mode='signin' → signInWithCredential (creates / signs in user).
 //
 // iOS: not yet wired (needs APNs key uploaded to Firebase Console).
 // Falls through to PHONE_OTP_UNSUPPORTED until that's done.
@@ -838,9 +848,10 @@ let _recaptchaVerifier: RecaptchaVerifier | null = null;
  * Web: holds the JS SDK ConfirmationResult.
  * Native: holds the verificationId issued by RN Firebase.
  */
+export type PhoneOtpMode = 'signin' | 'link';
 export type PhoneOtpHandle =
-  | { kind: 'web'; confirmation: ConfirmationResult }
-  | { kind: 'native'; verificationId: string };
+  | { kind: 'web'; mode: PhoneOtpMode; confirmation: ConfirmationResult }
+  | { kind: 'native'; mode: PhoneOtpMode; verificationId: string };
 
 /** Reset between attempts so a new reCAPTCHA token is generated. */
 export function resetPhoneRecaptcha(): void {
@@ -861,8 +872,12 @@ export function resetPhoneRecaptcha(): void {
  */
 export async function sendPhoneOtp(e164Phone: string): Promise<PhoneOtpHandle> {
   if (!auth) throw new Error('Auth not configured');
+  // Mode is decided here, at send-time, based on whether a Firebase user is
+  // currently signed in. 'link' = attach phone to existing account (e.g.
+  // Google → add phone). 'signin' = phone is the primary credential (e.g.
+  // welcome screen → user enters their number with no prior session).
   const user = auth.currentUser;
-  if (!user) throw new Error('You must be signed in before verifying your phone.');
+  const mode: PhoneOtpMode = user ? 'link' : 'signin';
 
   if (Platform.OS === 'web') {
     // Reuse the verifier across attempts — recreating it on every send leaks
@@ -872,10 +887,10 @@ export async function sendPhoneOtp(e164Phone: string): Promise<PhoneOtpHandle> {
         size: 'invisible',
       });
     }
-    // linkWithPhoneNumber attaches the phone credential to the currently
-    // signed-in user. signInWithPhoneNumber would REPLACE the session.
-    const confirmation = await linkWithPhoneNumber(user, e164Phone, _recaptchaVerifier);
-    return { kind: 'web', confirmation };
+    const confirmation = mode === 'link'
+      ? await linkWithPhoneNumber(user!, e164Phone, _recaptchaVerifier)
+      : await signInWithPhoneNumber(auth, e164Phone, _recaptchaVerifier);
+    return { kind: 'web', mode, confirmation };
   }
 
   if (Platform.OS === 'android') {
@@ -900,7 +915,7 @@ export async function sendPhoneOtp(e164Phone: string): Promise<PhoneOtpHandle> {
         }
       });
     });
-    return { kind: 'native', verificationId };
+    return { kind: 'native', mode, verificationId };
   }
 
   // iOS — pending APNs key upload to Firebase Console.
@@ -960,14 +975,26 @@ export async function verifyPhoneOtp(
   if (!auth) throw new Error('Auth not configured');
 
   if (handle.kind === 'web') {
+    // The ConfirmationResult is already bound to the right operation —
+    // signInWithPhoneNumber's confirm() signs in / creates the user;
+    // linkWithPhoneNumber's confirm() links to the existing user.
     await handle.confirmation.confirm(code);
     return;
   }
 
-  // Native: bridge into the JS SDK so the phone gets linked to the SAME
-  // Firebase user that's already signed in via Google/email. The
-  // verificationId is a Firebase-issued server token; both SDKs validate it
-  // against the same backend, so cross-SDK construction is supported.
+  // Native: bridge into the JS SDK. The verificationId is a Firebase-issued
+  // server token; both SDKs validate it against the same backend, so
+  // cross-SDK credential construction is supported.
+  const credential = PhoneAuthProvider.credential(handle.verificationId, code);
+
+  if (handle.mode === 'signin') {
+    // Primary phone auth — no existing user. signInWithCredential creates a
+    // new Firebase user (or signs in an existing one keyed by the phone).
+    await signInWithCredential(auth, credential);
+    return;
+  }
+
+  // Link mode — phone is being attached to an already-signed-in account.
   const user = auth.currentUser;
   if (!user) throw new Error('You must be signed in before verifying your phone.');
 
@@ -977,7 +1004,6 @@ export async function verifyPhoneOtp(
     try { await unlink(user, 'phone'); } catch (e) { console.warn('unlink existing phone failed:', e); }
   }
 
-  const credential = PhoneAuthProvider.credential(handle.verificationId, code);
   await linkWithCredential(user, credential);
 }
 

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   BackHandler,
   KeyboardAvoidingView,
@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useProfileStore } from '../../store/useProfileStore';
 import {
+  auth as firebaseAuth,
   saveUserProfile,
   sendPhoneOtp,
   verifyPhoneOtp,
@@ -47,6 +48,7 @@ export default function PhoneScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
   const setPhone = useProfileStore((s) => s.setPhone);
+  const setPhoneVerified = useProfileStore((s) => s.setPhoneVerified);
   const signOut = useSignOut();
 
   // Accept ?e164=... from deep-link (Plan B Task 9 SmartInputCard).
@@ -59,7 +61,22 @@ export default function PhoneScreen() {
     : initialE164.replace(/\D/g, '').slice(0, 10);
 
   const [step, setStep] = useState<Step>('enter-number');
-  const [digits, setDigits] = useState(initialDigits);
+  // Lazy init: captures `initialDigits` on the first render-after-mount. If
+  // `useLocalSearchParams` returns empty on the first render (web routing
+  // race), the useEffect below pulls the value in once params arrive.
+  const [digits, setDigits] = useState(() => initialDigits);
+
+  // Plan B hotfix (Bug 3): on web, `useLocalSearchParams` can return empty
+  // on the very first render and populate on the next tick. Without this,
+  // the phone field stays empty even though welcome.tsx passed ?e164=...
+  // We only adopt the param value while the user hasn't typed yet (digits
+  // empty) to avoid clobbering manual edits.
+  useEffect(() => {
+    if (initialDigits && !digits) {
+      setDigits(initialDigits);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialDigits]);
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -91,10 +108,10 @@ export default function PhoneScreen() {
       setError(validationError);
       return;
     }
-    if (!user?.uid) {
-      setError('You are not signed in.');
-      return;
-    }
+    // No "must be signed in" guard here: sendPhoneOtp now handles BOTH
+    // primary signup (no current user — welcome → phone) and link mode
+    // (Google → add phone). The service picks the right Firebase call
+    // based on auth.currentUser at send-time.
     setError('');
     setBusy(true);
     try {
@@ -144,7 +161,7 @@ export default function PhoneScreen() {
       await verifyPhoneOtp(confirmationRef.current, cleanCode);
       logAuthEvent({
         type: 'auth:phone-otp-verified',
-        uid: user?.uid ?? '',
+        uid: firebaseAuth?.currentUser?.uid ?? user?.uid ?? '',
       });
       await savePhoneAndContinue(e164, true);
     } catch (e: any) {
@@ -168,10 +185,20 @@ export default function PhoneScreen() {
   };
 
   const savePhoneAndContinue = async (phoneE164: string, verified: boolean) => {
-    if (!user?.uid) return;
+    // Prefer auth.currentUser over the Zustand `user` snapshot: in the
+    // primary-signin path (Bug 1 fix), Firebase has JUST created the user
+    // and the onAuthStateChanged listener may not have flushed into the
+    // store yet. Reading currentUser directly is the source of truth.
+    const uid = firebaseAuth?.currentUser?.uid ?? user?.uid ?? null;
+    if (!uid) return;
     setPhone(phoneE164);
+    // Bug 2 fix: also update the LOCAL phoneVerified flag. The Plan A phone
+    // gate in app/index.tsx and app/(tabs)/_layout.tsx reads phoneVerified
+    // from Zustand — without this, the gate sees `false` after the verify
+    // and bounces the user right back to /(auth)/phone forever.
+    setPhoneVerified(verified);
     try {
-      await saveUserProfile(user.uid, {
+      await saveUserProfile(uid, {
         phone: phoneE164,
         phoneVerified: verified,
       });
