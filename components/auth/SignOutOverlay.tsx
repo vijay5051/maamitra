@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { Modal, StyleSheet, Text, View } from 'react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withRepeat, withSequence } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Fonts } from '../../constants/theme';
+import { Colors, Fonts, withAlpha } from '../../constants/theme';
 
 interface Props {
   state: 'idle' | 'signing-out' | 'signed-out';
@@ -42,7 +42,7 @@ export default function SignOutOverlay({ state }: Props) {
               <Animated.View style={checkStyle}>
                 {/* Colors.success (#22c55e) is the brand token for green — preferred over hardcoded hex */}
                 <View style={styles.checkCircle}>
-                  <Ionicons name="checkmark" size={28} color="#fff" />
+                  <Ionicons name="checkmark" size={28} color={Colors.white} />
                 </View>
               </Animated.View>
               <Text style={styles.text}>Signed out</Text>
@@ -55,7 +55,7 @@ export default function SignOutOverlay({ state }: Props) {
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(28, 16, 51, 0.55)', alignItems: 'center', justifyContent: 'center' },
+  backdrop: { flex: 1, backgroundColor: withAlpha(Colors.textDark, 0.55), alignItems: 'center', justifyContent: 'center' },
   card: { backgroundColor: Colors.cardBg, borderRadius: 18, paddingVertical: 28, paddingHorizontal: 36, alignItems: 'center', gap: 14, minWidth: 200 },
   // Colors.success is the brand token for semantic success green (#22c55e)
   checkCircle: { width: 48, height: 48, borderRadius: 24, backgroundColor: Colors.success, alignItems: 'center', justifyContent: 'center' },

@@ -29,6 +29,7 @@ import { useSocialStore } from '../../store/useSocialStore';
 import { useDMStore } from '../../store/useDMStore';
 import { Fonts } from '../../constants/theme';
 import { Colors } from '../../constants/theme';
+import { calculateAgeInMonths, calculateAgeInWeeks, isPlausibleDob } from '../../lib/dob';
 import KidGenderPrompt from '../../components/jit/KidGenderPrompt';
 
 // ─── ChildCard ─────────────────────────────────────────────────────────────────
@@ -46,21 +47,21 @@ function ChildCard({
 }) {
   const dobInFuture = kid.dob ? new Date(kid.dob) > new Date() : false;
   const isActuallyExpecting = kid.isExpecting && dobInFuture;
-  const _diffMs = kid.dob ? Date.now() - new Date(kid.dob).getTime() : 0;
-  const _months = Math.max(0, Math.floor(_diffMs / (1000 * 60 * 60 * 24 * 30.44)));
-  const _weeks = Math.max(0, Math.floor(_diffMs / (1000 * 60 * 60 * 24 * 7)));
-  // Defensive — clamp to MAX_AGE_MONTHS so a corrupted DOB doesn't render
-  // "2002y". Plausibility check covers the year-23 case from /qa 2026-05-14.
-  const isPlausible = isActuallyExpecting || (kid.dob && new Date(kid.dob).getFullYear() >= 2010 && _months <= 300);
+  // Route every age calculation through lib/dob.ts — single source of
+  // truth, clamped to MAX_AGE_MONTHS, plausibility-checked. Previously
+  // duplicated inline here with inline bounds that drifted from dob.ts.
+  const months = kid.dob ? calculateAgeInMonths(kid.dob) : 0;
+  const weeks = kid.dob ? calculateAgeInWeeks(kid.dob) : 0;
+  const dobValid = !!kid.dob && isPlausibleDob(kid.dob);
   const ageText = isActuallyExpecting
     ? 'Due soon'
-    : !isPlausible
+    : !dobValid
     ? 'Set DOB'
-    : _months < 1
-    ? `${_weeks}w`
-    : _months < 24
-    ? `${_months}mo`
-    : `${Math.floor(_months / 12)}y`;
+    : months < 1
+    ? `${weeks}w`
+    : months < 24
+    ? `${months}mo`
+    : `${Math.floor(months / 12)}y`;
 
   // Single brand accent for every child card — previously rotated through
   // three gender-coded gradients which read as rainbow noise next to the
@@ -77,7 +78,7 @@ function ChildCard({
         {kid.photoUrl ? (
           <Image source={{ uri: kid.photoUrl }} style={childCardStyles.photoAvatar} />
         ) : (
-          <View style={[childCardStyles.iconBox, isActive && { backgroundColor: '#F5F0FF' }]}>
+          <View style={[childCardStyles.iconBox, isActive && { backgroundColor: Colors.bgTint }]}>
             <AppIcon
               name={
                 isActuallyExpecting
@@ -89,7 +90,7 @@ function ChildCard({
                   : 'object.gender-other'
               }
               size={20}
-              color={isActive ? accent : '#6b7280'}
+              color={isActive ? accent : Colors.textLight}
             />
           </View>
         )}
@@ -114,7 +115,7 @@ const childCardStyles = StyleSheet.create({
     borderRadius: 14,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#E5E1EE',
+    borderColor: Colors.border,
     backgroundColor: Colors.cardBg,
   } as any,
   cardActive: {
@@ -135,7 +136,7 @@ const childCardStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
-    backgroundColor: '#F5F0FF',
+    backgroundColor: Colors.bgTint,
   },
   photoAvatar: {
     width: 40,
@@ -144,9 +145,9 @@ const childCardStyles = StyleSheet.create({
     marginBottom: 8,
     backgroundColor: '#F3F4F6',
   },
-  name: { fontFamily: Fonts.sansSemiBold, fontSize: 13, color: '#1C1033', textAlign: 'center' },
-  nameActive: { fontFamily: Fonts.sansBold, color: '#1C1033' },
-  age: { fontFamily: Fonts.sansRegular, fontSize: 11, color: '#9ca3af', marginTop: 2 },
+  name: { fontFamily: Fonts.sansSemiBold, fontSize: 13, color: Colors.textDark, textAlign: 'center' },
+  nameActive: { fontFamily: Fonts.sansBold, color: Colors.textDark },
+  age: { fontFamily: Fonts.sansRegular, fontSize: 11, color: Colors.textMuted, marginTop: 2 },
   activeDot: { width: 5, height: 5, borderRadius: 3, marginTop: 6 },
 });
 
@@ -193,14 +194,14 @@ const milestoneStyles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 14, marginBottom: 16 },
   dotCol: { alignItems: 'center', paddingTop: 4 },
   dotReached: { width: 12, height: 12, borderRadius: 6 },
-  dotPending: { width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: '#EDE9F6', backgroundColor: Colors.bgLight },
-  connector: { width: 2, flex: 1, backgroundColor: '#EDE9F6', marginTop: 4, minHeight: 16 },
+  dotPending: { width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: Colors.borderSoft, backgroundColor: Colors.bgLight },
+  connector: { width: 2, flex: 1, backgroundColor: Colors.borderSoft, marginTop: 4, minHeight: 16 },
   info: { flex: 1, paddingBottom: 8 },
   titleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
   iconBox: { width: 22, height: 22, borderRadius: 6, backgroundColor: 'rgba(28, 16, 51, 0.06)', alignItems: 'center', justifyContent: 'center', marginRight: 6 },
-  title: { fontFamily: Fonts.sansBold, fontSize: 14, color: '#1C1033' },
+  title: { fontFamily: Fonts.sansBold, fontSize: 14, color: Colors.textDark },
   ageLabel: { fontFamily: Fonts.sansSemiBold, fontSize: 11, color: Colors.primary, marginBottom: 4 },
-  desc: { fontFamily: Fonts.sansRegular, fontSize: 13, color: '#9CA3AF', lineHeight: 18 },
+  desc: { fontFamily: Fonts.sansRegular, fontSize: 13, color: Colors.textMuted, lineHeight: 18 },
 });
 
 // ─── AddChildModal ─────────────────────────────────────────────────────────────
@@ -363,19 +364,19 @@ const addChildStyles = StyleSheet.create({
     paddingTop: 16,
     maxHeight: '90%',
   },
-  handle: { width: 36, height: 4, backgroundColor: '#EDE9F6', borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
+  handle: { width: 36, height: 4, backgroundColor: Colors.borderSoft, borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
-  title: { fontFamily: Fonts.sansBold, fontSize: 20, color: '#1C1033' },
-  label: { fontFamily: Fonts.sansSemiBold, fontSize: 10, color: '#9CA3AF', letterSpacing: 1.2, marginBottom: 8, marginTop: 16 },
+  title: { fontFamily: Fonts.sansBold, fontSize: 20, color: Colors.textDark },
+  label: { fontFamily: Fonts.sansSemiBold, fontSize: 10, color: Colors.textMuted, letterSpacing: 1.2, marginBottom: 8, marginTop: 16 },
   input: {
     backgroundColor: Colors.cardBg,
     borderRadius: 14,
     padding: 14,
     fontFamily: Fonts.sansRegular,
     fontSize: 15,
-    color: '#1C1033',
+    color: Colors.textDark,
     borderWidth: 1.5,
-    borderColor: '#EDE9F6',
+    borderColor: Colors.borderSoft,
   },
   stageRow: { flexDirection: 'row', gap: 10 },
   genderRow: { flexDirection: 'row', gap: 8 },
@@ -385,11 +386,11 @@ const addChildStyles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: '#EDE9F6',
+    borderColor: Colors.borderSoft,
     backgroundColor: Colors.cardBg,
   },
   stageBtnActive: { borderColor: Colors.primary, backgroundColor: 'rgba(28, 16, 51, 0.036)' },
-  stageBtnText: { fontFamily: Fonts.sansMedium, fontSize: 14, color: '#9CA3AF' },
+  stageBtnText: { fontFamily: Fonts.sansMedium, fontSize: 14, color: Colors.textMuted },
   stageBtnTextActive: { color: Colors.primary, fontFamily: Fonts.sansBold },
   errorText: { fontFamily: Fonts.sansRegular, color: '#ef4444', fontSize: 12, marginTop: 8 },
 });
@@ -497,7 +498,7 @@ export default function FamilyScreen() {
               accessibilityRole="button"
               accessibilityLabel="Notifications"
             >
-              <AppIcon name="nav.notifications" size={18} color="#6b7280" />
+              <AppIcon name="nav.notifications" size={18} color={Colors.textLight} />
               {socialUnread > 0 && (
                 <View style={styles.headerBadge}>
                   <Text style={styles.headerBadgeText}>{socialUnread > 9 ? '9+' : socialUnread}</Text>
@@ -511,7 +512,7 @@ export default function FamilyScreen() {
               accessibilityRole="button"
               accessibilityLabel="Messages"
             >
-              <AppIcon name="nav.messages" size={18} color="#6b7280" />
+              <AppIcon name="nav.messages" size={18} color={Colors.textLight} />
               {unreadDMs > 0 && (
                 <View style={styles.headerBadge}>
                   <Text style={styles.headerBadgeText}>{unreadDMs > 9 ? '9+' : unreadDMs}</Text>
@@ -704,20 +705,20 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: Fonts.serif,
     fontSize: 26,
-    color: '#1C1033',
+    color: Colors.textDark,
     letterSpacing: -0.3,
   },
   headerSub: {
     fontFamily: Fonts.sansRegular,
     fontSize: 12,
-    color: '#6b7280',
+    color: Colors.textLight,
     marginTop: 3,
   },
   headerActions: { flexDirection: 'row', gap: 8 },
   headerBtn: {
     width: 36, height: 36, borderRadius: 18,
-    backgroundColor: '#F5F0FF',
-    borderWidth: 1, borderColor: '#E5E1EE',
+    backgroundColor: Colors.bgTint,
+    borderWidth: 1, borderColor: Colors.border,
     alignItems: 'center', justifyContent: 'center',
     position: 'relative',
   },
@@ -733,7 +734,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 4,
     borderWidth: 2,
-    borderColor: '#1C1033',
+    borderColor: Colors.textDark,
   },
   headerBadgeText: {
     color: '#ffffff',
@@ -759,14 +760,14 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontFamily: Fonts.sansBold,
     fontSize: 17,
-    color: '#1C1033',
+    color: Colors.textDark,
     marginBottom: 12,
     marginTop: 4,
   },
   sectionSub: {
     fontFamily: Fonts.sansRegular,
     fontSize: 13,
-    color: '#6B7280',
+    color: Colors.textLight,
     lineHeight: 20,
     marginTop: -6,
     marginBottom: 14,
@@ -781,7 +782,7 @@ const styles = StyleSheet.create({
   },
   progressBadgeText: { fontFamily: Fonts.sansBold, fontSize: 11, color: Colors.primary },
   milestoneProgressBg: {
-    height: 4, backgroundColor: '#EDE9F6', borderRadius: 2, marginBottom: 12, overflow: 'hidden',
+    height: 4, backgroundColor: Colors.borderSoft, borderRadius: 2, marginBottom: 12, overflow: 'hidden',
   },
   milestoneProgressFill: { height: '100%', borderRadius: 2 },
 
@@ -815,7 +816,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   managePhotoFallbackText: { fontFamily: Fonts.sansBold, fontSize: 18, color: Colors.primary },
-  manageTitle: { fontFamily: Fonts.sansBold, fontSize: 16, color: '#1C1033' },
+  manageTitle: { fontFamily: Fonts.sansBold, fontSize: 16, color: Colors.textDark },
   manageMeta: { fontFamily: Fonts.sansRegular, fontSize: 12, color: '#8B93A6', marginTop: 3 },
   activeBadge: {
     borderRadius: 999,
@@ -827,7 +828,7 @@ const styles = StyleSheet.create({
   manageHint: {
     fontFamily: Fonts.sansRegular,
     fontSize: 13,
-    color: '#6B7280',
+    color: Colors.textLight,
     lineHeight: 20,
     marginTop: 14,
   },
@@ -849,10 +850,10 @@ const styles = StyleSheet.create({
     borderColor: '#E5DDF1',
     backgroundColor: '#ffffff',
   },
-  manageSecondaryBtnText: { fontFamily: Fonts.sansSemiBold, fontSize: 13, color: '#1C1033' },
+  manageSecondaryBtnText: { fontFamily: Fonts.sansSemiBold, fontSize: 13, color: Colors.textDark },
   profileManageCard: { marginBottom: 12 },
-  profileManageTitle: { fontFamily: Fonts.sansBold, fontSize: 15, color: '#1C1033', marginBottom: 6 },
-  profileManageText: { fontFamily: Fonts.sansRegular, fontSize: 13, color: '#6B7280', lineHeight: 20 },
+  profileManageTitle: { fontFamily: Fonts.sansBold, fontSize: 15, color: Colors.textDark, marginBottom: 6 },
+  profileManageText: { fontFamily: Fonts.sansRegular, fontSize: 13, color: Colors.textLight, lineHeight: 20 },
   profileManageBtn: {
     marginTop: 16,
     borderRadius: 14,
@@ -868,12 +869,12 @@ const styles = StyleSheet.create({
   emptyCard: { alignItems: 'center', paddingVertical: 24, marginBottom: 20 },
   emptyIconBox: { width: 66, height: 66, borderRadius: 20, backgroundColor: 'rgba(28, 16, 51, 0.054)', alignItems: 'center', justifyContent: 'center', marginBottom: 12, alignSelf: 'center' },
   emptyIllus: { width: 200, height: 160, marginBottom: 8 },
-  emptyText: { fontFamily: Fonts.sansRegular, fontSize: 15, color: '#9CA3AF', textAlign: 'center', lineHeight: 22, maxWidth: 260 },
+  emptyText: { fontFamily: Fonts.sansRegular, fontSize: 15, color: Colors.textMuted, textAlign: 'center', lineHeight: 22, maxWidth: 260 },
   milestonesCard: { marginBottom: 24, paddingTop: 20 },
   expectingCard: { alignItems: 'center', paddingVertical: 32, marginBottom: 20 },
   expectingEmoji: { fontSize: 40, marginBottom: 12 },
-  expectingTitle: { fontFamily: Fonts.sansBold, fontSize: 16, color: '#1C1033', marginBottom: 8 },
-  expectingText: { fontFamily: Fonts.sansRegular, fontSize: 14, color: '#9CA3AF', textAlign: 'center', lineHeight: 22 },
+  expectingTitle: { fontFamily: Fonts.sansBold, fontSize: 16, color: Colors.textDark, marginBottom: 8 },
+  expectingText: { fontFamily: Fonts.sansRegular, fontSize: 14, color: Colors.textMuted, textAlign: 'center', lineHeight: 22 },
 
 
   // ── Action card ──
@@ -885,8 +886,8 @@ const styles = StyleSheet.create({
   },
   actionCardLeft: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   actionCardEmoji: { fontSize: 28 },
-  actionCardTitle: { fontFamily: Fonts.sansSemiBold, fontSize: 14, color: '#1C1033', marginBottom: 2 },
-  actionCardSub: { fontFamily: Fonts.sansRegular, fontSize: 12, color: '#9CA3AF' },
+  actionCardTitle: { fontFamily: Fonts.sansSemiBold, fontSize: 14, color: Colors.textDark, marginBottom: 2 },
+  actionCardSub: { fontFamily: Fonts.sansRegular, fontSize: 12, color: Colors.textMuted },
   actionCardArrow: {
     width: 30, height: 30, borderRadius: 15,
     backgroundColor: 'rgba(28, 16, 51, 0.06)',

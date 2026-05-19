@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.4, marginBottom: 10,
   },
   tagline: {
-    fontFamily: Fonts.sansBold, fontSize: 18, color: '#1C1033',
+    fontFamily: Fonts.sansBold, fontSize: 18, color: Colors.textDark,
     textAlign: 'center', maxWidth: 340, lineHeight: 26, marginBottom: 8,
   },
   taglineWide: { maxWidth: 560, fontSize: 22, lineHeight: 30 },
@@ -312,14 +312,14 @@ const styles = StyleSheet.create({
   },
 
   sectionHeader: { marginTop: 18, marginBottom: 10 },
-  sectionTitle: { fontFamily: Fonts.sansBold, fontSize: 16, color: '#1C1033', letterSpacing: 0.2 },
+  sectionTitle: { fontFamily: Fonts.sansBold, fontSize: 16, color: Colors.textDark, letterSpacing: 0.2 },
 
   featuresGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   featureCard: {
     flexBasis: '48%', flexGrow: 1,
     backgroundColor: Colors.cardBg, borderRadius: 18,
     paddingVertical: 16, paddingHorizontal: 16,
-    borderWidth: 1, borderColor: '#F0EDF5',
+    borderWidth: 1, borderColor: Colors.borderSoft,
   },
   featureCardWide: { flexBasis: '31%', flexGrow: 0 },
   iconBox: {
@@ -328,7 +328,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F0FF', marginBottom: 10,
   },
   featureTitle: {
-    fontFamily: Fonts.sansBold, fontSize: 13, color: '#1C1033',
+    fontFamily: Fonts.sansBold, fontSize: 13, color: Colors.textDark,
     marginBottom: 2, letterSpacing: 0.1,
   },
   featureText: {
@@ -339,19 +339,19 @@ const styles = StyleSheet.create({
   step: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 12,
     backgroundColor: Colors.cardBg, borderRadius: 18, padding: 14,
-    borderWidth: 1, borderColor: '#F0EDF5',
+    borderWidth: 1, borderColor: Colors.borderSoft,
   },
   stepBadge: {
     width: 28, height: 28, borderRadius: 14,
     backgroundColor: '#F5F0FF', alignItems: 'center', justifyContent: 'center',
   },
   stepBadgeText: { fontFamily: Fonts.sansBold, fontSize: 13, color: Colors.primary },
-  stepTitle: { fontFamily: Fonts.sansBold, fontSize: 14, color: '#1C1033', marginBottom: 2 },
+  stepTitle: { fontFamily: Fonts.sansBold, fontSize: 14, color: Colors.textDark, marginBottom: 2 },
   stepText: { fontFamily: Fonts.sansRegular, fontSize: 13, color: '#6b7280', lineHeight: 19 },
 
   trustCard: {
-    marginTop: 18, backgroundColor: '#ffffff', borderRadius: 14,
-    padding: 14, borderWidth: 1, borderColor: '#F0EDF5', gap: 8,
+    marginTop: 18, backgroundColor: Colors.white, borderRadius: 14,
+    padding: 14, borderWidth: 1, borderColor: Colors.borderSoft, gap: 8,
   },
   trustRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   trustText: {

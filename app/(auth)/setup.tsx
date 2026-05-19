@@ -261,7 +261,7 @@ const styles = StyleSheet.create({
   heading: {
     fontFamily: Fonts.serif,
     fontSize: 24,
-    color: '#1C1033',
+    color: Colors.textDark,
     letterSpacing: -0.4,
     marginBottom: 6,
     textAlign: 'center',

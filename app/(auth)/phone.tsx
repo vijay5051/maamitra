@@ -261,7 +261,7 @@ export default function PhoneScreen() {
                 value={digits}
                 onChangeText={handleChangeDigits}
                 placeholder="98765 43210"
-                placeholderTextColor="#c4b5d4"
+                placeholderTextColor={Colors.textLight}
                 keyboardType="phone-pad"
                 maxLength={10}
                 style={styles.input}
@@ -276,7 +276,7 @@ export default function PhoneScreen() {
                 value={code}
                 onChangeText={handleChangeCode}
                 placeholder="• • • • • •"
-                placeholderTextColor="#d4c9e8"
+                placeholderTextColor={Colors.textLight}
                 keyboardType="number-pad"
                 maxLength={6}
                 style={styles.codeInput}
@@ -406,7 +406,7 @@ const styles = StyleSheet.create({
   heading: {
     fontFamily: Fonts.serif,
     fontSize: 26,
-    color: '#1C1033',
+    color: Colors.textDark,
     letterSpacing: -0.4,
     marginBottom: 8,
   },
@@ -420,10 +420,10 @@ const styles = StyleSheet.create({
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.white,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E5E1EE',
+    borderColor: Colors.border,
     paddingHorizontal: 4,
   },
   inputRowError: {
@@ -433,12 +433,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 12,
     borderRightWidth: 1,
-    borderRightColor: '#F0EDF5',
+    borderRightColor: Colors.borderSoft,
   },
   countryCode: {
     fontFamily: Fonts.sansMedium,
     fontSize: 15,
-    color: '#1C1033',
+    color: Colors.textDark,
   },
   input: {
     flex: 1,
@@ -446,21 +446,21 @@ const styles = StyleSheet.create({
     paddingVertical: Platform.OS === 'web' ? 12 : 14,
     fontFamily: Fonts.sansMedium,
     fontSize: 16,
-    color: '#1C1033',
+    color: Colors.textDark,
     letterSpacing: 0.3,
   },
   codeInputRow: {
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.white,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E5E1EE',
+    borderColor: Colors.border,
   },
   codeInput: {
     textAlign: 'center',
     paddingVertical: Platform.OS === 'web' ? 14 : 16,
     fontFamily: Fonts.sansBold,
     fontSize: 24,
-    color: '#1C1033',
+    color: Colors.textDark,
     letterSpacing: 8,
   },
   errorRow: {
