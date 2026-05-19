@@ -19,6 +19,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useSignOut } from '../../hooks/useSignOut';
+import SignOutConfirmModal from '../auth/SignOutConfirmModal';
+import SignOutOverlay from '../auth/SignOutOverlay';
 import SuccessCheck from './SuccessCheck';
 import { useProfileStore, Kid, ParentGender, calculateAgeInMonths, calculateAgeInWeeks, } from '../../store/useProfileStore';
 import {
@@ -1521,14 +1524,12 @@ export default function SettingsModal({
 }: SettingsModalProps) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { user, signOut, deleteAccount } = useAuthStore();
+  const { user, deleteAccount } = useAuthStore();
+  const signOut = useSignOut();
   const { motherName, profile, kids, visibilitySettings, setVisibilitySettings, removeKid, photoUrl, phone, phoneVerified } = useProfileStore();
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>(initialView ?? 'main');
   const [editingKidId, setEditingKidId] = useState<string | null>(null);
-  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
-  const [signedOutSuccess, setSignedOutSuccess] = useState(false);
-
   // Refs for scrolling the main view to the Privacy section on demand.
   const mainScrollRef = useRef<ScrollView>(null);
   const privacyAnchorY = useRef(0);
@@ -1631,25 +1632,6 @@ export default function SettingsModal({
           { text: 'Remove', style: 'destructive', onPress: doRemove },
         ]
       );
-    }
-  };
-
-  const handleSignOut = async () => {
-    setShowSignOutConfirm(false);
-    try {
-      setLoading(true);
-      await signOut();
-      // Show "Signed Out" success overlay briefly before navigating
-      setSignedOutSuccess(true);
-      setTimeout(() => {
-        setSignedOutSuccess(false);
-        setLoading(false);
-        handleClose();
-        router.replace('/(auth)/welcome');
-      }, 1600);
-    } catch (e) {
-      console.error(e);
-      setLoading(false);
     }
   };
 
@@ -1937,9 +1919,9 @@ export default function SettingsModal({
             <View style={[s.card, s.safetyCard]}>
               <SettingsRow
                 icon="log-out-outline"
-                label={loading ? 'Signing out...' : 'Sign out'}
+                label="Sign out"
                 value="Leave this device"
-                onPress={loading ? undefined : () => setShowSignOutConfirm(true)}
+                onPress={() => signOut.open()}
               />
               <View style={s.divider} />
               <SettingsRow
@@ -1996,43 +1978,12 @@ export default function SettingsModal({
         )}
       </View>
 
-      {/* ── Sign Out Confirmation Modal ── */}
-      <Modal visible={showSignOutConfirm} transparent animationType="fade" onRequestClose={() => setShowSignOutConfirm(false)}>
-        <View style={s.confirmOverlay}>
-          <View style={s.confirmSheet}>
-            <View style={s.confirmIconWrap}>
-              <LinearGradient colors={[Colors.primary, Colors.primary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.confirmIconCircle}>
-                <Ionicons name="log-out-outline" size={26} color="#ffffff" />
-              </LinearGradient>
-            </View>
-            <Text style={s.confirmTitle}>Sign Out?</Text>
-            <Text style={s.confirmSubtitle}>You'll need to sign in again to access your account.</Text>
-            <View style={s.confirmBtns}>
-              <TouchableOpacity style={s.confirmCancel} onPress={() => setShowSignOutConfirm(false)} activeOpacity={0.8}>
-                <Text style={s.confirmCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <LinearGradient colors={[Colors.primary, Colors.primary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.confirmSignOutBtn}>
-                <TouchableOpacity style={s.confirmSignOutInner} onPress={handleSignOut} activeOpacity={0.85}>
-                  <Text style={s.confirmSignOutText}>Sign Out</Text>
-                </TouchableOpacity>
-              </LinearGradient>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ── Signed Out Success Overlay ── */}
-      <Modal visible={signedOutSuccess} transparent animationType="fade">
-        <View style={s.successOverlay}>
-          <View style={s.successCard}>
-            <LinearGradient colors={['#22c55e', '#16a34a']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.successIconCircle}>
-              <Ionicons name="checkmark" size={30} color="#ffffff" />
-            </LinearGradient>
-            <Text style={s.successTitle}>Signed Out</Text>
-            <Text style={s.successSubtitle}>You've been signed out successfully.</Text>
-          </View>
-        </View>
-      </Modal>
+      <SignOutConfirmModal
+        visible={signOut.isConfirmOpen}
+        onCancel={signOut.cancel}
+        onConfirm={signOut.confirm}
+      />
+      <SignOutOverlay state={signOut.overlayState} />
     </Modal>
   );
 }
@@ -2588,117 +2539,4 @@ const s = StyleSheet.create({
   },
   toggleThumbOn: { transform: [{ translateX: 18 }] },
 
-  // Sign out confirm modal
-  confirmOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 32,
-  },
-  confirmSheet: {
-    backgroundColor: '#ffffff',
-    borderRadius: 24,
-    padding: 28,
-    width: '100%',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-  confirmIconWrap: { marginBottom: 16 },
-  confirmIconCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  confirmTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#1a1a2e',
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  confirmSubtitle: {
-    fontSize: 14,
-    color: '#6b7280',
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 24,
-  },
-  confirmBtns: {
-    flexDirection: 'row',
-    gap: 12,
-    width: '100%',
-  },
-  confirmCancel: {
-    flex: 1,
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: 'center',
-    backgroundColor: '#F0EDF5',
-  },
-  confirmCancelText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#6b7280',
-  },
-  confirmSignOutBtn: {
-    flex: 1,
-    borderRadius: 14,
-  },
-  confirmSignOutInner: {
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  confirmSignOutText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#ffffff',
-  },
-
-  // Signed out success overlay
-  successOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 40,
-  },
-  successCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 24,
-    padding: 32,
-    alignItems: 'center',
-    width: '100%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-  successIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  successTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#1a1a2e',
-    marginBottom: 8,
-  },
-  successSubtitle: {
-    fontSize: 14,
-    color: '#6b7280',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
 });
