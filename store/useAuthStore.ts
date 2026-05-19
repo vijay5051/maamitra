@@ -32,6 +32,7 @@ import { useTeethStore } from './useTeethStore';
 import { useFoodTrackerStore } from './useFoodTrackerStore';
 import { useGrowthStore } from './useGrowthStore';
 import { useDMStore } from './useDMStore';
+import { logAuthEvent } from '../lib/authObservability';
 
 // Lazy-accessed to avoid circular dependency (useSocialStore imports useAuthStore)
 const getSocialStore = () => require('./useSocialStore').useSocialStore;
@@ -363,6 +364,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   onGoogleCredential: async (credential: UserCredential): Promise<AuthDestination> => {
+    logAuthEvent({ type: 'auth:google-success', uid: credential.user.uid, email: credential.user.email ?? undefined });
     if (!isFirebaseConfigured() || !auth) {
       throw NOT_CONFIGURED;
     }
@@ -408,6 +410,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signOut: async () => {
+    const uid = get().user?.uid;
+    logAuthEvent({ type: 'auth:signout-started', uid });
     // Flip auth FIRST so route guards send the user straight to welcome.
     // Resetting the profile store before flipping `isAuthenticated` used
     // to leave the app in a half-state (authenticated but onboarding=false)
@@ -424,11 +428,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     useDMStore.getState().reset();
     getSocialStore().getState().reset();
     getCommunityStore().getState().resetCommunity();
-    if (!isFirebaseConfigured() || !auth) return;
+    if (!isFirebaseConfigured() || !auth) {
+      logAuthEvent({ type: 'auth:signout-completed', uid });
+      return;
+    }
     try {
       await firebaseSignOut(auth);
-    } catch (error) {
+      logAuthEvent({ type: 'auth:signout-completed', uid });
+    } catch (error: any) {
       console.error('signOut error:', error);
+      logAuthEvent({ type: 'auth:signout-failed', uid, error: String(error?.message ?? error) });
       throw error;
     }
   },
@@ -486,8 +495,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // signed-out and bounce the user to /welcome.
       try {
         await ensureWebAuthPersistence();
-      } catch (err) {
+      } catch (err: any) {
         console.warn('ensureWebAuthPersistence failed:', err);
+        logAuthEvent({ type: 'auth:web-persistence-failed', error: String(err?.message ?? err) });
       }
 
       // If the user just came back from a Google redirect sign-in (mobile web
