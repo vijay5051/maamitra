@@ -108,6 +108,7 @@ async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
         if (knownSnapshot.motherName) useProfileStore.getState().setMotherName(knownSnapshot.motherName);
         if (knownSnapshot.phone) useProfileStore.getState().setPhone(knownSnapshot.phone);
         useProfileStore.getState().setPhoneVerified(!!knownSnapshot.phoneVerified);
+        useAuthStore.setState({ firestoreHydratedForUid: uid });
         return true;
       }
 
@@ -129,6 +130,7 @@ async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
         // Existing account → assume onboarded.
         useProfileStore.getState().setOnboardingComplete(true);
         useProfileStore.getState().setCachedProfileUid(uid);
+        useAuthStore.setState({ firestoreHydratedForUid: uid });
         return true;
       }
 
@@ -226,6 +228,7 @@ async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
     // locally-persisted / default one.
     useThemeStore.getState().loadFromFirestore(uid);
 
+    useAuthStore.setState({ firestoreHydratedForUid: uid });
     return fullProfile.onboardingComplete;
   } catch (error) {
     console.error('hydrateProfileFromFirestore error:', error);
@@ -261,6 +264,7 @@ interface AuthState {
   user: AuthUser | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  firestoreHydratedForUid: string | null;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, name: string) => Promise<void>;
   /**
@@ -281,6 +285,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isLoading: true,
   isAuthenticated: false,
+  firestoreHydratedForUid: null,
 
   signIn: async (email: string, password: string) => {
     if (!isFirebaseConfigured() || !auth) {
@@ -418,7 +423,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // for the brief window before `firebaseSignOut` resolved — the
     // (tabs) layout would route to /(auth)/onboarding in that window,
     // causing the "signup form" flash users reported on web/Android.
-    set({ user: null, isAuthenticated: false });
+    set({ user: null, isAuthenticated: false, firestoreHydratedForUid: null });
     useProfileStore.getState().resetProfile();
     useWellnessStore.getState().resetWellness();
     useChatStore.getState().resetAll();
