@@ -14,22 +14,21 @@ import { validateNewbornDob, validatePregnantDueDate } from '../../lib/dateValid
 import { Colors, Fonts } from '../../constants/theme';
 
 export default function OnboardingScreen() {
+  // 1. Routing + layout hooks
   const router = useRouter();
   const insets = useSafeAreaInsets();
+
+  // 2. Store hooks
   const { user } = useAuthStore();
   const isAuthed = useAuthStore((s) => s.isAuthenticated);
   const phoneVerified = useProfileStore((s) => s.phoneVerified);
   const { setMotherName, setProfile, addKid, setParentGender, onboardingComplete } = useProfileStore();
 
-  // Re-entry guards (project Rule 5: <Redirect>, not useEffect+router.replace).
-  // The navigation context isn't ready during a screen's first commit phase,
-  // so calling replace() from a mount effect throws "Attempted to navigate
-  // before mounting the Root Layout". <Redirect> schedules navigation safely
-  // against the layout lifecycle.
-  if (!isAuthed) return <Redirect href="/(auth)/welcome" />;
-  if (!phoneVerified) return <Redirect href="/(auth)/phone" />;
-  if (onboardingComplete) return <Redirect href="/(tabs)" />;
-
+  // 3. State hooks — MUST be above any early return (React Rules of Hooks).
+  //    Even though the re-entry guards below currently only flip at mount, a
+  //    future Firestore subscription could toggle them while this screen is
+  //    mounted, causing React to see fewer hooks than the previous render and
+  //    crash with "Rendered fewer hooks than expected".
   const initialName = user?.name?.trim() ?? '';
   const [name, setName] = useState(initialName);
   const [stage, setStage] = useState<Stage | null>(null);
@@ -39,14 +38,7 @@ export default function OnboardingScreen() {
   const [dateError, setDateError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Mother's name field only renders if not pre-filled from auth provider.
-  const showNameField = !initialName;
-  const dateLabel = stage === 'pregnant' ? 'Due date' : 'Date of birth';
-  const nameFieldLabel = stage === 'pregnant'
-    ? 'Have you picked a name yet? (optional)'
-    : "Baby's name (optional)";
-  const nameFieldPlaceholder = stage === 'pregnant' ? 'Even a working name helps' : 'e.g. Aarav';
-
+  // 4. Memos — also above early returns for the same reason.
   // LivePreview — rendered only once stage + valid date are set.
   const livePreview = useMemo(() => {
     if (!stage || !keyDate || dateError) return null;
@@ -64,6 +56,24 @@ export default function OnboardingScreen() {
     const who = kidName.trim() || 'Little one';
     return `${who} is ${months} ${months === 1 ? 'month' : 'months'} old. Vaccines and milestones loaded.`;
   }, [stage, keyDate, dateError, kidName]);
+
+  // 5. Re-entry guards (project Rule 5: <Redirect>, not useEffect+router.replace).
+  //    All hooks are above — safe to early-return here without violating the
+  //    Rules of Hooks.
+  if (!isAuthed) return <Redirect href="/(auth)/welcome" />;
+  if (!phoneVerified) return <Redirect href="/(auth)/phone" />;
+  if (onboardingComplete) return <Redirect href="/(tabs)" />;
+
+  // 6. Derived consts (NOT hooks — pure computations from state/props).
+  // Mother's name field only renders if not pre-filled from auth provider.
+  const showNameField = !initialName;
+  const dateLabel = stage === 'pregnant' ? 'Due date' : 'Date of birth';
+  const nameFieldLabel = stage === 'pregnant'
+    ? 'Have you picked a name yet? (optional)'
+    : "Baby's name (optional)";
+  const nameFieldPlaceholder = stage === 'pregnant' ? 'Even a working name helps' : 'e.g. Aarav';
+
+  // 7. Event handlers
 
   const onDateChange = (v: string) => {
     setKeyDate(v);
