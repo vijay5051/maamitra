@@ -43,6 +43,10 @@ import { isAdminEmail } from '../../lib/admin';
 import { uploadAvatar, uploadKidAvatar } from '../../services/storage';
 import DatePickerField from './DatePickerField';
 import StateSelectorComponent from '../onboarding/StateSelector';
+import StageChip, { type Stage } from '../onboarding/StageChip';
+import GenderChip, { type GenderChipValue } from '../onboarding/GenderChip';
+import LivePreviewPill from '../onboarding/LivePreviewPill';
+import { validateNewbornDob, validatePregnantDueDate } from '../../lib/dateValidation';
 import { Fonts } from '../../constants/theme';
 import {
   checkPushSupportDetailed,
@@ -882,18 +886,44 @@ function EditKidView({ kid, onBack, onRemove }: { kid: Kid; onBack: () => void; 
   const { updateKid } = useProfileStore();
   const { user } = useAuthStore();
   const [name, setName] = useState(kid.name || '');
-  const [dob, setDob] = useState(kid.dob ? kid.dob.split('T')[0] : '');
-  const [gender, setGender] = useState<'boy' | 'girl' | 'surprise' | 'not-set'>(kid.gender || 'surprise');
+  const [stage, setStage] = useState<Stage>(kid.stage === 'pregnant' ? 'pregnant' : 'newborn');
+  const [keyDate, setKeyDate] = useState(kid.dob ? kid.dob.split('T')[0] : '');
+  const [dateError, setDateError] = useState<string | null>(null);
+  const [genderChip, setGenderChip] = useState<GenderChipValue | null>(
+    kid.gender === 'boy' || kid.gender === 'girl' || kid.gender === 'surprise' ? kid.gender : null,
+  );
   const [photo, setPhoto] = useState(kid.photoUrl || '');
   const [photoLoading, setPhotoLoading] = useState(false);
   const [imgError, setImgError] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const GENDER_OPTIONS = [
-    { key: 'boy', label: 'Boy 👦' },
-    { key: 'girl', label: 'Girl 👧' },
-    { key: 'surprise', label: 'Surprise' },
-  ];
+  const onDateChange = (v: string) => {
+    setKeyDate(v);
+    setDateError(stage === 'pregnant' ? validatePregnantDueDate(v) : validateNewbornDob(v));
+  };
+
+  const onStageChange = (s: Stage) => {
+    setStage(s);
+    setGenderChip(null);
+    if (keyDate) {
+      setDateError(s === 'pregnant' ? validatePregnantDueDate(keyDate) : validateNewbornDob(keyDate));
+    }
+  };
+
+  const livePreview = useMemo(() => {
+    if (!keyDate || dateError) return null;
+    const d = new Date(keyDate + 'T00:00:00');
+    if (isNaN(d.getTime())) return null;
+    if (stage === 'pregnant') {
+      const weeksUntilDue = Math.round((d.getTime() - Date.now()) / (7 * 86400000));
+      const weeks = Math.max(0, Math.min(40, 40 - weeksUntilDue));
+      const tri = weeks <= 13 ? 'first' : weeks <= 27 ? 'second' : 'third';
+      return `Around ${weeks} weeks along — ${tri} trimester.`;
+    }
+    const months = Math.max(0, Math.round((Date.now() - d.getTime()) / (30.5 * 86400000)));
+    const who = name.trim() || 'Little one';
+    return `${who} is ${months} ${months === 1 ? 'month' : 'months'} old.`;
+  }, [stage, keyDate, dateError, name]);
 
   // Parent's relation to the child is captured at signup (mother / father /
   // guardian / …) and reused for every kid on the account. Re-asking it
@@ -928,19 +958,22 @@ function EditKidView({ kid, onBack, onRemove }: { kid: Kid; onBack: () => void; 
   };
 
   const handleSave = async () => {
+    if (dateError) return;
     setSaving(true);
     try {
       const updates: Partial<Omit<Kid, 'id'>> = {};
-      if (name.trim()) updates.name = name.trim();
-      if (dob) {
-        const parsed = new Date(dob + 'T00:00:00');
+      updates.name = name.trim() || kid.name;
+      if (keyDate) {
+        const parsed = new Date(keyDate + 'T00:00:00');
         if (!isNaN(parsed.getTime())) {
           updates.dob = parsed.toISOString();
           updates.ageInMonths = calculateAgeInMonths(parsed.toISOString());
           updates.ageInWeeks = calculateAgeInWeeks(parsed.toISOString());
         }
       }
-      updates.gender = gender;
+      updates.stage = stage;
+      updates.isExpecting = stage === 'pregnant';
+      updates.gender = genderChip ?? (stage === 'pregnant' ? 'surprise' : 'not-set');
       updates.photoUrl = photo.trim();
       updateKid(kid.id, updates);
 
@@ -1005,18 +1038,28 @@ function EditKidView({ kid, onBack, onRemove }: { kid: Kid; onBack: () => void; 
         </View>
       </View>
 
-      <Text style={s.editSectionTitle}>Child's Name</Text>
-      <TextInput style={s.textInput} value={name} onChangeText={setName} placeholder="Name" placeholderTextColor="#9ca3af" />
+      <Text style={s.editSectionTitle}>Stage</Text>
+      <StageChip value={stage} onChange={onStageChange} />
 
-      <Text style={s.editSectionTitle}>Date of Birth</Text>
-      <DatePickerField value={dob} onChange={setDob} placeholder="Tap to pick date of birth" maxDate={new Date().toISOString().split('T')[0]} />
+      <Text style={[s.editSectionTitle, { marginTop: 18 }]}>
+        {stage === 'pregnant' ? 'Due date' : 'Date of birth'}
+      </Text>
+      <DatePickerField value={keyDate} onChange={onDateChange} />
+      {dateError ? <Text style={s.editFieldError}>{dateError}</Text> : null}
+      <LivePreviewPill message={livePreview} />
 
-      <Text style={s.editSectionTitle}>Child's Gender</Text>
-      <ChipSelect
-        options={GENDER_OPTIONS.map((g) => g.label)}
-        selected={GENDER_OPTIONS.find((g) => g.key === gender)?.label ?? 'Surprise'}
-        onSelect={(v) => { const found = GENDER_OPTIONS.find((g) => g.label === v); if (found) setGender(found.key as 'boy' | 'girl' | 'surprise'); }}
+      <Text style={[s.editSectionTitle, { marginTop: 18 }]}>Child's Name</Text>
+      <TextInput
+        style={s.textInput}
+        value={name}
+        onChangeText={setName}
+        placeholder={stage === 'pregnant' ? 'Even a working name helps' : 'e.g. Aarav, Diya'}
+        placeholderTextColor="#9ca3af"
+        autoCapitalize="words"
       />
+
+      <Text style={[s.editSectionTitle, { marginTop: 18 }]}>Gender</Text>
+      <GenderChip stage={stage} value={genderChip} onChange={setGenderChip} />
 
       <TouchableOpacity style={s.saveBtn} onPress={handleSave} activeOpacity={0.85}>
         <LinearGradient colors={[Colors.primary, Colors.primary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.saveBtnGrad}>
@@ -2238,6 +2281,12 @@ const s = StyleSheet.create({
     marginTop: 16,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  editFieldError: {
+    fontFamily: Fonts.sansMedium,
+    fontSize: 12,
+    color: Colors.error,
+    marginTop: 6,
   },
   textInput: {
     backgroundColor: '#ffffff',

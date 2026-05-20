@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -30,6 +32,10 @@ import { useDMStore } from '../../store/useDMStore';
 import { Fonts } from '../../constants/theme';
 import { Colors } from '../../constants/theme';
 import KidGenderPrompt from '../../components/jit/KidGenderPrompt';
+import StageChip, { type Stage } from '../../components/onboarding/StageChip';
+import GenderChip, { type GenderChipValue } from '../../components/onboarding/GenderChip';
+import LivePreviewPill from '../../components/onboarding/LivePreviewPill';
+import { validateNewbornDob, validatePregnantDueDate } from '../../lib/dateValidation';
 
 // ─── ChildCard ─────────────────────────────────────────────────────────────────
 
@@ -214,136 +220,137 @@ function AddChildModal({
   onClose: () => void;
   onAdd: (data: { name: string; dob: string; isExpecting: boolean; gender: 'girl' | 'boy' | 'surprise' }) => void;
 }) {
-  const [name, setName] = useState('');
-  const [dob, setDob] = useState('');
-  const [dueDate, setDueDate] = useState('');
-  const [isExpecting, setIsExpecting] = useState(false);
-  const [gender, setGender] = useState<'girl' | 'boy' | 'surprise'>('surprise');
-  const [error, setError] = useState('');
-
-  const todayStr = new Date().toISOString().split('T')[0];
+  const [stage, setStage] = useState<Stage | null>(null);
+  const [keyDate, setKeyDate] = useState('');
+  const [kidName, setKidName] = useState('');
+  const [genderChip, setGenderChip] = useState<GenderChipValue | null>(null);
+  const [dateError, setDateError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!visible) reset();
   }, [visible]);
 
   const reset = () => {
-    setName(''); setDob(''); setDueDate(''); setIsExpecting(false);
-    setGender('surprise'); setError('');
+    setStage(null); setKeyDate(''); setKidName('');
+    setGenderChip(null); setDateError(null);
   };
 
-  const handleAdd = () => {
-    if (!name.trim()) { setError('Please enter a name'); return; }
-    if (!isExpecting) {
-      if (!dob) { setError('Please select a date of birth'); return; }
-      const parsed = new Date(dob + 'T00:00:00');
-      if (isNaN(parsed.getTime())) { setError('Invalid date — please tap the calendar to pick one'); return; }
-    } else {
-      if (!dueDate) { setError('Please select a due date'); return; }
-      const parsed = new Date(dueDate + 'T00:00:00');
-      if (isNaN(parsed.getTime())) { setError('Invalid due date — please tap the calendar to pick one'); return; }
-      if (parsed <= new Date()) { setError('Due date must be in the future for an expecting baby'); return; }
+  const onDateChange = (v: string) => {
+    setKeyDate(v);
+    if (!stage) { setDateError(null); return; }
+    setDateError(stage === 'pregnant' ? validatePregnantDueDate(v) : validateNewbornDob(v));
+  };
+
+  const onStageChange = (s: Stage) => {
+    setStage(s);
+    setGenderChip(null);
+    if (keyDate) {
+      setDateError(s === 'pregnant' ? validatePregnantDueDate(keyDate) : validateNewbornDob(keyDate));
     }
-    const finalDob = isExpecting
-      ? new Date(dueDate + 'T00:00:00').toISOString()
-      : new Date(dob + 'T00:00:00').toISOString();
-    onAdd({ name: name.trim(), dob: finalDob, isExpecting, gender });
+  };
+
+  const livePreview = useMemo(() => {
+    if (!stage || !keyDate || dateError) return null;
+    const d = new Date(keyDate + 'T00:00:00');
+    if (isNaN(d.getTime())) return null;
+    if (stage === 'pregnant') {
+      const weeksUntilDue = Math.round((d.getTime() - Date.now()) / (7 * 86400000));
+      const weeks = Math.max(0, Math.min(40, 40 - weeksUntilDue));
+      const tri = weeks <= 13 ? 'first' : weeks <= 27 ? 'second' : 'third';
+      return `Around ${weeks} weeks along — ${tri} trimester.`;
+    }
+    const months = Math.max(0, Math.round((Date.now() - d.getTime()) / (30.5 * 86400000)));
+    const who = kidName.trim() || 'Little one';
+    return `${who} is ${months} ${months === 1 ? 'month' : 'months'} old. Vaccines and milestones loaded.`;
+  }, [stage, keyDate, dateError, kidName]);
+
+  const canAdd = !!(stage && keyDate && !dateError);
+
+  const handleAdd = () => {
+    if (!stage || !keyDate || dateError) return;
+    const isExpecting = stage === 'pregnant';
+    const gender: 'boy' | 'girl' | 'surprise' = genderChip ?? (isExpecting ? 'surprise' : 'surprise');
+    onAdd({
+      name: kidName.trim() || 'Little one',
+      dob: new Date(keyDate + 'T00:00:00').toISOString(),
+      isExpecting,
+      gender,
+    });
     reset();
     onClose();
   };
 
-  const GENDERS: { key: 'boy' | 'girl' | 'surprise'; label: string }[] = [
-    { key: 'boy', label: 'Boy 👦' },
-    { key: 'girl', label: 'Girl 👧' },
-    { key: 'surprise', label: 'Surprise 🎁' },
-  ];
+  const dateLabel = stage === 'pregnant' ? 'Due date' : 'Date of birth';
+  const namePlaceholder = stage === 'pregnant' ? 'Even a working name helps' : 'e.g. Aarav, Diya';
+  const nameLabel = stage === 'pregnant' ? 'Have you picked a name yet? (optional)' : "Baby's name (optional)";
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={addChildStyles.overlay}>
-        <ScrollView style={addChildStyles.sheet} contentContainerStyle={{ paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
-          <View style={addChildStyles.handle} />
-          <View style={addChildStyles.headerRow}>
-            <Text style={addChildStyles.title}>Add a Child 👶</Text>
-            <TouchableOpacity
-              onPress={() => { reset(); onClose(); }}
-              accessibilityRole="button"
-              accessibilityLabel="Close add child"
-            >
-              <AppIcon name="nav.close-circle-outline" size={26} />
-            </TouchableOpacity>
-          </View>
-
-          <Text style={addChildStyles.label}>NAME</Text>
-          <TextInput
-            style={addChildStyles.input}
-            value={name}
-            onChangeText={setName}
-            placeholder="Child's name"
-            placeholderTextColor="#C4B5D4"
-          />
-
-          <Text style={addChildStyles.label}>BORN OR EXPECTING?</Text>
-          <View style={addChildStyles.stageRow}>
-            <TouchableOpacity
-              style={[addChildStyles.stageBtn, !isExpecting && addChildStyles.stageBtnActive]}
-              onPress={() => setIsExpecting(false)}
-            >
-              <Text style={[addChildStyles.stageBtnText, !isExpecting && addChildStyles.stageBtnTextActive]}>
-                Born 👶
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[addChildStyles.stageBtn, isExpecting && addChildStyles.stageBtnActive]}
-              onPress={() => setIsExpecting(true)}
-            >
-              <Text style={[addChildStyles.stageBtnText, isExpecting && addChildStyles.stageBtnTextActive]}>
-                Expecting 🤰
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {!isExpecting ? (
-            <>
-              <Text style={addChildStyles.label}>DATE OF BIRTH</Text>
-              <DatePickerField
-                value={dob}
-                onChange={setDob}
-                placeholder="Tap to select date of birth"
-                maxDate={todayStr}
-              />
-            </>
-          ) : (
-            <>
-              <Text style={addChildStyles.label}>DUE DATE</Text>
-              <DatePickerField
-                value={dueDate}
-                onChange={setDueDate}
-                placeholder="Tap to select due date"
-                minDate={todayStr}
-              />
-            </>
-          )}
-
-          <Text style={addChildStyles.label}>GENDER</Text>
-          <View style={addChildStyles.genderRow}>
-            {GENDERS.map((g) => (
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <ScrollView
+            style={addChildStyles.sheet}
+            contentContainerStyle={{ paddingBottom: 48 }}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={addChildStyles.handle} />
+            <View style={addChildStyles.headerRow}>
+              <Text style={addChildStyles.title}>Add a child</Text>
               <TouchableOpacity
-                key={g.key}
-                style={[addChildStyles.stageBtn, gender === g.key && addChildStyles.stageBtnActive]}
-                onPress={() => setGender(g.key)}
+                onPress={() => { reset(); onClose(); }}
+                accessibilityRole="button"
+                accessibilityLabel="Close"
               >
-                <Text style={[addChildStyles.stageBtnText, gender === g.key && addChildStyles.stageBtnTextActive]}>
-                  {g.label}
-                </Text>
+                <AppIcon name="nav.close-circle-outline" size={26} />
               </TouchableOpacity>
-            ))}
-          </View>
+            </View>
 
-          {error ? <Text style={addChildStyles.errorText}>{error}</Text> : null}
+            <View style={addChildStyles.field}>
+              <Text style={addChildStyles.label}>Where are you right now?</Text>
+              <StageChip value={stage} onChange={onStageChange} />
+            </View>
 
-          <GradientButton title="Add Child" onPress={handleAdd} style={{ marginTop: 8 }} />
-        </ScrollView>
+            {stage && (
+              <View style={addChildStyles.field}>
+                <Text style={addChildStyles.label}>{dateLabel}</Text>
+                <DatePickerField value={keyDate} onChange={onDateChange} />
+                {dateError ? <Text style={addChildStyles.errorText}>{dateError}</Text> : null}
+              </View>
+            )}
+
+            {stage && keyDate && !dateError && (
+              <>
+                <View style={addChildStyles.field}>
+                  <Text style={addChildStyles.label}>{nameLabel}</Text>
+                  <TextInput
+                    style={addChildStyles.input}
+                    value={kidName}
+                    onChangeText={setKidName}
+                    placeholder={namePlaceholder}
+                    placeholderTextColor={Colors.textLight}
+                    autoCapitalize="words"
+                    returnKeyType="done"
+                  />
+                </View>
+
+                <View style={addChildStyles.field}>
+                  <Text style={addChildStyles.label}>Gender</Text>
+                  <GenderChip stage={stage} value={genderChip} onChange={setGenderChip} />
+                </View>
+
+                <LivePreviewPill message={livePreview} />
+              </>
+            )}
+
+            <GradientButton
+              title="Add child"
+              onPress={handleAdd}
+              disabled={!canAdd}
+              style={{ marginTop: 20 }}
+            />
+          </ScrollView>
+        </KeyboardAvoidingView>
       </View>
     </Modal>
   );
@@ -359,39 +366,38 @@ const addChildStyles = StyleSheet.create({
     backgroundColor: Colors.bgLight,
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
-    paddingHorizontal: 24,
+    paddingHorizontal: 22,
     paddingTop: 16,
-    maxHeight: '90%',
+    maxHeight: '92%',
   },
   handle: { width: 36, height: 4, backgroundColor: '#EDE9F6', borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
-  title: { fontFamily: Fonts.sansBold, fontSize: 20, color: '#1C1033' },
-  label: { fontFamily: Fonts.sansSemiBold, fontSize: 10, color: '#9CA3AF', letterSpacing: 1.2, marginBottom: 8, marginTop: 16 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  title: { fontFamily: Fonts.serif, fontSize: 22, color: Colors.textDark },
+  field: { marginBottom: 18 },
+  label: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 13,
+    color: Colors.textDark,
+    marginBottom: 8,
+  },
   input: {
-    backgroundColor: Colors.cardBg,
-    borderRadius: 14,
-    padding: 14,
-    fontFamily: Fonts.sansRegular,
-    fontSize: 15,
-    color: '#1C1033',
-    borderWidth: 1.5,
-    borderColor: '#EDE9F6',
-  },
-  stageRow: { flexDirection: 'row', gap: 10 },
-  genderRow: { flexDirection: 'row', gap: 8 },
-  stageBtn: {
-    flex: 1,
-    borderRadius: 14,
+    backgroundColor: '#F9F7FD',
+    borderColor: Colors.border,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
     paddingVertical: 12,
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: '#EDE9F6',
-    backgroundColor: Colors.cardBg,
+    minHeight: 44,
+    fontFamily: Fonts.sansRegular,
+    fontSize: 16,
+    color: Colors.textDark,
   },
-  stageBtnActive: { borderColor: Colors.primary, backgroundColor: 'rgba(28, 16, 51, 0.036)' },
-  stageBtnText: { fontFamily: Fonts.sansMedium, fontSize: 14, color: '#9CA3AF' },
-  stageBtnTextActive: { color: Colors.primary, fontFamily: Fonts.sansBold },
-  errorText: { fontFamily: Fonts.sansRegular, color: '#ef4444', fontSize: 12, marginTop: 8 },
+  errorText: {
+    fontFamily: Fonts.sansMedium,
+    fontSize: 12,
+    color: Colors.error,
+    marginTop: 6,
+  },
 });
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
