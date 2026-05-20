@@ -2172,7 +2172,9 @@ function buildTodayCards({
 
     let foodsCard: TodayCard | null = null;
 
-    if (months >= 4 && months < 6) {
+    if (months >= 12) {
+      // Foods tracker is weaning-only (6–12 months). No card for older kids.
+    } else if (months >= 4 && months < 6) {
       foodsCard = {
         id: 'foods',
         icon: 'restaurant-outline',

@@ -16,7 +16,8 @@ import {
 } from '../../data/babyFoods';
 import { useFoodTrackerStore } from '../../store/useFoodTrackerStore';
 import { useActiveKid } from '../../hooks/useActiveKid';
-import { calculateAgeInMonths, useProfileStore } from '../../store/useProfileStore';
+import { calculateAgeInMonths } from '../../lib/dob';
+import { useProfileStore } from '../../store/useProfileStore';
 import { Fonts } from '../../constants/theme';
 import { Colors } from '../../constants/theme';
 
@@ -117,6 +118,21 @@ export default function FoodTrackerTab() {
         <Text style={styles.emptyText}>
           {activeKid.name} is {ageMonths} months old. The IAP recommends exclusive breastfeeding until 6 months — solids start then.
           {'\n\n'}We'll unlock the food tracker the day {activeKid.name} turns 6 months.
+        </Text>
+      </Card>
+    );
+  }
+
+  // ── 12 months and over ────────────────────────────────────────
+  // This section covers the weaning window (6–12 months). Age-appropriate
+  // content for older kids (tiffin ideas, family meals, etc.) is coming.
+  if (ageMonths !== null && ageMonths >= 12) {
+    return (
+      <Card style={styles.emptyCard} shadow="sm">
+        <Ionicons name="restaurant-outline" size={40} color={GOLD} style={{ marginBottom: 12 }} />
+        <Text style={styles.emptyTitle}>{activeKid.name} has graduated!</Text>
+        <Text style={styles.emptyText}>
+          The weaning tracker covers 6–12 months. Age-appropriate meal ideas for {activeKid.name} — tiffin recipes, family foods, and more — are coming soon.
         </Text>
       </Card>
     );

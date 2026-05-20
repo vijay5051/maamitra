@@ -29,6 +29,7 @@ import { MILESTONES } from '../../data/milestones';
 import { filterByAudience, parentGenderToAudience } from '../../data/audience';
 import { SCHEDULE_INFO, VaccineScheduleType } from '../../data/vaccines';
 import { useActiveKid } from '../../hooks/useActiveKid';
+import { calculateAgeInMonths, isPlausibleDob } from '../../lib/dob';
 import { useProfileStore } from '../../store/useProfileStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { syncHealthTracking, saveFullProfile } from '../../services/firebase';
@@ -93,10 +94,21 @@ const CATEGORY_ORDER: { key: CategoryKey; title: string; subtitle: string; illus
 // cramped 7-across tab strip. Each card drills into the existing sub-screen.
 
 function CategoryGrid({ onPick }: { onPick: (t: SubTab) => void }) {
+  const { activeKid } = useActiveKid();
+  const kidAgeMonths =
+    activeKid && !activeKid.isExpecting && activeKid.dob && isPlausibleDob(activeKid.dob)
+      ? calculateAgeInMonths(activeKid.dob)
+      : null;
+
   return (
     <View>
       {CATEGORY_ORDER.map((cat) => {
-        const items = SUB_TABS.filter((t) => t.category === cat.key);
+        const items = SUB_TABS.filter((t) => {
+          if (t.category !== cat.key) return false;
+          // Foods tracker covers weaning (6–12 months only).
+          if (t.key === 'foods' && kidAgeMonths !== null && kidAgeMonths >= 12) return false;
+          return true;
+        });
         if (items.length === 0) return null;
         return (
           <View key={cat.key} style={gridStyles.section}>
