@@ -5,10 +5,15 @@ import { Ionicons } from '@expo/vector-icons';
 import GradientButton from '../components/ui/GradientButton';
 import { Illustration } from '../components/ui/Illustration';
 import { Colors, Fonts } from '../constants/theme';
+import { useAuthStore } from '../store/useAuthStore';
 
 export default function NotFoundScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  // Authed users should land back on home, not the marketing welcome.
+  // Unauthed (or still-loading) users get welcome, same as before.
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const homeHref = isAuthenticated ? '/(tabs)' : '/(auth)/welcome';
 
   return (
     <>
@@ -24,7 +29,7 @@ export default function NotFoundScreen() {
           <View style={styles.cta}>
             <GradientButton
               title="Back to MaaMitra"
-              onPress={() => router.replace('/(auth)/welcome')}
+              onPress={() => router.replace(homeHref)}
             />
           </View>
           <View style={styles.links}>

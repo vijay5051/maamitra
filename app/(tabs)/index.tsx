@@ -25,8 +25,10 @@ import {
   Radius,
   Shadow,
   Spacing,
+  withAlpha,
 } from '../../constants/theme';
-import { useProfileStore, calculateAgeInMonths, isPlausibleDob } from '../../store/useProfileStore';
+import { calculateAgeInMonths, isPlausibleDob } from '../../lib/dob';
+import { useProfileStore } from '../../store/useProfileStore';
 import { useWellnessStore } from '../../store/useWellnessStore';
 import { useSocialStore } from '../../store/useSocialStore';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -276,14 +278,22 @@ export default function HomeTab() {
     if (user?.uid) loadNotifications();
   }, [user?.uid, loadNotifications]);
 
-  const firstName = (motherName || 'there').split(' ')[0];
-  const greetingTitle = firstName === 'there' ? 'Hello' : firstName;
+  const firstName = motherName ? motherName.split(' ')[0] : '';
+  const greetingTitle = firstName || 'Hello';
+  // Tick once a minute so the salutation flips at noon / 5 PM / next morning
+  // for users who keep the app open. Prior code memoized at mount and showed
+  // "Good evening" indefinitely past midnight.
+  const [salutationTick, setSalutationTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setSalutationTick((n) => n + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
   const greetingSalutation = useMemo(() => {
     const h = new Date().getHours();
     if (h < 12) return 'Good morning';
     if (h < 17) return 'Good afternoon';
     return 'Good evening';
-  }, []);
+  }, [salutationTick]);
   const parentSalutation =
     parentGender === 'other' ? 'parent' : 'mama';
 
@@ -361,10 +371,7 @@ export default function HomeTab() {
     if (activeKid) {
       isExpecting = !!activeKid.isExpecting;
       if (!isExpecting && activeKid.dob) {
-        ageMonths = Math.max(
-          0,
-          Math.floor((Date.now() - new Date(activeKid.dob).getTime()) / (1000 * 60 * 60 * 24 * 30.44)),
-        );
+        ageMonths = calculateAgeInMonths(activeKid.dob);
       }
     }
 
@@ -442,10 +449,7 @@ export default function HomeTab() {
   const recommendedArticles = useMemo<Article[]>(() => {
     let ageMonths = 0;
     if (activeKid && !activeKid.isExpecting && activeKid.dob) {
-      ageMonths = Math.max(
-        0,
-        Math.floor((Date.now() - new Date(activeKid.dob).getTime()) / (1000 * 60 * 60 * 24 * 30.44)),
-      );
+      ageMonths = calculateAgeInMonths(activeKid.dob);
     }
     const diet = profile?.diet;
     // Role-adaptive: only recommend content for the viewer's audience.
@@ -684,7 +688,10 @@ export default function HomeTab() {
         label: 'Vaccines',
         value: vaccineLabel,
         tint: vaccineTint,
-        tintBg: `${vaccineTint}1A`,
+        // 0.1 alpha of the semantic status colour. Prior code did
+        // `${vaccineTint}1A` which yielded an invalid 8-digit hex like
+        // "#ef44441A" — RN silently dropped it to transparent.
+        tintBg: withAlpha(vaccineTint, 0.1),
         onPress: goVacc,
       },
     ];
@@ -848,7 +855,9 @@ export default function HomeTab() {
         style={{ flex: 1 }}
         contentContainerStyle={{
           paddingTop: insets.top + 12,
-          paddingBottom: 80,
+          // Tab bar (~64) plus the device's bottom inset so edge-to-edge
+          // Android phones don't clip the last card under the bar.
+          paddingBottom: 64 + Math.max(insets.bottom, Spacing.lg),
         }}
         showsVerticalScrollIndicator={false}
       >
@@ -1256,7 +1265,7 @@ export default function HomeTab() {
             }
           >
             <LinearGradient
-              colors={['#FAFAFB', '#F5F0FF']}
+              colors={Gradients.softPurple}
               style={styles.readInner}
             >
               <View style={styles.readBadge}>
@@ -1546,10 +1555,7 @@ export default function HomeTab() {
                               ? 'Expecting'
                               : k.dob
                               ? (() => {
-                                  const m = Math.max(
-                                    0,
-                                    Math.floor((Date.now() - new Date(k.dob).getTime()) / (1000 * 60 * 60 * 24 * 30.44)),
-                                  );
+                                  const m = calculateAgeInMonths(k.dob);
                                   return m < 24 ? `${m}mo` : `${Math.floor(m / 12)}y`;
                                 })()
                               : ''}
@@ -1943,7 +1949,7 @@ function buildTodayCards({
       id: 'mood',
       icon: 'happy-outline',
       tint: Colors.primary,
-      bg: '#F5F0FF',
+      bg: Colors.bgTint,
       value: 'Take a moment',
       label: 'Your mood today',
       onPress: goWellnessMood,
@@ -1960,7 +1966,7 @@ function buildTodayCards({
       id: 'mood',
       icon: 'happy-outline',
       tint: Colors.primary,
-      bg: '#F5F0FF',
+      bg: Colors.bgTint,
       illustration: moodIllustrationByScore[todayMood.score],
       value: todayMood.label,
       label: 'Your mood today',
@@ -1973,19 +1979,13 @@ function buildTodayCards({
       id: 'pregnancy',
       icon: 'heart-outline',
       tint: Colors.primary,
-      bg: '#F5F0FF',
+      bg: Colors.bgTint,
       value: 'Pregnancy tips',
       label: 'For this trimester',
       onPress: () => goLibraryTopic('Pregnancy'),
     });
   } else if (activeKid) {
-    const months = Math.max(
-      0,
-      Math.floor(
-        (Date.now() - new Date(activeKid.dob).getTime()) /
-          (1000 * 60 * 60 * 24 * 30.44)
-      )
-    );
+    const months = activeKid.dob ? calculateAgeInMonths(activeKid.dob) : 0;
     if (months < 6) {
       cards.push({
         id: 'newborn',
@@ -2001,7 +2001,7 @@ function buildTodayCards({
         id: 'solids',
         icon: 'nutrition-outline',
         tint: Colors.primary,
-        bg: Colors.bgPink,
+        bg: Colors.bgTint,
         value: 'Start solids',
         label: `${activeKid.name} · ${ageLabel}`,
         // 'a01' = "Starting Solid Foods the Right Way" — auto-expands on
@@ -2021,7 +2021,7 @@ function buildTodayCards({
         id: 'dev',
         icon: 'ribbon-outline',
         tint: Colors.primary,
-        bg: Colors.bgPink,
+        bg: Colors.bgTint,
         value: 'Development',
         label: `${activeKid.name} · ${ageLabel}`,
         onPress: goMilestones,
@@ -2066,13 +2066,7 @@ function buildTodayCards({
   //   • ≥5 yr → shedding focus (uses shed count)
   //   • all 20 erupted, none shed, age <5yr → silent (don't add card)
   if (activeKid && !activeKid.isExpecting && activeKid.dob) {
-    const months = Math.max(
-      0,
-      Math.floor(
-        (Date.now() - new Date(activeKid.dob).getTime()) /
-          (1000 * 60 * 60 * 24 * 30.44),
-      ),
-    );
+    const months = calculateAgeInMonths(activeKid.dob);
     const kidTeeth = teethByKid[activeKid.id] ?? {};
     const eruptedCount = Object.values(kidTeeth).filter((e) => e?.state === 'erupted').length;
     const shedCount = Object.values(kidTeeth).filter((e) => e?.state === 'shed').length;
@@ -2085,7 +2079,7 @@ function buildTodayCards({
         id: 'teeth',
         icon: 'happy-outline',
         tint: Colors.primary,
-        bg: '#F5F0FF',
+        bg: Colors.bgTint,
         value: 'First tooth soon',
         label: `${activeKid.name} · ${ageLabel}`,
         onPress: goTeeth,
@@ -2095,7 +2089,7 @@ function buildTodayCards({
         id: 'teeth',
         icon: 'happy-outline',
         tint: Colors.primary,
-        bg: '#F5F0FF',
+        bg: Colors.bgTint,
         value: 'Log first tooth',
         label: `${activeKid.name} · ${ageLabel}`,
         onPress: goTeeth,
@@ -2106,7 +2100,7 @@ function buildTodayCards({
         id: 'teeth',
         icon: 'alert-circle-outline',
         tint: Colors.error,
-        bg: '#F5F0FF',
+        bg: Colors.bgTint,
         value: 'Late tooth?',
         label: `${activeKid.name} · ${ageLabel}`,
         onPress: goTeeth,
@@ -2121,7 +2115,7 @@ function buildTodayCards({
         id: 'teeth',
         icon: 'happy-outline',
         tint: Colors.primary,
-        bg: '#F5F0FF',
+        bg: Colors.bgTint,
         value: `${eruptedCount}/${TEETH.length} teeth`,
         label: nextTooth ? `Next: ${nextTooth.shortName.toLowerCase()}` : `${activeKid.name} · ${ageLabel}`,
         onPress: goTeeth,
@@ -2132,7 +2126,7 @@ function buildTodayCards({
         id: 'teeth',
         icon: 'sparkles-outline',
         tint: Colors.primary,
-        bg: '#F5F0FF',
+        bg: Colors.bgTint,
         value: 'Shedding soon',
         label: `${activeKid.name} · ${ageLabel}`,
         onPress: goTeeth,
@@ -2142,7 +2136,7 @@ function buildTodayCards({
         id: 'teeth',
         icon: 'sparkles-outline',
         tint: Colors.primary,
-        bg: '#F5F0FF',
+        bg: Colors.bgTint,
         value: `${shedCount}/${TEETH.length} shed`,
         label: `${activeKid.name} · ${ageLabel}`,
         onPress: goTeeth,
@@ -2161,13 +2155,7 @@ function buildTodayCards({
   //   • Recent reaction      → flag with warning tint
   //   • > 24 mo and lots cleared → silent (graduated)
   if (activeKid && !activeKid.isExpecting && activeKid.dob) {
-    const months = Math.max(
-      0,
-      Math.floor(
-        (Date.now() - new Date(activeKid.dob).getTime()) /
-          (1000 * 60 * 60 * 24 * 30.44),
-      ),
-    );
+    const months = calculateAgeInMonths(activeKid.dob);
     const kidFoods = foodsByKid[activeKid.id] ?? {};
     // Only consider foods this family actually eats — a vegetarian
     // parent shouldn't get prompted about chicken progress.
@@ -2189,7 +2177,7 @@ function buildTodayCards({
         id: 'foods',
         icon: 'restaurant-outline',
         tint: Colors.primary,
-        bg: '#F5F0FF',
+        bg: Colors.bgTint,
         value: 'Solids soon',
         label: `${activeKid.name} · ${ageLabel}`,
         onPress: goFoods,
@@ -2199,7 +2187,7 @@ function buildTodayCards({
         id: 'foods',
         icon: 'restaurant-outline',
         tint: Colors.primary,
-        bg: '#F5F0FF',
+        bg: Colors.bgTint,
         value: 'Start first foods',
         label: `${activeKid.name} · ${ageLabel}`,
         onPress: goFoods,
@@ -2209,7 +2197,7 @@ function buildTodayCards({
         id: 'foods',
         icon: 'alert-circle-outline',
         tint: Colors.error,
-        bg: '#F5F0FF',
+        bg: Colors.bgTint,
         value: `Reaction: ${recentReaction.name.toLowerCase()}`,
         label: 'Tap to review',
         onPress: goFoods,
@@ -2221,7 +2209,7 @@ function buildTodayCards({
         id: 'foods',
         icon: 'restaurant-outline',
         tint: Colors.primary,
-        bg: '#F5F0FF',
+        bg: Colors.bgTint,
         value: `Day ${day}/3: ${inProgress.name.split(' ')[0]}`,
         label: `${activeKid.name} · keep going`,
         onPress: goFoods,
@@ -2231,7 +2219,7 @@ function buildTodayCards({
         id: 'foods',
         icon: 'restaurant-outline',
         tint: Colors.primary,
-        bg: '#F5F0FF',
+        bg: Colors.bgTint,
         value: `${clearedFoods} foods cleared`,
         label: 'Try next?',
         onPress: goFoods,
@@ -2259,7 +2247,7 @@ function buildTodayCards({
       id: 'continue-chat',
       icon: 'chatbubble-ellipses-outline',
       tint: Colors.primary,
-      bg: '#F5F0FF',
+      bg: Colors.bgTint,
       value: 'Continue',
       label: title,
       onPress: () => onContinueChat(t.id),
@@ -2274,7 +2262,7 @@ function buildTodayCards({
       id: 'saved',
       icon: 'bookmark-outline',
       tint: Colors.primary,
-      bg: '#F5F0FF',
+      bg: Colors.bgTint,
       value: `${savedAnswers.length} saved`,
       label: 'AI answers',
       onPress: goSavedAnswers,
@@ -2300,7 +2288,7 @@ function buildTodayCards({
       id: 'scheme',
       icon: 'ribbon-outline',
       tint: Colors.textDark,
-      bg: '#F5F0FF',
+      bg: Colors.bgTint,
       value: candidateScheme.shortName,
       label: profileState ? `Scheme · ${profileState}` : 'A scheme for you',
       onPress: goSchemes,
@@ -2316,7 +2304,7 @@ function buildTodayCards({
       ? recentForYoga.reduce((s: number, m: any) => s + m.score, 0) / recentForYoga.length
       : null;
     const kidMonths = activeKid && !activeKid.isExpecting && activeKid.dob
-      ? Math.max(0, Math.floor((Date.now() - new Date(activeKid.dob).getTime()) / (1000 * 60 * 60 * 24 * 30.44)))
+      ? calculateAgeInMonths(activeKid.dob)
       : null;
     let pickId = 'y01';
     if (avgMood !== null && avgMood <= 2.5) pickId = 'y04';         // Stress Relief
@@ -2329,7 +2317,7 @@ function buildTodayCards({
         id: 'yoga',
         icon: 'leaf-outline',
         tint: Colors.primary,
-        bg: '#F5F0FF',
+        bg: Colors.bgTint,
         value: pick.name.length > 20 ? pick.name.slice(0, 18) + '…' : pick.name,
         label: `${pick.duration} min · ${pick.level}`,
         onPress: goWellness,
@@ -2340,14 +2328,14 @@ function buildTodayCards({
   // ── Today's milestone ──────────────────────────────────────────────
   // Nearest upcoming milestone for the active kid based on age in months.
   if (activeKid && !activeKid.isExpecting && activeKid.dob) {
-    const months = Math.max(0, Math.floor((Date.now() - new Date(activeKid.dob).getTime()) / (1000 * 60 * 60 * 24 * 30.44)));
+    const months = calculateAgeInMonths(activeKid.dob);
     const upcoming = MILESTONES.find((m) => m.ageMonths >= months && m.ageMonths <= months + 3);
     if (upcoming) {
       cards.push({
         id: 'milestone',
         icon: 'sparkles-outline',
         tint: Colors.primary,
-        bg: '#F5F0FF',
+        bg: Colors.bgTint,
         value: upcoming.title.length > 22 ? upcoming.title.slice(0, 20) + '…' : upcoming.title,
         label: `${upcoming.emoji} ${upcoming.ageLabel}`,
         onPress: goMilestones,
@@ -2366,7 +2354,7 @@ function buildTodayCards({
         id: 'gentle',
         icon: 'heart-circle-outline',
         tint: Colors.primary,
-        bg: '#F5F0FF',
+        bg: Colors.bgTint,
         value: 'Take a breath',
         label: 'A gentle check-in',
         onPress: goWellness,
@@ -3192,7 +3180,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   milestonePill: {
-    backgroundColor: Colors.bgPink,
+    backgroundColor: Colors.bgTint,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: Radius.full,
@@ -3252,7 +3240,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F5F0FF',
+    backgroundColor: Colors.bgTint,
   },
   commEmptyTitle: {
     fontFamily: Fonts.sansSemiBold,
@@ -3355,7 +3343,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 10,
-    backgroundColor: '#F5F0FF',
+    backgroundColor: Colors.bgTint,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -3410,7 +3398,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F5F0FF',
+    backgroundColor: Colors.bgTint,
   },
   jumpTileLabel: {
     fontFamily: Fonts.sansBold,
@@ -3457,7 +3445,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   sheetIdentityCard: {
-    backgroundColor: '#F5F0FF',
+    backgroundColor: Colors.bgTint,
     borderRadius: 14,
     padding: 14,
     marginBottom: Spacing.md,
@@ -3652,7 +3640,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: '#F5F0FF',
+    backgroundColor: Colors.bgTint,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -3708,7 +3696,7 @@ const styles = StyleSheet.create({
     borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.bgPink,
+    backgroundColor: Colors.bgTint,
   },
   inboxTitleRow: {
     flexDirection: 'row',

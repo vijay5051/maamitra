@@ -8,7 +8,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import { Colors } from '../../constants/theme';
+import { Colors, Radius, Spacing } from '../../constants/theme';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -148,8 +148,8 @@ const postCardStyles = StyleSheet.create({
   card: {
     backgroundColor: Colors.cardBg,
     borderRadius: 18,
-    padding: 16,
-    marginHorizontal: 16,
+    padding: Spacing.lg,
+    marginHorizontal: Spacing.lg,
     marginVertical: 6,
     borderWidth: 1,
     borderColor: Colors.borderSoft,
@@ -157,11 +157,11 @@ const postCardStyles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: Spacing.md,
   },
   reactionsRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: Spacing.sm,
     marginTop: 14,
   },
 });
@@ -169,11 +169,11 @@ const postCardStyles = StyleSheet.create({
 const articleCardStyles = StyleSheet.create({
   card: {
     flexDirection: 'row',
-    gap: 12,
+    gap: Spacing.md,
     backgroundColor: Colors.cardBg,
-    borderRadius: 16,
-    padding: 12,
-    marginHorizontal: 16,
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    marginHorizontal: Spacing.lg,
     marginVertical: 6,
     borderWidth: 1,
     borderColor: Colors.borderSoft,

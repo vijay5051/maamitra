@@ -5,7 +5,7 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
-import { Colors } from '../../constants/theme';
+import { Colors, Radius } from '../../constants/theme';
 
 type ShadowSize = 'sm' | 'md' | 'lg';
 
@@ -84,8 +84,8 @@ export default function Card({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
+    backgroundColor: Colors.white,
+    borderRadius: Radius.lg,
     borderWidth: 1,
     borderColor: '#EDE9F6',
   },

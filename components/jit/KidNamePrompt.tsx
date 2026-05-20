@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 import JustInTimePrompt from './JustInTimePrompt';
 import { useProfileStore } from '../../store/useProfileStore';
-import { Colors, Fonts } from '../../constants/theme';
+import { Colors, Fonts, Spacing } from '../../constants/theme';
 
 const FALLBACK_NAMES = ['Little one', 'Sibling'];
 
@@ -62,11 +62,11 @@ export default function KidNamePrompt() {
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  row: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' },
   input: {
     flex: 1,
     minHeight: 44,
-    paddingHorizontal: 12,
+    paddingHorizontal: Spacing.md,
     paddingVertical: 10,
     borderRadius: 10,
     borderColor: Colors.border,

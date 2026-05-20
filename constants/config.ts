@@ -7,7 +7,12 @@ export const APP_TAGLINE =
 export const ANTHROPIC_MODEL = 'claude-haiku-4-5-20251001';
 
 // ─── Chat Limits ───────────────────────────────────────────────────────────────
+// Local cap: how many messages we keep on-device per thread (zustand persist).
 export const MAX_CHAT_HISTORY = 50;
+// Wire cap: how many of the most-recent messages we actually send to the
+// Cloudflare Worker on each turn. The worker also enforces this — keeping a
+// single constant here so the client trims before paying the round trip.
+export const MAX_CHAT_HISTORY_API = 30;
 
 // ─── Firebase Configuration ───────────────────────────────────────────────────
 export const FIREBASE_CONFIG = {

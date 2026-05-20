@@ -65,13 +65,17 @@ export default function Index() {
 
   // ── Routing decisions — four branches mapping to five named states
   // (admin + tabs both → APP).
-  if (isAdminEmail(user?.email)) {
-    logTransition('APP', user?.uid);
-    return <Redirect href="/admin" />;
-  }
+  //
+  // Phone verification runs BEFORE the admin redirect so an admin who hasn't
+  // verified their number can't slip past the phone gate by virtue of their
+  // email alone (audit: stores-services LOW #37 / app/index.tsx:68).
   if (!phoneVerified) {
     logTransition('PHONE_GATE', user?.uid);
     return <Redirect href="/(auth)/phone" />;
+  }
+  if (isAdminEmail(user?.email)) {
+    logTransition('APP', user?.uid);
+    return <Redirect href="/admin" />;
   }
   if (!onboardingComplete) {
     logTransition('ONBOARDING', user?.uid);

@@ -18,7 +18,7 @@ import {
 const NATIVE_DRIVER = Platform.OS !== 'web';
 import { Ionicons } from '@expo/vector-icons';
 import { Fonts } from '../../constants/theme';
-import { Colors } from '../../constants/theme';
+import { Colors, Radius, Spacing } from '../../constants/theme';
 import { mediumTap } from '../../lib/haptics';
 
 /**
@@ -153,14 +153,14 @@ export default function GradientButton({
         ]}
       >
         {loading ? (
-          <ActivityIndicator color="#ffffff" size="small" />
+          <ActivityIndicator color={Colors.white} size="small" />
         ) : (
           <View style={styles.inner}>
             {icon && (
               <Ionicons
                 name={icon}
                 size={18}
-                color="#ffffff"
+                color={Colors.white}
                 style={styles.icon}
               />
             )}
@@ -175,11 +175,11 @@ export default function GradientButton({
 const styles = StyleSheet.create({
   solid: {
     paddingVertical: 15,
-    paddingHorizontal: 20,
+    paddingHorizontal: Spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 12,
-    shadowColor: '#1C1033',
+    borderRadius: Radius.sm,
+    shadowColor: Colors.textDark,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 10,
@@ -187,14 +187,14 @@ const styles = StyleSheet.create({
     boxShadow: '0px 4px 14px rgba(28, 16, 51, 0.08)',
   },
   outlineButton: {
-    borderRadius: 12,
+    borderRadius: Radius.sm,
     borderWidth: 1,
-    borderColor: '#E5E1EE',
+    borderColor: Colors.border,
     paddingVertical: 14,
-    paddingHorizontal: 20,
+    paddingHorizontal: Spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.white,
   },
   inner: {
     flexDirection: 'row',
@@ -202,10 +202,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   icon: {
-    marginRight: 8,
+    marginRight: Spacing.sm,
   },
   text: {
-    color: '#ffffff',
+    color: Colors.white,
     fontFamily: Fonts.sansBold,
     fontSize: 15,
     letterSpacing: 0.2,

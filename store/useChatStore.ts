@@ -9,6 +9,7 @@ import {
 } from '../services/claude';
 import { recordChatMessage, recordThreadStart } from '../services/chatUsage';
 import { stripActionChips } from '../services/claude';
+import { MAX_CHAT_HISTORY } from '../constants/config';
 
 // Lazy-accessed to avoid circular dependency (useAuthStore imports useChatStore)
 const getAuthUid = (): string | undefined => {
@@ -430,7 +431,16 @@ export const useChatStore = create<ChatState>()(
       partialize: (state) => ({
         threads: state.threads.slice(0, 20).map((t) => ({
           ...t,
-          messages: t.messages.slice(-50), // cap per-thread at 50 messages locally
+          messages: t.messages.slice(-MAX_CHAT_HISTORY).map((m) => {
+            // Drop attached image data URLs — they can be megabytes of
+            // base64 and we'd otherwise re-inflate them on every cold
+            // start, eating into the AsyncStorage quota (~5–10 MB on
+            // mobile). Images are session-only by design (see the
+            // imageDataUrl JSDoc on ChatMessage).
+            if (!m.imageDataUrl && !m.imageMimeType) return m;
+            const { imageDataUrl: _i, imageMimeType: _t, ...rest } = m;
+            return rest;
+          }),
         })),
         activeThreadId: state.activeThreadId,
         allergies: state.allergies,

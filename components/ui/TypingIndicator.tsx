@@ -11,7 +11,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { Colors } from '../../constants/theme';
+import { Colors, Spacing } from '../../constants/theme';
 
 // Three soft brand-purple hearts that pulse in sequence while the AI is
 // generating a reply. Replaces the older grey-dots bounce — warmer feel,
@@ -82,8 +82,8 @@ export default function TypingIndicator() {
 const styles = StyleSheet.create({
   wrapper: {
     alignSelf: 'flex-start',
-    marginLeft: 8,
-    marginVertical: 4,
+    marginLeft: Spacing.sm,
+    marginVertical: Spacing.xs,
   },
   bubble: {
     flexDirection: 'row',

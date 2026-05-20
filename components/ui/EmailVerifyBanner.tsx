@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/useAuthStore';
+import { Colors, Radius, Spacing, withAlpha } from '../../constants/theme';
 
 /**
  * Shows a warm warning banner when the current user hasn't verified their
@@ -46,7 +47,7 @@ export function EmailVerifyBanner() {
 
   return (
     <View style={styles.banner}>
-      <Ionicons name="mail-unread" size={20} color="#b45309" style={{ marginRight: 10 }} />
+      <Ionicons name="mail-unread" size={20} color={Colors.warning} style={{ marginRight: 10 }} />
       <View style={{ flex: 1 }}>
         <Text style={styles.title}>Verify your email to post, comment, and message</Text>
         <Text style={styles.body}>We sent a link to {user.email}.</Text>
@@ -67,22 +68,24 @@ const styles = StyleSheet.create({
   banner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#fef3c7',
+    // Soft warm warning fill — keep as a tinted warning surface (matches
+    // the existing #fef3c7 cream-yellow look).
+    backgroundColor: withAlpha(Colors.warning, 0.18),
     borderWidth: 1,
     borderColor: '#fcd34d',
-    borderRadius: 12,
-    padding: 12,
-    marginHorizontal: 16,
-    marginTop: 12,
+    borderRadius: Radius.sm,
+    padding: Spacing.md,
+    marginHorizontal: Spacing.lg,
+    marginTop: Spacing.md,
   },
-  title: { color: '#78350f', fontWeight: '600', fontSize: 14, marginBottom: 2 },
-  body:  { color: '#92400e', fontSize: 12, marginBottom: 8 },
-  row:   { flexDirection: 'row', gap: 8 },
+  title: { color: Colors.warning, fontWeight: '600', fontSize: 14, marginBottom: 2 },
+  body:  { color: '#92400e', fontSize: 12, marginBottom: Spacing.sm },
+  row:   { flexDirection: 'row', gap: Spacing.sm },
   btn:   {
-    paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8,
-    backgroundColor: '#fff', borderWidth: 1, borderColor: '#fcd34d',
+    paddingVertical: 6, paddingHorizontal: Spacing.md, borderRadius: Radius.xs,
+    backgroundColor: Colors.white, borderWidth: 1, borderColor: '#fcd34d',
   },
-  btnPrimary: { backgroundColor: '#b45309', borderColor: '#b45309' },
+  btnPrimary: { backgroundColor: Colors.warning, borderColor: Colors.warning },
   btnText: { color: '#92400e', fontWeight: '600', fontSize: 13 },
-  btnPrimaryText: { color: '#fff' },
+  btnPrimaryText: { color: Colors.white },
 });

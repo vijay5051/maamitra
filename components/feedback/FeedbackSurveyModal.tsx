@@ -283,7 +283,7 @@ export default function FeedbackSurveyModal({ visible, onClose }: Props) {
                 style={[s.submitBtn, (!canSubmit || submitting) && { opacity: 0.55 }]}
               >
                 {submitting ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={Colors.white} />
                 ) : (
                   <Text style={s.submitText}>Submit feedback</Text>
                 )}
@@ -334,7 +334,7 @@ function Chip({
 const s = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: Colors.overlay, justifyContent: 'flex-end' },
   sheet: {
-    backgroundColor: '#fff',
+    backgroundColor: Colors.white,
     borderTopLeftRadius: Radius.xl,
     borderTopRightRadius: Radius.xl,
     paddingHorizontal: Spacing.xl,
@@ -360,25 +360,25 @@ const s = StyleSheet.create({
 
   starsRow: { flexDirection: 'row', alignItems: 'center' },
 
-  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
   chip: {
-    paddingVertical: 8, paddingHorizontal: 12,
+    paddingVertical: Spacing.sm, paddingHorizontal: Spacing.md,
     borderRadius: Radius.full, borderWidth: 1,
-    borderColor: Colors.border, backgroundColor: '#fff',
+    borderColor: Colors.border, backgroundColor: Colors.white,
   },
   chipText: { fontSize: 13, color: Colors.textDark, fontFamily: Fonts.sansMedium },
 
-  payRow: { flexDirection: 'row', gap: 8 },
+  payRow: { flexDirection: 'row', gap: Spacing.sm },
   payPill: {
-    flex: 1, paddingVertical: 12, alignItems: 'center',
+    flex: 1, paddingVertical: Spacing.md, alignItems: 'center',
     borderRadius: Radius.md, borderWidth: 1.5, borderColor: Colors.border,
-    backgroundColor: '#fff',
+    backgroundColor: Colors.white,
   },
   payPillText: { fontSize: 14, fontFamily: Fonts.sansSemiBold, color: Colors.textDark },
 
   noteInput: {
     borderWidth: 1, borderColor: Colors.border, borderRadius: Radius.md,
-    padding: 12, fontSize: 14, fontFamily: Fonts.sansRegular, color: Colors.textDark,
+    padding: Spacing.md, fontSize: 14, fontFamily: Fonts.sansRegular, color: Colors.textDark,
     minHeight: 60, maxHeight: 100, textAlignVertical: 'top',
     backgroundColor: Colors.bgLight,
   },
@@ -388,7 +388,7 @@ const s = StyleSheet.create({
   submitBtn: {
     paddingVertical: 14, borderRadius: Radius.md, alignItems: 'center',
   },
-  submitText: { color: '#fff', fontSize: 15, fontFamily: Fonts.sansBold, letterSpacing: 0.3 },
+  submitText: { color: Colors.white, fontSize: 15, fontFamily: Fonts.sansBold, letterSpacing: 0.3 },
 
   thanksWrap: { alignItems: 'center', paddingVertical: 20, gap: 14 },
   thanksIcon: {

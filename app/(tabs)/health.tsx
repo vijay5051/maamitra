@@ -43,17 +43,8 @@ import NuskheTab from '../../components/health/NuskheTab';
 import { Illustration } from '../../components/ui/Illustration';
 import { AppIcon } from '../../components/ui/AppIcon';
 import type { IllustrationName } from '../../lib/illustrations';
-import { Fonts, Gradients } from '../../constants/theme';
+import { Fonts, Gradients, withAlpha } from '../../constants/theme';
 import { Colors } from '../../constants/theme';
-
-// ─── Design tokens ─────────────────────────────────────────────────────────────
-const ROSE   = Colors.primary;
-const PLUM   = Colors.primary;
-const GOLD   = '#F59E0B';
-const SAGE   = '#34D399';
-const MIST   = '#EDE9F6';
-const INK    = '#1C1033';
-const STONE  = '#6B7280';
 
 type SubTab = 'vaccines' | 'teeth' | 'foods' | 'growth' | 'milestones' | 'routine' | 'schemes' | 'myhealth' | 'nuskhe';
 
@@ -148,14 +139,14 @@ const gridStyles = StyleSheet.create({
   sectionTitle: {
     fontFamily: Fonts.sansBold,
     fontSize: 13,
-    color: INK,
+    color: Colors.textDark,
     textTransform: 'uppercase',
     letterSpacing: 0.6,
   },
   sectionSub: {
     fontFamily: Fonts.sansRegular,
     fontSize: 12,
-    color: '#9CA3AF',
+    color: Colors.textMuted,
     marginTop: 2,
   },
   cardsRow: {
@@ -167,12 +158,12 @@ const gridStyles = StyleSheet.create({
     flexBasis: '48%',
     flexGrow: 1,
     minWidth: 150,
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.white,
     borderRadius: 16,
     padding: 14,
     borderWidth: 1,
-    borderColor: MIST,
-    shadowColor: PLUM,
+    borderColor: Colors.borderSoft,
+    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
@@ -191,12 +182,12 @@ const gridStyles = StyleSheet.create({
   cardLabel: {
     fontFamily: Fonts.sansBold,
     fontSize: 14,
-    color: INK,
+    color: Colors.textDark,
   },
   cardDesc: {
     fontFamily: Fonts.sansRegular,
     fontSize: 11.5,
-    color: '#9CA3AF',
+    color: Colors.textMuted,
     marginTop: 3,
     lineHeight: 16,
   },
@@ -233,7 +224,7 @@ const headerStyles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0EBF8',
+    borderBottomColor: Colors.borderSoft,
     backgroundColor: Colors.bgLight,
   },
   backBtn: {
@@ -309,10 +300,10 @@ function groupVaccinesByAge(rows: VaccineRow[]): VaccineGroup[] {
 }
 
 function groupDotColor(status: VaccineGroup['status']): string {
-  if (status === 'done') return SAGE;
-  if (status === 'overdue') return GOLD;
+  if (status === 'done') return Colors.success;
+  if (status === 'overdue') return Colors.warning;
   if (status === 'due-soon') return Colors.primary;
-  return MIST;
+  return Colors.borderSoft;
 }
 
 function OverduePulseRing({ color }: { color: string }) {
@@ -349,12 +340,12 @@ function VaccineAgeGroup({ group }: { group: VaccineGroup }) {
   const dotColor = groupDotColor(group.status);
   const progressColor =
     group.status === 'done'
-      ? SAGE
+      ? Colors.success
       : group.status === 'overdue'
-      ? GOLD
+      ? Colors.warning
       : group.status === 'due-soon'
       ? Colors.primary
-      : STONE;
+      : Colors.textLight;
 
   return (
     <View style={vStyles.group}>
@@ -386,7 +377,7 @@ function VaccineAgeGroup({ group }: { group: VaccineGroup }) {
         <AppIcon
           name={expanded ? 'action.collapse' : 'action.expand'}
           size={16}
-          color={STONE}
+          color={Colors.textLight}
           style={{ marginLeft: 6 }}
         />
       </TouchableOpacity>
@@ -536,7 +527,7 @@ function VaccineSourceFooter({ schedule }: { schedule: VaccineScheduleType }) {
   const info = SCHEDULE_INFO[schedule];
   return (
     <View style={vStyles.source}>
-      <AppIcon name="object.document" size={14} color={STONE} />
+      <AppIcon name="object.document" size={14} color={Colors.textLight} />
       <Text style={vStyles.sourceText}>
         Schedule based on{' '}
         <Text style={vStyles.sourceEmph}>{info.fullName}</Text> ·{' '}
@@ -597,7 +588,7 @@ function VaccinesSection({
   if (activeKid.isExpecting) {
     return (
       <View style={{ marginTop: 8 }}>
-        <Text style={{ fontFamily: Fonts.sansSemiBold, fontSize: 14, color: '#1C1033', marginBottom: 12 }}>
+        <Text style={{ fontFamily: Fonts.sansSemiBold, fontSize: 14, color: Colors.textDark, marginBottom: 12 }}>
           Recommended Vaccines During Pregnancy
         </Text>
         {[
@@ -605,13 +596,13 @@ function VaccinesSection({
           { name: 'Influenza (Flu) Vaccine', timing: 'Any trimester', note: 'Reduces risk of flu-related complications in pregnancy' },
           { name: 'COVID-19 Booster', timing: 'Consult your doctor', note: 'Recommended if due for booster — safe in all trimesters' },
         ].map((v) => (
-          <View key={v.name} style={{ backgroundColor: '#fff', borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: '#EDE9F6' }}>
-            <Text style={{ fontFamily: Fonts.sansSemiBold, fontSize: 13, color: '#1C1033' }}>{v.name}</Text>
+          <View key={v.name} style={{ backgroundColor: Colors.white, borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: Colors.borderSoft }}>
+            <Text style={{ fontFamily: Fonts.sansSemiBold, fontSize: 13, color: Colors.textDark }}>{v.name}</Text>
             <Text style={{ fontFamily: Fonts.sansRegular, fontSize: 12, color: Colors.primary, marginTop: 2 }}>When: {v.timing}</Text>
-            <Text style={{ fontFamily: Fonts.sansRegular, fontSize: 12, color: '#6b7280', marginTop: 2 }}>{v.note}</Text>
+            <Text style={{ fontFamily: Fonts.sansRegular, fontSize: 12, color: Colors.textLight, marginTop: 2 }}>{v.note}</Text>
           </View>
         ))}
-        <Text style={{ fontFamily: Fonts.sansRegular, fontSize: 11, color: '#9ca3af', marginTop: 4 }}>
+        <Text style={{ fontFamily: Fonts.sansRegular, fontSize: 11, color: Colors.textMuted, marginTop: 4 }}>
           As per FOGSI 2024 guidelines · Always confirm with your OB-GYN
         </Text>
       </View>
@@ -733,12 +724,12 @@ const vStyles = StyleSheet.create({
   groupAge: {
     fontFamily: Fonts.sansBold,
     fontSize: 14,
-    color: INK,
+    color: Colors.textDark,
   },
   groupDate: {
     fontFamily: Fonts.sansRegular,
     fontSize: 11.5,
-    color: STONE,
+    color: Colors.textLight,
     marginTop: 1,
   },
   progressChip: {
@@ -766,12 +757,12 @@ const vStyles = StyleSheet.create({
     flex: 1,
     fontFamily: Fonts.sansRegular,
     fontSize: 11,
-    color: STONE,
+    color: Colors.textLight,
     lineHeight: 16,
   },
   sourceEmph: {
     fontFamily: Fonts.sansSemiBold,
-    color: INK,
+    color: Colors.textDark,
   },
   scheduleBadge: {
     backgroundColor: Colors.primary,
@@ -783,7 +774,7 @@ const vStyles = StyleSheet.create({
     fontFamily: Fonts.sansBold,
     fontSize: 10.5,
     letterSpacing: 0.5,
-    color: '#fff',
+    color: Colors.white,
     textTransform: 'uppercase',
   },
   changeBtn: {
@@ -797,7 +788,7 @@ const vStyles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: Colors.primaryAlpha20,
-    backgroundColor: '#fff',
+    backgroundColor: Colors.white,
   },
   changeBtnText: {
     fontFamily: Fonts.sansSemiBold,
@@ -812,12 +803,12 @@ const vStyles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderSoft,
-    backgroundColor: '#fff',
+    backgroundColor: Colors.white,
   },
   changeHeaderTitle: {
     fontFamily: Fonts.sansBold,
     fontSize: 15,
-    color: INK,
+    color: Colors.textDark,
   },
 });
 
@@ -940,8 +931,8 @@ function SchemeCard({
         </View>
       )}
       {eligibility === 'ineligible' && (
-        <View style={[scStyles.checkBadge, { backgroundColor: '#fee2e2' }]}>
-          <Text style={[scStyles.checkBadgeText, { color: '#dc2626' }]}>Not eligible ✗</Text>
+        <View style={[scStyles.checkBadge, { backgroundColor: withAlpha(Colors.error, 0.15) }]}>
+          <Text style={[scStyles.checkBadgeText, { color: Colors.error }]}>Not eligible ✗</Text>
         </View>
       )}
       {eligibility === 'check' && (
@@ -953,7 +944,7 @@ function SchemeCard({
       {/* Accordion header */}
       <TouchableOpacity onPress={toggle} activeOpacity={0.8} style={scStyles.header}>
         <View style={scStyles.iconWrap}>
-          <Ionicons name={schemeIcon} size={22} color={PLUM} />
+          <Ionicons name={schemeIcon} size={22} color={Colors.primary} />
         </View>
         <View style={scStyles.headerInfo}>
           <Text style={scStyles.name}>{scheme.name}</Text>
@@ -962,26 +953,27 @@ function SchemeCard({
         <Ionicons
           name={expanded ? 'chevron-up' : 'chevron-down'}
           size={18}
-          color="#9ca3af"
+          color={Colors.textMuted}
         />
       </TouchableOpacity>
 
       {/* Personalised callout — always visible if relevant */}
       {personalMsg && (
         <View style={scStyles.personalCallout}>
-          <AppIcon name="object.user-circle" size={15} color={PLUM} />
+          <AppIcon name="object.user-circle" size={15} color={Colors.primary} />
           <Text style={scStyles.personalText}>{personalMsg}</Text>
         </View>
       )}
 
       {/* State relevance notes */}
       {scheme.id === 'gs01' && isLowPerformingState && userState ? (
+        // FIXME: extract as theme token — '#16a34a' is a darker success text color
         <Text style={{ fontSize: 11, color: '#16a34a', marginTop: 4, marginBottom: 2, fontFamily: Fonts.sansRegular }}>
           ✓ {userState} residents: All pregnant women qualify regardless of BPL status
         </Text>
       ) : null}
       {userState ? (
-        <Text style={{ fontSize: 11, color: '#6b7280', marginTop: 2, marginBottom: 6, fontFamily: Fonts.sansRegular }}>
+        <Text style={{ fontSize: 11, color: Colors.textLight, marginTop: 2, marginBottom: 6, fontFamily: Fonts.sansRegular }}>
           Available in {userState} · Confirm at your nearest Anganwadi
         </Text>
       ) : null}
@@ -1002,6 +994,7 @@ function SchemeCard({
 
           <View style={scStyles.detailBlock}>
             <View style={scStyles.detailLabelRow}>
+              {/* FIXME: extract as theme token — '#16a34a' is a darker success text color */}
               <AppIcon name="status.success-outline" size={14} color="#16a34a" />
               <Text style={scStyles.detailLabel}>Who can apply</Text>
             </View>
@@ -1018,7 +1011,7 @@ function SchemeCard({
 
           <View style={scStyles.detailBlock}>
             <View style={scStyles.detailLabelRow}>
-              <AppIcon name="object.navigate" size={14} color={PLUM} />
+              <AppIcon name="object.navigate" size={14} color={Colors.primary} />
               <Text style={scStyles.detailLabel}>How to apply</Text>
             </View>
             <Text style={scStyles.detailText}>{scheme.howToApply}</Text>
@@ -1032,9 +1025,9 @@ function SchemeCard({
         onPress={() => Linking.openURL(scheme.url)}
         activeOpacity={0.8}
       >
-        <AppIcon name="object.globe" size={15} color={PLUM} />
+        <AppIcon name="object.globe" size={15} color={Colors.primary} />
         <Text style={scStyles.linkBtnText}>Know More & Apply</Text>
-        <AppIcon name="object.arrow-forward" size={13} color={PLUM} />
+        <AppIcon name="object.arrow-forward" size={13} color={Colors.primary} />
       </TouchableOpacity>
     </View>
   );
@@ -1042,13 +1035,13 @@ function SchemeCard({
 
 const scStyles = StyleSheet.create({
   card: {
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.white,
     borderRadius: 16,
     padding: 14,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: MIST,
-    shadowColor: PLUM,
+    borderColor: Colors.borderSoft,
+    shadowColor: Colors.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -1061,7 +1054,7 @@ const scStyles = StyleSheet.create({
   },
   eligibleBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: GOLD,
+    backgroundColor: Colors.warning,
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -1070,11 +1063,11 @@ const scStyles = StyleSheet.create({
   eligibleBadgeText: {
     fontFamily: Fonts.sansBold,
     fontSize: 11,
-    color: '#ffffff',
+    color: Colors.white,
   },
   checkBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: MIST,
+    backgroundColor: Colors.bgTint,
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -1083,7 +1076,7 @@ const scStyles = StyleSheet.create({
   checkBadgeText: {
     fontFamily: Fonts.sansMedium,
     fontSize: 11,
-    color: STONE,
+    color: Colors.textLight,
   },
   header: {
     flexDirection: 'row',
@@ -1091,7 +1084,7 @@ const scStyles = StyleSheet.create({
     gap: 12,
     marginBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0EDF5',
+    borderBottomColor: Colors.borderSoft,
   },
   iconWrap: {
     width: 44,
@@ -1105,13 +1098,13 @@ const scStyles = StyleSheet.create({
   name: {
     fontFamily: Fonts.sansBold,
     fontSize: 14,
-    color: INK,
+    color: Colors.textDark,
     lineHeight: 19,
   },
   shortDesc: {
     fontFamily: Fonts.sansRegular,
     fontSize: 12,
-    color: '#9CA3AF',
+    color: Colors.textMuted,
     marginTop: 2,
   },
   personalCallout: {
@@ -1123,13 +1116,13 @@ const scStyles = StyleSheet.create({
     padding: 10,
     marginBottom: 10,
     borderLeftWidth: 3,
-    borderLeftColor: PLUM,
+    borderLeftColor: Colors.primary,
   },
   personalText: {
     fontFamily: Fonts.sansMedium,
     flex: 1,
     fontSize: 13,
-    color: '#4c1d95',
+    color: Colors.primary,
     lineHeight: 18,
   },
   accordionBody: {
@@ -1139,7 +1132,7 @@ const scStyles = StyleSheet.create({
   desc: {
     fontFamily: Fonts.sansRegular,
     fontSize: 13,
-    color: '#374151',
+    color: Colors.textDark,
     lineHeight: 20,
   },
   detailBlock: { gap: 4 },
@@ -1151,14 +1144,14 @@ const scStyles = StyleSheet.create({
   detailLabel: {
     fontFamily: Fonts.sansBold,
     fontSize: 11,
-    color: '#374151',
+    color: Colors.textDark,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   detailText: {
     fontFamily: Fonts.sansRegular,
     fontSize: 13,
-    color: '#4b5563',
+    color: Colors.textLight,
     lineHeight: 19,
     paddingLeft: 19,
   },
@@ -1177,7 +1170,7 @@ const scStyles = StyleSheet.create({
   linkBtnText: {
     fontFamily: Fonts.sansBold,
     fontSize: 14,
-    color: PLUM,
+    color: Colors.primary,
   },
 });
 
@@ -1191,9 +1184,9 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 type HealthStatus = 'overdue' | 'due-soon' | 'up-to-date';
 
 function ringColor(status: HealthStatus): string {
-  if (status === 'up-to-date') return SAGE;
-  if (status === 'due-soon')   return GOLD;
-  return ROSE;
+  if (status === 'up-to-date') return Colors.success;
+  if (status === 'due-soon')   return Colors.warning;
+  return Colors.primary;
 }
 
 function progressRatio(lastDone: string | null, freqDays: number): number {
@@ -1317,9 +1310,10 @@ function HealthCheckItem({
     : false;
 
   const statusColors: Record<HealthStatus, { bg: string; border: string; text: string; badge: string }> = {
-    'overdue':    { bg: 'rgba(239,68,68,0.04)',  border: 'rgba(239,68,68,0.2)',   text: '#dc2626', badge: '#fef2f2' },
-    'due-soon':   { bg: 'rgba(245,158,11,0.04)', border: 'rgba(245,158,11,0.25)', text: '#d97706', badge: '#fffbeb' },
-    'up-to-date': { bg: 'rgba(34,197,94,0.04)',  border: 'rgba(34,197,94,0.2)',   text: '#16a34a', badge: '#f0fdf4' },
+    // FIXME: extract as theme token — `text` and `badge` are darker/paler tints of error/warning/success not yet in the palette
+    'overdue':    { bg: withAlpha(Colors.error, 0.04),   border: withAlpha(Colors.error, 0.2),   text: Colors.error, badge: '#fef2f2' },
+    'due-soon':   { bg: withAlpha(Colors.warning, 0.04), border: withAlpha(Colors.warning, 0.25), text: '#d97706',    badge: '#fffbeb' },
+    'up-to-date': { bg: withAlpha(Colors.success, 0.04), border: withAlpha(Colors.success, 0.2), text: '#16a34a',    badge: '#f0fdf4' },
   };
   const c = statusColors[status];
 
@@ -1338,7 +1332,7 @@ function HealthCheckItem({
     >
       <View style={hStyles.cardHeader}>
         <View style={hStyles.iconBox}>
-          <Ionicons name={item.icon as any} size={18} color={ROSE} />
+          <Ionicons name={item.icon as any} size={18} color={Colors.primary} />
         </View>
         <View style={hStyles.headerInfo}>
           <Text style={hStyles.itemLabel}>{item.label}</Text>
@@ -1389,12 +1383,12 @@ function HealthCheckItem({
           activeOpacity={0.85}
         >
           <LinearGradient
-            colors={[ROSE, PLUM]}
+            colors={[Colors.primary, Colors.primary]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={hStyles.markBtnGrad}
           >
-            <AppIcon name="status.success-outline" size={15} color="#ffffff" />
+            <AppIcon name="status.success-outline" size={15} color={Colors.white} />
             <Text style={hStyles.markBtnText}>Mark as done today</Text>
           </LinearGradient>
         </TouchableOpacity>
@@ -1420,7 +1414,7 @@ const hStyles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: 'rgba(28, 16, 51, 0.054)',
+    backgroundColor: withAlpha(Colors.textDark, 0.054),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1428,12 +1422,12 @@ const hStyles = StyleSheet.create({
   itemLabel: {
     fontFamily: Fonts.sansBold,
     fontSize: 14,
-    color: INK,
+    color: Colors.textDark,
   },
   freqLabel: {
     fontFamily: Fonts.sansRegular,
     fontSize: 11,
-    color: '#9CA3AF',
+    color: Colors.textMuted,
     marginTop: 2,
   },
   statusBadge: {
@@ -1458,11 +1452,11 @@ const hStyles = StyleSheet.create({
   doneLabel: {
     fontFamily: Fonts.sansRegular,
     fontSize: 12,
-    color: '#9CA3AF',
+    color: Colors.textMuted,
   },
   doneDate: {
     fontFamily: Fonts.sansBold,
-    color: '#374151',
+    color: Colors.textDark,
   },
   nextLabel: {
     fontFamily: Fonts.sansSemiBold,
@@ -1472,13 +1466,13 @@ const hStyles = StyleSheet.create({
   overdueNote: {
     fontFamily: Fonts.sansRegular,
     fontSize: 12,
-    color: '#dc2626',
+    color: Colors.error,
     marginTop: 2,
   },
   neverDone: {
     fontFamily: Fonts.sansRegular,
     fontSize: 12,
-    color: '#9CA3AF',
+    color: Colors.textMuted,
     marginBottom: 8,
     fontStyle: 'italic',
   },
@@ -1491,7 +1485,7 @@ const hStyles = StyleSheet.create({
   undoBtnText: {
     fontFamily: Fonts.sansRegular,
     fontSize: 11,
-    color: '#9CA3AF',
+    color: Colors.textMuted,
   },
   markBtn: { borderRadius: 10, overflow: 'hidden', marginTop: 4 },
   markBtnGrad: {
@@ -1503,7 +1497,7 @@ const hStyles = StyleSheet.create({
   },
   markBtnText: {
     fontFamily: Fonts.sansBold,
-    color: '#fff',
+    color: Colors.white,
     fontSize: 13,
   },
 });
@@ -1666,7 +1660,7 @@ export default function HealthScreen() {
     <View style={styles.container}>
       {/* ── Dark Gradient Header ── */}
       <LinearGradient
-        colors={['#FFFFFF', '#FFFFFF', '#FFFFFF']}
+        colors={[Colors.white, Colors.white, Colors.white]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.header, { paddingTop: insets.top + 14 }]}
@@ -1793,7 +1787,7 @@ export default function HealthScreen() {
                 <Ionicons
                   name="information-circle-outline"
                   size={20}
-                  color={PLUM}
+                  color={Colors.primary}
                 />
                 <Text style={styles.disclaimerText}>
                   Follows FOGSI guidelines. Always consult your doctor for
@@ -1864,21 +1858,21 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: Fonts.serif,
     fontSize: 26,
-    color: '#1C1033',
+    color: Colors.textDark,
     letterSpacing: -0.3,
     marginBottom: 4,
   },
   headerSub: {
     fontFamily: Fonts.sansRegular,
     fontSize: 12,
-    color: '#6b7280',
+    color: Colors.textLight,
   },
   content: { paddingHorizontal: 16, paddingTop: 16 },
   healthHeroWrap: {
     marginBottom: 14,
     borderRadius: 18,
     overflow: 'hidden',
-    backgroundColor: '#FFF8F1',
+    backgroundColor: Colors.creamWarm,
     aspectRatio: 12 / 5,
   },
   milestoneSummaryCard: {
@@ -1893,13 +1887,13 @@ const styles = StyleSheet.create({
   milestoneSummaryTitle: {
     fontFamily: Fonts.sansBold,
     fontSize: 16,
-    color: INK,
+    color: Colors.textDark,
     marginBottom: 4,
   },
   milestoneSummaryText: {
     fontFamily: Fonts.sansRegular,
     fontSize: 13,
-    color: STONE,
+    color: Colors.textLight,
     lineHeight: 19,
     maxWidth: 250,
   },
@@ -1929,6 +1923,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 14,
+    // FIXME: extract as theme token — warm peach tint for milestone emoji bg
     backgroundColor: '#FFF5E9',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1939,7 +1934,7 @@ const styles = StyleSheet.create({
   milestoneCardTitle: {
     fontFamily: Fonts.sansBold,
     fontSize: 15,
-    color: INK,
+    color: Colors.textDark,
   },
   milestoneCardAge: {
     fontFamily: Fonts.sansSemiBold,
@@ -1950,7 +1945,7 @@ const styles = StyleSheet.create({
   milestoneCardDesc: {
     fontFamily: Fonts.sansRegular,
     fontSize: 13,
-    color: STONE,
+    color: Colors.textLight,
     lineHeight: 20,
   },
   milestoneCardFooter: {
@@ -1962,6 +1957,7 @@ const styles = StyleSheet.create({
   milestoneCardFooterText: {
     fontFamily: Fonts.sansSemiBold,
     fontSize: 12,
+    // FIXME: extract as theme token — muted plum tint, between primary and textLight
     color: '#7C6A91',
   },
   milestoneAskLink: {
@@ -1974,8 +1970,9 @@ const styles = StyleSheet.create({
     height: 34,
     borderRadius: 17,
     borderWidth: 1.5,
+    // FIXME: extract as theme token — lighter lilac border for the milestone toggle outline
     borderColor: '#E5D8F8',
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.white,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1990,41 +1987,43 @@ const styles = StyleSheet.create({
   milestoneEmptyTitle: {
     fontFamily: Fonts.sansBold,
     fontSize: 16,
-    color: INK,
+    color: Colors.textDark,
     marginBottom: 6,
     textAlign: 'center',
   },
   milestoneEmptyText: {
     fontFamily: Fonts.sansRegular,
     fontSize: 13,
-    color: STONE,
+    color: Colors.textLight,
     lineHeight: 20,
     textAlign: 'center',
     maxWidth: 280,
   },
   milestonePromptOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(28,16,51,0.34)',
+    backgroundColor: withAlpha(Colors.textDark, 0.34),
     justifyContent: 'center',
     paddingHorizontal: 24,
   },
   milestonePromptSheet: {
+    // FIXME: extract as theme token — '#FFFDFC' is a slightly warmer off-white sheet surface
     backgroundColor: '#FFFDFC',
     borderRadius: 24,
     padding: 22,
     borderWidth: 1,
+    // FIXME: extract as theme token — '#F0E7FB' is a softer lilac sheet border
     borderColor: '#F0E7FB',
   },
   milestonePromptTitle: {
     fontFamily: Fonts.serif,
     fontSize: 24,
-    color: INK,
+    color: Colors.textDark,
     marginBottom: 10,
   },
   milestonePromptText: {
     fontFamily: Fonts.sansRegular,
     fontSize: 14,
-    color: STONE,
+    color: Colors.textLight,
     lineHeight: 22,
   },
   milestonePromptPrimary: {
@@ -2037,7 +2036,7 @@ const styles = StyleSheet.create({
   milestonePromptPrimaryText: {
     fontFamily: Fonts.sansBold,
     fontSize: 14,
-    color: '#ffffff',
+    color: Colors.white,
   },
   milestonePromptSecondary: {
     marginTop: 10,
@@ -2047,6 +2046,7 @@ const styles = StyleSheet.create({
   milestonePromptSecondaryText: {
     fontFamily: Fonts.sansSemiBold,
     fontSize: 13,
+    // FIXME: extract as theme token — muted plum tint, between primary and textLight
     color: '#7C6A91',
   },
   healthHeroImg: { width: '100%', height: '100%' },
@@ -2066,30 +2066,30 @@ const styles = StyleSheet.create({
   infoBannerText: {
     fontFamily: Fonts.sansSemiBold,
     fontSize: 13,
-    color: PLUM,
+    color: Colors.primary,
   },
   infoBannerSub: {
     fontFamily: Fonts.sansRegular,
     fontSize: 11.5,
-    color: STONE,
+    color: Colors.textLight,
     marginTop: 2,
   },
   noKidCard: { alignItems: 'center', paddingVertical: 32 },
   noKidText: {
     fontFamily: Fonts.sansRegular,
     fontSize: 14,
-    color: '#9CA3AF',
+    color: Colors.textMuted,
     textAlign: 'center',
     lineHeight: 22,
     maxWidth: 240,
   },
   noKidBtn: { borderRadius: 12, overflow: 'hidden', marginTop: 16 },
   noKidBtnGrad: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, paddingHorizontal: 20 },
-  noKidBtnText: { fontFamily: Fonts.sansBold, color: '#fff', fontSize: 14 },
+  noKidBtnText: { fontFamily: Fonts.sansBold, color: Colors.white, fontSize: 14 },
   schemesHeader: {
     fontFamily: Fonts.sansBold,
     fontSize: 18,
-    color: INK,
+    color: Colors.textDark,
     marginBottom: 14,
   },
   progressCard: { marginBottom: 16 },
@@ -2102,16 +2102,16 @@ const styles = StyleSheet.create({
   progressTitle: {
     fontFamily: Fonts.sansBold,
     fontSize: 15,
-    color: INK,
+    color: Colors.textDark,
   },
   progressCount: {
     fontFamily: Fonts.sansBold,
     fontSize: 14,
-    color: ROSE,
+    color: Colors.primary,
   },
   progressBar: {
     height: 8,
-    backgroundColor: MIST,
+    backgroundColor: Colors.bgTint,
     borderRadius: 4,
     overflow: 'hidden',
   },
@@ -2130,7 +2130,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sansRegular,
     flex: 1,
     fontSize: 13,
-    color: '#9CA3AF',
+    color: Colors.textMuted,
     lineHeight: 19,
   },
 });

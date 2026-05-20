@@ -9,7 +9,7 @@ import {
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, Fonts } from '../../constants/theme';
+import { Colors, Fonts, Radius, Spacing, withAlpha } from '../../constants/theme';
 import GradientButton from '../ui/GradientButton';
 import type { MicroSurvey } from '../../lib/microSurveys';
 
@@ -60,7 +60,7 @@ export default function MicroSurveyModal({ visible, survey, onSubmit, onDismiss 
             </View>
             <Text style={styles.label}>Quick beta check-in</Text>
             <TouchableOpacity onPress={handleClose} hitSlop={8}>
-              <Ionicons name="close" size={20} color="#9ca3af" />
+              <Ionicons name="close" size={20} color={Colors.textMuted} />
             </TouchableOpacity>
           </View>
 
@@ -118,18 +118,18 @@ export default function MicroSurveyModal({ visible, survey, onSubmit, onDismiss 
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(28, 16, 51, 0.45)',
+    backgroundColor: withAlpha(Colors.textDark, 0.45),
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
+    padding: Spacing.xl,
   },
   card: {
     width: '100%',
     maxWidth: 380,
-    backgroundColor: '#ffffff',
+    backgroundColor: Colors.white,
     borderRadius: 18,
     padding: 22,
-    shadowColor: '#1C1033',
+    shadowColor: Colors.textDark,
     shadowOpacity: 0.12,
     shadowRadius: 24,
     shadowOffset: { width: 0, height: 8 },
@@ -138,14 +138,14 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: Spacing.sm,
     marginBottom: 14,
   },
   iconBubble: {
     width: 32,
     height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F5F0FF',
+    borderRadius: Radius.md,
+    backgroundColor: Colors.bgTint,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -160,44 +160,44 @@ const styles = StyleSheet.create({
   question: {
     fontFamily: Fonts.serif,
     fontSize: 19,
-    color: '#1C1033',
+    color: Colors.textDark,
     lineHeight: 26,
     marginBottom: 6,
   },
   helper: {
     fontFamily: Fonts.sansRegular,
     fontSize: 13,
-    color: '#6b7280',
+    color: Colors.textLight,
     lineHeight: 19,
     marginBottom: 14,
   },
   options: {
-    gap: 8,
+    gap: Spacing.sm,
     marginTop: 4,
-    marginBottom: 16,
+    marginBottom: Spacing.lg,
   },
   option: {
     paddingVertical: 11,
     paddingHorizontal: 14,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E5E1EE',
+    borderColor: Colors.border,
     backgroundColor: Colors.bgLight,
   },
   optionSelected: {
     borderColor: Colors.primary,
-    backgroundColor: '#F5F0FF',
+    backgroundColor: Colors.bgTint,
   },
   optionText: {
     fontFamily: Fonts.sansMedium,
     fontSize: 14,
-    color: '#1C1033',
+    color: Colors.textDark,
   },
   optionTextSelected: {
     color: Colors.primary,
   },
   freeWrap: {
-    marginBottom: 16,
+    marginBottom: Spacing.lg,
   },
   freeLabel: {
     fontFamily: Fonts.sansMedium,
@@ -207,15 +207,15 @@ const styles = StyleSheet.create({
   },
   freeInput: {
     minHeight: 70,
-    paddingHorizontal: 12,
+    paddingHorizontal: Spacing.md,
     paddingVertical: Platform.OS === 'web' ? 10 : 12,
     fontFamily: Fonts.sansRegular,
     fontSize: 14,
-    color: '#1C1033',
+    color: Colors.textDark,
     backgroundColor: Colors.bgLight,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E5E1EE',
+    borderColor: Colors.border,
     textAlignVertical: 'top',
   },
   submitBtn: {
@@ -229,6 +229,6 @@ const styles = StyleSheet.create({
   skipText: {
     fontFamily: Fonts.sansMedium,
     fontSize: 13,
-    color: '#9ca3af',
+    color: Colors.textMuted,
   },
 });

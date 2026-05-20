@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { useAuthStore } from './useAuthStore';
 import { useProfileStore } from './useProfileStore';
+import { useSocialStore } from './useSocialStore';
 import {
   getOrCreateConversation,
   getConversations,
@@ -15,6 +16,23 @@ import {
   type DMMessage,
 } from '../services/messages';
 import type { Unsubscribe } from 'firebase/firestore';
+
+/**
+ * Drop conversations whose other participant is on the current user's
+ * blocked list. Applied at every read path (initial load + live listener)
+ * so the unread badge and the conversation list stay consistent with the
+ * thread view, which already hides blocked messages (CLAUDE.md Rule #1:
+ * the blocked filter must be applied everywhere).
+ */
+function filterBlockedConvs(uid: string, convs: DMConversation[]): DMConversation[] {
+  const blocked = useSocialStore.getState().blockedUids;
+  if (!blocked || blocked.length === 0) return convs;
+  const blockedSet = new Set(blocked);
+  return convs.filter((c) => {
+    const other = c.participants.find((p) => p !== uid);
+    return other ? !blockedSet.has(other) : true;
+  });
+}
 
 interface DMState {
   conversations: DMConversation[];
@@ -83,7 +101,8 @@ export const useDMStore = create<DMState>((set, get) => ({
 
     set({ isLoadingConversations: true });
     try {
-      const conversations = await getConversations(uid);
+      const raw = await getConversations(uid);
+      const conversations = filterBlockedConvs(uid, raw);
       const unreadTotal = conversations.filter((c) => c.unreadBy.includes(uid)).length;
       set({ conversations, unreadTotal });
     } catch (error) {
@@ -121,6 +140,14 @@ export const useDMStore = create<DMState>((set, get) => ({
     const myName = useProfileStore.getState().motherName || 'User';
     const myPhoto = useProfileStore.getState().photoUrl || '';
     if (!uid) return;
+
+    // Refuse to send if the recipient is blocked. The UI hides their
+    // thread but a race (unblock+block toggling) could otherwise reach
+    // here. Belt-and-braces — the Firestore rule should also reject.
+    if (useSocialStore.getState().isBlocked(otherUid)) {
+      console.warn('[dm] refused send to blocked uid');
+      return;
+    }
 
     set({ isSending: true });
     try {
@@ -212,7 +239,12 @@ export const useDMStore = create<DMState>((set, get) => ({
       return () => stopConvSub();
     }
     stopConvSub();
-    const unsub = subscribeConversations(uid, (conversations, unreadTotal) => {
+    const unsub = subscribeConversations(uid, (rawConvs, _rawUnread) => {
+      // Filter blocked here too so the badge and the list never disagree.
+      // We can't trust the listener's pre-computed unreadTotal because we
+      // may have removed conversations from `conversations`.
+      const conversations = filterBlockedConvs(uid, rawConvs);
+      const unreadTotal = conversations.filter((c) => c.unreadBy.includes(uid)).length;
       set({ conversations, unreadTotal });
     });
     _convUnsub = unsub ?? null;

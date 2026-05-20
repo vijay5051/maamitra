@@ -8,7 +8,14 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { INDIAN_STATES } from '../../data/states';
-import { Colors } from '../../constants/theme';
+import {
+  Colors,
+  Fonts,
+  FontSize,
+  Radius,
+  Spacing,
+  withAlpha,
+} from '../../constants/theme';
 
 interface StateSelectorProps {
   onSelect: (state: string) => void;
@@ -38,9 +45,8 @@ export default function StateSelector({ onSelect, selected }: StateSelectorProps
 
   const filtered = useMemo(() => {
     if (!query.trim()) return INDIAN_STATES;
-    return INDIAN_STATES.filter((s) =>
-      s.toLowerCase().includes(query.toLowerCase())
-    );
+    const q = query.toLowerCase();
+    return INDIAN_STATES.filter((s) => s.toLowerCase().includes(q));
   }, [query]);
 
   const pick = (state: string) => {
@@ -58,12 +64,13 @@ export default function StateSelector({ onSelect, selected }: StateSelectorProps
           style={styles.selectedField}
           onPress={() => setOpen(true)}
           accessibilityLabel="Change state"
+          accessibilityRole="button"
         >
           <Ionicons name="location-outline" size={18} color={Colors.primary} style={styles.searchIcon} />
           <Text style={styles.selectedFieldText} numberOfLines={1}>
             {selected}
           </Text>
-          <Ionicons name="chevron-down" size={16} color="#9ca3af" />
+          <Ionicons name="chevron-down" size={16} color={Colors.textMuted} />
         </TouchableOpacity>
       </View>
     );
@@ -72,29 +79,34 @@ export default function StateSelector({ onSelect, selected }: StateSelectorProps
   return (
     <View style={styles.container}>
       <View style={styles.searchRow}>
-        <Ionicons name="search" size={16} color="#9ca3af" style={styles.searchIcon} />
+        <Ionicons name="search" size={16} color={Colors.textMuted} style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
           value={query}
           onChangeText={setQuery}
           placeholder="Search state…"
-          placeholderTextColor="#9ca3af"
+          placeholderTextColor={Colors.textMuted}
           autoFocus={!!selected}
+          accessibilityLabel="Search states"
         />
         {query.length > 0 ? (
           <TouchableOpacity
             onPress={() => setQuery('')}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityLabel="Clear search"
+            accessibilityRole="button"
           >
-            <Ionicons name="close-circle" size={16} color="#9ca3af" />
+            <Ionicons name="close-circle" size={16} color={Colors.textMuted} />
           </TouchableOpacity>
         ) : selected ? (
           // Already picked — let the user collapse without changing anything.
           <TouchableOpacity
             onPress={() => setOpen(false)}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityLabel="Collapse state picker"
+            accessibilityRole="button"
           >
-            <Ionicons name="chevron-up" size={16} color="#9ca3af" />
+            <Ionicons name="chevron-up" size={16} color={Colors.textMuted} />
           </TouchableOpacity>
         ) : null}
       </View>
@@ -113,6 +125,8 @@ export default function StateSelector({ onSelect, selected }: StateSelectorProps
                 key={item}
                 onPress={() => pick(item)}
                 activeOpacity={0.7}
+                accessibilityLabel={`Select ${item}`}
+                accessibilityRole="button"
                 style={[
                   styles.stateRow,
                   isLast && styles.stateRowLast,
@@ -125,7 +139,7 @@ export default function StateSelector({ onSelect, selected }: StateSelectorProps
                 {isSelected ? (
                   <Ionicons name="checkmark" size={18} color={Colors.primary} />
                 ) : (
-                  <Ionicons name="chevron-forward" size={16} color="#d1d5db" />
+                  <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
                 )}
               </TouchableOpacity>
             );
@@ -138,84 +152,86 @@ export default function StateSelector({ onSelect, selected }: StateSelectorProps
 
 const styles = StyleSheet.create({
   container: {
-    gap: 12,
+    gap: Spacing.md,
   },
   selectedField: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f9fafb',
-    borderRadius: 12,
+    backgroundColor: Colors.cardBg,
+    borderRadius: Radius.sm,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    paddingHorizontal: 14,
-    paddingVertical: 14,
+    borderColor: Colors.border,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.md,
     minHeight: 48,
   },
   selectedFieldText: {
     flex: 1,
-    fontSize: 15,
-    color: '#1a1a2e',
-    fontWeight: '600',
-    marginLeft: 4,
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: FontSize.md,
+    color: Colors.textDark,
+    marginLeft: Spacing.xs,
   },
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fdf6ff',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    backgroundColor: Colors.bgTint,
+    borderRadius: Radius.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
     borderWidth: 1,
-    borderColor: 'rgba(28, 16, 51, 0.09)',
+    borderColor: withAlpha(Colors.textDark, 0.09),
   },
   searchIcon: {
-    marginRight: 8,
+    marginRight: Spacing.sm,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
-    color: '#1a1a2e',
+    fontFamily: Fonts.sansRegular,
+    fontSize: FontSize.sm,
+    color: Colors.textDark,
   },
   listArea: {
-    borderRadius: 12,
-    backgroundColor: '#ffffff',
+    borderRadius: Radius.sm,
+    backgroundColor: Colors.white,
     borderWidth: 1,
-    borderColor: '#f3e8ff',
+    borderColor: Colors.borderSoft,
     overflow: 'hidden',
   },
   stateRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 13,
-    paddingHorizontal: 14,
+    paddingVertical: Spacing.md + 1,
+    paddingHorizontal: Spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomColor: Colors.borderSoft,
     minHeight: 44,
   },
   stateRowLast: {
     borderBottomWidth: 0,
   },
   stateRowSelected: {
-    backgroundColor: '#F5F0FF',
+    backgroundColor: Colors.bgTint,
   },
   stateText: {
-    fontSize: 15,
-    color: '#1a1a2e',
-    fontWeight: '500',
     flex: 1,
+    fontFamily: Fonts.sansMedium,
+    fontSize: FontSize.md,
+    color: Colors.textDark,
   },
   stateTextSelected: {
+    fontFamily: Fonts.sansBold,
     color: Colors.primary,
-    fontWeight: '700',
   },
   emptyRow: {
-    paddingVertical: 18,
-    paddingHorizontal: 14,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.md,
     alignItems: 'center',
   },
   emptyText: {
-    fontSize: 13,
-    color: '#9ca3af',
+    fontFamily: Fonts.sansRegular,
+    fontSize: FontSize.sm,
+    color: Colors.textMuted,
   },
 });

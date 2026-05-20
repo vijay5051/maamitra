@@ -10,6 +10,7 @@
 // shipped to the browser bundle — it's worker-only code now. Closes
 // Codex G4 (system prompt extractable from web JS bundle).
 import { auth } from './firebase';
+import { MAX_CHAT_HISTORY_API } from '../constants/config';
 import type { ChatContext, ParentGenderCtx } from '../lib/promptBuilder';
 
 export type { ChatContext, ParentGenderCtx };
@@ -63,10 +64,9 @@ export async function sendMessage(
     // Auto-compact long threads — the worker also enforces this but the
     // client trims first so we don't pay the network round trip on payloads
     // that would have been rejected.
-    const MAX_HISTORY = 30;
     let trimmed = messages;
-    if (messages.length > MAX_HISTORY) {
-      const tail = messages.slice(-MAX_HISTORY);
+    if (messages.length > MAX_CHAT_HISTORY_API) {
+      const tail = messages.slice(-MAX_CHAT_HISTORY_API);
       const firstUserIdx = tail.findIndex((m) => m.role === 'user');
       trimmed = firstUserIdx >= 0 ? tail.slice(firstUserIdx) : tail;
     }

@@ -2,7 +2,7 @@ import React from 'react';
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Illustration } from './Illustration';
-import { Colors, Fonts } from '../../constants/theme';
+import { Colors, Fonts, Radius, Spacing } from '../../constants/theme';
 
 /**
  * Top-level error boundary. Wraps the entire app so a thrown error during
@@ -100,11 +100,11 @@ export default class RootErrorBoundary extends React.Component<
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#FFFCF7',
+    backgroundColor: Colors.cardBg,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 32,
+    paddingHorizontal: Spacing.xxl,
+    paddingVertical: Spacing.xxxl,
   },
   heroWrap: {
     width: '100%',
@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
     marginBottom: 22,
   },
   heroCard: {
-    borderRadius: 28,
+    borderRadius: Radius.xxl,
     paddingVertical: 26,
     paddingHorizontal: 18,
     alignItems: 'center',
@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
   subheading: {
     fontFamily: Fonts.sansRegular,
     fontSize: 14,
-    color: '#6b7280',
+    color: Colors.textLight,
     textAlign: 'center',
     marginBottom: 18,
     maxWidth: 360,
@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 480,
     backgroundColor: '#FFF1F2',
-    borderRadius: 16,
+    borderRadius: Radius.md,
     padding: 14,
     borderWidth: 1,
     borderColor: '#FBCFE8',
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary,
     paddingHorizontal: 28,
     paddingVertical: 13,
-    borderRadius: 16,
+    borderRadius: Radius.md,
     minWidth: 170,
     alignItems: 'center',
     shadowColor: Colors.primary,
@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   btnText: {
-    color: '#fff',
+    color: Colors.white,
     fontFamily: Fonts.sansBold,
     fontSize: 15,
   },
@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontFamily: Fonts.sansRegular,
     fontSize: 11,
-    color: '#9CA3AF',
+    color: Colors.textMuted,
     textAlign: 'center',
   },
 });
