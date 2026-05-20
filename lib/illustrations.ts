@@ -59,6 +59,11 @@ export const illustrations = {
   quickMilestones: require('../assets/illustrations/quick-milestones.webp'),
   quickRecipes: require('../assets/illustrations/quick-recipes.webp'),
   quickSchemes: require('../assets/illustrations/quick-schemes.webp'),
+  quickTeeth: require('../assets/illustrations/quick-teeth.webp'),
+  quickTiffin: require('../assets/illustrations/quick-tiffin.webp'),
+  quickMood: require('../assets/illustrations/quick-mood.webp'),
+  quickPregnancy: require('../assets/illustrations/quick-pregnancy.webp'),
+  quickGrowth: require('../assets/illustrations/quick-growth.webp'),
 
   // Yoga poses
   yogaCatCow: require('../assets/illustrations/yoga-cat-cow.webp'),

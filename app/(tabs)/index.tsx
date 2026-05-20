@@ -89,23 +89,24 @@ function getHeroPlaceholder(name: string, ageMonths: number | null, isExpecting:
 
 const QUICK_ILLUS: Record<string, IllustrationName> = {
   // ── Age/stage tiles ──
-  newborn: 'quickSleep',       // sleep tips for <6mo
-  solids: 'quickDiet',         // start solids prompt
-  dev: 'quickMilestones',      // development card for 24mo+
-  pregnancy: 'topicPregnancy', // pregnancy tips (isExpecting)
+  newborn: 'quickSleep',         // sleep tips for <6mo
+  solids: 'quickDiet',           // start solids prompt
+  dev: 'quickGrowth',            // development card for 24mo+
+  pregnancy: 'quickPregnancy',   // pregnancy tips (isExpecting)
 
   // ── Health tiles ──
-  vaccine: 'quickVaccines',    // next vaccine reminder
-  teeth: 'quickMilestones',    // tooth eruption is a milestone
-  foods: 'quickDiet',          // first-foods tracker
+  vaccine: 'quickVaccines',      // next vaccine reminder
+  teeth: 'quickTeeth',           // tooth eruption tracker
+  foods: 'quickDiet',            // first-foods tracker (6–12mo)
+  tiffin: 'quickTiffin',         // tiffin / family meals (1yr+)
 
   // ── Scheme ──
-  scheme: 'quickSchemes',      // government scheme
+  scheme: 'quickSchemes',        // government scheme
 
   // ── Wellness / activity ──
-  yoga: 'wellnessHero',        // yoga session pick
-  gentle: 'wellnessHero',      // gentle check-in (low mood)
-  mood: 'wellnessHero',        // mood card when not yet logged today
+  yoga: 'wellnessHero',          // yoga session pick
+  gentle: 'quickMood',           // gentle check-in (low mood)
+  mood: 'quickMood',             // mood card when not yet logged today
 
   // ── AI / library tiles ──
   'continue-chat': 'featureAi',  // continue recent AI chat
