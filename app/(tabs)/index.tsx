@@ -1896,6 +1896,8 @@ function buildTodayCards({
   const goSavedAnswers = () =>
     router.push({ pathname: '/(tabs)/library', params: { tab: 'saved' } });
   const goHealth = () => router.push('/(tabs)/health');
+  const goMilestones = () =>
+    router.push({ pathname: '/(tabs)/health', params: { tab: 'milestones' } });
   const goSchemes = () =>
     router.push({ pathname: '/(tabs)/health', params: { tab: 'schemes' } });
   const goTeeth = () =>
@@ -1997,7 +1999,7 @@ function buildTodayCards({
         bg: Colors.bgPink,
         value: 'Development',
         label: `${activeKid.name} · ${ageLabel}`,
-        onPress: goFamily,
+        onPress: goMilestones,
       });
     }
   }
@@ -2323,7 +2325,7 @@ function buildTodayCards({
         bg: '#F5F0FF',
         value: upcoming.title.length > 22 ? upcoming.title.slice(0, 20) + '…' : upcoming.title,
         label: `${upcoming.emoji} ${upcoming.ageLabel}`,
-        onPress: goFamily,
+        onPress: goMilestones,
       });
     }
   }
