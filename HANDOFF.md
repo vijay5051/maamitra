@@ -17,17 +17,39 @@ Plan B — New Signup Journey queued; let Plan A bake 24–48h in production fir
 
 ## Last action
 
-Landed Plan A — Auth Hardening (`docs/superpowers/plans/2026-05-19-auth-hardening.md`):
+Settings + You-sheet redesign (2026-05-20).
 
-- Schema: added `'not-set'` to Gender type; added `dismissedPrompts` map to profile store; added `isCacheTrustedFor` helper; added `firestoreHydratedForUid` tracking.
-- Three-gate cold-start guard in `app/index.tsx` (fixes "sign-in routes to signup form" bug). G1 auth resolved, G2 profile hydrated, G3 cache-trust or firestore-ready.
-- Universal phone-first gate: any authed non-admin user without `phoneVerified` now redirects to `/(auth)/phone` (new behaviour).
-- Unified sign-out: new `hooks/useSignOut.ts` + `SignOutConfirmModal` + `SignOutOverlay`. Replaced raw `signOut()` callsites in SettingsModal, admin/index, admin/settings. `tests/grep-signout.test.ts` enforces no raw callsites going forward.
-- Auth observability: `lib/authObservability.ts` with structured event logging (gate-pending, transitions, sign-out lifecycle, web-persistence failures). Wired into useAuthStore.
-- 5-second cache-stuck escape hatch on welcome screen: surfaces "Reset local storage" link after 5s `isLoading`. Backed by `lib/storageEscape.ts` (wipeAllLocalStorage).
-- 12 new tests, all in `tests/` (62 total tests passing). TypeScript clean.
+- Removed `components/ui/SettingsModal.tsx` (2469 lines) and replaced with a real Expo Router stack at `app/settings/*`:
+  - `_layout.tsx`, `index.tsx`, `profile.tsx`, `account.tsx`,
+    `notifications.tsx`, `privacy.tsx`, `about.tsx`, `edit-kid.tsx`.
+- Each sub-screen is independently deep-linkable; the settings index is
+  a flat list of rows that push into focused sub-screens (no internal
+  quick-grid that just scroll-anchors back into itself).
+- Shared primitives: `components/settings/SettingsPrimitives.tsx`
+  (Row/Toggle/Header/Card/Divider), `components/settings/ScreenHeader.tsx`,
+  `components/ui/IdentityStrip.tsx` (compact + expanded variants).
+- Avatar "You" sheet slimmed: removed Edit profile row, Privacy row,
+  Library, Health records, and "All settings" launcher. Renamed
+  "Notifications" → "Activity" (eliminates the name clash with the push
+  notification settings screen). Added footer Settings button + inline
+  Sign-out so it's reachable in one tap from the avatar.
+- All four tab files migrated to `router.push('/settings/...')`:
+  `app/(tabs)/index.tsx`, `chat.tsx`, `community.tsx`, `family.tsx`.
+- Deep-link contract preserved: `?openSettings=1|edit|privacy` is still
+  honoured by `index.tsx`'s `useEffect` and forwarded via `router.push`
+  to the matching `/settings/*` route. AI prompt docs in
+  `lib/promptBuilder.ts` and the route-alias map in
+  `components/chat/ChatBubble.tsx` updated to point at the new paths.
+- Pre-existing TS error in `components/community/ConversationsSheet.tsx`
+  (missing `Platform` import) fixed on the way through.
+- 86 tests pass. TypeScript clean. Biome clean.
 
-**Behaviour change to be aware of:** Existing users without `phoneVerified` will be redirected to `/(auth)/phone` on next launch. They cannot reach `/(tabs)` without verifying. This is the phone-first promise.
+**Behaviour change to be aware of:** Settings is no longer a modal — it
+is a real route stack. The avatar sheet no longer shows Library, Health
+records, Edit profile, Privacy, Share feedback, or "All settings" as
+inline rows; the only ways into Settings from Home are the footer
+Settings button or the existing deep-links. Sign out is now 1-tap from
+the avatar; Delete account stays inside `/settings` (3 taps).
 
 ## Next step
 

@@ -48,7 +48,6 @@ import { GOVERNMENT_SCHEMES } from '../../data/schemes';
 import { YOGA_SESSIONS } from '../../data/yogaSessions';
 import { MILESTONES } from '../../data/milestones';
 import { filterByAudience, parentGenderToAudience } from '../../data/audience';
-import SettingsModal from '../../components/ui/SettingsModal';
 import NotificationsSheet from '../../components/community/NotificationsSheet';
 import ConversationsSheet from '../../components/community/ConversationsSheet';
 import HelpSupportSheet from '../../components/ui/HelpSupportSheet';
@@ -130,6 +129,9 @@ import Reanimated, {
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import { useDMStore } from '../../store/useDMStore';
 import { useFeedbackStore } from '../../store/useFeedbackStore';
+import { useSignOut } from '../../hooks/useSignOut';
+import SignOutConfirmModal from '../../components/auth/SignOutConfirmModal';
+import SignOutOverlay from '../../components/auth/SignOutOverlay';
 
 // ─── Home (landing) tab ───────────────────────────────────────────────
 // Replaces Chat as the post-login landing. AI Chat is the hero (top bar
@@ -180,11 +182,12 @@ const FEATURE_GUIDE_CARDS: Array<{
 export default function HomeTab() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  // Avatar tap opens a quick-access profile hub with shortcuts to
-  // Edit Profile, Library, Health records, Notifications, Privacy,
-  // Help & Support. Distinct from the header's gear icon which opens
-  // the full Settings modal.
+  // Avatar tap opens the "You" sheet — identity, child switcher, inbox.
+  // Settings is reachable via the footer "Settings" button (one tap into
+  // the canonical /settings stack). The sheet no longer mirrors settings
+  // shortcuts so the two surfaces don't compete.
   const [profileOpen, setProfileOpen] = useState(false);
+  const signOut = useSignOut();
   const [firstRunOpen, setFirstRunOpen] = useState(false);
   const [featureGuideOpen, setFeatureGuideOpen] = useState(false);
   const [featureGuideSkippedThisSession, setFeatureGuideSkippedThisSession] = useState(false);
@@ -201,15 +204,12 @@ export default function HomeTab() {
   const [notifsOpen, setNotifsOpen] = useState(false);
   const [messagesOpen, setMessagesOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
-  const [settingsView, setSettingsView] = useState<
-    null | 'main' | 'edit-profile' | 'privacy'
-  >(null);
 
   // Deep-link query params: chat-bubble action chips and other in-app
-  // links can navigate to /(tabs)?openProfile=1 to pop the profile
-  // sheet, or /(tabs)?openSettings=1 (or =privacy / =edit) to open
-  // the corresponding Settings view. We consume the param once on
-  // mount/route-change so a refresh doesn't keep re-opening the sheet.
+  // links can navigate to /(tabs)?openProfile=1 to pop the You sheet,
+  // or to ?openSettings=1 (or =privacy / =edit) which we forward to the
+  // matching /settings sub-route. Old URLs from cached AI replies still
+  // resolve, but the canonical home for settings is the /settings stack.
   const search = useLocalSearchParams<{
     openProfile?: string;
     openSettings?: string;
@@ -220,9 +220,9 @@ export default function HomeTab() {
     }
     if (search.openSettings) {
       const v = String(search.openSettings);
-      if (v === 'privacy') setSettingsView('privacy');
-      else if (v === 'edit' || v === 'edit-profile') setSettingsView('edit-profile');
-      else setSettingsView('main');
+      if (v === 'privacy') router.push('/settings/privacy');
+      else if (v === 'edit' || v === 'edit-profile') router.push('/settings/profile');
+      else router.push('/settings');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search.openProfile, search.openSettings]);
@@ -1486,7 +1486,7 @@ export default function HomeTab() {
                 <TouchableOpacity
                   onPress={() => {
                     setProfileOpen(false);
-                    setTimeout(() => setSettingsView('edit-profile'), 120);
+                    setTimeout(() => router.push('/settings/profile'), 120);
                   }}
                   style={styles.sheetEditBtn}
                   activeOpacity={0.7}
@@ -1582,60 +1582,14 @@ export default function HomeTab() {
               />
             </View>
 
-            <Text style={styles.sheetSectionLabel}>You</Text>
-            <View style={styles.profileGroup}>
-              <ProfileRow
-                icon="person-outline"
-                label="Edit profile"
-                sub="Name, photo, bio"
-                onPress={() => {
-                  setProfileOpen(false);
-                  setTimeout(() => setSettingsView('edit-profile'), 120);
-                }}
-              />
-              <View style={styles.profileDivider} />
-              <ProfileRow
-                icon="lock-closed-outline"
-                label="Privacy"
-                sub="Control what others can see"
-                onPress={() => {
-                  setProfileOpen(false);
-                  setTimeout(() => setSettingsView('privacy'), 120);
-                }}
-              />
-            </View>
-
-            <Text style={styles.sheetSectionLabel}>Content</Text>
-            <View style={styles.profileGroup}>
-              <ProfileRow
-                icon="book-outline"
-                label="Library"
-                sub="Articles & guides"
-                onPress={() => {
-                  setProfileOpen(false);
-                  router.push('/(tabs)/library');
-                }}
-              />
-              <View style={styles.profileDivider} />
-              <ProfileRow
-                icon="medical-outline"
-                label="Health records"
-                sub="Reports, prescriptions"
-                onPress={() => {
-                  setProfileOpen(false);
-                  router.push('/(tabs)/health');
-                }}
-              />
-            </View>
-
-            <Text style={styles.sheetSectionLabel}>Activity</Text>
+            <Text style={styles.sheetSectionLabel}>Inbox</Text>
             <View style={styles.profileGroup}>
               <ProfileRow
                 icon="notifications-outline"
-                label="Notifications"
+                label="Activity"
                 sub={
                   socialUnread > 0
-                    ? `${socialUnread} new notification${socialUnread === 1 ? '' : 's'}`
+                    ? `${socialUnread} new ${socialUnread === 1 ? 'update' : 'updates'}`
                     : 'Reactions, comments, follows'
                 }
                 onPress={() => {
@@ -1655,38 +1609,45 @@ export default function HomeTab() {
               />
             </View>
 
-            <Text style={styles.sheetSectionLabel}>Support</Text>
             <View style={styles.profileGroup}>
               <ProfileRow
-                icon="chatbubble-ellipses-outline"
-                label="Share feedback"
-                sub="Tell us what you love and what to fix"
-                onPress={() => {
-                  setProfileOpen(false);
-                  setTimeout(() => useFeedbackStore.getState().openSurvey(), 120);
-                }}
-              />
-              <View style={styles.profileDivider} />
-              <ProfileRow
                 icon="help-circle-outline"
-                label="Help & support"
-                sub="FAQ, email us, send a message"
+                label="Help & feedback"
+                sub="FAQ, send a message, share feedback"
                 onPress={() => {
                   setProfileOpen(false);
                   setTimeout(() => setHelpOpen(true), 120);
                 }}
               />
-              <View style={styles.profileDivider} />
-              <ProfileRow
-                icon="settings-outline"
-                label="All settings"
-                sub="Full settings, sign out, delete account"
-                onPress={() => {
-                  setProfileOpen(false);
-                  setTimeout(() => setSettingsView('main'), 120);
-                }}
-              />
             </View>
+
+            <TouchableOpacity
+              style={styles.sheetPrimaryFooterBtn}
+              onPress={() => {
+                setProfileOpen(false);
+                setTimeout(() => router.push('/settings'), 120);
+              }}
+              activeOpacity={0.75}
+              accessibilityRole="button"
+              accessibilityLabel="Settings"
+            >
+              <Ionicons name="settings-outline" size={18} color={Colors.primary} />
+              <Text style={styles.sheetPrimaryFooterText}>Settings</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.sheetSecondaryFooterBtn}
+              onPress={() => {
+                setProfileOpen(false);
+                setTimeout(() => signOut.open(), 120);
+              }}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Sign out"
+            >
+              <Ionicons name="log-out-outline" size={16} color={Colors.textLight} />
+              <Text style={styles.sheetSecondaryFooterText}>Sign out</Text>
+            </TouchableOpacity>
             </ScrollView>
             </Reanimated.View>
           </GestureDetector>
@@ -1723,15 +1684,6 @@ export default function HomeTab() {
         onDismiss={handleSurveyDismiss}
       />
 
-      {/* Settings (used for both Edit profile and Privacy). Single source
-          of truth for profile editing + privacy toggles — no duplication. */}
-      <SettingsModal
-        visible={settingsView !== null}
-        onClose={() => setSettingsView(null)}
-        initialView={settingsView === 'edit-profile' ? 'edit-profile' : 'main'}
-        scrollToPrivacy={settingsView === 'privacy'}
-      />
-
       {/* Community notifications — same sheet used in the Community tab. */}
       <NotificationsSheet
         visible={notifsOpen}
@@ -1744,6 +1696,14 @@ export default function HomeTab() {
 
       {/* Help & Support — FAQ + contact form writing to Firestore. */}
       <HelpSupportSheet visible={helpOpen} onClose={() => setHelpOpen(false)} />
+
+      {/* Sign-out flow, triggered from the You-sheet footer. */}
+      <SignOutConfirmModal
+        visible={signOut.isConfirmOpen}
+        onCancel={signOut.cancel}
+        onConfirm={signOut.confirm}
+      />
+      <SignOutOverlay state={signOut.overlayState} />
     </View>
   );
 }
@@ -3637,6 +3597,41 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#F0EDF5',
     marginLeft: 64,
+  },
+  // Footer buttons for the You sheet — Settings is the primary entry and
+  // Sign out sits below it as a quieter secondary. Both visually distinct
+  // from the inbox/help rows above so the user reads them as "go-do"
+  // actions rather than navigation rows.
+  sheetPrimaryFooterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#E5E1EE',
+    borderRadius: 14,
+    paddingVertical: 14,
+    marginTop: Spacing.md,
+  },
+  sheetPrimaryFooterText: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 15,
+    color: Colors.primary,
+    letterSpacing: -0.1,
+  },
+  sheetSecondaryFooterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: Spacing.md,
+    marginTop: Spacing.xs,
+  },
+  sheetSecondaryFooterText: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 13,
+    color: Colors.textLight,
   },
   profileIconWrap: {
     width: 36,

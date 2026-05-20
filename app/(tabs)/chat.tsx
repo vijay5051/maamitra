@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   FlatList,
   Image,
@@ -33,7 +33,6 @@ import TypingIndicator from '../../components/ui/TypingIndicator';
 import GradientAvatar from '../../components/ui/GradientAvatar';
 import { Illustration } from '../../components/ui/Illustration';
 import { AppIcon } from '../../components/ui/AppIcon';
-import SettingsModal from '../../components/ui/SettingsModal';
 import { Colors, Fonts, withAlpha } from '../../constants/theme';
 
 // ─── Allergy Modal ─────────────────────────────────────────────────────────────
@@ -242,7 +241,7 @@ export default function ChatScreen() {
 
   const [allergyModalVisible, setAllergyModalVisible] = useState(false);
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
-  const [settingsVisible, setSettingsVisible] = useState(false);
+  const router = useRouter();
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   // WhatsApp-style nav: tab opens to threads list; tap a thread or "New
@@ -556,7 +555,7 @@ export default function ChatScreen() {
               </View>
             ) : null}
             <TouchableOpacity
-              onPress={() => setSettingsVisible(true)}
+              onPress={() => router.push('/settings')}
               style={styles.gearBtn}
               activeOpacity={0.7}
               accessibilityRole="button"
@@ -691,8 +690,6 @@ export default function ChatScreen() {
       {/* Allergy modal */}
       <AllergyModal visible={allergyModalVisible} onDone={handleAllergyDone} />
 
-      {/* Settings modal */}
-      <SettingsModal visible={settingsVisible} onClose={() => setSettingsVisible(false)} />
       <ChatHistorySheet visible={showHistory} onClose={() => setShowHistory(false)} />
     </View>
   );

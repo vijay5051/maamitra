@@ -23,13 +23,12 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCommunityStore, CommunityFilter } from '../../store/useCommunityStore';
 import { useProfileStore } from '../../store/useProfileStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useSocialStore } from '../../store/useSocialStore';
 import GradientAvatar from '../../components/ui/GradientAvatar';
-import SettingsModal from '../../components/ui/SettingsModal';
 import PostCardComponent from '../../components/community/PostCard';
 import UserProfileModalComponent, {
   FollowListModal,
@@ -1081,7 +1080,7 @@ export default function CommunityScreen() {
   }, []);
 
   const [showNewPost, setShowNewPost] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
+  const router = useRouter();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showMessages, setShowMessages] = useState(false);
   const [viewingUid, setViewingUid] = useState<string | null>(null);
@@ -1213,8 +1212,6 @@ export default function CommunityScreen() {
         </View>
       </LinearGradient>
 
-      <SettingsModal visible={showSettings} onClose={() => setShowSettings(false)} />
-
       {/* Notifications sheet */}
       <NotificationsSheet
         visible={showNotifications}
@@ -1260,7 +1257,7 @@ export default function CommunityScreen() {
           uid={viewingUid}
           visible={viewingUid !== null}
           onClose={() => setViewingUid(null)}
-          onEditProfile={() => setShowSettings(true)}
+          onEditProfile={() => router.push('/settings/profile')}
         />
       )}
 
@@ -1293,7 +1290,7 @@ export default function CommunityScreen() {
             </View>
             <ContextualAskChip prompt="Ask Maamitra about what other moms are discussing" />
             <MyProfileCard
-              onEdit={() => setShowSettings(true)}
+              onEdit={() => router.push('/settings/profile')}
               onPostsPress={() => setShowOwnPosts(true)}
               onFollowersPress={() => setShowFollowersList(true)}
               onFollowingPress={() => setShowFollowingList(true)}

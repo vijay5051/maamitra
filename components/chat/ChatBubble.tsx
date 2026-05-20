@@ -35,13 +35,18 @@ interface ActionChip {
 // router (where it produces an "Unmatched Route" page).
 const ALLOWED_PATH_PREFIXES = [
   '/(tabs)',
+  '/settings',
   '/post/',
   '/conversation/',
 ];
 // Common aliases the model occasionally invents → the real route.
 const PATH_ALIASES: Record<string, string> = {
   '/profile': '/(tabs)?openProfile=1',
-  '/settings': '/(tabs)?openSettings=1',
+  '/settings': '/settings',
+  '/settings/profile': '/settings/profile',
+  '/settings/privacy': '/settings/privacy',
+  '/settings/notifications': '/settings/notifications',
+  '/settings/account': '/settings/account',
   '/home': '/(tabs)',
   '/family': '/(tabs)/family',
   '/health': '/(tabs)/health',
@@ -60,11 +65,14 @@ const PATH_ALIASES: Record<string, string> = {
 // Anything else is silently dropped so we don't litter the URL bar with
 // inert ?section=yoga style noise the model occasionally emits.
 const ALLOWED_QUERY_KEYS_BY_PATH: Record<string, string[]> = {
+  // openSettings is kept here for backward-compat with cached AI replies;
+  // /(tabs) forwards it to the matching /settings sub-route on landing.
   '/(tabs)': ['openProfile', 'openSettings'],
   '/(tabs)/health': ['tab'],
   '/(tabs)/wellness': ['focus'],
   '/(tabs)/library': ['tab', 'topic', 'articleId'],
   '/(tabs)/community': ['search'],
+  '/settings/edit-kid': ['kidId'],
 };
 
 function filterQueryString(pathBase: string, qs: string): string {

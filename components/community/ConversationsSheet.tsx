@@ -4,6 +4,7 @@ import {
   FlatList,
   Image,
   Modal,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,

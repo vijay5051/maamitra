@@ -22,7 +22,6 @@ import { MILESTONES } from '../../data/milestones';
 import GradientButton from '../../components/ui/GradientButton';
 import DatePickerField from '../../components/ui/DatePickerField';
 import Card from '../../components/ui/Card';
-import SettingsModal from '../../components/ui/SettingsModal';
 import NotificationsSheet from '../../components/community/NotificationsSheet';
 import ConversationsSheet from '../../components/community/ConversationsSheet';
 import { Illustration } from '../../components/ui/Illustration';
@@ -412,8 +411,6 @@ export default function FamilyScreen() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showMessages, setShowMessages] = useState(false);
-  const [settingsView, setSettingsView] = useState<null | 'edit-profile' | 'edit-kid'>(null);
-  const [editingKidId, setEditingKidId] = useState<string | null>(null);
 
   // Badges for the new global header icons (same store as Home & Community).
   const socialUnread = useSocialStore((s) => s.unreadCount);
@@ -529,15 +526,6 @@ export default function FamilyScreen() {
         </View>
       </LinearGradient>
 
-      <SettingsModal
-        visible={settingsView !== null}
-        onClose={() => {
-          setSettingsView(null);
-          setEditingKidId(null);
-        }}
-        initialView={settingsView === 'edit-kid' ? 'edit-kid' : settingsView === 'edit-profile' ? 'edit-profile' : 'main'}
-        initialKidId={editingKidId}
-      />
       <NotificationsSheet
         visible={showNotifications}
         onClose={() => setShowNotifications(false)}
@@ -637,10 +625,9 @@ export default function FamilyScreen() {
                   <TouchableOpacity
                     style={styles.managePrimaryBtn}
                     activeOpacity={0.82}
-                    onPress={() => {
-                      setEditingKidId(activeKid.id);
-                      setSettingsView('edit-kid');
-                    }}
+                    onPress={() =>
+                      router.push({ pathname: '/settings/edit-kid', params: { kidId: activeKid.id } })
+                    }
                   >
                     <Text style={styles.managePrimaryBtnText}>Edit child details</Text>
                   </TouchableOpacity>
@@ -666,7 +653,7 @@ export default function FamilyScreen() {
           <TouchableOpacity
             style={styles.profileManageBtn}
             activeOpacity={0.82}
-            onPress={() => setSettingsView('edit-profile')}
+            onPress={() => router.push('/settings/profile')}
           >
             <Text style={styles.profileManageBtnText}>Edit your profile</Text>
           </TouchableOpacity>

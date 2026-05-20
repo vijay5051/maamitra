@@ -17,8 +17,8 @@
  * gradually without a single flip-the-switch release.
  *
  * ROLE_LOCK: once `parentGender` is set at signup it cannot be changed
- * from the app UI. See SettingsModal → Edit Profile for the locked
- * read-only display. The explicit lock keeps the content variant stable
+ * from the app UI. See /settings/profile for the locked read-only
+ * display. The explicit lock keeps the content variant stable
  * — if a user's view flipped between role versions, milestones, saved
  * answers, and AI history would read as wildly different from day to
  * day. Lock prevents that confusion.
