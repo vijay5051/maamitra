@@ -21,7 +21,7 @@ import {
   DiaperKind,
   GrowthEntry,
   GrowthTracker,
-  cmToInches,
+  cmToFtIn,
   formatDuration,
   sleepDurationMinutes,
   useGrowthStore,
@@ -196,8 +196,9 @@ type Draft = {
   sleepStart: string;
   sleepEnd: string;
   note: string;
-  // Height-only: user picks cm, inches, or feet+inches; we persist cm.
-  heightUnit: 'cm' | 'in' | 'ft';
+  // Height-only: user picks cm or feet+inches; we persist cm.
+  // Conversion happens on save (ft+in → cm) and on display (cm → either).
+  heightUnit: 'cm' | 'ft';
   heightFeet: string;   // when heightUnit === 'ft'
   heightInches: string; // when heightUnit === 'ft'
 };
@@ -257,7 +258,7 @@ function AddEntrySheet({
       } else {
         const n = parseFloat(draft.value);
         if (!isFinite(n) || n <= 0) return;
-        cm = draft.heightUnit === 'in' ? n * 2.54 : n;
+        cm = n;
       }
       onSave({ ...base, value: Number(cm.toFixed(2)) });
     } else if (tracker.key === 'head') {
@@ -287,6 +288,11 @@ function AddEntrySheet({
       return isFinite(s) && isFinite(e) && e > s;
     }
     if (tracker.key === 'diaper') return !!draft.diaperKind;
+    if (tracker.key === 'height' && draft.heightUnit === 'ft') {
+      const ft = parseFloat(draft.heightFeet) || 0;
+      const inch = parseFloat(draft.heightInches) || 0;
+      return ft * 12 + inch > 0;
+    }
     const n = parseFloat(draft.value);
     return isFinite(n) && n > 0;
   })();
@@ -330,9 +336,9 @@ function AddEntrySheet({
               <>
                 <View style={inputStyles.fieldBlock}>
                   <Text style={inputStyles.fieldLabel}>Value</Text>
-                  {/* Unit toggle row — three options: cm / in / ft+in */}
+                  {/* Unit toggle row — two options: cm / ft+in. We persist cm. */}
                   <View style={[inputStyles.unitToggle, { alignSelf: 'flex-start', marginBottom: 8 }]}>
-                    {(['cm', 'in', 'ft'] as const).map((u) => {
+                    {(['cm', 'ft'] as const).map((u) => {
                       const active = draft.heightUnit === u;
                       const label = u === 'ft' ? 'ft + in' : u;
                       return (
@@ -381,12 +387,12 @@ function AddEntrySheet({
                       <TextInput
                         value={draft.value}
                         onChangeText={(t) => setDraft({ ...draft, value: t })}
-                        placeholder={draft.heightUnit === 'cm' ? 'e.g. 68' : 'e.g. 27'}
+                        placeholder="e.g. 68"
                         keyboardType="decimal-pad"
                         placeholderTextColor={Colors.textMuted}
                         style={inputStyles.fieldInput}
                       />
-                      <Text style={inputStyles.fieldSuffix}>{draft.heightUnit}</Text>
+                      <Text style={inputStyles.fieldSuffix}>cm</Text>
                     </View>
                   )}
                 </View>
@@ -516,7 +522,7 @@ function TrackerCard({
   entries: GrowthEntry[];
   onAdd: () => void;
   onDelete: (entryId: string) => void;
-  heightUnit?: 'cm' | 'in';
+  heightUnit?: 'cm' | 'ft';
   onToggleHeightUnit?: () => void;
 }) {
   const latest = entries[0];
@@ -526,7 +532,7 @@ function TrackerCard({
     if (meta.key === 'head')    return `${(e.value ?? 0).toFixed(1)} cm`;
     if (meta.key === 'height') {
       const cm = e.value ?? 0;
-      return heightUnit === 'in' ? `${cmToInches(cm).toFixed(1)} in` : `${cm.toFixed(1)} cm`;
+      return heightUnit === 'ft' ? cmToFtIn(cm) : `${cm.toFixed(1)} cm`;
     }
     if (meta.key === 'diaper')  {
       const k = e.diaperKind ?? 'wet';
@@ -545,8 +551,8 @@ function TrackerCard({
     if (diff === 0) return null;
     const sign = diff > 0 ? '+' : '';
     const unit = meta.key === 'weight' ? 'kg' : 'cm';
-    const shown = meta.key === 'height' && heightUnit === 'in'
-      ? `${sign}${cmToInches(diff).toFixed(1)} in`
+    const shown = meta.key === 'height' && heightUnit === 'ft'
+      ? `${sign}${cmToFtIn(Math.abs(diff))}`
       : `${sign}${diff.toFixed(meta.key === 'weight' ? 2 : 1)} ${unit}`;
     return `${shown} vs previous`;
   })();
@@ -567,7 +573,7 @@ function TrackerCard({
         </View>
         {meta.key === 'height' && onToggleHeightUnit ? (
           <TouchableOpacity onPress={onToggleHeightUnit} style={styles.unitSwitch} activeOpacity={0.8}>
-            <Text style={styles.unitSwitchText}>{heightUnit === 'in' ? 'inch' : 'cm'}</Text>
+            <Text style={styles.unitSwitchText}>{heightUnit === 'ft' ? 'ft + in' : 'cm'}</Text>
             <Ionicons name="swap-horizontal" size={12} color={Colors.primary} />
           </TouchableOpacity>
         ) : null}
@@ -637,7 +643,7 @@ function TrackerTab({ mode }: { mode: Mode }) {
   const deleteEntry = useGrowthStore((s) => s.deleteEntry);
 
   const [sheetTracker, setSheetTracker] = useState<TrackerMeta | null>(null);
-  const [heightUnit, setHeightUnit] = useState<'cm' | 'in'>('cm');
+  const [heightUnit, setHeightUnit] = useState<'cm' | 'ft'>('cm');
 
   const trackers = mode === 'growth' ? GROWTH_TRACKERS : ROUTINE_TRACKERS;
   const kidId = activeKid?.id ?? '';
@@ -726,7 +732,7 @@ function TrackerTab({ mode }: { mode: Mode }) {
           onAdd={() => setSheetTracker(meta)}
           onDelete={(entryId) => deleteEntry(kidId, meta.key, entryId)}
           heightUnit={meta.key === 'height' ? heightUnit : undefined}
-          onToggleHeightUnit={meta.key === 'height' ? () => setHeightUnit((u) => (u === 'cm' ? 'in' : 'cm')) : undefined}
+          onToggleHeightUnit={meta.key === 'height' ? () => setHeightUnit((u) => (u === 'cm' ? 'ft' : 'cm')) : undefined}
         />
       ))}
 

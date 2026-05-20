@@ -98,6 +98,13 @@ export default function WelcomeScreen() {
     setAuthError('');
     try {
       const credential = await googleSignIn();
+      // Web uses signInWithRedirect — the browser navigates away to Google,
+      // then back to our origin where `getGoogleRedirectResult()` in
+      // useAuthStore resolves the credential on boot, and the global gate
+      // in `app/index.tsx` does the destination routing. So on web we
+      // never get a credential back here; just return and let the redirect
+      // take over.
+      if (!credential) return;
       const dest = await onGoogleCredential(credential);
       if (isAdminEmail(credential.user.email)) return router.replace('/admin');
       if (dest === 'tabs') return router.replace('/(tabs)');

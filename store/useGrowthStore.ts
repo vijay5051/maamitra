@@ -130,6 +130,24 @@ export function cmToInches(cm: number): number {
   return cm / 2.54;
 }
 
+// Formats a height in cm as `X ft Y in` (e.g. 67 cm → `2 ft 2.4 in`).
+// Used by the Growth card so a parent can read their child's height in
+// imperial units even when the underlying value was logged in cm.
+export function cmToFtIn(cm: number): string {
+  if (!isFinite(cm) || cm <= 0) return '— ft';
+  const totalInches = cm / 2.54;
+  const ft = Math.floor(totalInches / 12);
+  const inch = totalInches - ft * 12;
+  return `${ft} ft ${inch.toFixed(1)} in`;
+}
+
+// Inverse of `cmToFtIn` — converts a feet+inches pair into cm. Used by the
+// log sheet when the user enters height in imperial.
+export function ftInToCm(ft: number, inch: number): number {
+  const totalInches = (ft || 0) * 12 + (inch || 0);
+  return totalInches * 2.54;
+}
+
 export function sleepDurationMinutes(e: GrowthEntry): number {
   if (!e.sleepStart || !e.sleepEnd) return 0;
   const ms = new Date(e.sleepEnd).getTime() - new Date(e.sleepStart).getTime();

@@ -2,6 +2,72 @@
 
 These apply to every session on this project. Re-read before starting work.
 
+## 0. Test paths into the app — use BEFORE saying "I can't test"
+
+Three ways to bypass auth and reach the gated screens. Verified against
+the live project config (Identity Toolkit Admin API), not guesses.
+
+### A. Test phone number (EASIEST — same entry point as real users)
+
+Configured directly in Firebase Auth → Phone provider:
+
+- **Phone:** `+91 9999999999`
+- **OTP:** `123456` (always — no SMS sent)
+
+Drive the welcome screen → enter `9999999999` → "Continue" → enter
+`123456` on the OTP screen. Works from `localhost:8081`, the live URL,
+and the Claude Preview headless Chromium (no popup, no OAuth, no
+cross-origin nav).
+
+### B. Email + password
+
+Email/password provider is enabled on the project. Test accounts
+(see `.claude/test-credentials.md`, gitignored):
+
+- **Normal user** — `testuser@maamitra.app` / `Claudia123#`
+- **Admin** — `admin@maamitra.app` / `Claudia123#`
+
+The welcome screen has no email/password UI today, so call the SDK
+directly from the preview's eval:
+
+```js
+const { getAuth, signInWithEmailAndPassword } = await import('firebase/auth');
+await signInWithEmailAndPassword(getAuth(), 'testuser@maamitra.app', 'Claudia123#');
+```
+
+Or use the REST endpoint:
+`POST https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={API_KEY}`
+with `{ email, password, returnSecureToken: true }`.
+
+### C. Google sign-in (last resort — limited in preview)
+
+`testuser@maamitra.app` and `admin@maamitra.app` are also real Google
+accounts. Use the "Continue with Google" button.
+
+**Known limitation:** Claude Preview's headless Chromium does NOT
+follow the cross-origin redirect to `maamitra.co.in/__/auth/handler`
+(SDK marks the pending redirect in sessionStorage but navigation is
+blocked). For Google sign-in, drive the live URL via
+`mcp__Claude_in_Chrome__*` instead — confirm with the user first.
+
+### Authorized domains (already configured)
+
+`localhost`, `maa-mitra-7kird8.firebaseapp.com`, `maa-mitra-7kird8.web.app`,
+`maamitra.co.in`. Firebase rules are NOT the blocker for localhost
+testing — never use that as an excuse without first checking via:
+`curl -H "Authorization: Bearer $TOK" https://identitytoolkit.googleapis.com/admin/v2/projects/maa-mitra-7kird8/config`
+(where `$TOK` is `.tokens.access_token` from `~/.config/configstore/firebase-tools.json`).
+
+### Hard rule
+
+NEVER say "I can't test because of auth" without first trying path A
+(phone OTP — always works). If something genuinely doesn't work, name
+the exact failure (e.g. "preview can't follow cross-origin nav") not a
+vague "auth-gated".
+
+Do NOT fabricate new test accounts, phone numbers, or seeded kid docs —
+ASK if you need something the existing paths don't cover.
+
 ## 1. Cross-reference every change
 When the user asks to change anything — a section, a text string, a component, a
 data shape, a prop — do NOT change only the surface. Before editing:

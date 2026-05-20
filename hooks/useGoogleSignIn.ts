@@ -6,7 +6,7 @@ import {
   buildGoogleProvider,
   GoogleAuthProvider,
   signInWithCredential,
-  signInWithPopup,
+  signInWithRedirect,
 } from '../services/firebase';
 
 const WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
@@ -14,7 +14,10 @@ const WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
 // Lazy-load the native module so the web bundle never reaches into it.
 // `@react-native-google-signin/google-signin` requires Google Play Services
 // at runtime, so it only ships in the Android/iOS native builds; the web
-// build keeps using Firebase's signInWithPopup.
+// build uses Firebase's signInWithRedirect (full-page redirect — works on
+// Safari iOS, in-app browsers, and headless Chromium where popups are
+// blocked). `getGoogleRedirectResult()` in useAuthStore picks up the
+// returned credential on the next boot.
 type NativeGoogleSignin = {
   configure: (opts: {
     webClientId?: string;
@@ -84,7 +87,14 @@ export function useGoogleSignIn() {
 
     if (Platform.OS === 'web') {
       const provider = buildGoogleProvider();
-      return signInWithPopup(auth, provider);
+      // Full-page redirect to Google. The page reloads onto Google's domain,
+      // then back to ours; `getGoogleRedirectResult()` in useAuthStore reads
+      // the credential on boot. This never returns a UserCredential here —
+      // signInWithRedirect resolves to `void` after navigation starts.
+      // We cast to satisfy the shared return type; the redirect handler
+      // owns the post-auth flow.
+      await signInWithRedirect(auth, provider);
+      return undefined as unknown as UserCredential;
     }
 
     if (!nativeGoogleSignin) {
