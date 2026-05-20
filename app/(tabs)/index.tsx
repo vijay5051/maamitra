@@ -26,7 +26,7 @@ import {
   Shadow,
   Spacing,
 } from '../../constants/theme';
-import { useProfileStore } from '../../store/useProfileStore';
+import { useProfileStore, calculateAgeInMonths, isPlausibleDob } from '../../store/useProfileStore';
 import { useWellnessStore } from '../../store/useWellnessStore';
 import { useSocialStore } from '../../store/useSocialStore';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -71,6 +71,21 @@ import KidNamePrompt from '../../components/jit/KidNamePrompt';
 // The prefix-strip handles future hyphenated variants (e.g. milestone-crawl →
 // milestone, teeth-shedding → teeth) automatically. 'quickMilestones' is the
 // final guaranteed-non-null safety net.
+// Returns an age-appropriate placeholder question for the AI bar and
+// first-run demo so a 6-year-old's parent isn't asked about starting solids.
+function getHeroPlaceholder(name: string, ageMonths: number | null, isExpecting: boolean): string {
+  if (isExpecting) return 'What should I eat in my third trimester?';
+  if (ageMonths === null) return 'What should I ask first?';
+  if (ageMonths < 3)  return `Why is ${name} crying so much?`;
+  if (ageMonths < 6)  return `When does ${name} start solids?`;
+  if (ageMonths < 9)  return `Best first foods for ${name}?`;
+  if (ageMonths < 12) return `Is ${name} ready to walk?`;
+  if (ageMonths < 24) return `${name} won't sleep through — help!`;
+  if (ageMonths < 36) return `${name} is having tantrums — any tips?`;
+  if (ageMonths < 60) return `Healthy tiffin ideas for ${name}`;
+  return `${name} is struggling at school — tips?`;
+}
+
 const QUICK_ILLUS: Record<string, IllustrationName> = {
   // ── Age/stage tiles ──
   newborn: 'quickSleep',       // sleep tips for <6mo
@@ -775,11 +790,12 @@ export default function HomeTab() {
   // instead of just dismissing the modal back to home. Same persistence
   // path as dismissFirstRun so the popup never re-appears.
   const tryFirstRunInChat = async () => {
-    const prefill = activeKid?.isExpecting
-      ? 'What should I eat in trimester 2?'
-      : activeKid
-        ? `Is ${activeKid.name} ready for solids?`
-        : 'Hi MaaMitra, is my baby ready for solids?';
+    const firstRunAgeMonths = activeKid && !activeKid.isExpecting && isPlausibleDob(activeKid.dob)
+      ? calculateAgeInMonths(activeKid.dob)
+      : null;
+    const prefill = activeKid
+      ? getHeroPlaceholder(activeKid.name, firstRunAgeMonths, activeKid.isExpecting ?? false)
+      : 'What should I ask MaaMitra first?';
     await dismissFirstRun();
     router.push({ pathname: '/(tabs)/chat', params: { prefill } });
   };
@@ -897,10 +913,11 @@ export default function HomeTab() {
             Previously a gradient-bordered card with a gradient icon tile;
             simplified to match the rest of the refreshed UI. */}
         {(() => {
-          const heroPrompt = activeKid?.isExpecting
-            ? 'What should I eat in trimester 2?'
-            : activeKid
-            ? `Is ${activeKid.name} ready for solids?`
+          const heroAgeMonths = activeKid && !activeKid.isExpecting && isPlausibleDob(activeKid.dob)
+            ? calculateAgeInMonths(activeKid.dob)
+            : null;
+          const heroPrompt = activeKid
+            ? getHeroPlaceholder(activeKid.name, heroAgeMonths, activeKid.isExpecting ?? false)
             : 'What should I ask first?';
           return (
             <TouchableOpacity
@@ -2440,10 +2457,16 @@ function FirstRunHero({
   parentSalutation: string;
   firstName: string;
 }) {
+  const { activeKid } = useActiveKid();
   const [typed, setTyped] = useState('');
   const [showReply, setShowReply] = useState(false);
   const pulse = useRef(new Animated.Value(0)).current;
-  const fullQuestion = `Hi MaaMitra, is my baby ready for solids?`;
+  const demoAgeMonths = activeKid && !activeKid.isExpecting && isPlausibleDob(activeKid.dob)
+    ? calculateAgeInMonths(activeKid.dob)
+    : null;
+  const fullQuestion = activeKid
+    ? getHeroPlaceholder(activeKid.name, demoAgeMonths, activeKid.isExpecting ?? false)
+    : 'Hi MaaMitra, what should I ask first?';
 
   useEffect(() => {
     if (!visible) {
