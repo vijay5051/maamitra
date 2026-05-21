@@ -92,7 +92,7 @@ export async function sendMessage(
       const status = res.status;
       if (status === 429) return "I'm getting a lot of requests right now. Please try again in a moment. 😊";
       if (status === 401) return "⚠️ Your session expired — please sign out and sign in again.";
-      if (status === 413) return "That message is too large — please shorten it or try a smaller image.";
+      if (status === 413) return "That image was too large to send. You can keep chatting — just type your question and I'll answer. Try a smaller image next time. 😊";
       if (status === 426) return "MaaMitra was updated — please refresh the page to get the latest version. 💙";
       throw new Error(`Worker returned ${status}`);
     }

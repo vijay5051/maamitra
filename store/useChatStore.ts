@@ -290,13 +290,17 @@ export const useChatStore = create<ChatState>()(
         if (uidForUserMsg) void recordChatMessage(uidForUserMsg, 'user');
 
         // Build message history for the API (active thread's messages only).
-        // Attachment fields are passed through as sidecars; services/claude.ts
-        // converts them into the Anthropic multimodal content shape.
-        const messagesForApi = [...(get().getActiveMessages() ?? [])].map((m) => ({
+        // Image data is ONLY passed for the latest message — re-sending base64
+        // from older messages bloats every subsequent request and causes 413s
+        // on all follow-up messages, including plain text ones. The model has
+        // no use for images from earlier turns anyway.
+        const allMessages = get().getActiveMessages() ?? [];
+        const lastIdx = allMessages.length - 1;
+        const messagesForApi = allMessages.map((m, idx) => ({
           role: m.role,
           content: m.content,
-          imageDataUrl: m.imageDataUrl,
-          imageMimeType: m.imageMimeType,
+          imageDataUrl: idx === lastIdx ? m.imageDataUrl : undefined,
+          imageMimeType: idx === lastIdx ? m.imageMimeType : undefined,
         }));
 
         try {
