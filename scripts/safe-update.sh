@@ -77,4 +77,16 @@ case " $* " in
   *) extra_args+=("--non-interactive") ;;
 esac
 
-exec npx eas-cli update --branch production "${extra_args[@]}" "$@"
+npx eas-cli update --branch production "${extra_args[@]}" "$@"
+
+# Tag the commit that was just published so "what's pending for OTA?" is
+# always answerable with: git log ota/production-latest..origin/main --oneline
+# (no EAS round-trip, no SHA guessing, no stale HANDOFF.md). Force-move the
+# tag locally + on origin to track the latest published commit.
+published_sha="$(git rev-parse HEAD)"
+git tag -f ota/production-latest "$published_sha" >/dev/null
+if git push -f --quiet origin "ota/production-latest" 2>/dev/null; then
+  echo "✔ Tagged ota/production-latest → $published_sha (pushed to origin)"
+else
+  echo "⚠ Tagged ota/production-latest locally but failed to push tag to origin."
+fi
