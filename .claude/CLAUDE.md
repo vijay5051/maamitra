@@ -141,6 +141,20 @@ After any change, the full delivery chain is, in order:
 Do not stop partway. If Firestore/Storage rules changed, deploy those too.
 Tell the user each link in the chain is done.
 
+**"What's pending for OTA?" — single source of truth.** The
+`ota/production-latest` git tag tracks the last commit published to the
+`production` EAS channel (`scripts/safe-update.sh` force-moves it after
+every successful publish). To answer this question, ALWAYS run:
+
+```bash
+git fetch origin --tags && git log ota/production-latest..origin/main --oneline
+```
+
+Empty output = nothing pending. Do NOT trust `HANDOFF.md`, prior
+conversation context, or another agent's commit list — those drift.
+The tag and `eas update:list --branch production --limit 1` are the
+only sources of truth.
+
 ## 5. Continuous handoff (Claude ↔ Codex)
 Sessions die unpredictably (rate limits, network, tab close). To survive
 that, keep `HANDOFF.md` at the repo root constantly up to date — never
