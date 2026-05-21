@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImageManipulator from 'expo-image-manipulator';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -80,6 +81,37 @@ async function fileToCompressedDataURL(file: File): Promise<{ dataUrl: string; m
     const mime = file.type || 'image/jpeg';
     return { dataUrl: rawDataUrl, mimeType: mime };
   }
+}
+
+/**
+ * Compress a native image URI to max 1120px on the longer edge at 0.82
+ * JPEG quality. Mirrors the web canvas pipeline in fileToCompressedDataURL
+ * so both platforms produce similarly-sized payloads.
+ */
+async function compressImageNative(
+  uri: string,
+  originalWidth: number,
+  originalHeight: number,
+): Promise<{ dataUrl: string; mimeType: string }> {
+  const MAX_EDGE = 1120;
+  const longer = Math.max(originalWidth || 1, originalHeight || 1);
+  const scale = longer > MAX_EDGE ? MAX_EDGE / longer : 1;
+
+  const actions: ImageManipulator.Action[] =
+    scale < 1
+      ? [{ resize: { width: Math.round(originalWidth * scale), height: Math.round(originalHeight * scale) } }]
+      : [];
+
+  const result = await ImageManipulator.manipulateAsync(uri, actions, {
+    compress: 0.82,
+    format: ImageManipulator.SaveFormat.JPEG,
+    base64: true,
+  });
+
+  return {
+    dataUrl: `data:image/jpeg;base64,${result.base64 ?? ''}`,
+    mimeType: 'image/jpeg',
+  };
 }
 
 export default function ChatInput({ onSend, disabled = false, prefill }: ChatInputProps) {
@@ -164,22 +196,21 @@ export default function ChatInput({ onSend, disabled = false, prefill }: ChatInp
       }
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        quality: 0.82,
-        base64: true,
+        // quality: 1 here — we run our own compression pipeline below so
+        // the picker doesn't double-compress before we can resize.
+        quality: 1,
+        base64: false,
         allowsEditing: false,
       });
       if (result.canceled || !result.assets?.length) return;
       const asset = result.assets[0];
-      if (!asset.base64) {
+      if (!asset.uri) {
         setVoiceError('Could not read that image. Try a different one.');
         setTimeout(() => setVoiceError(null), 4000);
         return;
       }
-      const mimeType = asset.mimeType ?? 'image/jpeg';
-      setAttachment({
-        dataUrl: `data:${mimeType};base64,${asset.base64}`,
-        mimeType,
-      });
+      const compressed = await compressImageNative(asset.uri, asset.width ?? 0, asset.height ?? 0);
+      setAttachment(compressed);
     } catch (err: any) {
       setVoiceError(err?.message ?? 'Could not pick that image.');
       setTimeout(() => setVoiceError(null), 4000);
