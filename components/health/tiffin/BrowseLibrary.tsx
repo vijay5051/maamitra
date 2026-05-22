@@ -21,33 +21,28 @@ interface Props {
 
 export default function BrowseLibrary({ kidAgeBand, diet, flaggedFoodIds, onPickRecipe }: Props) {
   const [cuisine, setCuisine] = useState<Cuisine | 'all'>('all');
-  const [ageBand, setAgeBand] = useState<AgeBand>(kidAgeBand);
   const [search, setSearch] = useState('');
 
+  // Age band is locked to the active kid's actual band. No toggle —
+  // the kid's age is the source of truth. If a parent wants to browse
+  // recipes for a different kid, they switch the active kid in the
+  // family picker.
   const recipes = useMemo(
-    () => filterRecipes({ diet, ageBand, cuisine, search }),
-    [diet, ageBand, cuisine, search],
+    () => filterRecipes({ diet, ageBand: kidAgeBand, cuisine, search }),
+    [diet, kidAgeBand, cuisine, search],
   );
 
-  const currentBand = AGE_BANDS.find((b) => b.id === ageBand);
+  const currentBand = AGE_BANDS.find((b) => b.id === kidAgeBand);
 
   return (
     <View>
       <View style={styles.headerRow}>
         <Text style={styles.title}>Browse recipes</Text>
-        <TouchableOpacity
-          style={styles.ageFilter}
-          onPress={() => {
-            const idx = AGE_BANDS.findIndex((b) => b.id === ageBand);
-            setAgeBand(AGE_BANDS[(idx + 1) % AGE_BANDS.length].id);
-          }}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.ageFilterText}>
-            {currentBand?.label} ({currentBand?.range})
+        <View style={styles.ageLabel}>
+          <Text style={styles.ageLabelText}>
+            {currentBand?.label} · {currentBand?.range}
           </Text>
-          <Ionicons name="chevron-down" size={12} color={PLUM} />
-        </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillsRow}>
@@ -97,12 +92,12 @@ function Pill({ label, active, onPress }: { label: string; active: boolean; onPr
 const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   title: { fontFamily: Fonts.sansBold, fontSize: 14.5, color: INK },
-  ageFilter: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
+  ageLabel: {
     paddingHorizontal: 10, paddingVertical: 5,
-    borderRadius: 10, backgroundColor: Colors.primaryAlpha08,
+    borderRadius: 10, backgroundColor: Colors.primaryAlpha05,
+    borderWidth: 1, borderColor: Colors.primaryAlpha08,
   },
-  ageFilterText: { fontFamily: Fonts.sansSemiBold, fontSize: 11.5, color: PLUM },
+  ageLabelText: { fontFamily: Fonts.sansSemiBold, fontSize: 11.5, color: PLUM },
   pillsRow: { flexDirection: 'row', gap: 6, paddingBottom: 4 },
   pill: {
     paddingHorizontal: 11, paddingVertical: 6, borderRadius: 14,
