@@ -75,7 +75,7 @@ const SUB_TABS: SubTabMeta[] = [
   { key: 'growth',   label: 'Growth',     icon: 'trending-up-outline',      description: 'Weight, height & head circumference', category: 'baby'     },
   { key: 'milestones', label: 'Milestones', icon: 'star-outline',           description: 'Track what your child is doing now',    category: 'baby'     },
   { key: 'teeth',    label: 'Teeth',      icon: 'happy-outline',            description: 'Eruption & shedding tracker',         category: 'baby'     },
-  { key: 'foods',    label: 'Foods',      icon: 'restaurant-outline',       description: '3-day rule for new foods',             category: 'baby'     },
+  { key: 'foods',    label: 'Foods',      icon: 'restaurant-outline',       description: 'Weaning tracker & tiffin recipes',     category: 'baby'     },
   { key: 'routine',  label: 'Routine',    icon: 'time-outline',             description: 'Diaper & sleep log',                   category: 'baby'     },
   { key: 'nuskhe',   label: 'Dadi Maa\u2019s Nuskhe', icon: 'flower-outline',  description: 'Traditional home remedies for common ailments', category: 'baby' },
   { key: 'myhealth', label: 'My Health',  icon: 'heart-outline',            description: 'FOGSI checklist for mother',           category: 'mother'   },
@@ -105,8 +105,9 @@ function CategoryGrid({ onPick }: { onPick: (t: SubTab) => void }) {
       {CATEGORY_ORDER.map((cat) => {
         const items = SUB_TABS.filter((t) => {
           if (t.category !== cat.key) return false;
-          // Foods tracker covers weaning (6–12 months only).
-          if (t.key === 'foods' && kidAgeMonths !== null && kidAgeMonths >= 12) return false;
+          // Foods sub-tab is always visible — FoodTrackerTab handles age-based
+          // content internally: <6mo wait card, 6–12mo 3-day-rule tracker,
+          // 12mo+ TiffinScreen (recipes + planner).
           return true;
         });
         if (items.length === 0) return null;
