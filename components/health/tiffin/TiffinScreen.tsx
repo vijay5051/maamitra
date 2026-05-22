@@ -41,6 +41,7 @@ export default function TiffinScreen({ kidId, kidName, ageMonths, diet }: Props)
   const ageBand: AgeBand = ageBandForMonths(ageMonths);
   const byKid = useMealPlannerStore((s) => s.byKid);
   const setDay = useMealPlannerStore((s) => s.setDay);
+  const clearDay = useMealPlannerStore((s) => s.clearDay);
   const rolloverIfStale = useMealPlannerStore((s) => s.rolloverIfStale);
   const kidPlanner = byKid[kidId];
   // Subscribe to the whole byKid (stable ref) and apply the fallback
@@ -175,7 +176,11 @@ export default function TiffinScreen({ kidId, kidName, ageMonths, diet }: Props)
         ageBand={ageBand}
         diet={diet}
         flaggedFoodIds={flaggedFoodIds}
+        currentPlanned={openDay ? kidPlanner?.current.days[openDay] : undefined}
         onClose={() => setOpenDay(null)}
+        onClear={() => {
+          if (openDay) clearDay(kidId, openDay);
+        }}
         onPick={(payload) => {
           if (openDay) setDay(kidId, openDay, payload);
         }}
