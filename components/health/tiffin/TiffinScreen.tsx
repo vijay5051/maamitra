@@ -30,6 +30,12 @@ interface Props {
 
 const DAY_FORMATTER = new Intl.DateTimeFormat('en-US', { weekday: 'short', day: 'numeric', month: 'short' });
 
+// Module-level frozen empty object — a stable reference used as the
+// fallback when a kid has no food tracker entries yet. Inlining `?? {}`
+// inside the Zustand selector would create a NEW object every render
+// and cause an infinite re-render loop (React error #185).
+const EMPTY_FOOD_ENTRIES: Record<string, any> = Object.freeze({});
+
 export default function TiffinScreen({ kidId, kidName, ageMonths, diet }: Props) {
   const router = useRouter();
   const ageBand: AgeBand = ageBandForMonths(ageMonths);
@@ -37,7 +43,12 @@ export default function TiffinScreen({ kidId, kidName, ageMonths, diet }: Props)
   const setDay = useMealPlannerStore((s) => s.setDay);
   const rolloverIfStale = useMealPlannerStore((s) => s.rolloverIfStale);
   const kidPlanner = byKid[kidId];
-  const foodEntries = useFoodTrackerStore((s) => s.byKid[kidId] ?? {});
+  // Subscribe to the whole byKid (stable ref) and apply the fallback
+  // OUTSIDE the selector. Putting `?? {}` inside the selector returns a
+  // new empty object every call, breaks Zustand's referential equality
+  // check, and infinite-loops the component (React error #185).
+  const foodByKid = useFoodTrackerStore((s) => s.byKid);
+  const foodEntries = foodByKid[kidId] ?? EMPTY_FOOD_ENTRIES;
 
   // Rollover on mount + when kid changes
   useEffect(() => {
