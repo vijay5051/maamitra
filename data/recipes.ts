@@ -131,7 +131,7 @@ export const RECIPES: Recipe[] = [
       'Pack with curd or butter.',
     ],
     ['tiffin', 'breakfast'],
-    { tip: 'Make filling the night before. Morning just roll & cook!' },
+    { tip: 'Make filling the night before. Morning just roll & cook!', containsFoodIds: ['grains.roti-chapati', 'vegetables.potato', 'spices.cumin-jeera', 'dairy.ghee', 'dairy.butter', 'vegetables.coriander-leaves'] },
   ),
   r(
     'besan-cheela',
@@ -158,7 +158,7 @@ export const RECIPES: Recipe[] = [
       'Pack with green chutney or ketchup.',
     ],
     ['tiffin', 'breakfast', 'quick'],
-    { tip: 'Add grated carrot or spinach for hidden veggies!' },
+    { tip: 'Add grated carrot or spinach for hidden veggies!', containsFoodIds: ['others.besan-gram-flour', 'spices.turmeric-haldi', 'vegetables.coriander-leaves'] },
   ),
   r(
     'paneer-bhurji-sandwich',
@@ -185,7 +185,7 @@ export const RECIPES: Recipe[] = [
       'Cut into triangles. Kids love it!',
     ],
     ['tiffin', 'breakfast', 'quick', 'fingerfood'],
-    { tip: 'Paneer bhurji can be made the night before and refrigerated.' },
+    { tip: 'Paneer bhurji can be made the night before and refrigerated.', containsFoodIds: ['dairy.paneer', 'grains.bread', 'vegetables.tomato', 'spices.cumin-jeera', 'spices.turmeric-haldi', 'dairy.butter', 'vegetables.capsicum'] },
   ),
   r(
     'poha',
@@ -214,7 +214,7 @@ export const RECIPES: Recipe[] = [
       'Ready in 8 minutes flat!',
     ],
     ['tiffin', 'breakfast', 'quick'],
-    { tip: 'Easiest breakfast ever. Kids absolutely love the crunch of peanuts.' },
+    { tip: 'Easiest breakfast ever. Kids absolutely love the crunch of peanuts.', containsFoodIds: ['grains.poha', 'vegetables.potato', 'spices.turmeric-haldi', 'nutsSeeds.peanut', 'oilsFats.mustard-oil'] },
   ),
   r(
     'veg-pulao',
@@ -242,7 +242,7 @@ export const RECIPES: Recipe[] = [
       'Pack with raita or pickle.',
     ],
     ['tiffin', 'lunch', 'one-pot'],
-    { tip: 'One pot, one whistle, lunch is done!' },
+    { tip: 'One pot, one whistle, lunch is done!', containsFoodIds: ['grains.rice', 'vegetables.peas', 'vegetables.carrot', 'spices.cardamom-elaichi', 'dairy.ghee'] },
   ),
   r(
     'rajma-rice',
@@ -270,7 +270,7 @@ export const RECIPES: Recipe[] = [
       'Serve over rice. Done!',
     ],
     ['tiffin', 'lunch', 'one-pot'],
-    { tip: 'Canned rajma is the ultimate time saver. Always stock it!' },
+    { tip: 'Canned rajma is the ultimate time saver. Always stock it!', containsFoodIds: ['lentils.rajma-kidney-beans', 'grains.rice', 'vegetables.tomato', 'spices.garlic', 'spices.ginger'] },
   ),
   r(
     'moong-dal-chilla',
@@ -297,7 +297,7 @@ export const RECIPES: Recipe[] = [
       'Serve with chutney.',
     ],
     ['tiffin', 'breakfast'],
-    { tip: 'Soak dal on Sunday. Batter stays fresh 2 days in fridge.' },
+    { tip: 'Soak dal on Sunday. Batter stays fresh 2 days in fridge.', containsFoodIds: ['lentils.moong-dal', 'spices.ginger', 'vegetables.coriander-leaves'] },
   ),
 
   // ── South Indian (7) ────────────────────────────────────────────────────────
@@ -322,7 +322,7 @@ export const RECIPES: Recipe[] = [
       'Remove with spoon. Pack with coconut chutney.',
     ],
     ['tiffin', 'breakfast', 'quick'],
-    { tip: 'Store-bought batter is totally fine on busy mornings!' },
+    { tip: 'Store-bought batter is totally fine on busy mornings!', containsFoodIds: ['grains.idli'] },
   ),
   r(
     'dosa-roll',
@@ -349,7 +349,7 @@ export const RECIPES: Recipe[] = [
       'Pack standing up in box so it stays crispy.',
     ],
     ['tiffin', 'breakfast', 'quick'],
-    { tip: 'Use silicone wrap to keep it from getting soggy in the box.' },
+    { tip: 'Use silicone wrap to keep it from getting soggy in the box.', containsFoodIds: ['grains.dosa', 'vegetables.potato', 'spices.turmeric-haldi'] },
   ),
   r(
     'upma',
@@ -378,7 +378,7 @@ export const RECIPES: Recipe[] = [
       'Squeeze lemon. Done!',
     ],
     ['tiffin', 'breakfast', 'quick'],
-    { tip: 'Roast the rava the night before to save 3 minutes!' },
+    { tip: 'Roast the rava the night before to save 3 minutes!', containsFoodIds: ['grains.suji-semolina', 'vegetables.peas', 'vegetables.carrot', 'spices.turmeric-haldi'] },
   ),
   r(
     'curd-rice',
@@ -405,7 +405,7 @@ export const RECIPES: Recipe[] = [
       'Pack cold — stays fresh till lunch!',
     ],
     ['tiffin', 'lunch', 'quick'],
-    { tip: 'Best summer tiffin! Cooling and tummy-friendly.' },
+    { tip: 'Best summer tiffin! Cooling and tummy-friendly.', containsFoodIds: ['grains.rice', 'dairy.curd-yogurt', 'dairy.milk-after-1-year', 'fruits.pomegranate'] },
   ),
   r(
     'lemon-rice',
@@ -433,7 +433,7 @@ export const RECIPES: Recipe[] = [
       'Pack at room temperature.',
     ],
     ['tiffin', 'lunch', 'quick'],
-    { tip: 'A Tamil classic that travels beautifully in a lunchbox!' },
+    { tip: 'A Tamil classic that travels beautifully in a lunchbox!', containsFoodIds: ['grains.rice', 'spices.turmeric-haldi', 'nutsSeeds.peanut'] },
   ),
   r(
     'mini-uttapam',
@@ -458,7 +458,7 @@ export const RECIPES: Recipe[] = [
       'Pack with sambar or chutney.',
     ],
     ['tiffin', 'breakfast'],
-    { tip: 'Let kids choose their own toppings the night before — makes them excited!' },
+    { tip: 'Let kids choose their own toppings the night before — makes them excited!', containsFoodIds: ['grains.dosa', 'vegetables.tomato', 'vegetables.capsicum'] },
   ),
   r(
     'semiya-upma',
@@ -485,7 +485,7 @@ export const RECIPES: Recipe[] = [
       'Squeeze lemon. Pack hot.',
     ],
     ['tiffin', 'breakfast', 'quick'],
-    { tip: "Kids think it's noodles! A clever healthy swap." },
+    { tip: "Kids think it's noodles! A clever healthy swap.", containsFoodIds: ['grains.vermicelli-semiya', 'vegetables.peas', 'vegetables.carrot'] },
   ),
 
   // ── Gujarati (6) ────────────────────────────────────────────────────────────
@@ -515,7 +515,7 @@ export const RECIPES: Recipe[] = [
       'Pack with green chutney.',
     ],
     ['tiffin', 'snack', 'fingerfood'],
-    { tip: 'Use ready-made dhokla mix for a 5-minute version!' },
+    { tip: 'Use ready-made dhokla mix for a 5-minute version!', containsFoodIds: ['others.besan-gram-flour', 'dairy.curd-yogurt', 'spices.turmeric-haldi'] },
   ),
   r(
     'methi-thepla',
@@ -542,7 +542,7 @@ export const RECIPES: Recipe[] = [
       'Stays fresh for 2 days!',
     ],
     ['tiffin', 'breakfast', 'lunch'],
-    { tip: 'Make 10-12 theplas on Sunday. Lunch is sorted for 2 days!' },
+    { tip: 'Make 10-12 theplas on Sunday. Lunch is sorted for 2 days!', containsFoodIds: ['grains.roti-chapati', 'vegetables.methi-fenugreek', 'dairy.curd-yogurt', 'spices.turmeric-haldi', 'spices.cumin-jeera', 'nutsSeeds.sesame-seeds-til'] },
   ),
   r(
     'khandvi-rolls',
@@ -568,7 +568,7 @@ export const RECIPES: Recipe[] = [
       'Cut into bite-sized pieces.',
     ],
     ['tiffin', 'snack', 'fingerfood'],
-    { tip: 'Practice makes perfect. Very impressive in a lunchbox!' },
+    { tip: 'Practice makes perfect. Very impressive in a lunchbox!', containsFoodIds: ['others.besan-gram-flour', 'dairy.buttermilk', 'spices.turmeric-haldi', 'nutsSeeds.sesame-seeds-til', 'nutsSeeds.coconut'] },
   ),
   r(
     'khichdi',
@@ -596,7 +596,7 @@ export const RECIPES: Recipe[] = [
       'Pack with ghee drizzle on top.',
     ],
     ['tiffin', 'lunch', 'one-pot'],
-    { tip: 'Easiest comfort food. Kids love it when the weather is cool.' },
+    { tip: 'Easiest comfort food. Kids love it when the weather is cool.', containsFoodIds: ['grains.rice', 'lentils.moong-dal', 'spices.turmeric-haldi', 'spices.cumin-jeera', 'dairy.ghee'] },
   ),
   r(
     'muthiya-steamed',
@@ -624,7 +624,7 @@ export const RECIPES: Recipe[] = [
       'Temper with mustard + sesame. Serve.',
     ],
     ['tiffin', 'snack', 'fingerfood'],
-    { tip: 'Can steam muthiyas the night before. Morning just slice & pack.' },
+    { tip: 'Can steam muthiyas the night before. Morning just slice & pack.', containsFoodIds: ['grains.roti-chapati', 'others.besan-gram-flour', 'vegetables.bottle-gourd-lauki', 'dairy.curd-yogurt', 'spices.turmeric-haldi', 'spices.cumin-jeera'] },
   ),
   r(
     'handvo',
@@ -651,7 +651,7 @@ export const RECIPES: Recipe[] = [
       'Cool. Cut into squares. Pack!',
     ],
     ['tiffin', 'snack'],
-    { tip: 'Prep batter the night before. Morning just bake and pack!' },
+    { tip: 'Prep batter the night before. Morning just bake and pack!', containsFoodIds: ['dairy.curd-yogurt', 'spices.turmeric-haldi', 'nutsSeeds.sesame-seeds-til', 'vegetables.bottle-gourd-lauki'] },
   ),
 
   // ── Bengali / East Indian (3) ────────────────────────────────────────────────
@@ -680,7 +680,7 @@ export const RECIPES: Recipe[] = [
       'Pack with rice.',
     ],
     ['tiffin', 'lunch'],
-    { tip: 'A Bengali staple — mild, fragrant, absolutely loved by kids!' },
+    { tip: 'A Bengali staple — mild, fragrant, absolutely loved by kids!', containsFoodIds: ['vegetables.potato', 'spices.turmeric-haldi', 'oilsFats.mustard-oil'] },
   ),
   r(
     'cholar-dal',
@@ -707,7 +707,7 @@ export const RECIPES: Recipe[] = [
       'Pack with rice or luchi (puri).',
     ],
     ['tiffin', 'lunch'],
-    { tip: 'The coconut pieces make this special. Kids love the sweet-savory balance.' },
+    { tip: 'The coconut pieces make this special. Kids love the sweet-savory balance.', containsFoodIds: ['lentils.chana-dal', 'nutsSeeds.coconut', 'spices.turmeric-haldi', 'spices.cumin-jeera', 'dairy.ghee'] },
   ),
   r(
     'bengali-pitha',
@@ -732,7 +732,7 @@ export const RECIPES: Recipe[] = [
       'Pack as is or with sweet chutney.',
     ],
     ['tiffin', 'snack', 'fingerfood'],
-    { tip: 'Light, gluten-free treat! Great for kids with wheat sensitivity.' },
+    { tip: 'Light, gluten-free treat! Great for kids with wheat sensitivity.', containsFoodIds: ['others.rice-flour', 'nutsSeeds.coconut', 'sweeteners.jaggery-gur'] },
   ),
 
   // ── Rajasthani (3) ──────────────────────────────────────────────────────────
@@ -760,7 +760,7 @@ export const RECIPES: Recipe[] = [
       'Drizzle with ghee before packing.',
     ],
     ['tiffin', 'lunch', 'festive'],
-    { tip: 'Make dal in pressure cooker while baati bakes. Perfect timing!' },
+    { tip: 'Make dal in pressure cooker while baati bakes. Perfect timing!', containsFoodIds: ['grains.roti-chapati', 'grains.suji-semolina', 'dairy.ghee', 'spices.ajwain', 'lentils.mixed-dal'] },
   ),
   r(
     'ker-sangri-sabzi',
@@ -786,7 +786,7 @@ export const RECIPES: Recipe[] = [
       'Pack with rotis — a true Rajasthani box!',
     ],
     ['tiffin', 'lunch'],
-    { tip: 'This stays fresh for 2 days. Classic Rajasthani desert food!' },
+    { tip: 'This stays fresh for 2 days. Classic Rajasthani desert food!', containsFoodIds: ['dairy.curd-yogurt', 'spices.cumin-jeera', 'spices.coriander-powder'] },
   ),
   r(
     'missi-roti',
@@ -813,7 +813,7 @@ export const RECIPES: Recipe[] = [
       'Pack with curd and pickle.',
     ],
     ['tiffin', 'breakfast', 'lunch'],
-    { tip: 'Protein-rich from besan. Great energy for a school day!' },
+    { tip: 'Protein-rich from besan. Great energy for a school day!', containsFoodIds: ['grains.roti-chapati', 'others.besan-gram-flour', 'spices.turmeric-haldi', 'spices.cumin-jeera', 'dairy.ghee', 'dairy.curd-yogurt'] },
   ),
 
   // ── Maharashtrian (3) ───────────────────────────────────────────────────────
@@ -844,7 +844,7 @@ export const RECIPES: Recipe[] = [
       'Classic Maharashtra morning!',
     ],
     ['tiffin', 'breakfast', 'quick'],
-    { tip: 'The authentic version — coconut + coriander topping is key!' },
+    { tip: 'The authentic version — coconut + coriander topping is key!', containsFoodIds: ['grains.poha', 'nutsSeeds.peanut', 'spices.turmeric-haldi', 'nutsSeeds.coconut', 'vegetables.coriander-leaves'] },
   ),
   r(
     'thalipeeth',
@@ -872,7 +872,7 @@ export const RECIPES: Recipe[] = [
       'Pack with curd or butter.',
     ],
     ['tiffin', 'breakfast'],
-    { tip: 'Multi-grain powerhouse for growing kids!' },
+    { tip: 'Multi-grain powerhouse for growing kids!', containsFoodIds: ['grains.jowar-sorghum', 'others.besan-gram-flour', 'grains.roti-chapati', 'spices.cumin-jeera', 'spices.ajwain'] },
   ),
   r(
     'varan-bhaat',
@@ -898,7 +898,7 @@ export const RECIPES: Recipe[] = [
       'Simple, wholesome, comforting.',
     ],
     ['tiffin', 'lunch', 'one-pot'],
-    { tip: "Maharashtra's soul food. Light on the tummy, heavy on nutrition." },
+    { tip: "Maharashtra's soul food. Light on the tummy, heavy on nutrition.", containsFoodIds: ['lentils.toor-dal-arhar', 'grains.rice', 'spices.turmeric-haldi', 'dairy.ghee', 'spices.hing-asafoetida'] },
   ),
 
   // ── Punjabi (3) ─────────────────────────────────────────────────────────────
@@ -926,7 +926,7 @@ export const RECIPES: Recipe[] = [
       'Pack saag in small container, roti in foil.',
     ],
     ['tiffin', 'lunch', 'festive'],
-    { tip: 'Winter special! Maize roti with saag = Punjab in a box.' },
+    { tip: 'Winter special! Maize roti with saag = Punjab in a box.', containsFoodIds: ['grains.maize-corn', 'dairy.ghee', 'vegetables.spinach-palak', 'spices.ginger'] },
   ),
   r(
     'paneer-paratha',
@@ -953,7 +953,7 @@ export const RECIPES: Recipe[] = [
       'Pack with butter and pickle.',
     ],
     ['tiffin', 'breakfast'],
-    { tip: 'Paneer stuffing can be prepped the night before.' },
+    { tip: 'Paneer stuffing can be prepped the night before.', containsFoodIds: ['grains.roti-chapati', 'dairy.paneer', 'spices.cumin-jeera', 'spices.coriander-powder', 'dairy.ghee', 'vegetables.coriander-leaves'] },
   ),
   r(
     'langarwali-dal',
@@ -981,7 +981,7 @@ export const RECIPES: Recipe[] = [
       'Pack with rice or roti.',
     ],
     ['tiffin', 'lunch'],
-    { tip: 'Simple langar-style dal. Nourishing, mild, universally loved.' },
+    { tip: 'Simple langar-style dal. Nourishing, mild, universally loved.', containsFoodIds: ['lentils.masoor-dal', 'lentils.moong-dal', 'vegetables.tomato', 'spices.cumin-jeera', 'spices.turmeric-haldi', 'dairy.ghee', 'spices.ginger', 'spices.garlic'] },
   ),
 
   // ── Kashmiri (2) ────────────────────────────────────────────────────────────
@@ -1011,7 +1011,7 @@ export const RECIPES: Recipe[] = [
       'Top with dry fruits fried in ghee.',
     ],
     ['tiffin', 'lunch', 'festive', 'one-pot'],
-    { tip: 'Aromatic and mildly sweet — kids find it fascinating and tasty!' },
+    { tip: 'Aromatic and mildly sweet — kids find it fascinating and tasty!', containsFoodIds: ['grains.rice', 'dairy.milk-after-1-year', 'nutsSeeds.cashew-kaju', 'nutsSeeds.raisins-kishmish', 'dairy.ghee', 'spices.cardamom-elaichi', 'spices.cinnamon-dalchini'] },
   ),
   r(
     'nadru-yakhni',
@@ -1038,7 +1038,7 @@ export const RECIPES: Recipe[] = [
       'Simmer 5 min. Serve with rice.',
     ],
     ['tiffin', 'lunch'],
-    { tip: 'Unique Kashmiri flavour — mild yogurt gravy kids will enjoy!' },
+    { tip: 'Unique Kashmiri flavour — mild yogurt gravy kids will enjoy!', containsFoodIds: ['dairy.curd-yogurt', 'dairy.ghee', 'spices.fennel-seeds-saunf', 'spices.cardamom-elaichi'] },
   ),
 
   // ── Northeast (2) ───────────────────────────────────────────────────────────
@@ -1065,7 +1065,7 @@ export const RECIPES: Recipe[] = [
       'Can be sweet or savory.',
     ],
     ['tiffin', 'snack', 'fingerfood'],
-    { tip: 'Light, nutritious and naturally gluten adaptable!' },
+    { tip: 'Light, nutritious and naturally gluten adaptable!', containsFoodIds: ['others.rice-flour', 'nutsSeeds.coconut', 'sweeteners.jaggery-gur'] },
   ),
   r(
     'chura-sabzi',
@@ -1092,7 +1092,7 @@ export const RECIPES: Recipe[] = [
       'Top with coconut. Done!',
     ],
     ['tiffin', 'breakfast', 'quick'],
-    { tip: 'A simpler, veggie-packed version loved across Northeast India.' },
+    { tip: 'A simpler, veggie-packed version loved across Northeast India.', containsFoodIds: ['grains.poha', 'vegetables.carrot', 'vegetables.peas', 'spices.turmeric-haldi', 'nutsSeeds.coconut'] },
   ),
 
   // ── Continental (8) ─────────────────────────────────────────────────────────
@@ -1122,7 +1122,7 @@ export const RECIPES: Recipe[] = [
       'Pack when slightly cooled.',
     ],
     ['tiffin', 'lunch'],
-    { tip: 'Use tri-color pasta — kids think it looks magical!' },
+    { tip: 'Use tri-color pasta — kids think it looks magical!', containsFoodIds: ['dairy.butter', 'vegetables.tomato', 'vegetables.peas', 'vegetables.capsicum', 'dairy.cheese'] },
   ),
   r(
     'cheese-corn-toast',
@@ -1148,7 +1148,7 @@ export const RECIPES: Recipe[] = [
       'Cut into triangles. Pack warm.',
     ],
     ['tiffin', 'breakfast', 'snack', 'quick', 'fingerfood'],
-    { tip: 'Takes 5 minutes. Kids vote this their all-time favourite!' },
+    { tip: 'Takes 5 minutes. Kids vote this their all-time favourite!', containsFoodIds: ['grains.bread', 'vegetables.corn', 'dairy.cheese'] },
   ),
   r(
     'veg-fried-rice',
@@ -1176,7 +1176,7 @@ export const RECIPES: Recipe[] = [
       'Garnish with spring onion. Pack!',
     ],
     ['tiffin', 'lunch'],
-    { tip: 'Cold leftover rice makes the best fried rice — never use fresh!' },
+    { tip: 'Cold leftover rice makes the best fried rice — never use fresh!', containsFoodIds: ['grains.rice', 'vegetables.carrot', 'vegetables.peas', 'vegetables.capsicum', 'oilsFats.sesame-oil'] },
   ),
   r(
     'mini-bread-pizza',
@@ -1202,7 +1202,7 @@ export const RECIPES: Recipe[] = [
       'Pack in foil to keep warm.',
     ],
     ['tiffin', 'snack', 'quick', 'fingerfood'],
-    { tip: 'Let kids assemble their own the night before — they\'ll be excited to eat it!' },
+    { tip: 'Let kids assemble their own the night before — they\'ll be excited to eat it!', containsFoodIds: ['grains.bread', 'dairy.cheese', 'vegetables.corn', 'vegetables.capsicum'] },
   ),
   r(
     'veggie-quesadilla',
@@ -1228,7 +1228,7 @@ export const RECIPES: Recipe[] = [
       'Pack with curd dip separately.',
     ],
     ['tiffin', 'lunch', 'quick', 'fingerfood'],
-    { tip: 'Leftover roti + whatever veggies = fancy kids lunch!' },
+    { tip: 'Leftover roti + whatever veggies = fancy kids lunch!', containsFoodIds: ['grains.roti-chapati', 'dairy.cheese', 'vegetables.capsicum', 'vegetables.corn', 'dairy.curd-yogurt'] },
   ),
   r(
     'veg-hakka-noodles',
@@ -1256,7 +1256,7 @@ export const RECIPES: Recipe[] = [
       'Top with spring onion.',
     ],
     ['tiffin', 'lunch'],
-    { tip: 'High flame is the secret to restaurant-style noodles at home!' },
+    { tip: 'High flame is the secret to restaurant-style noodles at home!', containsFoodIds: ['vegetables.carrot', 'vegetables.capsicum'] },
   ),
   r(
     'peanut-butter-banana-sandwich',
@@ -1282,7 +1282,7 @@ export const RECIPES: Recipe[] = [
       'Cut diagonally. Pack!',
     ],
     ['tiffin', 'breakfast', 'snack', 'quick', 'fingerfood'],
-    { tip: 'Protein + natural sugar = perfect energy for a school day!' },
+    { tip: 'Protein + natural sugar = perfect energy for a school day!', containsFoodIds: ['grains.bread', 'nutsSeeds.peanut', 'fruits.banana', 'sweeteners.honey-after-1-year', 'spices.cinnamon-dalchini'] },
   ),
   r(
     'veg-oats-pancakes',
@@ -1309,7 +1309,7 @@ export const RECIPES: Recipe[] = [
       'Pack with ketchup or honey.',
     ],
     ['tiffin', 'breakfast', 'fingerfood'],
-    { tip: 'Sneak veggies inside — kids eat it thinking it\'s a pancake!' },
+    { tip: 'Sneak veggies inside — kids eat it thinking it\'s a pancake!', containsFoodIds: ['grains.oats', 'fruits.banana', 'dairy.milk-after-1-year', 'vegetables.carrot', 'dairy.butter'] },
   ),
 
   // ─── Toddler (1–2 yr) band ─────────────────────────────────────────────────
@@ -1346,7 +1346,7 @@ export const RECIPES: Recipe[] = [
       'Cool to lukewarm before serving.',
     ],
     ['lunch', 'dinner', 'one-pot'],
-    { tip: 'Make a double batch at lunch — dinner is already done. Add a spoon of curd on the side for probiotics.' },
+    { tip: 'Make a double batch at lunch — dinner is already done. Add a spoon of curd on the side for probiotics.', containsFoodIds: ['grains.rice', 'lentils.moong-dal', 'vegetables.carrot', 'vegetables.peas', 'dairy.ghee', 'spices.cumin-jeera', 'spices.turmeric-haldi'] },
   ),
 
   r(
@@ -1374,7 +1374,7 @@ export const RECIPES: Recipe[] = [
       'Cool to lukewarm. Serve in a small bowl.',
     ],
     ['lunch', 'dinner', 'one-pot'],
-    { tip: 'Freeze portions in an ice-cube tray. Pop out 2–3 cubes per meal and reheat — fastest toddler meal on a rushed morning.' },
+    { tip: 'Freeze portions in an ice-cube tray. Pop out 2–3 cubes per meal and reheat — fastest toddler meal on a rushed morning.', containsFoodIds: ['grains.rice', 'lentils.toor-dal-arhar', 'lentils.moong-dal', 'spices.turmeric-haldi', 'oilsFats.coconut-oil', 'dairy.ghee'] },
   ),
 
   r(
@@ -1402,7 +1402,7 @@ export const RECIPES: Recipe[] = [
       'Serve paneer mash alongside chapati pieces for dipping or scooping.',
     ],
     ['lunch', 'dinner', 'fingerfood'],
-    { tip: 'Roll the chapati a bit thicker than usual so pieces stay sturdy for little hands to hold.' },
+    { tip: 'Roll the chapati a bit thicker than usual so pieces stay sturdy for little hands to hold.', containsFoodIds: ['dairy.paneer', 'vegetables.tomato', 'grains.roti-chapati', 'spices.cumin-jeera', 'dairy.ghee'] },
   ),
 
   r(
@@ -1427,7 +1427,7 @@ export const RECIPES: Recipe[] = [
       'Serve immediately while warm.',
     ],
     ['breakfast', 'lunch', 'quick'],
-    { tip: 'Steam a big batch of idlis once a week. Mash and reheat with a splash of water — breakfast ready in 5 minutes.' },
+    { tip: 'Steam a big batch of idlis once a week. Mash and reheat with a splash of water — breakfast ready in 5 minutes.', containsFoodIds: ['grains.idli', 'oilsFats.coconut-oil', 'dairy.ghee'] },
   ),
 
   r(
@@ -1456,7 +1456,7 @@ export const RECIPES: Recipe[] = [
       'No chutney for under 18 months — serve plain or with a little curd.',
     ],
     ['breakfast', 'fingerfood'],
-    { tip: 'Use ready-made dosa batter on weekdays — prep time drops to under 10 minutes.' },
+    { tip: 'Use ready-made dosa batter on weekdays — prep time drops to under 10 minutes.', containsFoodIds: ['grains.dosa', 'vegetables.potato', 'spices.turmeric-haldi', 'oilsFats.coconut-oil', 'dairy.curd-yogurt'] },
   ),
 
   r(
@@ -1487,7 +1487,7 @@ export const RECIPES: Recipe[] = [
       'Mash gently if needed to ensure no hard lumps for toddler.',
     ],
     ['breakfast', 'one-pot', 'quick'],
-    { tip: 'Skip peanuts entirely for toddlers — texture is still great without them. Use fine rava, not coarse, for a softer result.' },
+    { tip: 'Skip peanuts entirely for toddlers — texture is still great without them. Use fine rava, not coarse, for a softer result.', containsFoodIds: ['grains.suji-semolina', 'vegetables.carrot', 'vegetables.peas', 'spices.turmeric-haldi'] },
   ),
 
   r(
@@ -1516,7 +1516,7 @@ export const RECIPES: Recipe[] = [
       'Cool to lukewarm before serving.',
     ],
     ['breakfast', 'snack', 'one-pot'],
-    { tip: 'Soak sabudana the night before so morning prep takes under 10 minutes. No peanuts for toddlers — the potato makes it filling enough.' },
+    { tip: 'Soak sabudana the night before so morning prep takes under 10 minutes. No peanuts for toddlers — the potato makes it filling enough.', containsFoodIds: ['grains.sabudana-sago', 'vegetables.potato', 'spices.cumin-jeera'] },
   ),
 
   r(
@@ -1543,7 +1543,7 @@ export const RECIPES: Recipe[] = [
       'Serve at room temperature — not cold from fridge as cold curd can upset tiny tummies.',
     ],
     ['lunch', 'dinner', 'quick'],
-    { tip: 'Great for travel and hot days — cooling, easy to digest. Add a mashed banana to make it a complete toddler meal.' },
+    { tip: 'Great for travel and hot days — cooling, easy to digest. Add a mashed banana to make it a complete toddler meal.', containsFoodIds: ['grains.rice', 'dairy.curd-yogurt', 'dairy.ghee'] },
   ),
 
   r(
@@ -1570,7 +1570,7 @@ export const RECIPES: Recipe[] = [
       'Serve immediately — do not store mixed fruit + curd.',
     ],
     ['breakfast', 'snack', 'quick'],
-    { tip: 'Vary the fruit by season — chikoo, pear, or guava (seeded, mashed) all work well. Always use ripe fruit so no cooking is needed.' },
+    { tip: 'Vary the fruit by season — chikoo, pear, or guava (seeded, mashed) all work well. Always use ripe fruit so no cooking is needed.', containsFoodIds: ['fruits.banana', 'fruits.mango', 'fruits.papaya', 'fruits.apple', 'dairy.curd-yogurt', 'spices.cardamom-elaichi'] },
   ),
 
   r(
@@ -1600,7 +1600,7 @@ export const RECIPES: Recipe[] = [
       'Serve slightly cooled — roll it up for a toddler to hold, or cut into soft strips.',
     ],
     ['breakfast', 'snack', 'fingerfood'],
-    { tip: 'Cook a batch of 8–10 mini theplas on Sunday. Store in an airtight box in the fridge for up to 3 days — microwave 20 sec with a damp cloth to soften.' },
+    { tip: 'Cook a batch of 8–10 mini theplas on Sunday. Store in an airtight box in the fridge for up to 3 days — microwave 20 sec with a damp cloth to soften.', containsFoodIds: ['grains.roti-chapati', 'vegetables.methi-fenugreek', 'dairy.curd-yogurt', 'spices.turmeric-haldi', 'spices.cumin-jeera', 'dairy.ghee'] },
   ),
 
   r(
@@ -1628,7 +1628,7 @@ export const RECIPES: Recipe[] = [
       'Cool to lukewarm before serving.',
     ],
     ['breakfast', 'quick'],
-    { tip: 'Ragi is a calcium powerhouse — one of the best foods for growing toddler bones. Add a mashed ripe banana for extra sweetness instead of jaggery.' },
+    { tip: 'Ragi is a calcium powerhouse — one of the best foods for growing toddler bones. Add a mashed ripe banana for extra sweetness instead of jaggery.', containsFoodIds: ['grains.ragi-finger-millet', 'dairy.milk-after-1-year', 'sweeteners.jaggery-gur', 'spices.cardamom-elaichi'] },
   ),
 
   r(
@@ -1655,7 +1655,7 @@ export const RECIPES: Recipe[] = [
       'Cool to lukewarm before serving.',
     ],
     ['breakfast', 'quick'],
-    { tip: 'The riper the banana, the sweeter the porridge — no added sugar needed. A very ripe banana also makes it easier to mash smooth.' },
+    { tip: 'The riper the banana, the sweeter the porridge — no added sugar needed. A very ripe banana also makes it easier to mash smooth.', containsFoodIds: ['grains.oats', 'fruits.banana', 'dairy.milk-after-1-year', 'spices.cardamom-elaichi', 'dairy.ghee', 'dairy.butter'] },
   ),
 
   r(
@@ -1686,7 +1686,7 @@ export const RECIPES: Recipe[] = [
       'Cool to lukewarm before serving.',
     ],
     ['breakfast', 'snack', 'quick'],
-    { tip: 'Use thin poha — it softens much faster than thick poha and is easier to mash for toddlers. No peanuts in this version.' },
+    { tip: 'Use thin poha — it softens much faster than thick poha and is easier to mash for toddlers. No peanuts in this version.', containsFoodIds: ['grains.poha', 'vegetables.potato', 'spices.turmeric-haldi'] },
   ),
 
   // ─── Non-veg tiffin (preschool & school bands) ─────────────────────────────
@@ -1724,7 +1724,7 @@ export const RECIPES: Recipe[] = [
       'Pack with curd or mild mint chutney.',
     ],
     ['tiffin', 'breakfast', 'lunch'],
-    { tip: 'Cook and dry the keema filling the night before — morning prep drops to under 10 min. The filling freezes well too.' },
+    { tip: 'Cook and dry the keema filling the night before — morning prep drops to under 10 min. The filling freezes well too.', containsFoodIds: ['grains.roti-chapati', 'eggsPoultry.chicken-minced', 'spices.cumin-jeera', 'spices.coriander-powder', 'spices.ginger', 'spices.garlic', 'dairy.ghee', 'vegetables.coriander-leaves'] },
   ),
 
   r(
@@ -1761,7 +1761,7 @@ export const RECIPES: Recipe[] = [
       'Garnish with coriander. Pack curry and rice separately for tiffin.',
     ],
     ['tiffin', 'lunch', 'dinner'],
-    { tip: 'Use boneless thigh pieces — they stay juicy even after reheating. Keep gravy slightly thick so it does not leak in the tiffin box.' },
+    { tip: 'Use boneless thigh pieces — they stay juicy even after reheating. Keep gravy slightly thick so it does not leak in the tiffin box.', containsFoodIds: ['eggsPoultry.chicken-boiled', 'grains.rice', 'vegetables.tomato', 'spices.turmeric-haldi', 'spices.cumin-jeera', 'spices.coriander-powder', 'spices.garlic', 'spices.ginger', 'dairy.curd-yogurt'] },
   ),
 
   r(
@@ -1796,7 +1796,7 @@ export const RECIPES: Recipe[] = [
       'Pack in tiffin — the foil keeps it intact.',
     ],
     ['tiffin', 'lunch'],
-    { tip: 'Marinate chicken the night before. Morning = cook + roll + pack, about 15 min. Use a whole-wheat roti for a more nutritious wrap.' },
+    { tip: 'Marinate chicken the night before. Morning = cook + roll + pack, about 15 min. Use a whole-wheat roti for a more nutritious wrap.', containsFoodIds: ['eggsPoultry.chicken-boiled', 'grains.roti-chapati', 'dairy.curd-yogurt', 'spices.cumin-jeera', 'spices.garlic', 'spices.ginger'] },
   ),
 
   r(
@@ -1824,7 +1824,7 @@ export const RECIPES: Recipe[] = [
       'Pack in tiffin — self-contained and mess-free.',
     ],
     ['tiffin', 'lunch'],
-    { tip: 'Cook and shred chicken over the weekend. Keep in fridge. Morning = make sauce + roll = under 15 min. The mild tomato-cream sauce is a universal kids favourite.' },
+    { tip: 'Cook and shred chicken over the weekend. Keep in fridge. Morning = make sauce + roll = under 15 min. The mild tomato-cream sauce is a universal kids favourite.', containsFoodIds: ['eggsPoultry.chicken-boiled', 'grains.roti-chapati', 'dairy.butter', 'vegetables.tomato', 'spices.cumin-jeera'] },
   ),
 
   r(
@@ -1862,7 +1862,7 @@ export const RECIPES: Recipe[] = [
       'Mix chicken with rice or pack separately. Garnish with coriander.',
     ],
     ['tiffin', 'lunch'],
-    { tip: 'Coconut milk is key — it cuts the heat and kids love the mild sweetness. A great way to introduce South Indian flavours gently.' },
+    { tip: 'Coconut milk is key — it cuts the heat and kids love the mild sweetness. A great way to introduce South Indian flavours gently.', containsFoodIds: ['eggsPoultry.chicken-boiled', 'grains.rice', 'vegetables.tomato', 'others.coconut-milk', 'spices.cumin-jeera', 'spices.turmeric-haldi', 'spices.coriander-powder', 'spices.garlic', 'spices.ginger'] },
   ),
 
   r(
@@ -1899,7 +1899,7 @@ export const RECIPES: Recipe[] = [
       'Serve fish curry with rice. Keep gravy slightly thick for tiffin.',
     ],
     ['tiffin', 'lunch'],
-    { tip: 'Basa fillet is boneless and widely available — ideal for kids tiffin. Coconut milk makes the curry naturally mild and creamy.' },
+    { tip: 'Basa fillet is boneless and widely available — ideal for kids tiffin. Coconut milk makes the curry naturally mild and creamy.', containsFoodIds: ['fishSeafood.rohu-fish', 'grains.rice', 'others.coconut-milk', 'vegetables.tomato', 'spices.turmeric-haldi', 'spices.coriander-powder', 'spices.garlic', 'spices.ginger', 'oilsFats.coconut-oil'] },
   ),
 
   r(
@@ -1937,7 +1937,7 @@ export const RECIPES: Recipe[] = [
       'Serve the mild, light curry with rice.',
     ],
     ['tiffin', 'lunch'],
-    { tip: 'Macher jhol is traditionally light and low-oil — perfect for kids. Use basa for a boneless, hassle-free version.' },
+    { tip: 'Macher jhol is traditionally light and low-oil — perfect for kids. Use basa for a boneless, hassle-free version.', containsFoodIds: ['fishSeafood.rohu-fish', 'grains.rice', 'vegetables.potato', 'vegetables.tomato', 'spices.turmeric-haldi', 'spices.cumin-jeera', 'spices.coriander-powder', 'oilsFats.mustard-oil'] },
   ),
 
   r(
@@ -1972,7 +1972,7 @@ export const RECIPES: Recipe[] = [
       'Cut diagonally. Pack in tiffin.',
     ],
     ['tiffin', 'breakfast', 'lunch', 'fingerfood'],
-    { tip: 'Cutlets can be made the night before and refrigerated. Pan-fry fresh in the morning — 5 min total. Kids love the crispy-outside-soft texture.' },
+    { tip: 'Cutlets can be made the night before and refrigerated. Pan-fry fresh in the morning — 5 min total. Kids love the crispy-outside-soft texture.', containsFoodIds: ['fishSeafood.rohu-fish', 'vegetables.potato', 'spices.cumin-jeera', 'spices.coriander-powder', 'spices.turmeric-haldi', 'grains.bread', 'vegetables.coriander-leaves'] },
   ),
 
   r(
@@ -2010,7 +2010,7 @@ export const RECIPES: Recipe[] = [
       'Serve korma with roti. Pack korma in a separate container.',
     ],
     ['tiffin', 'lunch', 'dinner'],
-    { tip: 'Mutton korma tastes best the next day once flavours meld. Make it in the evening and pack for school the next morning.' },
+    { tip: 'Mutton korma tastes best the next day once flavours meld. Make it in the evening and pack for school the next morning.', containsFoodIds: ['meat.mutton-minced', 'grains.bajra-pearl-millet', 'dairy.curd-yogurt', 'spices.turmeric-haldi', 'spices.coriander-powder', 'spices.garlic', 'spices.ginger', 'spices.cardamom-elaichi', 'dairy.ghee'] },
   ),
 
   r(
@@ -2047,7 +2047,7 @@ export const RECIPES: Recipe[] = [
       'Serve with rice. Garnish with coriander.',
     ],
     ['tiffin', 'lunch', 'dinner'],
-    { tip: 'Rogan josh is even better the next day once flavours meld. Make it on a weekend evening and pack for school Monday.' },
+    { tip: 'Rogan josh is even better the next day once flavours meld. Make it on a weekend evening and pack for school Monday.', containsFoodIds: ['meat.mutton-minced', 'grains.rice', 'dairy.curd-yogurt', 'spices.fennel-seeds-saunf', 'spices.cardamom-elaichi', 'spices.cinnamon-dalchini', 'dairy.ghee', 'vegetables.coriander-leaves'] },
   ),
 
   r(
@@ -2078,7 +2078,7 @@ export const RECIPES: Recipe[] = [
       'Note for parents: smoked pork has a strong, distinctive flavour — introduce to kids who have already tried non-spiced meat dishes.',
     ],
     ['tiffin', 'lunch'],
-    { tip: 'A beloved staple across Nagaland, Manipur, and Meghalaya. Use mild smoked pork (not the heavily spiced variety) for school tiffin.' },
+    { tip: 'A beloved staple across Nagaland, Manipur, and Meghalaya. Use mild smoked pork (not the heavily spiced variety) for school tiffin.', containsFoodIds: ['grains.rice', 'spices.turmeric-haldi'] },
   ),
 
   r(
@@ -2109,7 +2109,7 @@ export const RECIPES: Recipe[] = [
       'Wrap in cling film or foil to hold together in tiffin.',
     ],
     ['tiffin', 'breakfast', 'lunch', 'quick', 'fingerfood'],
-    { tip: 'Boil and shred a whole chicken breast on Sunday — keeps in fridge 3 days. Mix with mayo fresh each morning for best texture.' },
+    { tip: 'Boil and shred a whole chicken breast on Sunday — keeps in fridge 3 days. Mix with mayo fresh each morning for best texture.', containsFoodIds: ['eggsPoultry.chicken-boiled', 'grains.bread', 'dairy.cheese', 'vegetables.tomato', 'vegetables.cucumber'] },
   ),
 
   r(
@@ -2141,7 +2141,7 @@ export const RECIPES: Recipe[] = [
       'Pack in a cold tiffin with an ice pack — this is a no-reheat dish.',
     ],
     ['tiffin', 'lunch', 'quick'],
-    { tip: 'Best packed cold. If your school has no fridge, add an ice pack to the bag. Can be made the night before and refrigerated.' },
+    { tip: 'Best packed cold. If your school has no fridge, add an ice pack to the bag. Can be made the night before and refrigerated.', containsFoodIds: ['fishSeafood.tuna', 'dairy.curd-yogurt', 'vegetables.corn', 'vegetables.capsicum'] },
   ),
 
   r(
@@ -2174,7 +2174,7 @@ export const RECIPES: Recipe[] = [
       'Cool before packing so pasta does not clump.',
     ],
     ['tiffin', 'lunch'],
-    { tip: 'Grill extra chicken on the weekend. Store strips in fridge — reheat quickly and toss with freshly-cooked pasta for a 10-min school morning meal.' },
+    { tip: 'Grill extra chicken on the weekend. Store strips in fridge — reheat quickly and toss with freshly-cooked pasta for a 10-min school morning meal.', containsFoodIds: ['eggsPoultry.chicken-boiled', 'dairy.butter', 'vegetables.capsicum', 'vegetables.corn', 'vegetables.broccoli', 'dairy.cheese'] },
   ),
 
   // ─── Eggetarian tiffin (preschool & school bands) ──────────────────────────
@@ -2212,7 +2212,7 @@ export const RECIPES: Recipe[] = [
       'Cook on hot tawa with ghee until golden on both sides.',
     ],
     ['tiffin', 'breakfast'],
-    { tip: 'Make bhurji the night before; in the morning just roll, stuff, and cook.' },
+    { tip: 'Make bhurji the night before; in the morning just roll, stuff, and cook.', containsFoodIds: ['grains.roti-chapati', 'eggsPoultry.whole-egg', 'vegetables.tomato', 'spices.cumin-jeera', 'spices.turmeric-haldi', 'dairy.ghee', 'vegetables.coriander-leaves'] },
   ),
 
   r(
@@ -2245,7 +2245,7 @@ export const RECIPES: Recipe[] = [
       'Wrap in foil or butter paper for tiffin.',
     ],
     ['tiffin', 'breakfast', 'quick', 'fingerfood'],
-    { tip: 'Rotis can be made the night before. Morning assembly takes under 5 min.' },
+    { tip: 'Rotis can be made the night before. Morning assembly takes under 5 min.', containsFoodIds: ['eggsPoultry.egg-omelette', 'grains.roti-chapati', 'vegetables.tomato', 'spices.turmeric-haldi', 'spices.cumin-jeera'] },
   ),
 
   r(
@@ -2278,7 +2278,7 @@ export const RECIPES: Recipe[] = [
       'Cool before packing.',
     ],
     ['tiffin', 'lunch'],
-    { tip: 'Cook extra rice at dinner — day-old rice fries better and saves 20 min in the morning.' },
+    { tip: 'Cook extra rice at dinner — day-old rice fries better and saves 20 min in the morning.', containsFoodIds: ['grains.rice', 'eggsPoultry.scrambled-egg', 'vegetables.carrot', 'vegetables.peas', 'vegetables.capsicum', 'spices.ginger'] },
   ),
 
   r(
@@ -2315,7 +2315,7 @@ export const RECIPES: Recipe[] = [
       'Serve curry alongside rice in separate tiffin compartment.',
     ],
     ['tiffin', 'lunch'],
-    { tip: 'Boil eggs the night before and refrigerate. Curry comes together in 15 min the next morning.' },
+    { tip: 'Boil eggs the night before and refrigerate. Curry comes together in 15 min the next morning.', containsFoodIds: ['eggsPoultry.boiled-egg', 'grains.rice', 'vegetables.tomato', 'spices.cumin-jeera', 'spices.turmeric-haldi', 'spices.coriander-powder'] },
   ),
 
   r(
@@ -2346,7 +2346,7 @@ export const RECIPES: Recipe[] = [
       'Pack with sambar or chutney on the side.',
     ],
     ['tiffin', 'breakfast', 'quick'],
-    { tip: 'If using store-bought batter, egg dosa is ready in under 10 min per batch.' },
+    { tip: 'If using store-bought batter, egg dosa is ready in under 10 min per batch.', containsFoodIds: ['grains.dosa', 'eggsPoultry.whole-egg', 'spices.turmeric-haldi'] },
   ),
 
   r(
@@ -2377,7 +2377,7 @@ export const RECIPES: Recipe[] = [
       'Cut diagonally. Wrap in cling film to keep shape in tiffin.',
     ],
     ['tiffin', 'breakfast', 'quick', 'fingerfood'],
-    { tip: 'Boil eggs the night before. The assembled sandwich can also be made the night before and refrigerated — tastes just as good the next morning.' },
+    { tip: 'Boil eggs the night before. The assembled sandwich can also be made the night before and refrigerated — tastes just as good the next morning.', containsFoodIds: ['eggsPoultry.boiled-egg', 'grains.bread', 'dairy.butter', 'vegetables.cucumber'] },
   ),
 
   r(
@@ -2406,7 +2406,7 @@ export const RECIPES: Recipe[] = [
       'Pack with coconut chutney or mild vegetable stew.',
     ],
     ['tiffin', 'breakfast'],
-    { tip: 'Use store-bought appam batter to save fermentation time. Pre-cook the appams and pack with chutney.' },
+    { tip: 'Use store-bought appam batter to save fermentation time. Pre-cook the appams and pack with chutney.', containsFoodIds: ['eggsPoultry.whole-egg', 'others.coconut-milk'] },
   ),
 
   r(
@@ -2443,7 +2443,7 @@ export const RECIPES: Recipe[] = [
       'Sprinkle garam masala, garnish with mint and coriander.',
     ],
     ['tiffin', 'lunch'],
-    { tip: 'Boil eggs the night before. Rice can also be cooked ahead — just fold in eggs while reheating.' },
+    { tip: 'Boil eggs the night before. Rice can also be cooked ahead — just fold in eggs while reheating.', containsFoodIds: ['grains.rice', 'eggsPoultry.boiled-egg', 'spices.cumin-jeera', 'spices.turmeric-haldi', 'spices.cardamom-elaichi', 'spices.cinnamon-dalchini', 'dairy.ghee'] },
   ),
 
   r(
@@ -2479,7 +2479,7 @@ export const RECIPES: Recipe[] = [
       'Pack curry and chapatis separately for tiffin.',
     ],
     ['tiffin', 'lunch'],
-    { tip: "Bengali dim'er jhol has a thin, flavourful gravy — reduce water slightly for tiffin so it doesn't spill. Chapatis can be made the night before." },
+    { tip: "Bengali dim'er jhol has a thin, flavourful gravy — reduce water slightly for tiffin so it doesn't spill. Chapatis can be made the night before.", containsFoodIds: ['eggsPoultry.boiled-egg', 'grains.roti-chapati', 'vegetables.potato', 'vegetables.tomato', 'spices.turmeric-haldi', 'spices.cumin-jeera', 'spices.coriander-powder', 'oilsFats.mustard-oil'] },
   ),
 
   r(
@@ -2513,7 +2513,7 @@ export const RECIPES: Recipe[] = [
       'Pack with curd or pickle.',
     ],
     ['tiffin', 'breakfast', 'quick'],
-    { tip: 'The egg-on-paratha technique is faster than stuffing — try it on busy mornings. Dough can be made the night before.' },
+    { tip: 'The egg-on-paratha technique is faster than stuffing — try it on busy mornings. Dough can be made the night before.', containsFoodIds: ['grains.roti-chapati', 'eggsPoultry.whole-egg', 'spices.cumin-jeera', 'spices.turmeric-haldi', 'dairy.ghee', 'dairy.butter', 'vegetables.coriander-leaves'] },
   ),
 ];
 
