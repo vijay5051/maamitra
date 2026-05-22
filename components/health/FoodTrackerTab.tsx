@@ -6,6 +6,7 @@ import { useRouter } from 'expo-router';
 import Card from '../ui/Card';
 import FoodCategoryAccordion from './FoodCategoryAccordion';
 import FoodDetailSheet from './FoodDetailSheet';
+import TiffinScreen from './tiffin/TiffinScreen';
 import {
   babyFoodsForDiet,
   FOOD_BY_ID,
@@ -123,18 +124,18 @@ export default function FoodTrackerTab() {
     );
   }
 
-  // ── 12 months and over ────────────────────────────────────────
-  // This section covers the weaning window (6–12 months). Age-appropriate
-  // content for older kids (tiffin ideas, family meals, etc.) is coming.
+  // ── 12 months and over → Tiffin & Family Meals ────────────────
   if (ageMonths !== null && ageMonths >= 12) {
+    // Map profile diet string to the FoodDiet union used by tiffin data
+    const tiffinDiet =
+      parentDiet === 'non-vegetarian' ? 'nonveg' : (parentDiet as import('../../data/babyFoods').FoodDiet | undefined);
     return (
-      <Card style={styles.emptyCard} shadow="sm">
-        <Ionicons name="restaurant-outline" size={40} color={GOLD} style={{ marginBottom: 12 }} />
-        <Text style={styles.emptyTitle}>{activeKid.name} has graduated!</Text>
-        <Text style={styles.emptyText}>
-          The weaning tracker covers 6–12 months. Age-appropriate meal ideas for {activeKid.name} — tiffin recipes, family foods, and more — are coming soon.
-        </Text>
-      </Card>
+      <TiffinScreen
+        kidId={activeKid.id}
+        kidName={activeKid.name}
+        ageMonths={ageMonths}
+        diet={tiffinDiet}
+      />
     );
   }
 

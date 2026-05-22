@@ -28,6 +28,7 @@ import { useChatStore } from './useChatStore';
 import { useTeethStore } from './useTeethStore';
 import { useFoodTrackerStore } from './useFoodTrackerStore';
 import { useGrowthStore } from './useGrowthStore';
+import { useMealPlannerStore } from './useMealPlannerStore';
 import { useDMStore } from './useDMStore';
 import { logAuthEvent } from '../lib/authObservability';
 
@@ -218,6 +219,12 @@ async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
     // Restore per-kid growth + routine tracker (weight/height/head/diaper/sleep)
     if ((fullProfile as any).growthTracking && Object.keys((fullProfile as any).growthTracking).length > 0) {
       useGrowthStore.getState().hydrate((fullProfile as any).growthTracking);
+    }
+
+    // Restore meal planner (tiffin / family meals, 12 mo+)
+    const mealPlanning = (fullProfile as any).mealPlanning ?? {};
+    if (Object.keys(mealPlanning).length > 0) {
+      useMealPlannerStore.getState().hydrate(mealPlanning);
     }
 
     useAuthStore.setState({ firestoreHydratedForUid: uid });
