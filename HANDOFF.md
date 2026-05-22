@@ -8,20 +8,20 @@
 
 ## Active task
 
-**Tiffin & Family Meals (1 yr+) — code complete on `main`, awaiting manual QA + OTA authorization.**
+**No active coding task.**
 
-Replaces the "graduated! coming soon" dead-end in Health → Foods for kids 12 mo+. 81 recipes across 10 cuisines, 4 diet tiers, 4 age bands. Rules-based daily pick + Mon-Sun planner + browse library + soft allergy warnings.
+Tiffin & Family Meals (1 yr+) shipped to production OTA 2026-05-22:
+- Update group: `56f3ff39-0aea-4ee8-a228-4bc66587fe5a`
+- Tag: `ota/production-latest` → `fd60aba`
+- Live at https://maamitra.co.in (and EAS production channel for native apps)
 
-Spec: `docs/superpowers/specs/2026-05-22-tiffin-family-meals-design.md`
-Plan: `docs/superpowers/plans/2026-05-22-tiffin-family-meals.md`
+21 commits landed on main (e50b3b4..fd60aba). Spec + plan in `docs/superpowers/{specs,plans}/2026-05-22-tiffin-family-meals-*.md`.
 
-**18 commits landed (e50b3b4..4738243):** scaffold → data (8) → logic (2) → store (1) → UI (6) → wire-in (1).
-
-**TypeScript:** clean. **Tests:** 26/26 pass (131 assertions).
-
-**Pending:**
-1. User runs manual QA — 13 scenarios in spec §10.4.
-2. User authorizes OTA — Task 20 of plan runs the sync chain to production.
+**Possible follow-ups (separate specs, not started):**
+- Phase 1.5 — per-recipe illustrations (Codex batch).
+- Phase 2 — day-by-day Meal Plans for 6–12 mo (uses Baby_Meal_Plan.pdf).
+- Phase 3 — shopping list aggregator.
+- Phase 4 — LLM ranker on top of the rules-based pick.
 
 ---
 
