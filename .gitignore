@@ -2,6 +2,7 @@ node_modules/
 .expo/
 .firebase/
 .claude/worktrees/
+.planning/
 dist/
 .DS_Store
 **/.DS_Store
