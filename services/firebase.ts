@@ -702,6 +702,17 @@ export async function syncFoodTracking(uid: string, byKid: Record<string, Record
   }
 }
 
+/** Persist per-kid Mon–Sun meal planner (Tiffin & Family Meals, 1 yr+). */
+export async function syncMealPlanner(uid: string, byKid: Record<string, any>): Promise<void> {
+  if (!db) return;
+  try {
+    await setDoc(doc(db, 'users', uid), { mealPlanning: byKid, updatedAt: serverTimestamp() }, { merge: true });
+  } catch (error) {
+    console.error('syncMealPlanner error:', error);
+    throw error;
+  }
+}
+
 /** Persist per-kid growth + routine trackers (weight/height/head/diaper/sleep). */
 export async function syncGrowthTracking(uid: string, byKid: Record<string, Record<string, any>>): Promise<void> {
   if (!db) return;
