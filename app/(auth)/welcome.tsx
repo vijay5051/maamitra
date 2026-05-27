@@ -12,7 +12,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Redirect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SmartInputCard from '../../components/auth/SmartInputCard';
@@ -59,6 +59,7 @@ export default function WelcomeScreen() {
 
   const { onGoogleCredential } = useAuthStore();
   const isLoading = useAuthStore((s) => s.isLoading);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const { signIn: googleSignIn, ready: googleReady } = useGoogleSignIn();
 
   const [authError, setAuthError] = useState<string>('');
@@ -130,6 +131,13 @@ export default function WelcomeScreen() {
       ]);
     }
   };
+
+  // Returning from Google's signInWithRedirect lands the browser back on
+  // /welcome (the URL that initiated the redirect). Without this guard the
+  // signed-in user just sits here — app/index.tsx owns the real routing.
+  if (!isLoading && isAuthenticated) {
+    return <Redirect href="/" />;
+  }
 
   return (
     <ScrollView
