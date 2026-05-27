@@ -4,6 +4,14 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useProfileStore } from '../store/useProfileStore';
 import { isAdminEmail } from '../lib/admin';
 import { logAuthEvent } from '../lib/authObservability';
+import { savePhoneVerification } from '../lib/savePhoneVerification';
+
+// Synthetic placeholder number written to admin accounts so they can skip
+// the phone-gate without burning one of the family's real numbers. The
+// 0000000000 mantissa is invalid by Indian numbering rules, so it can
+// never collide with a real user.
+const ADMIN_PLACEHOLDER_PHONE = '+910000000000';
+const adminPhoneSyncedFor = new Set<string>();
 
 // Module-level dedup set for gate-pending logs. On a slow Firestore
 // round-trip the component re-renders many times while the gate is
@@ -66,16 +74,25 @@ export default function Index() {
   // ── Routing decisions — four branches mapping to five named states
   // (admin + tabs both → APP).
   //
-  // Phone verification runs BEFORE the admin redirect so an admin who hasn't
-  // verified their number can't slip past the phone gate by virtue of their
-  // email alone (audit: stores-services LOW #37 / app/index.tsx:68).
+  // Admin check runs BEFORE the phone gate: admins use shared email accounts
+  // and shouldn't have to burn a real phone number on the OTP gate. If the
+  // admin has no phoneVerified record yet, write a synthetic +910000000000
+  // placeholder to Firestore (fire-and-forget) so subsequent boots also
+  // skip the gate. Original audit (stores-services LOW #37) wanted phone
+  // before admin to prevent slipping past via email alone — that's still
+  // true for NON-admins (the email is itself authoritative for admins
+  // because it's gated by Google/email sign-in + the ADMIN_EMAILS list).
+  if (isAdminEmail(user?.email)) {
+    if (user && !phoneVerified && !adminPhoneSyncedFor.has(user.uid)) {
+      adminPhoneSyncedFor.add(user.uid);
+      void savePhoneVerification({ uid: user.uid, e164: ADMIN_PLACEHOLDER_PHONE, verified: true });
+    }
+    logTransition('APP', user?.uid);
+    return <Redirect href="/admin" />;
+  }
   if (!phoneVerified) {
     logTransition('PHONE_GATE', user?.uid);
     return <Redirect href="/(auth)/phone" />;
-  }
-  if (isAdminEmail(user?.email)) {
-    logTransition('APP', user?.uid);
-    return <Redirect href="/admin" />;
   }
   if (!onboardingComplete) {
     logTransition('ONBOARDING', user?.uid);

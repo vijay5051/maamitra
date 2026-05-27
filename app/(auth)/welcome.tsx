@@ -63,6 +63,7 @@ export default function WelcomeScreen() {
   const { signIn: googleSignIn, ready: googleReady } = useGoogleSignIn();
 
   const [authError, setAuthError] = useState<string>('');
+  const [googleSubmitting, setGoogleSubmitting] = useState(false);
   const [showEscape, setShowEscape] = useState(false);
 
   // Plan A: 5-second cache-stuck escape hatch
@@ -97,6 +98,10 @@ export default function WelcomeScreen() {
 
   const handleGoogle = async () => {
     setAuthError('');
+    // Flip the button to "Continuing with Google…" immediately so the user
+    // sees progress during the ~0.5–2s before signInWithRedirect navigates
+    // the page away on web (or the native Google sheet opens on Android).
+    setGoogleSubmitting(true);
     try {
       const credential = await googleSignIn();
       // Web uses signInWithRedirect — the browser navigates away to Google,
@@ -114,6 +119,8 @@ export default function WelcomeScreen() {
     } catch (e: any) {
       logAuthEvent({ type: 'auth:method-cancelled', method: 'google' });
       setAuthError(friendlyAuthError(e, 'google'));
+      // Cancel / error → restore the button so the user can retry.
+      setGoogleSubmitting(false);
     }
   };
 
@@ -173,6 +180,7 @@ export default function WelcomeScreen() {
           onPressApple={handleApple}
           showApple={false}
           googleLoading={!googleReady}
+          googleSubmitting={googleSubmitting}
           error={authError}
         />
 

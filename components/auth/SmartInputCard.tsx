@@ -65,8 +65,15 @@ interface Props {
   onPressApple: () => void;
   /** Whether to render the Apple button. Hide on Android / web without Apple JS SDK. */
   showApple: boolean;
-  /** True while Google sign-in is in flight / SDK not yet ready. Disables the Google button. */
+  /** True while the Google SDK isn't ready yet. Disables the button silently (no progress text). */
   googleLoading?: boolean;
+  /**
+   * True after the user has tapped "Continue with Google" and we're either
+   * mid-redirect (web) or mid-native-prompt. Shows a "Continuing with Google…"
+   * label so the user knows progress is happening — otherwise the button
+   * looks dead during the ~1s before Google's redirect navigates away.
+   */
+  googleSubmitting?: boolean;
   /** Parent-controlled error (e.g. Google flow error). Shown alongside localError. */
   error?: string;
 }
@@ -77,6 +84,7 @@ export default function SmartInputCard({
   onPressApple,
   showApple,
   googleLoading,
+  googleSubmitting,
   error,
 }: Props) {
   // ── Phone step state ─────────────────────────────────────────────────────
@@ -276,14 +284,16 @@ export default function SmartInputCard({
       </View>
 
       <Pressable
-        style={[styles.googleBtn, googleLoading && styles.googleBtnDisabled]}
-        onPress={googleLoading ? undefined : onPressGoogle}
+        style={[styles.googleBtn, (googleLoading || googleSubmitting) && styles.googleBtnDisabled]}
+        onPress={googleLoading || googleSubmitting ? undefined : onPressGoogle}
         accessibilityRole="button"
-        accessibilityLabel="Continue with Google"
-        accessibilityState={{ disabled: !!googleLoading }}
+        accessibilityLabel={googleSubmitting ? 'Continuing with Google' : 'Continue with Google'}
+        accessibilityState={{ disabled: !!(googleLoading || googleSubmitting) }}
       >
         <GoogleGIcon size={18} />
-        <Text style={styles.googleText}>Continue with Google</Text>
+        <Text style={styles.googleText}>
+          {googleSubmitting ? 'Continuing with Google…' : 'Continue with Google'}
+        </Text>
       </Pressable>
 
       {showApple && (
