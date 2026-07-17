@@ -47,7 +47,8 @@ service cloud.firestore {
           request.auth.token.email == 'admin@maamitra.app' ||
           request.auth.token.email == 'vijay@maamitra.app' ||
           request.auth.token.email == 'rocking.vsr@gmail.com' ||
-          request.auth.token.email == 'divyashekhawat44@yahoo.in'
+          request.auth.token.email == 'divyashekhawat44@yahoo.in' ||
+          request.auth.token.email == 'nikkishekhawat91@gmail.com'
         )) ||
         adminRoleField(request.auth.uid) in ['super', 'moderator', 'support', 'content']
       );
@@ -60,7 +61,8 @@ service cloud.firestore {
           request.auth.token.email == 'admin@maamitra.app' ||
           request.auth.token.email == 'vijay@maamitra.app' ||
           request.auth.token.email == 'rocking.vsr@gmail.com' ||
-          request.auth.token.email == 'divyashekhawat44@yahoo.in'
+          request.auth.token.email == 'divyashekhawat44@yahoo.in' ||
+          request.auth.token.email == 'nikkishekhawat91@gmail.com'
         )) ||
         adminRoleField(request.auth.uid) == 'super'
       );
