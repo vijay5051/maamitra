@@ -41,13 +41,14 @@ import FoodTrackerTab from '../../components/health/FoodTrackerTab';
 import DietPrompt from '../../components/jit/DietPrompt';
 import GrowthTab, { RoutineTab } from '../../components/health/GrowthTab';
 import NuskheTab from '../../components/health/NuskheTab';
+import TravelRecipeHub from '../../components/health/travel/TravelRecipeHub';
 import { Illustration } from '../../components/ui/Illustration';
 import { AppIcon } from '../../components/ui/AppIcon';
 import type { IllustrationName } from '../../lib/illustrations';
 import { Fonts, Gradients, withAlpha } from '../../constants/theme';
 import { Colors } from '../../constants/theme';
 
-type SubTab = 'vaccines' | 'teeth' | 'foods' | 'growth' | 'milestones' | 'routine' | 'schemes' | 'myhealth' | 'nuskhe';
+type SubTab = 'vaccines' | 'teeth' | 'foods' | 'growth' | 'milestones' | 'routine' | 'schemes' | 'myhealth' | 'nuskhe' | 'travel';
 
 // ─── Landing-grid categories ──────────────────────────────────────────────────
 // Seven trackers is too many for a horizontal pill bar. Group them by who the
@@ -78,6 +79,7 @@ const SUB_TABS: SubTabMeta[] = [
   { key: 'foods',    label: 'Foods',      icon: 'restaurant-outline',       description: 'Weaning tracker & tiffin recipes',     category: 'baby'     },
   { key: 'routine',  label: 'Routine',    icon: 'time-outline',             description: 'Diaper & sleep log',                   category: 'baby'     },
   { key: 'nuskhe',   label: 'Dadi Maa\u2019s Nuskhe', icon: 'flower-outline',  description: 'Traditional home remedies for common ailments', category: 'baby' },
+  { key: 'travel',   label: 'Travel Meals', icon: 'airplane-outline',         description: 'Recipes for journeys, flights & trips',    category: 'baby'     },
   { key: 'myhealth', label: 'My Health',  icon: 'heart-outline',            description: 'FOGSI checklist for mother',           category: 'mother'   },
   { key: 'schemes',  label: 'Schemes',    icon: 'ribbon-outline',           description: 'Government benefits for you',          category: 'benefits' },
 ];
@@ -1742,6 +1744,9 @@ export default function HealthScreen() {
 
         {/* ── DADI MAA KE NUSKHE ── */}
         {subTab === 'nuskhe' && <NuskheTab />}
+
+        {/* ── TRAVEL MEALS ── */}
+        {subTab === 'travel' && <TravelRecipeHub />}
 
         {/* ── SCHEMES ── */}
         {subTab === 'schemes' && (
