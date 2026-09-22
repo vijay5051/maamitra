@@ -113,6 +113,10 @@ their work overwriting each other:
 1. **Always pull first.** Before editing anything:
    `git fetch origin && git pull --rebase origin main`
    Branch must be `main` (or rebased onto it).
+   This is automated: `.claude/hooks/session-pull.sh` runs on every Claude
+   session start/resume (wired in `.claude/settings.json`). It pulls only when
+   on `main` with no uncommitted tracked changes; otherwise it fetches and
+   warns. If its message says it did NOT pull, stop and tell the user.
 2. **Never publish from a dirty / unpushed tree.** OTA bundles ship from
    the working tree and overwrite the channel — uncommitted code goes to
    users but lives nowhere in git, and the next push wipes it. Use
