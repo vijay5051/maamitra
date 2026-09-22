@@ -8,7 +8,12 @@
 
 ## Active task
 
-**Shipping Travel Meals to production (2026-09-22).** Chain: commit rules → expo export → firebase deploy (hosting + firestore:rules) → `npm run update`. If this note is still here, check `git log ota/production-latest..origin/main` and finish the remaining links.
+**No active coding task.**
+
+Travel Meals shipped to production 2026-09-22:
+- OTA update group: `e2168e9a-8a15-42d1-a3f3-b4b8044dc702` (runtime 1.0.6)
+- Tag: `ota/production-latest` → `c5e9133`
+- Web + Firestore rules deployed; live at https://maamitra.co.in
 
 ---
 
