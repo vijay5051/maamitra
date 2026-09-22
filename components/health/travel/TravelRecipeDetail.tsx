@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  Image,
   Modal,
   ScrollView,
   StyleSheet,
@@ -10,7 +11,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Fonts } from '../../../constants/theme';
-import { TravelRecipe, CATEGORY_BY_KEY, GEAR_LABELS } from '../../../data/travelRecipes';
+import { TravelRecipe, CATEGORY_BY_KEY, GEAR_LABELS, NO_SALT_SUGAR_NOTE } from '../../../data/travelRecipes';
+import { travelRecipeImage } from '../../../data/travelRecipeImages';
 
 const INK = Colors.textDark;
 const STONE = Colors.textMuted;
@@ -78,6 +80,7 @@ export default function TravelRecipeDetail({
   if (!recipe) return null;
 
   const cat = CATEGORY_BY_KEY[recipe.category];
+  const photo = travelRecipeImage(recipe.id);
   const roomH = effectiveHours(recipe.roomTempHours, hotWeather);
   const bagH = effectiveHours(recipe.insulatedBagHours, hotWeather);
   const thermosH = effectiveHours(recipe.thermosHours, hotWeather);
@@ -129,9 +132,13 @@ export default function TravelRecipeDetail({
 
           {/* Hero block */}
           <View style={styles.heroBlock}>
-            <View style={[styles.heroIcon, { backgroundColor: Colors.primaryAlpha08 }]}>
-              <Text style={{ fontSize: 40 }}>{cat.icon}</Text>
-            </View>
+            {photo ? (
+              <Image source={photo} style={styles.heroPhoto} resizeMode="cover" accessibilityIgnoresInvertColors />
+            ) : (
+              <View style={[styles.heroIcon, { backgroundColor: Colors.primaryAlpha08 }]}>
+                <Text style={{ fontSize: 40 }}>{cat.icon}</Text>
+              </View>
+            )}
             <Text style={styles.title}>{recipe.title}</Text>
             <Text style={styles.subtitle}>{recipe.subtitle}</Text>
 
@@ -141,6 +148,13 @@ export default function TravelRecipeDetail({
               <View style={styles.badge}><Text style={styles.badgeText}>⏱ {recipe.prepTimeMinutes} min prep</Text></View>
               <View style={styles.badge}><Text style={styles.badgeText}>{cat.icon} {cat.label}</Text></View>
             </View>
+
+            {recipe.ageMinMonths < 12 && (
+              <View style={styles.noSaltSugar}>
+                <Text style={styles.noSaltSugarTitle}>🧂 No added salt or sugar</Text>
+                <Text style={styles.noSaltSugarBody}>{NO_SALT_SUGAR_NOTE}</Text>
+              </View>
+            )}
           </View>
 
           {/* ── Hot weather toggle ── */}
@@ -318,6 +332,9 @@ export default function TravelRecipeDetail({
                       <Text style={styles.allergenInline}> ⚠️</Text>
                     )}
                   </Text>
+                  {ing.notes && (
+                    <Text style={styles.substituteText}>{ing.notes}</Text>
+                  )}
                   {ing.substitute && (
                     <Text style={styles.substituteText}>→ {ing.substitute}</Text>
                   )}
@@ -434,6 +451,23 @@ const styles = StyleSheet.create({
   },
   scroll: { padding: 16, paddingBottom: 100 },
   heroBlock: { alignItems: 'center', marginBottom: 16 },
+  heroPhoto: {
+    width: '100%',
+    height: 210,
+    borderRadius: 18,
+    marginBottom: 14,
+    backgroundColor: Colors.bgTint,
+  },
+  noSaltSugar: {
+    alignSelf: 'stretch',
+    marginTop: 12,
+    backgroundColor: GREEN_BG,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  noSaltSugarTitle: { fontFamily: Fonts.sansBold, fontSize: 12.5, color: GREEN_FG, marginBottom: 2 },
+  noSaltSugarBody: { fontFamily: Fonts.sansRegular, fontSize: 12, color: GREEN_FG, lineHeight: 17 },
   heroIcon: {
     width: 72,
     height: 72,

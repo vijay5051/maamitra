@@ -1,7 +1,8 @@
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Fonts } from '../../../constants/theme';
-import { TravelRecipe, CATEGORY_BY_KEY, GEAR_LABELS } from '../../../data/travelRecipes';
+import { TravelRecipe, CATEGORY_BY_KEY } from '../../../data/travelRecipes';
+import { travelRecipeImage } from '../../../data/travelRecipeImages';
 
 const INK = Colors.textDark;
 const STONE = Colors.textMuted;
@@ -16,6 +17,7 @@ interface Props {
 
 export default function TravelRecipeCard({ recipe, isBookmarked, hotWeather, onPress, onBookmark }: Props) {
   const cat = CATEGORY_BY_KEY[recipe.category];
+  const photo = travelRecipeImage(recipe.id);
 
   // Effective shelf life — halved in hot weather
   const bestHours = Math.max(
@@ -33,61 +35,68 @@ export default function TravelRecipeCard({ recipe, isBookmarked, hotWeather, onP
 
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={styles.card}>
-      {/* Category icon chip */}
-      <View style={styles.iconRow}>
-        <View style={[styles.catChip, { backgroundColor: Colors.primaryAlpha08 }]}>
-          <Text style={styles.catIcon}>{cat.icon}</Text>
-        </View>
-        {onBookmark && (
-          <TouchableOpacity onPress={onBookmark} hitSlop={10} style={styles.bookmarkBtn}>
-            <Ionicons
-              name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
-              size={17}
-              color={isBookmarked ? Colors.primary : STONE}
-            />
-          </TouchableOpacity>
+      <View style={styles.row}>
+        {photo ? (
+          <Image source={photo} style={styles.photo} accessibilityIgnoresInvertColors />
+        ) : (
+          <View style={[styles.photo, styles.photoFallback]}>
+            <Text style={styles.catIcon}>{cat.icon}</Text>
+          </View>
         )}
-      </View>
 
-      <Text style={styles.title} numberOfLines={2}>{recipe.title}</Text>
-      <Text style={styles.subtitle} numberOfLines={1}>{recipe.subtitle}</Text>
+        <View style={styles.body}>
+          <View style={styles.titleRow}>
+            <Text style={styles.title} numberOfLines={2}>{recipe.title}</Text>
+            {onBookmark && (
+              <TouchableOpacity onPress={onBookmark} hitSlop={10} style={styles.bookmarkBtn}>
+                <Ionicons
+                  name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
+                  size={17}
+                  color={isBookmarked ? Colors.primary : STONE}
+                />
+              </TouchableOpacity>
+            )}
+          </View>
+          <Text style={styles.subtitle} numberOfLines={2}>{recipe.subtitle}</Text>
 
-      {/* Badge row */}
-      <View style={styles.badgeRow}>
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>{recipe.stageBadge}</Text>
-        </View>
-        {shelfLabel && (
-          <View style={[styles.badge, hotWeather && styles.badgeWarn]}>
-            <Ionicons name="time-outline" size={10} color={hotWeather ? '#92400E' : STONE} />
-            <Text style={[styles.badgeText, hotWeather && { color: '#92400E' }]}>
-              {shelfLabel}{hotWeather ? ' ☀️' : ''}
+          {/* Badge row */}
+          <View style={styles.badgeRow}>
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{recipe.stageBadge}</Text>
+            </View>
+            {shelfLabel && (
+              <View style={[styles.badge, hotWeather && styles.badgeWarn]}>
+                <Ionicons name="time-outline" size={10} color={hotWeather ? '#92400E' : STONE} />
+                <Text style={[styles.badgeText, hotWeather && { color: '#92400E' }]}>
+                  {shelfLabel}{hotWeather ? ' ☀️' : ''}
+                </Text>
+              </View>
+            )}
+            {needsThermos && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>🌡️ Thermos</Text>
+              </View>
+            )}
+            {needsFridge && (
+              <View style={[styles.badge, styles.badgeCool]}>
+                <Text style={[styles.badgeText, { color: '#1e40af' }]}>❄️ Keep cool</Text>
+              </View>
+            )}
+            {!needsFridge && !needsThermos && (
+              <View style={[styles.badge, styles.badgeGreen]}>
+                <Text style={[styles.badgeText, { color: '#166534' }]}>✅ No gear</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Top allergen */}
+          {recipe.allergenContains.length > 0 && (
+            <Text style={styles.allergen} numberOfLines={1}>
+              ⚠️ {recipe.allergenContains.slice(0, 2).map((a) => a.replace('_', ' ')).join(', ')}
             </Text>
-          </View>
-        )}
-        {needsThermos && (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>🌡️ Thermos</Text>
-          </View>
-        )}
-        {needsFridge && (
-          <View style={[styles.badge, styles.badgeCool]}>
-            <Text style={[styles.badgeText, { color: '#1e40af' }]}>❄️ Keep cool</Text>
-          </View>
-        )}
-        {!needsFridge && !needsThermos && (
-          <View style={[styles.badge, styles.badgeGreen]}>
-            <Text style={[styles.badgeText, { color: '#166534' }]}>✅ No gear</Text>
-          </View>
-        )}
+          )}
+        </View>
       </View>
-
-      {/* Top allergen */}
-      {recipe.allergenContains.length > 0 && (
-        <Text style={styles.allergen} numberOfLines={1}>
-          ⚠️ {recipe.allergenContains.slice(0, 2).map((a) => a.replace('_', ' ')).join(', ')}
-        </Text>
-      )}
     </TouchableOpacity>
   );
 }
@@ -96,7 +105,7 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: Colors.white,
     borderRadius: 16,
-    padding: 14,
+    padding: 12,
     borderWidth: 1,
     borderColor: Colors.borderSoft,
     shadowColor: Colors.primary,
@@ -105,22 +114,24 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
   },
-  iconRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+  row: { flexDirection: 'row', gap: 12 },
+  photo: {
+    width: 84,
+    height: 84,
+    borderRadius: 12,
+    backgroundColor: Colors.bgTint,
   },
-  catChip: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+  photoFallback: {
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: Colors.primaryAlpha08,
   },
-  catIcon: { fontSize: 18 },
+  catIcon: { fontSize: 28 },
+  body: { flex: 1, minWidth: 0 },
+  titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   bookmarkBtn: { padding: 2 },
   title: {
+    flex: 1,
     fontFamily: Fonts.sansBold,
     fontSize: 14,
     color: Colors.textDark,

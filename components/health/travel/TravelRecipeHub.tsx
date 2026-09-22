@@ -1,7 +1,5 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  FlatList,
-  SectionList,
   StyleSheet,
   Text,
   View,
@@ -13,7 +11,7 @@ import { Colors, Fonts } from '../../../constants/theme';
 import { useTravelRecipeStore } from '../../../store/useTravelRecipeStore';
 import { useActiveKid } from '../../../hooks/useActiveKid';
 import { calculateAgeInMonths, isPlausibleDob } from '../../../lib/dob';
-import { TravelRecipe, TRAVEL_CATEGORIES, CATEGORY_BY_KEY } from '../../../data/travelRecipes';
+import { TravelRecipe, TRAVEL_CATEGORIES, NO_SALT_SUGAR_NOTE } from '../../../data/travelRecipes';
 import TravelFilterBar from './TravelFilterBar';
 import TravelRecipeCard from './TravelRecipeCard';
 import TravelRecipeDetail from './TravelRecipeDetail';
@@ -63,30 +61,16 @@ export default function TravelRecipeHub() {
 
   const packCount = Object.keys(bookmarks).length;
 
-  const renderItem = useCallback(
-    ({ item }: { item: TravelRecipe }) => (
-      <View style={styles.cardWrap}>
-        <TravelRecipeCard
-          recipe={item}
-          isBookmarked={isBookmarked(item.id)}
-          hotWeather={filter.hotWeather}
-          onPress={() => setSelectedRecipe(item)}
-          onBookmark={() => toggleBookmark(item.id)}
-        />
-      </View>
-    ),
-    [filter.hotWeather, isBookmarked, toggleBookmark],
-  );
-
-  const renderSectionHeader = useCallback(
-    ({ section }: { section: Section }) => (
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionIcon}>{section.icon}</Text>
-        <Text style={styles.sectionTitle}>{section.title}</Text>
-        <Text style={styles.sectionCount}>{section.data.length}</Text>
-      </View>
-    ),
-    [],
+  const renderCard = (item: TravelRecipe) => (
+    <View key={item.id} style={styles.cardWrap}>
+      <TravelRecipeCard
+        recipe={item}
+        isBookmarked={isBookmarked(item.id)}
+        hotWeather={filter.hotWeather}
+        onPress={() => setSelectedRecipe(item)}
+        onBookmark={() => toggleBookmark(item.id)}
+      />
+    </View>
   );
 
   return (
@@ -160,17 +144,26 @@ export default function TravelRecipeHub() {
         </View>
       )}
 
-      {/* Recipe list */}
+      {/* Recipe list — plain map, not SectionList: this hub renders inside the
+          Health screen's ScrollView, and a nested virtualized list never gets
+          scroll events, so it only ever drew its first ~10 cards. */}
       {sections.length > 0 && (
-        <SectionList
-          sections={sections}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          renderSectionHeader={renderSectionHeader}
-          contentContainerStyle={styles.listContent}
-          stickySectionHeadersEnabled={false}
-          showsVerticalScrollIndicator={false}
-        />
+        <View style={styles.listContent}>
+          <View style={styles.ruleBanner}>
+            <Text style={styles.ruleTitle}>🧂 Under 1 year: no added salt or sugar</Text>
+            <Text style={styles.ruleBody}>{NO_SALT_SUGAR_NOTE}</Text>
+          </View>
+          {sections.map((section) => (
+            <View key={section.title}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionIcon}>{section.icon}</Text>
+                <Text style={styles.sectionTitle}>{section.title}</Text>
+                <Text style={styles.sectionCount}>{section.data.length}</Text>
+              </View>
+              {section.data.map(renderCard)}
+            </View>
+          ))}
+        </View>
       )}
 
       {/* Detail modal */}
@@ -230,6 +223,16 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: 'center',
   },
+  ruleBanner: {
+    marginHorizontal: 16,
+    marginTop: 4,
+    backgroundColor: '#DCFCE7',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  ruleTitle: { fontFamily: Fonts.sansBold, fontSize: 13, color: '#166534', marginBottom: 2 },
+  ruleBody: { fontFamily: Fonts.sansRegular, fontSize: 12, color: '#166534', lineHeight: 17 },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
