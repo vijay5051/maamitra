@@ -3,7 +3,7 @@
 // resized to 480×480 webp. Required statically so Metro bundles them.
 //
 // tr_curd_cup, tr_khichdi_thermos and tr_veg_soup are drawings in the
-// cookbook (no photo) — replace with real photos when available.
+// cookbook, so their photos were generated separately in the same style.
 
 import type { ImageSourcePropType } from 'react-native';
 

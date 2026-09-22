@@ -14,7 +14,7 @@ Travel Meals — photos + full catalogue shipped 2026-09-22:
 - 37 meals (12 added from The Little Traveller's Cookbook), each with its own photo in `assets/travel-meals/` (mapped in `data/travelRecipeImages.ts`).
 - Under-1 "no added salt or sugar" banner (hub) + per-recipe note + ingredient notes.
 - Fixed: hub used a SectionList nested in Health's ScrollView, so only ~10 cards ever rendered.
-- Pending from user: real photos for tr_curd_cup, tr_khichdi_thermos, tr_veg_soup (currently the cookbook's drawings). Drop 480×480 webp over the same filenames.
+- Real photos for tr_curd_cup, tr_khichdi_thermos, tr_veg_soup added (replaced the cookbook's drawings).
 
 ---
 
