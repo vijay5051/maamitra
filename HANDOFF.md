@@ -8,20 +8,7 @@
 
 ## Active task
 
-**No active coding task.**
-
-Tiffin & Family Meals (1 yr+) shipped to production OTA 2026-05-22:
-- Update group: `56f3ff39-0aea-4ee8-a228-4bc66587fe5a`
-- Tag: `ota/production-latest` → `fd60aba`
-- Live at https://maamitra.co.in (and EAS production channel for native apps)
-
-21 commits landed on main (e50b3b4..fd60aba). Spec + plan in `docs/superpowers/{specs,plans}/2026-05-22-tiffin-family-meals-*.md`.
-
-**Possible follow-ups (separate specs, not started):**
-- Phase 1.5 — per-recipe illustrations (Codex batch).
-- Phase 2 — day-by-day Meal Plans for 6–12 mo (uses Baby_Meal_Plan.pdf).
-- Phase 3 — shopping list aggregator.
-- Phase 4 — LLM ranker on top of the rules-based pick.
+**Shipping Travel Meals to production (2026-09-22).** Chain: commit rules → expo export → firebase deploy (hosting + firestore:rules) → `npm run update`. If this note is still here, check `git log ota/production-latest..origin/main` and finish the remaining links.
 
 ---
 

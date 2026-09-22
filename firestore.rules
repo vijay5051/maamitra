@@ -121,6 +121,12 @@ service cloud.firestore {
       allow delete: if isOwner(uid) || isSuperAdmin();
     }
 
+    // ── Travel Meals bookmarks (services/travelRecipes.ts) ────────────────────
+    // Single doc users/{uid}/travel_pack/bookmarks — { bookmarks, updatedAt }.
+    match /users/{uid}/travel_pack/{docId} {
+      allow read, write: if isOwner(uid);
+    }
+
     // ── Mood entries ──────────────────────────────────────────────────────────
     match /moods/{uid}/entries/{date} {
       allow read, write: if isOwner(uid);
@@ -613,6 +619,7 @@ service cloud.firestore {
     match /schemes/{docId}  { allow read: if isSignedIn() && (isPublished() || isAdmin()); allow write: if isAdmin(); }
     match /yoga/{docId}     { allow read: if isSignedIn() && (isPublished() || isAdmin()); allow write: if isAdmin(); }
     match /vaccines/{docId} { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /travel_recipes/{docId} { allow read: if isSignedIn() && (isPublished() || isAdmin()); allow write: if isAdmin(); }
 
     // ── Push jobs queue ──────────────────────────────────────────────────────
     // Each doc is a single push job consumed by the external dispatcher
