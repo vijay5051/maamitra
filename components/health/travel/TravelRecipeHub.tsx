@@ -174,16 +174,19 @@ export default function TravelRecipeHub() {
       )}
 
       {/* Detail modal */}
-      {selectedRecipe && (
-        <TravelRecipeDetail
-          recipe={selectedRecipe}
-          hotWeather={filter.hotWeather}
-          onHotWeatherChange={(v) => setFilter({ hotWeather: v })}
-          isBookmarked={isBookmarked(selectedRecipe.id)}
-          onBookmark={() => toggleBookmark(selectedRecipe.id)}
-          onClose={() => setSelectedRecipe(null)}
-        />
-      )}
+      <TravelRecipeDetail
+        visible={selectedRecipe !== null}
+        recipe={selectedRecipe}
+        hotWeather={filter.hotWeather}
+        isBookmarked={selectedRecipe ? isBookmarked(selectedRecipe.id) : false}
+        testedAtHome={
+          selectedRecipe ? !!useTravelRecipeStore.getState().bookmarks[selectedRecipe.id]?.testedAtHome : false
+        }
+        onClose={() => setSelectedRecipe(null)}
+        onToggleBookmark={() => selectedRecipe && toggleBookmark(selectedRecipe.id)}
+        onToggleHotWeather={(v) => setFilter({ hotWeather: v })}
+        onSetTestedAtHome={(v) => selectedRecipe && useTravelRecipeStore.getState().setTestedAtHome(selectedRecipe.id, v)}
+      />
     </View>
   );
 }
