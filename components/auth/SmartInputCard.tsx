@@ -24,6 +24,7 @@ import {
 } from '../../services/firebase';
 import { logAuthEvent } from '../../lib/authObservability';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useResendCooldown } from '../../hooks/useResendCooldown';
 
 // ─── Friendly OTP error mapper ────────────────────────────────────────────────
 // Mirrors phone.tsx's friendlyOtpError so messages are consistent across both
@@ -38,7 +39,7 @@ function friendlyOtpError(e: any): string {
     case 'auth/invalid-verification-code':
       return 'That code is incorrect. Please check and try again.';
     case 'auth/code-expired':
-      return 'Code expired. Tap "Change number" to send a new code.';
+      return 'Code expired. Tap "Resend" to get a new code.';
     case 'auth/credential-already-in-use':
     case 'auth/account-exists-with-different-credential':
       return 'This number is already linked to another MaaMitra account.';
@@ -99,6 +100,8 @@ export default function SmartInputCard({
   const [busy, setBusy] = useState(false);
   const [localError, setLocalError] = useState('');
   const confirmationRef = useRef<PhoneOtpHandle | null>(null);
+  const resend = useResendCooldown(30);
+  const [resentNotice, setResentNotice] = useState(false);
 
   // ── Hardware back on step 2: go to step 1, not exit the screen ───────────
   useFocusEffect(
@@ -121,6 +124,7 @@ export default function SmartInputCard({
       const handle = await sendPhoneOtp(e164);
       confirmationRef.current = handle;
       setStep('code');
+      resend.start();
       logAuthEvent({
         type: 'auth:phone-otp-sent',
         e164Masked: e164.slice(0, 6) + '****',
@@ -176,11 +180,35 @@ export default function SmartInputCard({
     }
   };
 
+  // ── Resend code (same number) ─────────────────────────────────────────────
+  const handleResend = async () => {
+    if (!resend.canResend || busy) return;
+    setLocalError('');
+    setResentNotice(false);
+    setCode('');
+    setBusy(true);
+    resetPhoneRecaptcha();
+    try {
+      confirmationRef.current = await sendPhoneOtp(e164);
+      resend.start();
+      setResentNotice(true);
+      logAuthEvent({ type: 'auth:phone-otp-sent', e164Masked: e164.slice(0, 6) + '****' });
+    } catch (e: any) {
+      setLocalError(friendlyOtpError(e));
+      logAuthEvent({ type: 'auth:phone-otp-failed', reason: String(e?.code ?? e?.message ?? 'unknown') });
+      resetPhoneRecaptcha();
+    } finally {
+      setBusy(false);
+    }
+  };
+
   // ── Change number ─────────────────────────────────────────────────────────
   const handleChangeNumber = () => {
     confirmationRef.current = null;
     setCode('');
     setLocalError('');
+    setResentNotice(false);
+    resend.reset();
     resetPhoneRecaptcha();
     setStep('phone');
   };
@@ -219,6 +247,7 @@ export default function SmartInputCard({
         </View>
 
         {displayError ? <Text style={styles.errorText}>{displayError}</Text> : null}
+        {!displayError && resentNotice ? <Text style={styles.resentText}>New code sent.</Text> : null}
 
         <GradientButton
           title={busy ? 'Verifying…' : 'Verify'}
@@ -226,6 +255,19 @@ export default function SmartInputCard({
           style={styles.cta}
           disabled={code.replace(/\D/g, '').length !== 6 || busy}
         />
+
+        <Pressable
+          onPress={handleResend}
+          disabled={!resend.canResend || busy}
+          style={styles.resendBtn}
+          hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}
+          accessibilityRole="button"
+          accessibilityLabel="Resend code"
+        >
+          <Text style={[styles.resendText, !resend.canResend && styles.resendTextMuted]}>
+            {resend.canResend ? "Didn't get the code? Resend" : `Resend code in ${resend.secondsLeft}s`}
+          </Text>
+        </Pressable>
 
         <Pressable
           onPress={handleChangeNumber}
@@ -339,9 +381,31 @@ const styles = StyleSheet.create({
   },
   errorText: { fontFamily: Fonts.sansMedium, fontSize: 12, color: Colors.error, marginTop: 6 },
   cta: { marginTop: 12 },
-  changeNumberBtn: {
+  resendBtn: {
     alignSelf: 'center',
     marginTop: 14,
+    paddingVertical: 8,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  resendText: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 14,
+    color: Colors.primary,
+  },
+  resendTextMuted: {
+    color: Colors.textLight,
+  },
+  resentText: {
+    fontFamily: Fonts.sansMedium,
+    fontSize: 13,
+    color: Colors.success,
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  changeNumberBtn: {
+    alignSelf: 'center',
+    marginTop: 2,
     paddingVertical: 8,
     minHeight: 44,
     justifyContent: 'center',

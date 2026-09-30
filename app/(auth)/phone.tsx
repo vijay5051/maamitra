@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { useResendCooldown } from '../../hooks/useResendCooldown';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -58,6 +59,8 @@ export default function PhoneScreen() {
     : initialE164.replace(/\D/g, '').slice(0, 10);
 
   const [step, setStep] = useState<Step>('enter-number');
+  const resend = useResendCooldown(30);
+  const [resentNotice, setResentNotice] = useState(false);
   // Lazy init: captures `initialDigits` on the first render-after-mount. If
   // `useLocalSearchParams` returns empty on the first render (web routing
   // race), the useEffect below pulls the value in once params arrive.
@@ -123,6 +126,7 @@ export default function PhoneScreen() {
       const handle = await sendPhoneOtp(e164);
       confirmationRef.current = handle;
       setStep('enter-code');
+      resend.start();
       logAuthEvent({
         type: 'auth:phone-otp-sent',
         e164Masked: e164.slice(0, 6) + '****',
@@ -180,10 +184,34 @@ export default function PhoneScreen() {
     }
   };
 
+  // "Resend" — sends a fresh SMS to the same number (was: back to step 1).
+  const handleResend = async () => {
+    if (!resend.canResend || busy) return;
+    setError('');
+    setResentNotice(false);
+    setCode('');
+    setBusy(true);
+    resetPhoneRecaptcha();
+    try {
+      confirmationRef.current = await sendPhoneOtp(e164);
+      resend.start();
+      setResentNotice(true);
+      logAuthEvent({ type: 'auth:phone-otp-sent', e164Masked: e164.slice(0, 6) + '****' });
+    } catch (e: any) {
+      setError(friendlyOtpError(e));
+      logAuthEvent({ type: 'auth:phone-otp-failed', reason: String(e?.code ?? e?.message ?? 'unknown') });
+      resetPhoneRecaptcha();
+    } finally {
+      setBusy(false);
+    }
+  };
+
   // "Change number" — stays inside the gate, goes back to step 1.
   const handleChangeNumber = async () => {
     confirmationRef.current = null;
     resetPhoneRecaptcha();
+    resend.reset();
+    setResentNotice(false);
     setCode('');
     setError('');
     setStep('enter-number');
@@ -306,14 +334,20 @@ export default function PhoneScreen() {
           />
 
           {!isEnterNumber && (
-            <Pressable
-              onPress={handleChangeNumber}
-              accessibilityRole="button"
-              accessibilityLabel="Resend OTP"
-              style={styles.resendBtn}
-            >
-              <Text style={styles.resendText}>Didn't get the code? Resend</Text>
-            </Pressable>
+            <>
+              {resentNotice && !error ? <Text style={styles.resentText}>New code sent.</Text> : null}
+              <Pressable
+                onPress={handleResend}
+                disabled={!resend.canResend || busy}
+                accessibilityRole="button"
+                accessibilityLabel="Resend OTP"
+                style={styles.resendBtn}
+              >
+                <Text style={[styles.resendText, !resend.canResend && { color: Colors.textLight }]}>
+                  {resend.canResend ? "Didn't get the code? Resend" : `Resend code in ${resend.secondsLeft}s`}
+                </Text>
+              </Pressable>
+            </>
           )}
 
           <Text style={styles.privacyHint}>
@@ -476,6 +510,13 @@ const styles = StyleSheet.create({
   },
   continueBtn: {
     marginTop: 24,
+  },
+  resentText: {
+    fontFamily: Fonts.sansMedium,
+    fontSize: 13,
+    color: Colors.success,
+    textAlign: 'center',
+    marginTop: 12,
   },
   resendBtn: {
     marginTop: 14,
