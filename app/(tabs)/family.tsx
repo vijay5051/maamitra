@@ -282,7 +282,7 @@ function AddChildModal({
 
   const dateLabel = stage === 'pregnant' ? 'Due date' : 'Date of birth';
   const namePlaceholder = stage === 'pregnant' ? 'Even a working name helps' : 'e.g. Aarav, Diya';
-  const nameLabel = stage === 'pregnant' ? 'Have you picked a name yet? (optional)' : "Baby's name (optional)";
+  const nameLabel = stage === 'pregnant' ? 'Have you picked a name yet? (optional)' : "Child's name (optional)";
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>

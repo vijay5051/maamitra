@@ -21,7 +21,7 @@ export const MILESTONES: Milestone[] = [
     emoji: '👀',
     title: 'Lifts Head Briefly',
     description:
-      'Your baby begins to lift their head for a few seconds during tummy time, strengthening their neck muscles. They can focus on faces about 20–30 cm away and track slow-moving objects.',
+      'Begins to lift their head for a few seconds during tummy time, strengthening their neck muscles. They can focus on faces about 20–30 cm away and track slow-moving objects.',
     category: 'Vision & Movement',
   },
   {
@@ -31,7 +31,7 @@ export const MILESTONES: Milestone[] = [
     emoji: '😊',
     title: 'Social Smile',
     description:
-      'Your baby flashes their first real smile in response to your face or voice — not just a reflex. This magical social smile marks the beginning of intentional communication and emotional bonding.',
+      'Flashes their first real smile in response to your face or voice — not just a reflex. This magical social smile marks the beginning of intentional communication and emotional bonding.',
     category: 'Social',
   },
   {
@@ -41,7 +41,7 @@ export const MILESTONES: Milestone[] = [
     emoji: '💪',
     title: 'Holds Head Steady',
     description:
-      'With growing neck and upper body strength, your baby can now hold their head steady and upright when supported in a sitting position. They may also start to push up on their arms during tummy time.',
+      'With growing neck and upper body strength, your little one can now hold their head steady and upright when supported in a sitting position. They may also start to push up on their arms during tummy time.',
     category: 'Motor',
   },
   {
@@ -51,7 +51,7 @@ export const MILESTONES: Milestone[] = [
     emoji: '😄',
     title: 'Laughs Aloud',
     description:
-      'Joyful belly laughs emerge as your baby discovers the delight of play and interaction. Tickling, silly sounds, and peek-a-boo games are especially likely to trigger these wonderful bursts of laughter.',
+      'Joyful belly laughs emerge as your little one discovers the delight of play and interaction. Tickling, silly sounds, and peek-a-boo games are especially likely to trigger these wonderful bursts of laughter.',
     category: 'Social',
   },
   {
@@ -61,7 +61,7 @@ export const MILESTONES: Milestone[] = [
     emoji: '🪑',
     title: 'Sits with Support',
     description:
-      'Your baby can now sit upright when propped by a cushion or your hands, with much better head control. They may begin to reach for and grasp objects with both hands while in this seated position.',
+      'Can now sit upright when propped by a cushion or your hands, with much better head control. They may begin to reach for and grasp objects with both hands while in this seated position.',
     category: 'Motor',
   },
   {
@@ -71,7 +71,7 @@ export const MILESTONES: Milestone[] = [
     emoji: '🐛',
     title: 'Crawls',
     description:
-      'Your baby starts moving independently, whether on all fours, commando-style on their tummy, or rolling across the floor. This is a major motor milestone that requires strength, coordination, and planning.',
+      'Starts moving independently, whether on all fours, commando-style on their tummy, or rolling across the floor. This is a major motor milestone that requires strength, coordination, and planning.',
     category: 'Motor',
   },
   {
@@ -81,7 +81,7 @@ export const MILESTONES: Milestone[] = [
     emoji: '👶',
     title: 'Says Mama / Dada',
     description:
-      'Your baby begins producing consonant-vowel combinations like "mama" and "dada", though they may not yet associate the words with the right person. This babbling is a crucial stepping stone to meaningful speech.',
+      'Begins producing consonant-vowel combinations like "mama" and "dada", though they may not yet associate the words with the right person. This babbling is a crucial stepping stone to meaningful speech.',
     category: 'Language',
   },
   {
@@ -91,7 +91,7 @@ export const MILESTONES: Milestone[] = [
     emoji: '🧍',
     title: 'Stands Alone',
     description:
-      'Your baby pulls up to standing using furniture and may briefly let go to stand unaided. Many babies take their first wobbly independent steps around this milestone, which is a huge achievement in motor development.',
+      'Pulls up to standing using furniture and may briefly let go to stand unaided. Many little ones take their first wobbly independent steps around this milestone, which is a huge achievement in motor development.',
     category: 'Motor',
   },
   {

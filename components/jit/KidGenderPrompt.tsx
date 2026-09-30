@@ -31,7 +31,7 @@ export default function KidGenderPrompt() {
   return (
     <JustInTimePrompt
       promptKey="kidGender"
-      question={`Pick a gender for ${activeKid?.name ?? 'your baby'}`}
+      question={`Pick a gender for ${activeKid?.name ?? 'your child'}`}
       reason="So MaaMitra uses the right pronouns and shows eligible schemes."
       visible={visible}
     >

@@ -670,11 +670,11 @@ function TrackerTab({ mode }: { mode: Mode }) {
           color={Colors.primary}
           style={{ marginBottom: 12, opacity: 0.85 }}
         />
-        <Text style={emptyStyles.title}>Add your baby first</Text>
+        <Text style={emptyStyles.title}>Add your child first</Text>
         <Text style={emptyStyles.text}>
           {mode === 'growth'
-            ? 'Track weight, height, and head circumference once your baby is added.'
-            : 'Log diapers and sleep once your baby is added.'}
+            ? 'Track weight, height, and head circumference once your child is added.'
+            : 'Log diapers and sleep once your child is added.'}
         </Text>
         <TouchableOpacity
           style={emptyStyles.btn}
@@ -688,7 +688,7 @@ function TrackerTab({ mode }: { mode: Mode }) {
             style={emptyStyles.btnGrad}
           >
             <Ionicons name="add-circle-outline" size={16} color="#fff" />
-            <Text style={emptyStyles.btnText}>Add your baby</Text>
+            <Text style={emptyStyles.btnText}>Add your child</Text>
           </LinearGradient>
         </TouchableOpacity>
       </Card>

@@ -7,7 +7,8 @@ import Card from '../ui/Card';
 import JawChart from './JawChart';
 import ToothDetailSheet from './ToothDetailSheet';
 import TeethSummary from './TeethSummary';
-import { eruptionWindowLabel, shedWindowLabel, TEETH, ToothRef, TOOTH_BY_ID } from '../../data/teeth';
+import { adultToothWindowLabel, eruptionWindowLabel, shedWindowLabel, TEETH, ToothRef, TOOTH_BY_ID } from '../../data/teeth';
+import { isBigKidTeeth } from '../../lib/kidStage';
 import { useTeethStore } from '../../store/useTeethStore';
 import { useActiveKid } from '../../hooks/useActiveKid';
 import { calculateAgeInMonths } from '../../store/useProfileStore';
@@ -18,6 +19,7 @@ const ROSE = Colors.primary;
 const PLUM = Colors.primary;
 const SAGE = '#34D399';
 const GOLD = '#F59E0B';
+const SKY  = '#60A5FA';
 const MIST = '#EDE9F6';
 const INK  = '#1C1033';
 const STONE = '#6B7280';
@@ -35,19 +37,23 @@ export default function TeethTab() {
   const kidId = activeKid?.id ?? '';
   const teethMap = kidId ? byKid[kidId] ?? {} : {};
   const eruptedCount = Object.values(teethMap).filter((e) => e.state === 'erupted').length;
-  const shedCount = Object.values(teethMap).filter((e) => e.state === 'shed').length;
+  // "Lost" = fell out, including teeth whose adult replacement is already in.
+  const adultCount = Object.values(teethMap).filter((e) => e.state === 'permanent').length;
+  const shedCount = Object.values(teethMap).filter((e) => e.state === 'shed').length + adultCount;
 
   const ageMonths = useMemo(() => {
     if (!activeKid || activeKid.isExpecting || !activeKid.dob) return null;
     return calculateAgeInMonths(activeKid.dob);
   }, [activeKid]);
+  // 5y+ → "milk teeth falling out, adult teeth coming in" tracker.
+  const bigKid = isBigKidTeeth(ageMonths);
 
   // ── No active kid ─────────────────────────────────────────────────────
   if (!activeKid) {
     return (
       <Card style={styles.emptyCard} shadow="sm">
         <Ionicons name="happy-outline" size={40} color={ROSE} style={{ marginBottom: 12, opacity: 0.85 }} />
-        <Text style={styles.emptyTitle}>Add your baby first</Text>
+        <Text style={styles.emptyTitle}>Add your child first</Text>
         <Text style={styles.emptyText}>
           Add a child in your family profile to start tracking their teeth.
         </Text>
@@ -84,6 +90,14 @@ export default function TeethTab() {
   }
 
   const handleAskAI = () => {
+    if (bigKid) {
+      const lostDesc = shedCount === 0
+        ? 'No milk teeth have fallen out yet'
+        : `${shedCount} milk ${shedCount === 1 ? 'tooth has' : 'teeth have'} fallen out${adultCount > 0 ? ` and ${adultCount} adult ${adultCount === 1 ? 'tooth has' : 'teeth have'} come in` : ''}`;
+      const prefill = `${activeKid.name} is ${ageLabel}. ${lostDesc}. What's normal at this age for losing milk teeth, and how do we look after the new adult teeth?`;
+      router.push({ pathname: '/(tabs)/chat', params: { prefill } });
+      return;
+    }
     const eruptedList = TEETH
       .filter((t) => teethMap[t.id]?.state === 'erupted')
       .map((t) => t.shortName.toLowerCase())
@@ -94,7 +108,7 @@ export default function TeethTab() {
       ? 'No teeth have appeared yet'
       : `${eruptedCount} of 20 teeth have erupted${eruptedList ? ` (${eruptedList})` : ''}`;
 
-    const prefill = `My baby ${activeKid.name} is ${ageLabel}. ${eruptedDesc}. Any soothing tips for teething right now, and what tooth typically comes next?`;
+    const prefill = `${activeKid.name} is ${ageLabel}. ${eruptedDesc}. Any soothing tips for teething right now, and what tooth typically comes next?`;
 
     router.push({ pathname: '/(tabs)/chat', params: { prefill } });
   };
@@ -104,11 +118,24 @@ export default function TeethTab() {
       <TeethSummary
         eruptedCount={eruptedCount}
         shedCount={shedCount}
+        adultCount={adultCount}
         totalTeeth={TEETH.length}
         ageMonths={ageMonths}
         isExpecting={false}
         kidName={activeKid.name}
+        bigKid={bigKid}
       />
+
+      {/* Big-kid: the 6-year molars come in behind the milk teeth without
+          replacing any, so parents often miss them. */}
+      {bigKid && (
+        <View style={styles.banner}>
+          <Ionicons name="information-circle-outline" size={16} color={PLUM} />
+          <Text style={styles.bannerText}>
+            Around age 6, the first adult molars come in behind the last milk teeth — they don't replace a milk tooth, so they're easy to miss. A good time for a dental check-up.
+          </Text>
+        </View>
+      )}
 
       {/* Pre-eruption banner */}
       {ageMonths !== null && ageMonths < 4 && (
@@ -121,21 +148,24 @@ export default function TeethTab() {
       )}
 
       {/* Late-eruption nudge */}
-      {ageMonths !== null && ageMonths >= 15 && eruptedCount === 0 && (
+      {ageMonths !== null && ageMonths >= 15 && !bigKid && eruptedCount + shedCount === 0 && (
         <View style={[styles.banner, { backgroundColor: 'rgba(245,158,11,0.08)', borderLeftColor: GOLD }]}>
           <Ionicons name="alert-circle-outline" size={16} color="#d97706" />
           <Text style={[styles.bannerText, { color: '#92400e' }]}>
-            Most babies have their first tooth by 12 months. Worth mentioning to your paediatrician at the next visit.
+            Most children have their first tooth by 12 months. Worth mentioning to your paediatrician at the next visit.
           </Text>
         </View>
       )}
 
       {/* Interactive chart */}
-      <Text style={styles.tapHint}>Tap a tooth to log when it appeared</Text>
+      <Text style={styles.tapHint}>
+        {bigKid ? 'Tap a tooth when it falls out or the adult tooth comes in' : 'Tap a tooth to log when it appeared'}
+      </Text>
       <JawChart
         teeth={teethMap}
         selectedToothId={selected?.id ?? null}
         onSelect={(t) => setSelected(t)}
+        bigKid={bigKid}
       />
 
       {/* AI suggestions */}
@@ -147,7 +177,7 @@ export default function TeethTab() {
           style={styles.askBtnGrad}
         >
           <Ionicons name="sparkles" size={16} color="#fff" />
-          <Text style={styles.askBtnText}>Ask MaaMitra about teething</Text>
+          <Text style={styles.askBtnText}>{bigKid ? 'Ask MaaMitra about losing teeth' : 'Ask MaaMitra about teething'}</Text>
           <Ionicons name="arrow-forward" size={14} color="#fff" />
         </LinearGradient>
       </TouchableOpacity>
@@ -159,14 +189,17 @@ export default function TeethTab() {
         style={styles.refHeader}
       >
         <Ionicons name="book-outline" size={16} color={PLUM} />
-        <Text style={styles.refHeaderText}>Reference: when each tooth appears</Text>
+        <Text style={styles.refHeaderText}>
+          {bigKid ? 'Reference: when each milk tooth falls out' : 'Reference: when each tooth appears'}
+        </Text>
         <Ionicons name={refOpen ? 'chevron-up' : 'chevron-down'} size={16} color="#9ca3af" />
       </TouchableOpacity>
       {refOpen && (
         <View style={styles.refList}>
           {TEETH.map((t) => {
             const entry = teethMap[t.id];
-            const dot = entry?.state === 'erupted' ? SAGE : entry?.state === 'shed' ? GOLD : MIST;
+            const st = bigKid && (!entry || entry.state === 'not-erupted') ? 'erupted' : entry?.state;
+            const dot = st === 'erupted' ? SAGE : st === 'shed' ? GOLD : st === 'permanent' ? SKY : MIST;
             return (
               <TouchableOpacity
                 key={t.id}
@@ -178,7 +211,9 @@ export default function TeethTab() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.refName}>{t.name}</Text>
                   <Text style={styles.refMeta}>
-                    Erupt {eruptionWindowLabel(t)} · Shed {shedWindowLabel(t)}
+                    {bigKid
+                      ? `Falls out ${shedWindowLabel(t)} · Adult tooth ${adultToothWindowLabel(t)}`
+                      : `Erupt ${eruptionWindowLabel(t)} · Shed ${shedWindowLabel(t)}`}
                   </Text>
                 </View>
                 <Text style={styles.refFdi}>{t.id}</Text>
@@ -192,7 +227,9 @@ export default function TeethTab() {
       <View style={styles.disclaimer}>
         <Ionicons name="information-circle-outline" size={14} color={PLUM} />
         <Text style={styles.disclaimerText}>
-          Eruption ranges follow FOGSI / AAP guidelines. Every baby is different — talk to your paediatric dentist with any concerns.
+          {bigKid
+            ? 'Timings follow ADA / AAPD charts. Every child is different — talk to your paediatric dentist with any concerns.'
+            : 'Eruption ranges follow FOGSI / AAP guidelines. Every child is different — talk to your paediatric dentist with any concerns.'}
         </Text>
       </View>
 
@@ -201,6 +238,8 @@ export default function TeethTab() {
         tooth={selected}
         entry={selected ? teethMap[selected.id] ?? null : null}
         kidAgeMonths={ageMonths ?? 0}
+        kidName={activeKid.name}
+        bigKid={bigKid}
         onSave={(entry) => {
           if (selected) setToothState(kidId, selected.id, entry);
         }}

@@ -147,3 +147,29 @@ export function eruptionWindowLabel(t: ToothRef): string {
 export function shedWindowLabel(t: ToothRef): string {
   return `${t.shedMinYr}–${t.shedMaxYr} years`;
 }
+
+/**
+ * When the adult tooth that replaces each milk tooth usually comes in
+ * (years). Upper/lower ranges from the ADA permanent-eruption chart.
+ */
+const ADULT_ERUPT_YR: Record<ToothJaw, Record<ToothType, [number, number]>> = {
+  upper: {
+    centralIncisor: [7, 8],
+    lateralIncisor: [8, 9],
+    canine:         [11, 12],
+    firstMolar:     [10, 11], // replaced by the 1st premolar
+    secondMolar:    [10, 12], // replaced by the 2nd premolar
+  },
+  lower: {
+    centralIncisor: [6, 7],
+    lateralIncisor: [7, 8],
+    canine:         [9, 10],
+    firstMolar:     [10, 12],
+    secondMolar:    [11, 12],
+  },
+};
+
+export function adultToothWindowLabel(t: ToothRef): string {
+  const [min, max] = ADULT_ERUPT_YR[t.jaw][t.type];
+  return `${min}–${max} years`;
+}

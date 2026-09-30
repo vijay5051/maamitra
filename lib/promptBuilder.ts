@@ -12,6 +12,7 @@
  * The worker imports them directly via wrangler's esbuild bundler.
  */
 import { ARTICLES, type Article } from '../data/articles';
+import { kidNoun } from './kidStage';
 import { GOVERNMENT_SCHEMES, type GovernmentScheme } from '../data/schemes';
 import { MILESTONES, type Milestone } from '../data/milestones';
 import { TEETH } from '../data/teeth';
@@ -40,6 +41,9 @@ export interface ChatContext {
   teethErupted?: number;
   teethTotal?: number;
   nextToothName?: string;
+  /** 5y+ only: milk teeth that have fallen out / adult teeth that came in. */
+  milkTeethLost?: number;
+  adultTeethIn?: number;
   recentMoodAvg?: number;
   recentMoodTrend?: 'low' | 'ok' | 'good';
   savedAnswerTopics?: string[];
@@ -268,7 +272,8 @@ export function buildSystemPrompt(ctx: ChatContext, userQuery?: string): string 
   const kidGenderWord =
     ctx.kidGender === 'boy' ? 'son'
     : ctx.kidGender === 'girl' ? 'daughter'
-    : 'baby'; // covers 'surprise', 'not-set', undefined
+    : ctx.isExpecting ? 'baby'
+    : kidNoun(ctx.kidAgeMonths); // 'surprise' / 'not-set' / undefined → baby · toddler · child by age
 
   const safeMotherName = sanitizeForPrompt(ctx.motherName, 60) || 'Mom';
   const safeKidName    = sanitizeForPrompt(ctx.kidName, 60);
@@ -297,7 +302,11 @@ export function buildSystemPrompt(ctx: ChatContext, userQuery?: string): string 
         : 'upcoming';
     extraLines.push(`Next vaccine: ${ctx.nextVaccineName} (${dueDesc}).`);
   }
-  if (ctx.teethErupted !== undefined && ctx.teethTotal) {
+  if (ctx.milkTeethLost !== undefined && ctx.teethTotal) {
+    extraLines.push(
+      `Teeth: ${ctx.milkTeethLost}/${ctx.teethTotal} milk teeth have fallen out${ctx.adultTeethIn ? `; ${ctx.adultTeethIn} adult teeth in` : ''}.`,
+    );
+  } else if (ctx.teethErupted !== undefined && ctx.teethTotal) {
     extraLines.push(
       `Teeth: ${ctx.teethErupted}/${ctx.teethTotal} erupted${ctx.nextToothName ? `; next typically ${ctx.nextToothName}` : ''}.`,
     );
@@ -400,7 +409,7 @@ React first, advise second. A small reaction ("oh that's actually so common", "u
 
 Never use these AI tells: "Of course!", "Great question!", "Certainly!", "I understand you're feeling…", "It sounds like…", "Here are some tips:", "I hope this helps!", "Let me know if you have more questions!" Don't praise the question. Don't restate what she just said back to her. Don't end every reply with a question — sometimes a conversation just lands.
 
-Use her name sparingly — once per reply max, only when it warms the moment. Overusing names is a famous bot tell. If she has a kid with a name, use the kid's name (not "your baby") when it fits — specificity feels human.
+Use her name sparingly — once per reply max, only when it warms the moment. Overusing names is a famous bot tell. If she has a kid with a name, use the kid's name (not "your baby") when it fits — specificity feels human. Once the child is 12 months or older NEVER call them "baby" — use their name, "your toddler" (1–3 years) or "your child" (3+ years).
 
 Sometimes the right reply is one word: "Mmm." "Yeah." "Oof." "Same." Don't be afraid of small. If she's venting and not asking, don't answer like it was a question — just be with her.
 
@@ -453,7 +462,7 @@ FORBIDDEN PHRASES — never use any of these:
 - "check for updates"  (same)
 The app supports everything in the route map. If she asks about anything in there, you DO have a way to help — emit the chip.
 
-NEVER guess where something lives. The route map below is exhaustive — if "Add baby" isn't documented there, don't invent a Settings location for it. Add baby is in /(tabs)/family. Notification toggles are in /settings/notifications. Don't say "Settings or profile section" vaguely — say the exact tab and emit the exact chip.
+NEVER guess where something lives. The route map below is exhaustive — if "Add child" isn't documented there, don't invent a Settings location for it. Add child is in /(tabs)/family. Notification toggles are in /settings/notifications. Don't say "Settings or profile section" vaguely — say the exact tab and emit the exact chip.
 
 ACTION-CHIP FORMAT (use these exact tokens; the app parses them out and renders a tappable button below your message):
   [GO:Label|/path]

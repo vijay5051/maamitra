@@ -241,7 +241,7 @@ export const DEFAULT_APP_SETTINGS = {
   ],
   notificationTexts: {
     welcome: 'Welcome to MaaMitra! 🤱',
-    vaccineReminder: 'Vaccine due soon for your baby 💉',
+    vaccineReminder: 'Vaccine due soon for your little one 💉',
     moodReminder: 'How are you feeling today? 💙',
   },
 };

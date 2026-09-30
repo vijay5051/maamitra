@@ -12,15 +12,21 @@ const INK  = '#1C1033';
 const STONE = '#6B7280';
 
 interface Props {
+  /** Teeth currently in (erupted, not yet lost). */
   eruptedCount: number;
+  /** Milk teeth that have fallen out (incl. ones already replaced). */
   shedCount: number;
+  /** Adult teeth that have come in (big-kid mode only). */
+  adultCount?: number;
   totalTeeth: number;
   ageMonths: number | null; // null for expecting / no kid
   isExpecting: boolean;
   kidName: string;
+  /** 5y+ mode — progress tracks milk teeth falling out, not eruption. */
+  bigKid?: boolean;
 }
 
-/** Returns a friendly band label for how many teeth a typical baby has at this age. */
+/** Returns a friendly band label for how many teeth a typical child has at this age. */
 function expectedBand(ageMonths: number): string | null {
   if (ageMonths < 4) return null;
   if (ageMonths < 7) return 'Most babies have 0–2 teeth at 6 months';
@@ -28,20 +34,38 @@ function expectedBand(ageMonths: number): string | null {
   if (ageMonths < 13) return 'Around 12 months: 4–8 teeth is typical';
   if (ageMonths < 19) return 'By 18 months: 8–12 teeth is common';
   if (ageMonths < 25) return 'By 2 years: 12–16 teeth is common';
-  if (ageMonths < 36) return 'All 20 primary teeth usually appear by age 3';
-  return 'All 20 primary teeth typically present by now';
+  if (ageMonths < 36) return 'All 20 milk teeth usually appear by age 3';
+  return 'All 20 milk teeth typically present by now';
+}
+
+/** 5y+ band: what's usually happening with milk teeth at this age. */
+function bigKidBand(ageMonths: number): string {
+  if (ageMonths < 72) return 'First wobbly tooth usually shows up between 6 and 7 — lower front teeth go first';
+  if (ageMonths < 96) return 'Ages 6–8: front teeth swap out and the 6-year molars come in at the back';
+  if (ageMonths < 108) return 'Around 8–9: a quiet spell — the next teeth to wobble are canines and molars';
+  return 'Ages 9–12: canines and back milk teeth fall out; all usually gone by 12–13';
 }
 
 export default function TeethSummary({
   eruptedCount,
   shedCount,
+  adultCount = 0,
   totalTeeth,
   ageMonths,
   isExpecting,
   kidName,
+  bigKid = false,
 }: Props) {
-  const pct = Math.min(100, Math.round((eruptedCount / totalTeeth) * 100));
-  const band = ageMonths !== null && !isExpecting ? expectedBand(ageMonths) : null;
+  // Baby mode: % of the 20 milk teeth that have ever come through (a shed
+  // tooth erupted first). Big-kid mode: % of milk teeth that have fallen out.
+  const everErupted = eruptedCount + shedCount;
+  const pct = Math.min(100, Math.round(((bigKid ? shedCount : everErupted) / totalTeeth) * 100));
+  const band = ageMonths !== null && !isExpecting
+    ? (bigKid ? bigKidBand(ageMonths) : expectedBand(ageMonths))
+    : null;
+  const subtitle = bigKid
+    ? `${shedCount} of ${totalTeeth} milk teeth out${adultCount > 0 ? ` · ${adultCount} adult ${adultCount === 1 ? 'tooth' : 'teeth'} in` : ''}`
+    : `${everErupted} of ${totalTeeth} erupted${shedCount > 0 ? ` · ${shedCount} shed` : ''}`;
 
   return (
     <View style={styles.card}>
@@ -50,11 +74,10 @@ export default function TeethSummary({
           <Ionicons name="happy-outline" size={20} color={ROSE} />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={styles.title}>{kidName ? `${kidName}'s teeth` : 'Teething progress'}</Text>
-          <Text style={styles.subtitle}>
-            {eruptedCount} of {totalTeeth} erupted
-            {shedCount > 0 ? ` · ${shedCount} shed` : ''}
+          <Text style={styles.title}>
+            {kidName ? `${kidName}'s ${bigKid ? 'smile' : 'teeth'}` : bigKid ? 'Milk teeth & adult teeth' : 'Teething progress'}
           </Text>
+          <Text style={styles.subtitle}>{subtitle}</Text>
         </View>
         <Text style={styles.pct}>{pct}%</Text>
       </View>

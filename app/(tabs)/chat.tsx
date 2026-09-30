@@ -25,6 +25,7 @@ import { useVaccineSchedule } from '../../hooks/useVaccineSchedule';
 import { detectIsFood } from '../../services/claude';
 import { INDIAN_LANGUAGES } from '../../services/voice';
 import { TEETH } from '../../data/teeth';
+import { isBigKidTeeth } from '../../lib/kidStage';
 import ChatBubble from '../../components/chat/ChatBubble';
 import ChatInput from '../../components/chat/ChatInput';
 import QuickChips from '../../components/chat/QuickChips';
@@ -327,7 +328,14 @@ export default function ChatScreen() {
     // Teeth — count erupted + figure out typical next tooth for this age.
     let teethErupted: number | undefined;
     let nextToothName: string | undefined;
-    if (activeKid && !activeKid.isExpecting) {
+    let milkTeethLost: number | undefined;
+    let adultTeethIn: number | undefined;
+    if (activeKid && !activeKid.isExpecting && isBigKidTeeth(ageMo)) {
+      // 5y+: the tracker logs teeth falling out, not coming in.
+      const kidTeeth = teethByKid[activeKid.id] ?? {};
+      adultTeethIn = Object.values(kidTeeth).filter((e: any) => e?.state === 'permanent').length;
+      milkTeethLost = Object.values(kidTeeth).filter((e: any) => e?.state === 'shed').length + adultTeethIn;
+    } else if (activeKid && !activeKid.isExpecting) {
       const kidTeeth = teethByKid[activeKid.id] ?? {};
       teethErupted = Object.values(kidTeeth).filter((e: any) => e?.state === 'erupted').length;
       const nextTooth = TEETH
@@ -361,7 +369,7 @@ export default function ChatScreen() {
       state: profile?.state ?? 'India',
       diet: profile?.diet ?? 'vegetarian',
       familyType: profile?.familyType ?? 'nuclear',
-      kidName: activeKid?.name ?? 'your baby',
+      kidName: activeKid?.name,
       kidAgeMonths: ageMo,
       kidDOB: activeKid?.dob,
       kidGender: activeKid?.gender,
@@ -376,6 +384,8 @@ export default function ChatScreen() {
       teethErupted,
       teethTotal: TEETH.length,
       nextToothName,
+      milkTeethLost,
+      adultTeethIn,
       recentMoodAvg,
       recentMoodTrend,
       savedAnswerTopics,

@@ -28,6 +28,7 @@ import {
   withAlpha,
 } from '../../constants/theme';
 import { calculateAgeInMonths, isPlausibleDob } from '../../lib/dob';
+import { isBigKidTeeth, showsRoutineTracker } from '../../lib/kidStage';
 import { useProfileStore } from '../../store/useProfileStore';
 import { useWellnessStore } from '../../store/useWellnessStore';
 import { useSocialStore } from '../../store/useSocialStore';
@@ -161,7 +162,7 @@ const FEATURE_GUIDE_CARDS: Array<{
   {
     illustration: 'featureGrowth',
     title: 'Remembers you',
-    text: 'Every detail about you and your baby',
+    text: 'Every detail about you and your little one',
   },
   {
     illustration: 'featurePrivate',
@@ -300,7 +301,16 @@ export default function HomeTab() {
 
   // Daily affirmation — rotates once per local day via day-of-year index.
   // Stable for the entire session so it doesn't flicker on re-render.
-  const affirmationToday = useMemo(() => affirmationForDate(), []);
+  // Baby-specific lines (feeding, burping, tiny clothes) are only in the
+  // pool while the active kid is under 1.
+  const affirmationKidMonths =
+    activeKid && !activeKid.isExpecting && activeKid.dob && isPlausibleDob(activeKid.dob)
+      ? calculateAgeInMonths(activeKid.dob)
+      : null;
+  const affirmationToday = useMemo(
+    () => affirmationForDate(new Date(), affirmationKidMonths),
+    [affirmationKidMonths],
+  );
 
   // Time-of-day hero — picks one of three home-hero variants based on the
   // local hour. Computed once at mount; stable for the session so a user
@@ -632,7 +642,11 @@ export default function HomeTab() {
     // because those convey meaning beyond the brand.
     const brandTint = Colors.primary;
     const brandTintBg = Colors.primaryAlpha08;
-    return [
+    // Diaper + sleep log is hidden for kids 2y+ (see lib/kidStage) — drop
+    // the matching strip tiles so Home doesn't point at a hidden tool.
+    const kidAgeMonths = activeKid.dob && isPlausibleDob(activeKid.dob) ? calculateAgeInMonths(activeKid.dob) : null;
+    const routineKeys = new Set(['sleep', 'diaper']);
+    const strip = [
       {
         key: 'weight',
         icon: 'scale-outline',
@@ -696,6 +710,7 @@ export default function HomeTab() {
         onPress: goVacc,
       },
     ];
+    return showsRoutineTracker(kidAgeMonths) ? strip : strip.filter((c) => !routineKeys.has(c.key));
   }, [activeKid, growthByKid, vaccineSchedule, router]);
 
   // Vaccine reminders continue to render inline on the Home body (as
@@ -1096,7 +1111,7 @@ export default function HomeTab() {
             Grouped under one label so it's the single place on Home where
             you see the active kid and their latest measurements. Tapping
             any stat deep-links into the matching Health sub-tab. */}
-        <Text style={styles.groupLabel}>{activeKid ? `${activeKid.name}'s corner` : 'Your baby'}</Text>
+        <Text style={styles.groupLabel}>{activeKid ? `${activeKid.name}'s corner` : 'Your child'}</Text>
         <TouchableOpacity
           activeOpacity={0.9}
           onPress={() => router.push('/(tabs)/family')}
@@ -2024,14 +2039,17 @@ function buildTodayCards({
   //   • 8-15 mo with no teeth logged → "Log first tooth?" prompt
   //   • some teeth erupted, not all 20 → live progress with next-tooth hint
   //   • ≥15 mo with zero teeth → late-eruption nudge (warning tint)
-  //   • ≥5 yr → shedding focus (uses shed count)
+  //   • ≥5 yr → milk-teeth-falling-out focus (lost = shed + adult tooth in)
   //   • all 20 erupted, none shed, age <5yr → silent (don't add card)
   if (activeKid && !activeKid.isExpecting && activeKid.dob) {
     const months = calculateAgeInMonths(activeKid.dob);
     const kidTeeth = teethByKid[activeKid.id] ?? {};
     const eruptedCount = Object.values(kidTeeth).filter((e) => e?.state === 'erupted').length;
-    const shedCount = Object.values(kidTeeth).filter((e) => e?.state === 'shed').length;
-    const ageYears = months / 12;
+    // A shed tooth (or one already replaced by an adult tooth) had erupted
+    // too — without this a kid with 3 lost teeth read as "late first tooth".
+    const lostCount = Object.values(kidTeeth).filter((e) => e?.state === 'shed' || e?.state === 'permanent').length;
+    const everErupted = eruptedCount + lostCount;
+    const bigKid = isBigKidTeeth(months);
 
     let teethCard: TodayCard | null = null;
 
@@ -2055,7 +2073,7 @@ function buildTodayCards({
         label: `${activeKid.name} · ${ageLabel}`,
         onPress: goTeeth,
       };
-    } else if (months >= 15 && eruptedCount === 0 && ageYears < 5) {
+    } else if (months >= 15 && everErupted === 0 && !bigKid) {
       // Late-eruption nudge (mention to paediatrician at next visit).
       teethCard = {
         id: 'teeth',
@@ -2066,7 +2084,7 @@ function buildTodayCards({
         label: `${activeKid.name} · ${ageLabel}`,
         onPress: goTeeth,
       };
-    } else if (eruptedCount > 0 && eruptedCount < TEETH.length && ageYears < 5) {
+    } else if (eruptedCount > 0 && eruptedCount < TEETH.length && !bigKid) {
       // Mid-journey: show live progress; surface the next typical tooth so
       // it feels personal, not just a counter.
       const nextTooth = TEETH
@@ -2081,24 +2099,24 @@ function buildTodayCards({
         label: nextTooth ? `Next: ${nextTooth.shortName.toLowerCase()}` : `${activeKid.name} · ${ageLabel}`,
         onPress: goTeeth,
       };
-    } else if (ageYears >= 5 && shedCount === 0 && eruptedCount > 0) {
-      // First baby tooth shedding window opens around 5-6.
+    } else if (bigKid && lostCount === 0) {
+      // First milk tooth usually wobbles out around 6.
       teethCard = {
         id: 'teeth',
         icon: 'sparkles-outline',
         tint: Colors.primary,
         bg: Colors.bgTint,
-        value: 'Shedding soon',
+        value: 'Wobbly tooth yet?',
         label: `${activeKid.name} · ${ageLabel}`,
         onPress: goTeeth,
       };
-    } else if (ageYears >= 5 && shedCount > 0 && shedCount < TEETH.length) {
+    } else if (bigKid && lostCount < TEETH.length) {
       teethCard = {
         id: 'teeth',
         icon: 'sparkles-outline',
         tint: Colors.primary,
         bg: Colors.bgTint,
-        value: `${shedCount}/${TEETH.length} shed`,
+        value: `${lostCount} milk ${lostCount === 1 ? 'tooth' : 'teeth'} out`,
         label: `${activeKid.name} · ${ageLabel}`,
         onPress: goTeeth,
       };
@@ -2259,8 +2277,9 @@ function buildTodayCards({
   }
 
   // ── Yoga pick ──────────────────────────────────────────────────────
-  // Mood dip → Stress Relief. New mom (<6mo kid) → Baby & Me Bonding.
-  // Pregnant → Morning Stretch. Otherwise → Sleep Better.
+  // Mood dip → Stress Relief. Kid under 1 → Baby & Me Bonding.
+  // Toddler (1–3y) → Animal Play Yoga. Pregnant → Morning Stretch.
+  // Otherwise → Sleep Better.
   if (YOGA_SESSIONS.length > 0) {
     const recentForYoga = (moodHistory || []).slice(0, 3);
     const avgMood = recentForYoga.length >= 2
@@ -2273,6 +2292,7 @@ function buildTodayCards({
     if (avgMood !== null && avgMood <= 2.5) pickId = 'y04';         // Stress Relief
     else if (activeKid?.isExpecting) pickId = 'y01';                 // Morning Stretch
     else if (kidMonths !== null && kidMonths < 12) pickId = 'y03';   // Baby & Me
+    else if (kidMonths !== null && kidMonths < 36) pickId = 'y08';   // Animal Play Yoga
     else pickId = 'y05';                                             // Sleep Better
     const pick = YOGA_SESSIONS.find((y) => y.id === pickId) ?? YOGA_SESSIONS[0];
     if (pick) {

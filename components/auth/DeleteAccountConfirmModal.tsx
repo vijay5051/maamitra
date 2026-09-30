@@ -18,7 +18,7 @@ export default function DeleteAccountConfirmModal({ visible, onCancel, onConfirm
           </View>
           <Text style={styles.title}>Delete your account?</Text>
           <Text style={styles.body}>
-            This will permanently delete your profile, your baby's data, and all your posts. This cannot be undone.
+            This will permanently delete your profile, your children's data, and all your posts. This cannot be undone.
           </Text>
           <View style={styles.btnRow}>
             <Pressable style={styles.cancelBtn} onPress={onCancel} accessibilityRole="button" accessibilityLabel="Cancel">

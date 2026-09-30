@@ -9,6 +9,7 @@ import { Colors } from '../../constants/theme';
 const ROSE = Colors.primary;
 const SAGE = '#34D399';
 const GOLD = '#F59E0B';
+const SKY  = '#60A5FA';
 const MIST = '#EDE9F6';
 const INK  = '#1C1033';
 const STONE = '#9CA3AF';
@@ -20,20 +21,29 @@ const SLOT_DX = 28;
 const TOOTH_R = 12;
 const HIT_R = 18;
 
+// In big-kid mode (5y+) an unlogged tooth is assumed to be a milk tooth
+// that's still in — by 3 years all 20 are through — so it paints green.
+function effectiveState(state: ToothState | undefined, bigKid: boolean): ToothState | undefined {
+  if (bigKid && (!state || state === 'not-erupted')) return 'erupted';
+  return state;
+}
+
 function fillFor(state: ToothState | undefined): string {
-  if (state === 'erupted') return SAGE;
-  if (state === 'shed')    return GOLD;
+  if (state === 'erupted')   return SAGE;
+  if (state === 'shed')      return GOLD;
+  if (state === 'permanent') return SKY;
   return MIST;
 }
 
 function strokeFor(state: ToothState | undefined): string {
-  if (state === 'erupted') return '#16a34a';
-  if (state === 'shed')    return '#d97706';
+  if (state === 'erupted')   return '#16a34a';
+  if (state === 'shed')      return '#d97706';
+  if (state === 'permanent') return '#2563eb';
   return '#D9D2EA';
 }
 
 function textColorFor(state: ToothState | undefined): string {
-  if (state === 'erupted' || state === 'shed') return '#ffffff';
+  if (state === 'erupted' || state === 'shed' || state === 'permanent') return '#ffffff';
   return STONE;
 }
 
@@ -55,9 +65,11 @@ interface Props {
   teeth: KidTeethMap;
   selectedToothId?: string | null;
   onSelect: (tooth: ToothRef) => void;
+  /** 5y+ mode: milk tooth / fell out / adult tooth legend + defaults. */
+  bigKid?: boolean;
 }
 
-export default function JawChart({ teeth, selectedToothId, onSelect }: Props) {
+export default function JawChart({ teeth, selectedToothId, onSelect, bigKid = false }: Props) {
   // SVG <G onPress> is unreliable on Android (Galaxy Note 20 reported the
   // tooth tiles as completely untappable). Overlay native TouchableOpacity
   // hit-targets positioned over each tooth instead — RN's gesture system
@@ -104,15 +116,15 @@ export default function JawChart({ teeth, selectedToothId, onSelect }: Props) {
             LOWER JAW
           </SvgText>
 
-          {/* Side labels (R / L from baby's perspective). Baby's right is on screen-left. */}
+          {/* Side labels (R / L from the child's perspective). Their right is on screen-left. */}
           <SvgText x={6}  y={VIEW_H / 2 + 4} fontSize={11} fontWeight="700" fill={STONE}>R</SvgText>
           <SvgText x={VIEW_W - 12} y={VIEW_H / 2 + 4} fontSize={11} fontWeight="700" fill={STONE}>L</SvgText>
 
           {TEETH.map((t) => {
             const { x, y } = positionFor(t.jaw, t.position);
-            const entry = teeth[t.id];
-            const fill = fillFor(entry?.state);
-            const stroke = strokeFor(entry?.state);
+            const state = effectiveState(teeth[t.id]?.state, bigKid);
+            const fill = fillFor(state);
+            const stroke = strokeFor(state);
             const isSelected = selectedToothId === t.id;
             return (
               <React.Fragment key={t.id}>
@@ -129,7 +141,7 @@ export default function JawChart({ teeth, selectedToothId, onSelect }: Props) {
                   y={y + 3.5}
                   fontSize={10}
                   fontWeight="700"
-                  fill={textColorFor(entry?.state)}
+                  fill={textColorFor(state)}
                   textAnchor="middle"
                 >
                   {t.position}
@@ -164,18 +176,23 @@ export default function JawChart({ teeth, selectedToothId, onSelect }: Props) {
 
       {/* Legend */}
       <View style={styles.legendRow}>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: MIST, borderColor: '#D9D2EA' }]} />
-          <Text style={styles.legendText}>Not yet</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: SAGE, borderColor: '#16a34a' }]} />
-          <Text style={styles.legendText}>Erupted</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: GOLD, borderColor: '#d97706' }]} />
-          <Text style={styles.legendText}>Shed</Text>
-        </View>
+        {(bigKid
+          ? [
+              { label: 'Milk tooth', bg: SAGE, border: '#16a34a' },
+              { label: 'Fell out', bg: GOLD, border: '#d97706' },
+              { label: 'Adult tooth', bg: SKY, border: '#2563eb' },
+            ]
+          : [
+              { label: 'Not yet', bg: MIST, border: '#D9D2EA' },
+              { label: 'Erupted', bg: SAGE, border: '#16a34a' },
+              { label: 'Shed', bg: GOLD, border: '#d97706' },
+            ]
+        ).map((l) => (
+          <View key={l.label} style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: l.bg, borderColor: l.border }]} />
+            <Text style={styles.legendText}>{l.label}</Text>
+          </View>
+        ))}
       </View>
     </View>
   );

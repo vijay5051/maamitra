@@ -11,7 +11,7 @@ interface Props {
 
 const OPTIONS: { v: Stage; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { v: 'pregnant', label: "We're expecting", icon: 'heart-outline' },
-  { v: 'newborn', label: 'Baby is here', icon: 'happy-outline' },
+  { v: 'newborn', label: 'Already born', icon: 'happy-outline' },
 ];
 
 export default function StageChip({ value, onChange }: Props) {

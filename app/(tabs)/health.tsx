@@ -30,6 +30,7 @@ import { filterByAudience, parentGenderToAudience } from '../../data/audience';
 import { SCHEDULE_INFO, VaccineScheduleType } from '../../data/vaccines';
 import { useActiveKid } from '../../hooks/useActiveKid';
 import { calculateAgeInMonths, isPlausibleDob } from '../../lib/dob';
+import { kidNoun, showsRoutineTracker, showsTravelMeals, yourKid } from '../../lib/kidStage';
 import { useProfileStore } from '../../store/useProfileStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { syncHealthTracking, saveFullProfile } from '../../services/firebase';
@@ -84,11 +85,37 @@ const SUB_TABS: SubTabMeta[] = [
   { key: 'schemes',  label: 'Schemes',    icon: 'ribbon-outline',           description: 'Government benefits for you',          category: 'benefits' },
 ];
 
+// The 'baby' category title is age-aware ("Your baby" / "Your toddler" /
+// "Your child") — see categoryTitle() below.
 const CATEGORY_ORDER: { key: CategoryKey; title: string; subtitle: string; illustration: IllustrationName }[] = [
-  { key: 'baby',     title: "Your baby",     subtitle: 'Track everything day-to-day',     illustration: 'healthCatBaby'     },
+  { key: 'baby',     title: 'Your baby',     subtitle: 'Track everything day-to-day',     illustration: 'healthCatBaby'     },
   { key: 'mother',   title: 'You',           subtitle: 'Recurring checks for mother',     illustration: 'healthCatMother'   },
   { key: 'benefits', title: 'Benefits',      subtitle: 'Schemes you may qualify for',     illustration: 'healthCatBenefits' },
 ];
+
+function categoryTitle(cat: (typeof CATEGORY_ORDER)[number], kidAgeMonths: number | null): string {
+  if (cat.key !== 'baby') return cat.title;
+  return `Your ${kidNoun(kidAgeMonths)}`;
+}
+
+/**
+ * Age-gated trackers. Unknown age (expecting / no DOB) keeps everything
+ * visible — we only hide a tool once we know the child has outgrown it.
+ *   • Routine (diaper + sleep log) — under 2 years only.
+ *   • Travel Meals — under 1.5 years only.
+ */
+function isSubTabVisible(key: SubTab, kidAgeMonths: number | null): boolean {
+  if (key === 'routine') return showsRoutineTracker(kidAgeMonths);
+  if (key === 'travel') return showsTravelMeals(kidAgeMonths);
+  return true;
+}
+
+function useActiveKidAgeMonths(): number | null {
+  const { activeKid } = useActiveKid();
+  return activeKid && !activeKid.isExpecting && activeKid.dob && isPlausibleDob(activeKid.dob)
+    ? calculateAgeInMonths(activeKid.dob)
+    : null;
+}
 
 // ─── Landing grid ─────────────────────────────────────────────────────────────
 // Replaces the old horizontal pill bar. Groups trackers by who the section is
@@ -96,11 +123,7 @@ const CATEGORY_ORDER: { key: CategoryKey; title: string; subtitle: string; illus
 // cramped 7-across tab strip. Each card drills into the existing sub-screen.
 
 function CategoryGrid({ onPick }: { onPick: (t: SubTab) => void }) {
-  const { activeKid } = useActiveKid();
-  const kidAgeMonths =
-    activeKid && !activeKid.isExpecting && activeKid.dob && isPlausibleDob(activeKid.dob)
-      ? calculateAgeInMonths(activeKid.dob)
-      : null;
+  const kidAgeMonths = useActiveKidAgeMonths();
 
   return (
     <View>
@@ -110,7 +133,7 @@ function CategoryGrid({ onPick }: { onPick: (t: SubTab) => void }) {
           // Foods sub-tab is always visible — FoodTrackerTab handles age-based
           // content internally: <6mo wait card, 6–12mo 3-day-rule tracker,
           // 12mo+ TiffinScreen (recipes + planner).
-          return true;
+          return isSubTabVisible(t.key, kidAgeMonths);
         });
         if (items.length === 0) return null;
         return (
@@ -118,7 +141,7 @@ function CategoryGrid({ onPick }: { onPick: (t: SubTab) => void }) {
             <View style={gridStyles.sectionHeader}>
               <Illustration name={cat.illustration} style={gridStyles.sectionIllus} contentFit="contain" />
               <View style={{ flex: 1 }}>
-                <Text style={gridStyles.sectionTitle}>{cat.title}</Text>
+                <Text style={gridStyles.sectionTitle}>{categoryTitle(cat, kidAgeMonths)}</Text>
                 <Text style={gridStyles.sectionSub}>{cat.subtitle}</Text>
               </View>
             </View>
@@ -580,7 +603,7 @@ function VaccinesSection({
       <Card style={styles.noKidCard} shadow="sm">
         <AppIcon name="object.heart" size={40} color={Colors.primary} style={{ marginBottom: 12, opacity: 0.8 }} />
         <Text style={styles.noKidText}>
-          Add your baby to see their personalised vaccine schedule.
+          Add your child to see their personalised vaccine schedule.
         </Text>
         <TouchableOpacity
           style={styles.noKidBtn}
@@ -593,7 +616,7 @@ function VaccinesSection({
             style={styles.noKidBtnGrad}
           >
             <AppIcon name="action.add-circle" size={16} color="#ffffff" />
-            <Text style={styles.noKidBtnText}>Add your baby</Text>
+            <Text style={styles.noKidBtnText}>Add your child</Text>
           </LinearGradient>
         </TouchableOpacity>
       </Card>
@@ -843,10 +866,10 @@ function buildPersonalMessage(
   kid: any,
   motherName: string,
 ): string | null {
-  const name = kid?.name ?? 'your baby';
   const isExpecting = kid?.isExpecting ?? false;
   const isGirl = kid?.gender === 'girl';
   const ageMonths = kid?.ageInMonths ?? 0;
+  const name = kid?.name ?? (isExpecting ? 'your baby' : yourKid(ageMonths));
 
   switch (scheme.id) {
     case 'gs01':
@@ -1525,21 +1548,27 @@ export default function HealthScreen() {
   // `?tab=teeth` (or schemes/myhealth/vaccines) opens the screen on that
   // sub-tab — used by the home Quick Actions deep-link.
   const params     = useLocalSearchParams<{ tab?: string }>();
-  const validTabs: SubTab[] = ['vaccines', 'teeth', 'foods', 'growth', 'milestones', 'routine', 'schemes', 'myhealth', 'nuskhe'];
+  const validTabs: SubTab[] = ['vaccines', 'teeth', 'foods', 'growth', 'milestones', 'routine', 'schemes', 'myhealth', 'nuskhe', 'travel'];
+  // Age-gated tools (routine, travel) can't be deep-linked into once the
+  // child has outgrown them — the link falls back to the landing grid.
+  const kidAgeMonths = useActiveKidAgeMonths();
+  const isOpenable = (t: string | undefined): t is SubTab =>
+    !!t && (validTabs as string[]).includes(t) && isSubTabVisible(t as SubTab, kidAgeMonths);
   // Null => show the category landing grid. A valid ?tab=… deep-links directly
   // into a sub-screen (used by home Quick Actions) and bypasses the grid.
-  const initialTab: SubTab | null =
-    params?.tab && (validTabs as string[]).includes(params.tab)
-      ? (params.tab as SubTab)
-      : null;
+  const initialTab: SubTab | null = isOpenable(params?.tab) ? params.tab : null;
   const [subTab, setSubTab] = useState<SubTab | null>(initialTab);
   // If the param changes after mount (re-deep-link), follow it.
   useEffect(() => {
-    if (params?.tab && (validTabs as string[]).includes(params.tab)) {
-      setSubTab(params.tab as SubTab);
+    if (isOpenable(params?.tab)) {
+      setSubTab(params.tab);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params?.tab]);
+  // Switching to an older kid while inside an age-gated tool → back to grid.
+  useEffect(() => {
+    if (subTab && !isSubTabVisible(subTab, kidAgeMonths)) setSubTab(null);
+  }, [subTab, kidAgeMonths]);
 
   const activeMeta = subTab ? SUB_TABS.find((t) => t.key === subTab) ?? null : null;
   const vaccines   = useVaccineSchedule();

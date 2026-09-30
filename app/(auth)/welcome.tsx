@@ -33,14 +33,14 @@ const LOGO = require('../../assets/logo.png');
 const FEATURES: { icon: keyof typeof Ionicons.glyphMap; illustration: IllustrationName; title: string; text: string }[] = [
   { icon: 'chatbubble-ellipses-outline', illustration: 'featureAi',        title: 'AI companion', text: 'Chat like texting a knowledgeable friend' },
   { icon: 'flag-outline',                illustration: 'featureIndia',     title: 'India-first',   text: 'India-specific foods, schemes & languages' },
-  { icon: 'sparkles-outline',            illustration: 'featureGrowth',    title: 'Remembers you', text: 'Every detail about you and your baby' },
+  { icon: 'sparkles-outline',            illustration: 'featureGrowth',    title: 'Remembers you', text: 'Every detail about you and your little one' },
   { icon: 'shield-checkmark-outline',    illustration: 'featurePrivate',   title: 'Trusted info',  text: 'IAP and FOGSI aligned medical content' },
   { icon: 'people-outline',              illustration: 'featureLibrary',   title: 'Multi-child',   text: 'Separate profile for each of your children' },
   { icon: 'heart-circle-outline',        illustration: 'featureCommunity', title: 'Community',     text: 'Connect with Indian parents going through it too' },
 ];
 
 const STEPS: { n: string; title: string; text: string }[] = [
-  { n: '1', title: 'Sign up & tell us about your baby', text: 'Just a due date or DOB to start — add more whenever you like.' },
+  { n: '1', title: 'Sign up & tell us about your little one', text: 'Just a due date or DOB to start — add more whenever you like.' },
   { n: '2', title: 'Ask anything, anytime',              text: 'Feeding, fevers, milestones, government schemes — your mitra is awake at 2 a.m.' },
   { n: '3', title: 'Grow together',                      text: 'Milestone reminders, a private community, and content that speaks Indian.' },
 ];
@@ -168,7 +168,7 @@ export default function WelcomeScreen() {
           {IS_WEB && (
             <Text style={[styles.subTagline, isWide && styles.taglineWide]}>
               An India-first AI mitra for new and expecting mothers — answers your
-              2 a.m. questions, remembers your baby, and connects you with parents
+              2 a.m. questions, remembers your little one, and connects you with parents
               going through the same thing.
             </Text>
           )}

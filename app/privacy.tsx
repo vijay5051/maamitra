@@ -58,7 +58,7 @@ export default function PrivacyScreen() {
         <P>We do not knowingly collect data directly from children. MaaMitra is intended for parents and caregivers aged 18+.</P>
 
         <H2>2. How we use your data</H2>
-        <LI>Provide and personalise MaaMitra (remember your baby's age, tailor content).</LI>
+        <LI>Provide and personalise MaaMitra (remember your child's age, tailor content).</LI>
         <LI>Power the AI companion (send your messages to our AI providers — see §4).</LI>
         <LI>Keep you signed in, send push notifications you opt into, and respond to support requests.</LI>
         <LI>Keep the community safe (moderation of posts and comments).</LI>

@@ -3,7 +3,11 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { auth, syncTeethTracking } from '../services/firebase';
 
-export type ToothState = 'not-erupted' | 'erupted' | 'shed';
+/**
+ * 'permanent' = the milk tooth fell out AND the adult tooth has come in
+ * (used by the 5y+ "big-kid" tracker). It implies the tooth was shed.
+ */
+export type ToothState = 'not-erupted' | 'erupted' | 'shed' | 'permanent';
 
 export interface ToothEntry {
   state: ToothState;
@@ -11,6 +15,8 @@ export interface ToothEntry {
   eruptDate?: string;
   /** ISO date YYYY-MM-DD when the tooth was shed. */
   shedDate?: string;
+  /** ISO date YYYY-MM-DD when the adult (permanent) tooth came in. */
+  permanentDate?: string;
   note?: string;
 }
 
@@ -75,7 +81,7 @@ export const useTeethStore = create<TeethState>()(
 
       getShedCount: (kidId) => {
         const map = get().byKid[kidId] ?? {};
-        return Object.values(map).filter((e) => e.state === 'shed').length;
+        return Object.values(map).filter((e) => e.state === 'shed' || e.state === 'permanent').length;
       },
 
       resetTeeth: () => set({ byKid: {} }),

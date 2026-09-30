@@ -54,7 +54,7 @@ export const NUSKHE_CATEGORIES: NuskheCategory[] = [
         name: 'Hing Paste on Navel',
         ingredients: 'Hing (Asafoetida), warm water',
         method:
-          "Mix a tiny pinch of hing with warm water to make a paste. Apply gently around (not inside) baby's navel in circular motion.",
+          "Mix a tiny pinch of hing with warm water to make a paste. Apply gently around (not inside) your child's navel in circular motion.",
         note: 'Always do a patch test first. Use only food-grade hing.',
         minAgeMonths: 0,
       },
@@ -63,8 +63,8 @@ export const NUSKHE_CATEGORIES: NuskheCategory[] = [
         name: 'Hing Water',
         ingredients: 'Hing, warm water',
         method:
-          'Dissolve a tiny pinch of hing in 2 tbsp warm water. Give 1/2 tsp to baby after feeding.',
-        note: 'For babies 6+ months only.',
+          'Dissolve a tiny pinch of hing in 2 tbsp warm water. Give 1/2 tsp to your child after feeding.',
+        note: 'For children 6+ months only.',
         minAgeMonths: 6,
       },
       {
@@ -72,7 +72,7 @@ export const NUSKHE_CATEGORIES: NuskheCategory[] = [
         name: 'Ajwain Potli Massage',
         ingredients: 'Ajwain (carom seeds), muslin cloth',
         method:
-          "Dry roast ajwain, tie in muslin cloth. When warm (not hot), gently press on baby's tummy in clockwise circles.",
+          "Dry roast ajwain, tie in muslin cloth. When warm (not hot), gently press on your child's tummy in clockwise circles.",
         note: 'Test temperature on your wrist first.',
         minAgeMonths: 0,
       },
@@ -81,7 +81,7 @@ export const NUSKHE_CATEGORIES: NuskheCategory[] = [
         name: 'Gripe Water (Homemade)',
         ingredients: 'Saunf (fennel), water',
         method:
-          'Boil 1 tsp saunf in 1 cup water for 10 mins. Strain, cool, give 1 tsp to baby.',
+          'Boil 1 tsp saunf in 1 cup water for 10 mins. Strain, cool, give 1 tsp to your child.',
         note: "Make fresh daily. Don't store.",
         minAgeMonths: 4,
       },
@@ -100,7 +100,7 @@ export const NUSKHE_CATEGORIES: NuskheCategory[] = [
         name: 'Mustard Oil & Garlic Massage',
         ingredients: 'Mustard oil (sarson ka tel), 2-3 garlic cloves',
         method:
-          "Heat oil with garlic until garlic turns brown. Cool to lukewarm. Massage on baby's chest, back, and soles of feet.",
+          "Heat oil with garlic until garlic turns brown. Cool to lukewarm. Massage on your child's chest, back, and soles of feet.",
         note: 'Cover feet with socks after massage. Best done before bath.',
         minAgeMonths: 0,
       },
@@ -109,7 +109,7 @@ export const NUSKHE_CATEGORIES: NuskheCategory[] = [
         name: 'Ajwain & Garlic Potli',
         ingredients: 'Ajwain, garlic, muslin cloth',
         method:
-          "Dry roast ajwain and crushed garlic. Tie in cloth. Place near baby's pillow or gently pat on chest.",
+          "Dry roast ajwain and crushed garlic. Tie in cloth. Place near your child's pillow or gently pat on chest.",
         note: 'The aroma helps clear congestion.',
         minAgeMonths: 0,
       },
@@ -127,8 +127,8 @@ export const NUSKHE_CATEGORIES: NuskheCategory[] = [
         name: 'Steam Inhalation',
         ingredients: 'Hot water, ajwain or eucalyptus oil',
         method:
-          'Add ajwain to hot water bowl. Hold baby safely away and let them breathe the steam. Or use a humidifier.',
-        note: 'Never bring baby too close to hot water.',
+          'Add ajwain to hot water bowl. Hold your child safely away and let them breathe the steam. Or use a humidifier.',
+        note: 'Never bring your child too close to hot water.',
         minAgeMonths: 0,
       },
       {
@@ -137,7 +137,7 @@ export const NUSKHE_CATEGORIES: NuskheCategory[] = [
         ingredients: 'Warm milk, turmeric, ghee',
         method:
           'Add a tiny pinch of haldi and few drops of ghee to warm milk. Give at bedtime.',
-        note: 'For babies 10+ months who have started milk.',
+        note: 'For children 10+ months who have started milk.',
         minAgeMonths: 10,
       },
     ],
@@ -155,7 +155,7 @@ export const NUSKHE_CATEGORIES: NuskheCategory[] = [
         name: 'Frozen Carrot Stick',
         ingredients: 'Fresh carrot',
         method:
-          'Wash and peel a thick carrot. Freeze for 1-2 hours. Let baby gnaw on it under supervision.',
+          'Wash and peel a thick carrot. Freeze for 1-2 hours. Let your child gnaw on it under supervision.',
         note: 'Use thick piece to prevent choking. Always supervise!',
         minAgeMonths: 6,
       },
@@ -164,7 +164,7 @@ export const NUSKHE_CATEGORIES: NuskheCategory[] = [
         name: 'Cold Banana',
         ingredients: 'Ripe banana',
         method:
-          'Refrigerate (not freeze) a peeled banana. Let baby chew on it.',
+          'Refrigerate (not freeze) a peeled banana. Let your child chew on it.',
         note: 'Soothes gums and provides nutrition.',
         minAgeMonths: 6,
       },
@@ -173,7 +173,7 @@ export const NUSKHE_CATEGORIES: NuskheCategory[] = [
         name: 'Chamomile Tea Rub',
         ingredients: 'Chamomile tea bag',
         method:
-          "Brew weak chamomile tea, cool completely. Dip clean finger and rub on baby's gums.",
+          "Brew weak chamomile tea, cool completely. Dip clean finger and rub on your child's gums.",
         note: 'Chamomile has natural calming properties.',
         minAgeMonths: 4,
       },
@@ -182,7 +182,7 @@ export const NUSKHE_CATEGORIES: NuskheCategory[] = [
         name: 'Cold Washcloth',
         ingredients: 'Clean muslin cloth',
         method:
-          'Wet a clean cloth, wring out excess water, freeze for 30 mins. Let baby chew on it.',
+          'Wet a clean cloth, wring out excess water, freeze for 30 mins. Let your child chew on it.',
         note: 'Simple and effective!',
         minAgeMonths: 4,
       },
@@ -219,7 +219,7 @@ export const NUSKHE_CATEGORIES: NuskheCategory[] = [
         name: 'Ghee in Food',
         ingredients: 'Pure desi ghee',
         method:
-          "Add 1/2 tsp ghee to baby's dal, khichdi, or porridge.",
+          "Add 1/2 tsp ghee to your child's dal, khichdi, or porridge.",
         note: 'Ghee lubricates the digestive system naturally.',
         minAgeMonths: 6,
       },
@@ -228,7 +228,7 @@ export const NUSKHE_CATEGORIES: NuskheCategory[] = [
         name: 'Tummy Massage',
         ingredients: 'Warm coconut/olive oil',
         method:
-          "Massage baby's tummy in clockwise circular motions with warm oil. Follow with cycling leg movements.",
+          "Massage your child's tummy in clockwise circular motions with warm oil. Follow with cycling leg movements.",
         note: 'Do this 2-3 times a day.',
         minAgeMonths: 0,
       },
@@ -296,7 +296,7 @@ export const NUSKHE_CATEGORIES: NuskheCategory[] = [
         id: 'rash-air-time',
         name: 'Air Time',
         ingredients: 'None',
-        method: 'Let baby go diaper-free for 15-20 mins several times a day.',
+        method: 'Let your child go diaper-free for 15-20 mins several times a day.',
         note: 'Fresh air is the best healer for rashes!',
         minAgeMonths: 0,
       },
@@ -315,7 +315,7 @@ export const NUSKHE_CATEGORIES: NuskheCategory[] = [
         name: 'Sponge Bath',
         ingredients: 'Lukewarm water, soft cloth',
         method:
-          "Dip cloth in lukewarm (not cold) water. Gently sponge baby's forehead, armpits, and feet.",
+          "Dip cloth in lukewarm (not cold) water. Gently sponge your child's forehead, armpits, and feet.",
         note: 'Never use cold water — it can cause shivering and raise the fever.',
         minAgeMonths: 0,
       },
@@ -324,7 +324,7 @@ export const NUSKHE_CATEGORIES: NuskheCategory[] = [
         name: 'Onion in Socks',
         ingredients: 'Raw onion slices',
         method:
-          "Place thin onion slices on soles of baby's feet, cover with socks. Keep overnight.",
+          "Place thin onion slices on soles of your child's feet, cover with socks. Keep overnight.",
         note: 'Traditional remedy believed to draw out fever.',
         minAgeMonths: 6,
       },
@@ -334,7 +334,7 @@ export const NUSKHE_CATEGORIES: NuskheCategory[] = [
         ingredients: 'Tulsi leaves, water',
         method:
           'Boil 5-6 tulsi leaves in 1 cup water. Cool, strain. Give 1 tsp every few hours.',
-        note: 'For babies 6+ months. Natural immunity booster.',
+        note: 'For children 6+ months. Natural immunity booster.',
         minAgeMonths: 6,
       },
       {
@@ -371,7 +371,7 @@ export const NUSKHE_CATEGORIES: NuskheCategory[] = [
         ingredients: 'Khus khus (poppy seeds), milk',
         method:
           'Soak 1/2 tsp khus khus for 2 hours. Grind with little milk. Give tiny amount before sleep.',
-        note: 'For babies 8+ months. Use very sparingly!',
+        note: 'For children 8+ months. Use very sparingly!',
         minAgeMonths: 8,
       },
       {
@@ -407,7 +407,7 @@ export const NUSKHE_CATEGORIES: NuskheCategory[] = [
         ingredients: 'Fresh ginger, water',
         method:
           'Boil tiny piece of ginger in water. Cool, strain. Give 1/2 tsp at a time.',
-        note: 'For babies 8+ months. Ginger settles the stomach.',
+        note: 'For children 8+ months. Ginger settles the stomach.',
         minAgeMonths: 8,
       },
       {
@@ -461,7 +461,7 @@ export const NUSKHE_CATEGORIES: NuskheCategory[] = [
         name: 'Eucalyptus Oil Near Bed',
         ingredients: 'Eucalyptus oil, cotton ball',
         method:
-          "Put 2-3 drops on cotton ball. Place near baby's bed (not on baby).",
+          "Put 2-3 drops on cotton ball. Place near your child's bed (not on the child).",
         note: 'Vapors help clear congestion.',
         minAgeMonths: 3,
       },
@@ -470,7 +470,7 @@ export const NUSKHE_CATEGORIES: NuskheCategory[] = [
         name: 'Elevate Head',
         ingredients: 'Folded towel/blanket',
         method:
-          "Place folded towel under mattress to slightly elevate baby's head while sleeping.",
+          "Place folded towel under mattress to slightly elevate your child's head while sleeping.",
         note: 'Helps mucus drain naturally.',
         minAgeMonths: 0,
       },
@@ -496,16 +496,16 @@ export const NUSKHE_CATEGORIES: NuskheCategory[] = [
         id: 'imm-haldi',
         name: 'Daily Haldi in Food',
         ingredients: 'Turmeric powder',
-        method: "Add a tiny pinch of haldi to baby's dal, khichdi, or milk.",
+        method: "Add a tiny pinch of haldi to your child's dal, khichdi, or milk.",
         note: 'Natural anti-inflammatory and immunity booster.',
         minAgeMonths: 6,
       },
       {
         id: 'imm-chyawanprash',
         name: 'Chyawanprash (Modified)',
-        ingredients: 'Baby-safe Chyawanprash',
+        ingredients: 'Child-safe Chyawanprash',
         method:
-          'Give pea-sized amount mixed in warm milk. For babies 1+ year only.',
+          'Give pea-sized amount mixed in warm milk. For children 1+ year only.',
         note: 'Check with pediatrician first.',
         minAgeMonths: 12,
       },
@@ -524,7 +524,7 @@ export const NUSKHE_CATEGORIES: NuskheCategory[] = [
         ingredients: 'Tulsi juice, haldi, ghee',
         method:
           'Mix 2-3 drops tulsi juice + pinch haldi + drop of ghee. Give once daily.',
-        note: 'Traditional immunity kadha for babies 8+ months.',
+        note: 'Traditional immunity kadha for children 8+ months.',
         minAgeMonths: 8,
       },
     ],

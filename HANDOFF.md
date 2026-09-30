@@ -8,9 +8,40 @@
 
 ## Active task
 
-**No active coding task.**
+**Age-appropriate content (2026-09-30, Claude).** Goal: nothing in the app
+treats a 1y+ child as a "baby"; trackers hide once the child outgrows them.
 
-Travel Meals — photos + full catalogue shipped 2026-09-22:
+- `lib/kidStage.ts` — single source of age cut-offs: `kidNoun()` (baby <12mo,
+  toddler 12–35, child 36+), Routine (diaper/sleep) hidden ≥24mo, Travel Meals
+  hidden ≥18mo, big-kid teeth mode ≥60mo. Tests in `tests/kidStage.test.ts`.
+- Health grid + `?tab=` deep links + Home stat strip respect those gates.
+- Teeth 5y+: "milk tooth / fell out / adult tooth" tracker (new ToothState
+  `'permanent'`, `permanentDate`), adult-tooth windows in `data/teeth.ts`,
+  AI context sends `milkTeethLost` / `adultTeethIn`.
+- Wellness stage = youngest born kid: postpartum (<1y) / toddler (1–3y) /
+  child (3y+). Yoga sessions tagged `stages`; new y08 Animal Play Yoga +
+  y09 Back & Hip Relief. Condition options drop pregnancy-only items for 1y+.
+- "baby" wording rewritten in articles, nuskhe, milestones, affirmations
+  (age-aware pool), travel recipes, onboarding labels, AI prompt.
+
+**Status:** committed locally on `main` (commit "feat(age): …") but NOT pushed
+or deployed — this machine has no GitHub credentials (osxkeychain empty, no
+`gh`), no `firebase login`, no `eas login`, no `wrangler login`. Next agent
+with credentials: `git push origin main` → `npx expo export` →
+`firebase deploy --only hosting` → `npm run update` → `cd cloudflare-worker &&
+npx wrangler deploy`. Also check whether Firestore `travel_recipes` is populated
+(if so, its docs still hold the old "baby" wording; the local seed was fixed).
+
+**Also not done:** Cloudflare Worker (`cloudflare-worker/`, builds the system
+prompt server-side from `lib/promptBuilder.ts`) needs `wrangler deploy` —
+wrangler is not logged in on this machine. Until then the AI prompt still
+uses the old "baby" wording and ignores the new teeth fields.
+
+Stashed by Claude on 2026-09-30: `stash@{0}` "accidental package downgrade"
+(package.json/lock downgrading expo 55→46 etc.). `marketing/` is locally
+ignored via `.git/info/exclude`.
+
+**Previous (shipped 2026-09-22):** Travel Meals — photos + full catalogue shipped 2026-09-22:
 - 37 meals (12 added from The Little Traveller's Cookbook), each with its own photo in `assets/travel-meals/` (mapped in `data/travelRecipeImages.ts`).
 - Under-1 "no added salt or sugar" banner (hub) + per-recipe note + ingredient notes.
 - Fixed: hub used a SectionList nested in Health's ScrollView, so only ~10 cards ever rendered.

@@ -33,7 +33,7 @@ export function validatePregnantDueDate(yyyyMmDd: string): string | null {
   if (d.getFullYear() < 2010) return 'Please pick a date — the year should be 2010 or later.';
   const now = Date.now();
   if (d.getTime() <= now) {
-    return "That date is in the past. If your baby is already here, switch to 'Baby is here' above.";
+    return "That date is in the past. If your child is already born, switch to 'Already born' above.";
   }
   const twelveMonths = 12 * 30.5 * 86400000;
   if (d.getTime() > now + twelveMonths) return 'That date is more than 12 months away. Tap to pick a closer date.';

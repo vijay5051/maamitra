@@ -23,7 +23,9 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { syncWellnessData } from '../../services/firebase';
 import Card from '../../components/ui/Card';
 import GradientButton from '../../components/ui/GradientButton';
-import { YOGA_SESSIONS, YogaSession } from '../../data/yogaSessions';
+import { filterByStage, WellnessStage, YOGA_SESSIONS, YogaSession } from '../../data/yogaSessions';
+import { calculateAgeInMonths, isPlausibleDob } from '../../lib/dob';
+import { CHILD_FROM_MONTHS, TODDLER_FROM_MONTHS } from '../../lib/kidStage';
 import { filterByAudience, parentGenderToAudience } from '../../data/audience';
 import YogaModalComponent from '../../components/wellness/YogaModal';
 import ContextualAskChip from '../../components/ui/ContextualAskChip';
@@ -829,18 +831,25 @@ const yogaGalleryStyles = StyleSheet.create({
 
 function HealthCondModal({
   visible,
+  stage,
   onDone,
 }: {
   visible: boolean;
+  stage: WellnessStage | null;
   onDone: (conditions: string[]) => void;
 }) {
   const [selected, setSelected] = useState<string[]>([]);
 
-  const HEALTH_CONDITION_OPTIONS = [
-    'Recent C-Section', 'High Blood Pressure', 'Gestational Diabetes',
-    'Placenta Previa', 'Back Pain', 'Diastasis Recti',
-    'Anxiety/Depression', 'None of the above',
-  ];
+  // Pregnancy / postpartum-only conditions (C-section, gestational
+  // diabetes, placenta previa) don't apply to a mum whose youngest is 1y+.
+  const beyondPostpartum = stage === 'toddler' || stage === 'child';
+  const HEALTH_CONDITION_OPTIONS = beyondPostpartum
+    ? ['High Blood Pressure', 'Back Pain', 'Diastasis Recti', 'Anxiety/Depression', 'None of the above']
+    : [
+        'Recent C-Section', 'High Blood Pressure', 'Gestational Diabetes',
+        'Placenta Previa', 'Back Pain', 'Diastasis Recti',
+        'Anxiety/Depression', 'None of the above',
+      ];
 
   const CONDITION_KEY_MAP: Record<string, string> = {
     'Recent C-Section': 'C-section recovery',
@@ -988,7 +997,9 @@ function ageBucketFor(dob?: string | null, isExpecting?: boolean): TipContext['a
  */
 function buildMentalTips(ctx: TipContext): MentalTip[] {
   const { parentGender, ageBucket, kidName } = ctx;
-  const who = kidName && kidName !== 'Little one' ? kidName : 'your baby';
+  const who = kidName && kidName !== 'Little one'
+    ? kidName
+    : ageBucket === 'toddler' ? 'your toddler' : ageBucket === 'older' ? 'your child' : 'your baby';
   const isExpecting = ageBucket === 'expecting';
   const isNewborn = ageBucket === 'newborn';
   const isInfant = ageBucket === 'infant' || isNewborn;
@@ -1232,10 +1243,30 @@ export default function WellnessScreen() {
   // starts getting tagged.
   const parentGenderForAudience = useProfileStore((s) => s.parentGender);
   const kids = useProfileStore((s) => s.kids);
-  const primaryKid = kids.find((k) => k.isExpecting) || kids[0] || null;
-  const audienceFiltered = filterByAudience(
-    YOGA_SESSIONS,
-    parentGenderToAudience(parentGenderForAudience),
+  // Wellness follows the parent's stage, set by the YOUNGEST born child: a
+  // mum with a 6-month-old is still postpartum even if she also has a
+  // 5-year-old; a mum whose youngest is 2 is a toddler mum, not postpartum.
+  const youngestBorn = useMemo(() => {
+    let best: { kid: (typeof kids)[number]; months: number } | null = null;
+    for (const k of kids) {
+      if (k.isExpecting || !k.dob || !isPlausibleDob(k.dob)) continue;
+      const months = calculateAgeInMonths(k.dob);
+      if (!best || months < best.months) best = { kid: k, months };
+    }
+    return best;
+  }, [kids]);
+  const expectingKid = kids.find((k) => k.isExpecting) || null;
+  const primaryKid = expectingKid || youngestBorn?.kid || kids[0] || null;
+  const stage: WellnessStage | null = useMemo(() => {
+    if (profile?.stage === 'pregnant' || (expectingKid && !youngestBorn)) return 'pregnant';
+    if (!youngestBorn) return null;
+    if (youngestBorn.months < TODDLER_FROM_MONTHS) return 'postpartum';
+    if (youngestBorn.months < CHILD_FROM_MONTHS) return 'toddler';
+    return 'child';
+  }, [profile?.stage, expectingKid, youngestBorn]);
+  const audienceFiltered = filterByStage(
+    filterByAudience(YOGA_SESSIONS, parentGenderToAudience(parentGenderForAudience)),
+    stage,
   );
 
   // Mental tips are generated per-user from role + stage + kid age so
@@ -1265,11 +1296,20 @@ export default function WellnessScreen() {
   }, [parentGenderForAudience, profile?.stage, primaryKid?.name]);
 
   const headerSub = useMemo(() => {
-    if (profile?.stage === 'pregnant') {
-      return 'Pregnancy wellness for you';
-    }
+    if (stage === 'pregnant') return 'Pregnancy wellness for you';
+    if (stage === 'toddler') return 'Energy, strength & time for you';
+    if (stage === 'child') return 'Your energy, calm & self-care';
     return 'Postpartum care & recovery';
-  }, [parentGenderForAudience, profile?.stage]);
+  }, [stage]);
+
+  const askPrompt =
+    stage === 'pregnant'
+      ? 'Ask about my energy and mood during pregnancy'
+      : stage === 'toddler'
+        ? 'Ask about my energy and me-time as a toddler mum'
+        : stage === 'child'
+          ? 'Ask about my energy, stress and self-care'
+          : 'Ask about postpartum recovery and self-care';
   const conditionFiltered = healthConditions !== null
     ? audienceFiltered.filter(
         (s) => !s.contraindications.some((c) => healthConditions.includes(c))
@@ -1303,7 +1343,7 @@ export default function WellnessScreen() {
         return 60;
       }
       if (isAfternoon) {
-        if (n.includes('postpartum') || n.includes('strength') || n.includes('baby') || n.includes('bonding')) return 90;
+        if (n.includes('postpartum') || n.includes('strength') || n.includes('baby') || n.includes('bonding') || n.includes('play')) return 90;
         if (n.includes('reset') || n.includes('tired')) return 80;
         if (n.includes('morning')) return 30;
         if (n.includes('sleep')) return 10;
@@ -1351,13 +1391,7 @@ export default function WellnessScreen() {
           <Illustration name="wellnessHero" style={styles.wellnessHeroImg} contentFit="cover" />
         </View>
 
-        <ContextualAskChip
-          prompt={
-            profile?.stage === 'pregnant'
-              ? 'Ask about my energy and mood during pregnancy'
-              : 'Ask about postpartum recovery and self-care'
-          }
-        />
+        <ContextualAskChip prompt={askPrompt} />
 
         {/* Yoga section — moved above mood so sessions are visible without
             scrolling past the mood + chart on small screens. */}
@@ -1419,6 +1453,7 @@ export default function WellnessScreen() {
 
       <HealthCondModal
         visible={showCondModal}
+        stage={stage}
         onDone={(conditions) => {
           setHealthConditions(conditions);
           setShowCondModal(false);

@@ -10,7 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import DatePickerField from '../ui/DatePickerField';
-import { eruptionWindowLabel, shedWindowLabel, ToothRef } from '../../data/teeth';
+import { adultToothWindowLabel, eruptionWindowLabel, shedWindowLabel, ToothRef } from '../../data/teeth';
 import { ToothEntry, ToothState } from '../../store/useTeethStore';
 import { Fonts } from '../../constants/theme';
 import { Colors } from '../../constants/theme';
@@ -19,6 +19,7 @@ const ROSE = Colors.primary;
 const PLUM = Colors.primary;
 const SAGE = '#34D399';
 const GOLD = '#F59E0B';
+const SKY  = '#60A5FA';
 const MIST = '#EDE9F6';
 const INK  = '#1C1033';
 const STONE = '#6B7280';
@@ -27,8 +28,12 @@ interface Props {
   visible: boolean;
   tooth: ToothRef | null;
   entry: ToothEntry | null;
-  /** Baby's age in months — drives default state and whether shed is offered. */
+  /** Child's age in months — drives default state and the reference copy. */
   kidAgeMonths: number;
+  /** Used in copy instead of the generic "Baby". */
+  kidName?: string;
+  /** 5y+ mode: Milk tooth / Fell out / Adult tooth in. */
+  bigKid?: boolean;
   onSave: (entry: ToothEntry) => void;
   onClear: () => void;
   onClose: () => void;
@@ -54,11 +59,19 @@ function clampToToday(date: string | undefined): string {
   return date > t ? t : date;
 }
 
+function ageText(months: number): string {
+  if (months < 24) return `${months} mo`;
+  const y = Math.floor(months / 12);
+  return `${y} ${y === 1 ? 'yr' : 'yrs'}`;
+}
+
 export default function ToothDetailSheet({
   visible,
   tooth,
   entry,
   kidAgeMonths,
+  kidName,
+  bigKid = false,
   onSave,
   onClear,
   onClose,
@@ -66,27 +79,65 @@ export default function ToothDetailSheet({
   const [state, setState] = useState<ToothState>('not-erupted');
   const [eruptDate, setEruptDate] = useState<string>('');
   const [shedDate, setShedDate] = useState<string>('');
+  const [permanentDate, setPermanentDate] = useState<string>('');
 
   useEffect(() => {
     if (!visible || !tooth) return;
-    setState(entry?.state ?? 'not-erupted');
+    // Big-kid mode: an unlogged tooth is a milk tooth that's still in.
+    const fallback: ToothState = bigKid ? 'erupted' : 'not-erupted';
+    const initial = entry?.state && entry.state !== 'not-erupted' ? entry.state : fallback;
+    setState(initial);
     setEruptDate(entry?.eruptDate ?? '');
     setShedDate(entry?.shedDate ?? '');
-  }, [visible, tooth, entry]);
+    setPermanentDate(entry?.permanentDate ?? '');
+  }, [visible, tooth, entry, bigKid]);
 
   if (!tooth) return null;
 
+  const who = kidName?.trim() || (kidAgeMonths < 12 ? 'Baby' : 'Your child');
+  const age = ageText(kidAgeMonths);
+  const shedAllowed = bigKid; // milk teeth start falling out around year 5–6
   const ageYears = kidAgeMonths / 12;
-  const shedAllowed = ageYears >= 5; // primary teeth start shedding around year 5–6
-  const ageDelta = kidAgeMonths < tooth.eruptMinMo
-    ? `Baby is ${kidAgeMonths} mo — typical eruption is ${tooth.eruptMinMo}–${tooth.eruptMaxMo} mo. Plenty of time.`
-    : kidAgeMonths > tooth.eruptMaxMo && !entry?.eruptDate
-      ? `Baby is ${kidAgeMonths} mo — most kids have this tooth by ${tooth.eruptMaxMo} mo. Many are still on track; mention to your doctor at the next visit if concerned.`
-      : `Typical eruption: ${eruptionWindowLabel(tooth)}.`;
+  const ageDelta = bigKid
+    ? ageYears < tooth.shedMinYr
+      ? `Usually falls out at ${shedWindowLabel(tooth)}. ${who} is ${age} — not expected yet.`
+      : ageYears <= tooth.shedMaxYr + 1
+        ? `Usually falls out at ${shedWindowLabel(tooth)}. ${who} is ${age} — right in the window.`
+        : `Usually falls out by ${tooth.shedMaxYr} years. ${who} is ${age} — a little later is common; mention it at the next dental check-up if you're unsure.`
+    : kidAgeMonths < tooth.eruptMinMo
+      ? `${who} is ${age} — typical eruption is ${tooth.eruptMinMo}–${tooth.eruptMaxMo} mo. Plenty of time.`
+      : kidAgeMonths > tooth.eruptMaxMo && !entry?.eruptDate
+        ? `${who} is ${age} — most kids have this tooth by ${tooth.eruptMaxMo} mo. Many are still on track; mention to your doctor at the next visit if concerned.`
+        : `Typical eruption: ${eruptionWindowLabel(tooth)}.`;
 
   const handleSave = () => {
     if (state === 'not-erupted') {
       onClear();
+      onClose();
+      return;
+    }
+    if (bigKid) {
+      // Big-kid mode never asks for an eruption date — the milk tooth came
+      // in years ago. "Milk tooth" with nothing logged is the default, so
+      // store nothing rather than a fake eruption date.
+      if (state === 'erupted') {
+        if (entry?.eruptDate) onSave({ state: 'erupted', eruptDate: entry.eruptDate });
+        else onClear();
+        onClose();
+        return;
+      }
+      const safeShed = clampToToday(shedDate);
+      let safePermanent: string | undefined;
+      if (state === 'permanent') {
+        safePermanent = clampToToday(permanentDate);
+        if (safePermanent < safeShed) safePermanent = safeShed;
+      }
+      onSave({
+        state,
+        ...(entry?.eruptDate ? { eruptDate: entry.eruptDate } : {}),
+        shedDate: safeShed,
+        ...(safePermanent ? { permanentDate: safePermanent } : {}),
+      });
       onClose();
       return;
     }
@@ -108,11 +159,17 @@ export default function ToothDetailSheet({
     onClose();
   };
 
-  const segOptions: { key: ToothState; label: string; disabled?: boolean }[] = [
-    { key: 'not-erupted', label: 'Not yet' },
-    { key: 'erupted',     label: 'Erupted' },
-    { key: 'shed',        label: 'Shed', disabled: !shedAllowed },
-  ];
+  const segOptions: { key: ToothState; label: string; disabled?: boolean }[] = bigKid
+    ? [
+        { key: 'erupted',   label: 'Milk tooth' },
+        { key: 'shed',      label: 'Fell out' },
+        { key: 'permanent', label: 'Adult tooth' },
+      ]
+    : [
+        { key: 'not-erupted', label: 'Not yet' },
+        { key: 'erupted',     label: 'Erupted' },
+        { key: 'shed',        label: 'Shed', disabled: !shedAllowed },
+      ];
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -139,7 +196,9 @@ export default function ToothDetailSheet({
             <Text style={styles.refText}>{ageDelta}</Text>
           </View>
           <Text style={styles.metaLine}>
-            Typical shed: {shedWindowLabel(tooth)}
+            {bigKid
+              ? `Adult tooth usually comes in: ${adultToothWindowLabel(tooth)}`
+              : `Typical shed: ${shedWindowLabel(tooth)}`}
           </Text>
 
           {/* State selector */}
@@ -147,7 +206,7 @@ export default function ToothDetailSheet({
           <View style={styles.segWrap}>
             {segOptions.map((opt) => {
               const active = state === opt.key;
-              const tint = opt.key === 'erupted' ? SAGE : opt.key === 'shed' ? GOLD : MIST;
+              const tint = opt.key === 'erupted' ? SAGE : opt.key === 'shed' ? GOLD : opt.key === 'permanent' ? SKY : MIST;
               const textColor = opt.disabled ? '#C9C2DA' : active ? '#ffffff' : INK;
               const bg = active ? tint : '#FAFAFB';
               const border = active ? tint : '#E5DCEF';
@@ -173,8 +232,36 @@ export default function ToothDetailSheet({
             </Text>
           )}
 
-          {/* Date pickers */}
-          {state !== 'not-erupted' && (
+          {/* Date pickers — big-kid mode */}
+          {bigKid && (state === 'shed' || state === 'permanent') && (
+            <View style={styles.dateBlock}>
+              <Text style={styles.dateLabel}>When did it fall out?</Text>
+              <DatePickerField
+                value={shedDate}
+                onChange={(d) => setShedDate(clampToToday(d))}
+                placeholder="Tap to pick the date"
+                maxDate={todayLocal()}
+              />
+            </View>
+          )}
+          {bigKid && state === 'permanent' && (
+            <View style={styles.dateBlock}>
+              <Text style={styles.dateLabel}>When did the adult tooth come in?</Text>
+              <DatePickerField
+                value={permanentDate}
+                onChange={(d) => {
+                  const clamped = clampToToday(d);
+                  setPermanentDate(shedDate && clamped < shedDate ? shedDate : clamped);
+                }}
+                placeholder="Tap to pick the date"
+                minDate={shedDate || undefined}
+                maxDate={todayLocal()}
+              />
+            </View>
+          )}
+
+          {/* Date pickers — baby mode */}
+          {!bigKid && state !== 'not-erupted' && (
             <View style={styles.dateBlock}>
               <Text style={styles.dateLabel}>When did it erupt?</Text>
               <DatePickerField
@@ -185,7 +272,7 @@ export default function ToothDetailSheet({
               />
             </View>
           )}
-          {state === 'shed' && (
+          {!bigKid && state === 'shed' && (
             <View style={styles.dateBlock}>
               <Text style={styles.dateLabel}>When did it shed?</Text>
               <DatePickerField

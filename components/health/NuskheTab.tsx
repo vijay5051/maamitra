@@ -18,6 +18,7 @@ import { NUSKHE_CATEGORIES, NuskheCategory, Remedy, TOTAL_NUSKHE_COUNT } from '.
 import { useActiveKid } from '../../hooks/useActiveKid';
 import { calculateAgeInMonths } from '../../store/useProfileStore';
 import { Fonts, Colors } from '../../constants/theme';
+import { yourKid } from '../../lib/kidStage';
 
 const INK = '#1C1033';
 const STONE = '#6B7280';
@@ -325,7 +326,7 @@ export default function NuskheTab() {
             <Text style={styles.heroTitle}>Dadi Maa ke Nuskhe</Text>
             <Text style={styles.heroSub}>
               {ageMonths !== null
-                ? `Personalised for ${activeKid?.name || 'your baby'} · ${ageLabel}`
+                ? `Personalised for ${activeKid?.name || yourKid(ageMonths)} · ${ageLabel}`
                 : isExpecting
                 ? `Saved for after ${activeKid?.name || 'baby'} arrives`
                 : `${TOTAL_NUSKHE_COUNT} time-tested remedies across ${NUSKHE_CATEGORIES.length} ailments`}

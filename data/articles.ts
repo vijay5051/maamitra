@@ -133,7 +133,7 @@ IAP Red Flags to Discuss with Your Paediatrician: Not smiling by 3 months, not b
     topic: 'Development',
     readTime: '8 min',
     ageMin: 0,
-    ageMax: 12,
+    ageMax: 11,
     emoji: '👶',
     tag: 'Development',
     url: 'https://www.cdc.gov/ncbddd/actearly/milestones/index.html',
@@ -170,7 +170,7 @@ The 40-Day Tradition: Many Indian communities observe a 40-day period of rest wh
     id: 'a06',
     title: 'IAP Vaccination Schedule Explained',
     preview:
-      "Vaccinations are one of the most powerful tools we have to protect children from serious, potentially life-threatening diseases. The Indian Academy of Pediatrics (IAP) updates its vaccination schedule annually based on the latest evidence. Understanding which vaccines your baby needs, when, and why can help you stay on track and feel confident in your decisions.",
+      "Vaccinations are one of the most powerful tools we have to protect children from serious, potentially life-threatening diseases. The Indian Academy of Pediatrics (IAP) updates its vaccination schedule annually based on the latest evidence. Understanding which vaccines your child needs, when, and why can help you stay on track and feel confident in your decisions.",
     body: `Vaccines have saved more lives than almost any other medical intervention in history. For Indian families, following the IAP 2024 vaccination schedule ensures your child is protected against 15 or more serious diseases.
 
 At Birth: BCG (single intradermal injection in the left upper arm) protects against serious forms of tuberculosis. OPV0 (two drops in the mouth) is the first dose in the polio eradication effort. Hep B (first dose) prevents liver disease and liver cancer.
@@ -276,7 +276,7 @@ Doing a simple 20-minute routine 3-4 times per week can make a profound differen
     topic: 'Yoga',
     readTime: '5 min',
     ageMin: 0,
-    ageMax: 12,
+    ageMax: 11,
     emoji: '🧘',
     tag: 'Yoga',
     url: 'https://www.artofliving.org/in-en/yoga/yoga-for-women/yoga-after-delivery',
@@ -303,7 +303,7 @@ A Word on Gripe Water and Honey Water: Traditional remedies like gripe water, ho
     topic: 'Feeding',
     readTime: '3 min',
     ageMin: 4,
-    ageMax: 12,
+    ageMax: 11,
     emoji: '💧',
     tag: 'Hydration',
     url: 'https://www.who.int/news-room/fact-sheets/detail/infant-and-young-child-feeding',
@@ -314,17 +314,17 @@ A Word on Gripe Water and Honey Water: Traditional remedies like gripe water, ho
     title: "Sleep Training: An Indian Family's Guide",
     preview:
       "Sleep training is one of the most hotly debated topics in parenting — and in Indian families, it can feel especially complicated. Multi-generational households, co-sleeping traditions, and differing philosophies between grandparents and new parents can make it difficult to find an approach that works. This guide presents the evidence on different sleep training methods and helps you find one that aligns with your family's values.",
-    body: `Before we dive in, let's be clear: there is no single right way to manage infant sleep. What matters most is a consistent approach that works for your family and keeps your baby safe.
+    body: `Before we dive in, let's be clear: there is no single right way to manage infant sleep. What matters most is a consistent approach that works for your family and keeps your little one safe.
 
-Is Sleep Training Necessary? No. Many children naturally transition to longer sleep stretches without any formal sleep training. Some families choose never to sleep train. The goal of sleep training is simply to help babies who struggle with independent sleep learn to fall asleep without excessive parental assistance.
+Is Sleep Training Necessary? No. Many children naturally transition to longer sleep stretches without any formal sleep training. Some families choose never to sleep train. The goal of sleep training is simply to help little ones who struggle with independent sleep learn to fall asleep without excessive parental assistance.
 
 When Can You Begin Sleep Training? Most paediatric sleep experts recommend starting no earlier than 4-6 months, when the baby is feeding well and gaining weight, there are no underlying medical conditions causing sleep disruption, and the baby has some capacity for self-soothing.
 
 Common Sleep Training Methods:
 
-Extinction (Cry It Out): Baby is placed in their cot drowsy but awake, and parents do not intervene until morning. Evidence consistently shows this is safe and effective and does not cause emotional or psychological harm. However, it can be very difficult for parents to implement and is culturally unfamiliar in most Indian families.
+Extinction (Cry It Out): Your child is placed in their cot drowsy but awake, and parents do not intervene until morning. Evidence consistently shows this is safe and effective and does not cause emotional or psychological harm. However, it can be very difficult for parents to implement and is culturally unfamiliar in most Indian families.
 
-Ferber Method (Graduated Extinction): Baby is placed in cot awake; parents check in at increasing intervals (3 min, 5 min, 10 min) to briefly reassure the baby without picking them up. Typically takes 3-7 nights. A middle ground that many parents find manageable.
+Ferber Method (Graduated Extinction): Your child is placed in cot awake; parents check in at increasing intervals (3 min, 5 min, 10 min) to briefly reassure your child without picking them up. Typically takes 3-7 nights. A middle ground that many parents find manageable.
 
 No Cry Sleep Solution: Parent gradually withdraws from the sleep process. Takes the longest but involves no crying. Appealing to Indian families who co-sleep and want a very gradual transition.
 
@@ -363,7 +363,7 @@ Baby massage is a language of love that requires no translation.`,
     topic: 'Baby Care',
     readTime: '5 min',
     ageMin: 0,
-    ageMax: 12,
+    ageMax: 11,
     emoji: '🤲',
     tag: 'Baby Care',
     url: 'https://parentune.com/parent-article/baby-massage/1',
@@ -438,17 +438,17 @@ What to Do If You Notice a Red Flag: Document your observations with specific da
     title: 'Self-Care for the Overwhelmed Mother',
     preview:
       "You cannot pour from an empty cup — and yet, most Indian mothers are expected to pour ceaselessly for everyone around them while their own needs are quietly set aside. Self-care is not selfishness. It is the most important maintenance you can perform, because the whole family's wellbeing depends, more than almost anything else, on yours.",
-    body: `If you are reading this with a sleeping baby on your chest, dark circles under your eyes, and a cup of cold tea beside you — this article is for you.
+    body: `If you are reading this with a sleeping little one on your chest, dark circles under your eyes, and a cup of cold tea beside you — this article is for you.
 
-Motherhood in India often comes with an invisible weight beyond the baby: household expectations, family dynamics, judgement about every parenting choice, the pressure to appear happy and capable, and the near-complete erasure of your pre-motherhood identity. This is real, it is hard, and you deserve support.
+Motherhood in India often comes with an invisible weight beyond your child: household expectations, family dynamics, judgement about every parenting choice, the pressure to appear happy and capable, and the near-complete erasure of your pre-motherhood identity. This is real, it is hard, and you deserve support.
 
-Why Self-Care Is Not Selfish: When you are depleted — physically exhausted, emotionally wrung out, chronically understimulated or overstimulated — you cannot be your best self for your child. Chronic stress affects milk supply, your ability to respond sensitively to your baby's cues, your mental health, and your relationship with your partner. Taking care of yourself is not separate from taking care of your baby. It is part of the same continuum.
+Why Self-Care Is Not Selfish: When you are depleted — physically exhausted, emotionally wrung out, chronically understimulated or overstimulated — you cannot be your best self for your child. Chronic stress affects milk supply, your ability to respond sensitively to your child's cues, your mental health, and your relationship with your partner. Taking care of yourself is not separate from taking care of your child. It is part of the same continuum.
 
 The 5-Minute Self-Care Menu (When You Have Almost No Time): Sit in a warm shower alone without rushing. Drink one cup of tea while it is still hot, sitting down. Step outside and feel sunlight on your face for 5 minutes. Write 3 sentences in a journal — anything at all. Do 5 deep belly breaths. Apply oil to your scalp and massage for 5 minutes.
 
 The 20-Minute Self-Care Menu (Negotiate This Weekly): A nap, alone, uninterrupted. A short walk outside without the pram. A phone call with a friend who truly hears you. A gentle yoga session. Reading something for pleasure.
 
-Reclaiming Your Identity: Identify one small thing that was yours before the baby — a hobby, a skill, a creative outlet — and protect even 15 minutes per week for it. Maintain at least one friendship that is not primarily about parenting.
+Reclaiming Your Identity: Identify one small thing that was yours before your child arrived — a hobby, a skill, a creative outlet — and protect even 15 minutes per week for it. Maintain at least one friendship that is not primarily about parenting.
 
 Asking for Help Without Guilt: Indian mothers often feel that asking for help signals failure. In reality, human children evolved to be raised by multiple caregivers, not one sleep-deprived mother alone. You do not need to justify needing rest.
 
@@ -616,7 +616,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     topic: 'Feeding',
     readTime: '5 min',
     ageMin: 0,
-    ageMax: 12,
+    ageMax: 11,
     emoji: '🤱',
     tag: 'Breastfeeding',
     imageUrl: 'https://images.unsplash.com/photo-1531983412531-1f49a365ffed?w=800&h=400&fit=crop&q=80',
@@ -631,7 +631,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     topic: 'Feeding',
     readTime: '6 min',
     ageMin: 0,
-    ageMax: 12,
+    ageMax: 11,
     emoji: '🍼',
     tag: 'Breastfeeding',
     imageUrl: 'https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&h=400&fit=crop&q=80',
@@ -646,7 +646,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     topic: 'Feeding',
     readTime: '6 min',
     ageMin: 0,
-    ageMax: 12,
+    ageMax: 11,
     emoji: '🍼',
     tag: 'Formula',
     imageUrl: 'https://images.unsplash.com/photo-1503449077543-a8bb7eb1d823?w=800&h=400&fit=crop&q=80',
@@ -673,9 +673,9 @@ You are more than a mother. You are a person who became a mother. Both things ca
   },
   {
     id: 'a29',
-    title: "Talking to Your Baby: Building Language from Birth",
-    preview: "Every time you talk, sing, or read to your baby — even before they can respond — you are building the neural pathways for language. The first three years are a critical window.",
-    body: `The Critical Window: Language development begins in the womb (babies can recognise their mother's voice at birth) and is most rapid in the first three years. Research shows that children who heard more words in infancy had larger vocabularies, stronger reading skills, and higher academic achievement.\n\nWhat Babies Hear and Learn:\n- Newborns: Respond preferentially to their mother's voice and familiar languages\n- 2-3 months: Begin cooing and making vowel sounds\n- 6-8 months: Babbling begins (ba, da, ma)\n- 10-12 months: First words emerge\n- 18-24 months: Vocabulary explosion (50+ words, two-word phrases)\n\nHow to Talk to Your Baby:\n1. Narrate your day: "Now we're washing your hands. The water is warm, isn't it?"\n2. Use Parentese (motherese): Exaggerated intonation, slower speech, higher pitch — babies prefer and learn from it\n3. Respond to their vocalisations — have a "conversation" even with a cooing baby\n4. Read aloud — picture books from birth; point to objects and name them\n5. Sing songs in your mother tongue — multilingual exposure is an advantage, not a confusion\n\nIn India: Talking to babies in your native language first is developmentally ideal. Bilingualism is a cognitive advantage.`,
+    title: "Talking to Your Little One: Building Language from Birth",
+    preview: "Every time you talk, sing, or read to your little one — even before they can respond — you are building the neural pathways for language. The first three years are a critical window.",
+    body: `The Critical Window: Language development begins in the womb (babies can recognise their mother's voice at birth) and is most rapid in the first three years. Research shows that children who heard more words in infancy had larger vocabularies, stronger reading skills, and higher academic achievement.\n\nWhat Little Ones Hear and Learn:\n- Newborns: Respond preferentially to their mother's voice and familiar languages\n- 2-3 months: Begin cooing and making vowel sounds\n- 6-8 months: Babbling begins (ba, da, ma)\n- 10-12 months: First words emerge\n- 18-24 months: Vocabulary explosion (50+ words, two-word phrases)\n\nHow to Talk to Your Little One:\n1. Narrate your day: "Now we're washing your hands. The water is warm, isn't it?"\n2. Use Parentese (motherese): Exaggerated intonation, slower speech, higher pitch — little ones prefer and learn from it\n3. Respond to their vocalisations — have a "conversation" even with a cooing baby\n4. Read aloud — picture books from birth; point to objects and name them\n5. Sing songs in your mother tongue — multilingual exposure is an advantage, not a confusion\n\nIn India: Talking to little ones in your native language first is developmentally ideal. Bilingualism is a cognitive advantage.`,
     topic: 'Development',
     readTime: '5 min',
     ageMin: 0,
@@ -689,8 +689,8 @@ You are more than a mother. You are a person who became a mother. Both things ca
   {
     id: 'a30',
     title: 'Sensory Play: Activities for Each Stage',
-    preview: 'Babies learn through their senses — touch, taste, smell, sight, sound, and movement. Sensory play builds neural connections faster than any flashcard. Here are simple, affordable ideas using things at home.',
-    body: `Why Sensory Play Matters:\nEvery new sensory experience creates new neural pathways in your baby's developing brain. Research shows sensory-rich environments lead to more curious, adaptable, and emotionally regulated children.\n\nActivities by Age:\n\n0-3 Months:\n- Black & white patterns: Print high-contrast images (stripes, checkerboard). Newborn vision is limited to high-contrast shapes.\n- Gentle massage: Different textures (soft cloth, ribbed flannel)\n- Mobiles with slow movement (ceiling or crib)\n- Music: Classical, folk, instruments\n\n3-6 Months:\n- Crinkle toys, squeaky toys, rattles\n- Mirror play: Babies this age love faces, including their own\n- Water play during bath — splash, pour cups of water\n- Texture exploration: Velvet, sandpaper, mesh — supervised\n\n6-12 Months:\n- Heuristic play: Give a basket of household objects (wooden spoon, measuring cups, metal bowl, fabric scraps)\n- Finger foods: The texture of soft foods is sensory play + feeding combined\n- Sand, mud, grass: Outdoor textures are invaluable\n- Peek-a-boo: Teaches object permanence\n\n12-24 Months:\n- Playdough (home-made atta-dough with food colouring)\n- Water table or large tub with toys\n- Painting with fingers or vegetables (safe non-toxic paint)`,
+    preview: 'Little ones learn through their senses — touch, taste, smell, sight, sound, and movement. Sensory play builds neural connections faster than any flashcard. Here are simple, affordable ideas using things at home.',
+    body: `Why Sensory Play Matters:\nEvery new sensory experience creates new neural pathways in your child's developing brain. Research shows sensory-rich environments lead to more curious, adaptable, and emotionally regulated children.\n\nActivities by Age:\n\n0-3 Months:\n- Black & white patterns: Print high-contrast images (stripes, checkerboard). Newborn vision is limited to high-contrast shapes.\n- Gentle massage: Different textures (soft cloth, ribbed flannel)\n- Mobiles with slow movement (ceiling or crib)\n- Music: Classical, folk, instruments\n\n3-6 Months:\n- Crinkle toys, squeaky toys, rattles\n- Mirror play: Babies this age love faces, including their own\n- Water play during bath — splash, pour cups of water\n- Texture exploration: Velvet, sandpaper, mesh — supervised\n\n6-12 Months:\n- Heuristic play: Give a basket of household objects (wooden spoon, measuring cups, metal bowl, fabric scraps)\n- Finger foods: The texture of soft foods is sensory play + feeding combined\n- Sand, mud, grass: Outdoor textures are invaluable\n- Peek-a-boo: Teaches object permanence\n\n12-24 Months:\n- Playdough (home-made atta-dough with food colouring)\n- Water table or large tub with toys\n- Painting with fingers or vegetables (safe non-toxic paint)`,
     topic: 'Development',
     readTime: '6 min',
     ageMin: 0,
@@ -709,7 +709,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     topic: 'Baby Care',
     readTime: '5 min',
     ageMin: 0,
-    ageMax: 12,
+    ageMax: 11,
     emoji: '💆',
     tag: 'Massage',
     imageUrl: 'https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=800&h=400&fit=crop&q=80',
@@ -742,7 +742,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     topic: 'Mental Health',
     readTime: '6 min',
     ageMin: 0,
-    ageMax: 12,
+    ageMax: 11,
     emoji: '💙',
     tag: 'Postpartum Mental Health',
     imageUrl: 'https://images.unsplash.com/photo-1544367577-be28eca837f3?w=800&h=400&fit=crop&q=80',
@@ -786,7 +786,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     id: 'a36',
     title: 'Sleep Training: A Clear Guide to the Main Methods',
     preview: 'Sleep training is one of the most debated topics in parenting. The truth: multiple methods work, the "best" depends on your family values, and no approach is right or wrong. Here\'s an honest comparison.',
-    body: `When to Consider Sleep Training:\nMost experts suggest waiting until at least 4-6 months, when babies can physiologically sleep for longer stretches and are neurologically capable of self-soothing.\n\nPopular Methods:\n\n1. Cry It Out (Extinction) — Ferber, Weissbluth:\nPut baby in crib awake, leave the room, and don't return until a set time (or morning). Studies show this is effective and does not cause lasting psychological harm when done appropriately at the right age.\n\n2. Modified CIO (Ferber Method / Checking):\nPut baby down awake. Return at increasing intervals to briefly reassure (don't pick up): e.g., after 3 min, then 5 min, then 10 min. Studies show effective results in 3-7 days.\n\n3. Fading / Chair Method:\nSit beside crib until baby sleeps. Each night, move your chair further away. Gentler but slower.\n\n4. No-Cry Methods:\nOffer and then withdraw comfort: feed/rock until drowsy but not asleep, put down, pick up if crying, repeat. Very gradual — can take weeks.\n\n5. The Indian Reality:\nMany Indian families co-sleep and this is a valid choice. Safe co-sleeping (firm mattress, sober adults, no pillows around baby) is practiced across Asia. There is no cultural imperative to sleep-train if your family is sleeping well.\n\nKey Principle: Any method you implement consistently will be more effective than any method implemented inconsistently.`,
+    body: `When to Consider Sleep Training:\nMost experts suggest waiting until at least 4-6 months, when babies can physiologically sleep for longer stretches and are neurologically capable of self-soothing.\n\nPopular Methods:\n\n1. Cry It Out (Extinction) — Ferber, Weissbluth:\nPut your child in the crib awake, leave the room, and don't return until a set time (or morning). Studies show this is effective and does not cause lasting psychological harm when done appropriately at the right age.\n\n2. Modified CIO (Ferber Method / Checking):\nPut your child down awake. Return at increasing intervals to briefly reassure (don't pick up): e.g., after 3 min, then 5 min, then 10 min. Studies show effective results in 3-7 days.\n\n3. Fading / Chair Method:\nSit beside the crib until your child sleeps. Each night, move your chair further away. Gentler but slower.\n\n4. No-Cry Methods:\nOffer and then withdraw comfort: feed/rock until drowsy but not asleep, put down, pick up if crying, repeat. Very gradual — can take weeks.\n\n5. The Indian Reality:\nMany Indian families co-sleep and this is a valid choice. Safe co-sleeping (firm mattress, sober adults, no pillows around your child) is practiced across Asia. There is no cultural imperative to sleep-train if your family is sleeping well.\n\nKey Principle: Any method you implement consistently will be more effective than any method implemented inconsistently.`,
     topic: 'Sleep',
     readTime: '6 min',
     ageMin: 4,
@@ -801,7 +801,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     id: 'a37',
     title: 'Bedtime Routines That Actually Work',
     preview: 'A consistent bedtime routine is the single most evidence-backed strategy for improving baby and toddler sleep. Even a simple 20-minute routine reduces sleep onset time and nighttime waking.',
-    body: `The Science of Routines:\nA 2009 study published in Sleep found that children whose parents introduced a consistent bedtime routine showed significant improvements in sleep quality within just 2 weeks. Routines cue the brain to begin producing melatonin (the sleep hormone).\n\nBuilding a Simple Routine:\nChoose 3-4 calming activities done in the same order every night. Total time: 20-30 minutes.\n\nSample Routine for Babies (0-12 months):\n1. Warm bath (10 min)\n2. Oil massage (5 min)\n3. Fresh nappy and pyjamas\n4. Feed (breast or bottle)\n5. Gentle song or lullaby\n6. Into crib/bed while drowsy but awake\n\nSample Routine for Toddlers (1-3 years):\n1. Bath\n2. Pyjamas\n3. Small snack (banana, milk, or warm daliya)\n4. Brush teeth\n5. One or two books\n6. Lights low, lullaby or soft music\n7. Into bed\n\nKey Tips:\n- Same time every night (within 15-20 minutes)\n- No screens for at least 1 hour before bed (blue light suppresses melatonin)\n- Keep the bedroom dark and slightly cool (22-24°C)\n- The routine should move to an increasingly calm environment\n- White noise (gentle, consistent sound) extends sleep for many babies`,
+    body: `The Science of Routines:\nA 2009 study published in Sleep found that children whose parents introduced a consistent bedtime routine showed significant improvements in sleep quality within just 2 weeks. Routines cue the brain to begin producing melatonin (the sleep hormone).\n\nBuilding a Simple Routine:\nChoose 3-4 calming activities done in the same order every night. Total time: 20-30 minutes.\n\nSample Routine for Babies (0-12 months):\n1. Warm bath (10 min)\n2. Oil massage (5 min)\n3. Fresh nappy and pyjamas\n4. Feed (breast or bottle)\n5. Gentle song or lullaby\n6. Into crib/bed while drowsy but awake\n\nSample Routine for Toddlers (1-3 years):\n1. Bath\n2. Pyjamas\n3. Small snack (banana, milk, or warm daliya)\n4. Brush teeth\n5. One or two books\n6. Lights low, lullaby or soft music\n7. Into bed\n\nKey Tips:\n- Same time every night (within 15-20 minutes)\n- No screens for at least 1 hour before bed (blue light suppresses melatonin)\n- Keep the bedroom dark and slightly cool (22-24°C)\n- The routine should move to an increasingly calm environment\n- White noise (gentle, consistent sound) extends sleep for many little ones`,
     topic: 'Sleep',
     readTime: '5 min',
     ageMin: 0,
@@ -834,7 +834,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     id: 'a39',
     title: 'Introducing Allergenic Foods: When and How',
     preview: 'For years, parents were told to delay peanuts, eggs, and dairy. New research has completely reversed this guidance. Early introduction of allergenic foods actually reduces allergy risk.',
-    body: `The LEAP Study (2015) Changed Everything:\nThe LEAP trial showed children at high risk of peanut allergy who were introduced to peanuts between 4-11 months had an 81% reduction in peanut allergy by age 5, compared to those who avoided peanuts.\n\nCurrent IAP & WHO Guidance: Introduce allergenic foods at 6 months, alongside other complementary foods. Do NOT delay introduction of common allergens.\n\nTop 9 Allergens to Introduce:\n1. Peanuts (smooth peanut butter diluted with breastmilk/water)\n2. Tree nuts\n3. Milk and dairy products (curd, paneer — avoid cow's milk as main drink before 1 year)\n4. Eggs (well-cooked initially)\n5. Wheat (roti, dal, daliya)\n6. Soy\n7. Fish (if non-vegetarian)\n8. Shellfish\n9. Sesame (til) — common in Indian kitchens\n\nHow to Introduce Safely:\n- Introduce one new food at a time, wait 3 days before the next\n- Give in the morning so you can watch for reactions during waking hours\n- Start with a small amount on a spoon\n- Signs of allergic reaction to watch for within 2 hours: hives, swelling (lip, face), vomiting, difficulty breathing — if these occur, seek emergency care immediately\n\nFor babies at high risk (severe eczema or existing egg allergy) — discuss the timing with your paediatrician before introducing peanuts.`,
+    body: `The LEAP Study (2015) Changed Everything:\nThe LEAP trial showed children at high risk of peanut allergy who were introduced to peanuts between 4-11 months had an 81% reduction in peanut allergy by age 5, compared to those who avoided peanuts.\n\nCurrent IAP & WHO Guidance: Introduce allergenic foods at 6 months, alongside other complementary foods. Do NOT delay introduction of common allergens.\n\nTop 9 Allergens to Introduce:\n1. Peanuts (smooth peanut butter diluted with breastmilk/water)\n2. Tree nuts\n3. Milk and dairy products (curd, paneer — avoid cow's milk as main drink before 1 year)\n4. Eggs (well-cooked initially)\n5. Wheat (roti, dal, daliya)\n6. Soy\n7. Fish (if non-vegetarian)\n8. Shellfish\n9. Sesame (til) — common in Indian kitchens\n\nHow to Introduce Safely:\n- Introduce one new food at a time, wait 3 days before the next\n- Give in the morning so you can watch for reactions during waking hours\n- Start with a small amount on a spoon\n- Signs of allergic reaction to watch for within 2 hours: hives, swelling (lip, face), vomiting, difficulty breathing — if these occur, seek emergency care immediately\n\nFor little ones at high risk (severe eczema or existing egg allergy) — discuss the timing with your paediatrician before introducing peanuts.`,
     topic: 'Feeding',
     readTime: '5 min',
     ageMin: 4,
@@ -880,9 +880,9 @@ You are more than a mother. You are a person who became a mother. Both things ca
 
   {
     id: 'a42',
-    title: 'Baby-Proofing Your Home: Room-by-Room Guide',
+    title: 'Child-Proofing Your Home: Room-by-Room Guide',
     preview: 'Accidents are the leading cause of injury in children under 5. Most home accidents are preventable. Here\'s a practical room-by-room guide for Indian homes, including hazards unique to our lifestyle.',
-    body: `When to Start: Baby-proof by 4 months — before your baby rolls; certainly before 6 months when they start becoming mobile.\n\nKitchen:\n- Stove knob covers\n- Keep hot liquids well back from counter edges\n- Lock under-sink cabinets (cleaning products)\n- Oven door locks\n- Never hold baby while cooking on a gas flame\n\nLiving Room / Drawing Room:\n- Electrical socket covers on all exposed sockets\n- Secure heavy furniture (TV units, bookshelves) to walls — tip-over injuries kill children annually\n- Cover sharp furniture corners\n- Keep remote controls and batteries out of reach (button batteries are a swallowing emergency)\n- Rope/cord safety on blinds and curtains — strangulation hazard\n\nBedroom:\n- Crib or bed rails if co-sleeping\n- No pillows, quilts, or stuffed animals in baby's sleep space\n- Secure wardrobe\n\nBathroom:\n- Never leave water in buckets or tubs — a child can drown in 5cm of water\n- Temperature lock on geyser\n- Non-slip mats\n- Medicines stored in locked cabinet\n\nUniquelyIndian Hazards:\n- Mosquito coil and liquid vaporiser fumes — keep out of baby's room; use nets instead\n- Floor level cooking areas — gate off\n- Outdoor terrace railings — check spacing\n- Household help awareness — all caregivers need the same safety knowledge`,
+    body: `When to Start: Child-proof by 4 months — before your little one rolls; certainly before 6 months when they start becoming mobile.\n\nKitchen:\n- Stove knob covers\n- Keep hot liquids well back from counter edges\n- Lock under-sink cabinets (cleaning products)\n- Oven door locks\n- Never hold your child while cooking on a gas flame\n\nLiving Room / Drawing Room:\n- Electrical socket covers on all exposed sockets\n- Secure heavy furniture (TV units, bookshelves) to walls — tip-over injuries kill children annually\n- Cover sharp furniture corners\n- Keep remote controls and batteries out of reach (button batteries are a swallowing emergency)\n- Rope/cord safety on blinds and curtains — strangulation hazard\n\nBedroom:\n- Crib or bed rails if co-sleeping\n- No pillows, quilts, or stuffed animals in your child's sleep space\n- Secure wardrobe\n\nBathroom:\n- Never leave water in buckets or tubs — a child can drown in 5cm of water\n- Temperature lock on geyser\n- Non-slip mats\n- Medicines stored in locked cabinet\n\nUniquelyIndian Hazards:\n- Mosquito coil and liquid vaporiser fumes — keep out of your child's room; use nets instead\n- Floor level cooking areas — gate off\n- Outdoor terrace railings — check spacing\n- Household help awareness — all caregivers need the same safety knowledge`,
     topic: 'Baby Care',
     readTime: '6 min',
     ageMin: 3,
@@ -895,8 +895,8 @@ You are more than a mother. You are a person who became a mother. Both things ca
   },
   {
     id: 'a43',
-    title: 'Fever in Babies: When to Worry, When to Wait',
-    preview: 'A baby with fever triggers instant panic — but fever itself is not the enemy. It is the body\'s immune system doing exactly what it should. Here\'s when fever is normal, and when it requires urgent care.',
+    title: 'Fever in Children: When to Worry, When to Wait',
+    preview: 'A child with fever triggers instant panic — but fever itself is not the enemy. It is the body\'s immune system doing exactly what it should. Here\'s when fever is normal, and when it requires urgent care.',
     body: `Normal Temperature & How to Measure:\nNormal body temperature: 36.5-37.5°C (rectal). The most accurate method in children is rectal thermometry; axillary (armpit) readings are typically 0.5°C lower. Avoid mercury thermometers.\n\nWhat Is Fever?\nA temperature above 38°C (rectal) or 37.5°C (axillary) is considered fever. Fever is a normal immune response and is helpful — it directly inhibits bacterial and viral reproduction.\n\nHigh-Risk Age: Under 3 Months\nFever in babies under 3 months is ALWAYS a medical emergency, regardless of the reading or how well the baby appears. The immune system is immature and infections can deteriorate rapidly. Go to the emergency department immediately.\n\nFebrile Seizures: 2-4% of children between 6 months and 6 years experience febrile seizures. They are frightening but rarely dangerous. Keep the child safe (on their side, away from hard surfaces), time the seizure, call emergency services if it lasts over 5 minutes.\n\nHome Management (3 months+, otherwise healthy):\n- Paracetamol (15mg/kg per dose) or Ibuprofen (over 6 months, 10mg/kg per dose) to improve comfort\n- Continue feeding — fever increases fluid requirements\n- Sponging with lukewarm water (not cold) can help if child is distressed\n- Do NOT swathe in extra layers to "sweat it out"\n- Do NOT give aspirin to children under 16\n\nSigns Requiring Urgent Attention:\n- Fever above 39°C in baby under 6 months\n- Fever lasting more than 3 days\n- Child is inconsolably crying, refuses to feed, is unusually limp, has a non-blanching rash (press a glass on it — if the colour remains, it is an emergency)`,
     topic: 'Vaccination',
     readTime: '6 min',
@@ -911,8 +911,8 @@ You are more than a mother. You are a person who became a mother. Both things ca
   {
     id: 'a44',
     title: 'Teething: Timeline, Symptoms, and Relief',
-    preview: 'Teething typically begins between 4-7 months. While some babies sail through it, others experience real discomfort. Here\'s what to expect and what actually helps — including which home remedies are safe.',
-    body: `Tooth Eruption Timeline:\n- 6-10 months: Lower central incisors (bottom front teeth)\n- 8-12 months: Upper central incisors\n- 9-13 months: Upper lateral incisors\n- 10-16 months: Lower lateral incisors\n- 13-19 months: First molars\n- 16-22 months: Canines\n- 25-33 months: Second molars\nAll 20 primary teeth usually in by age 3.\n\nReal Teething Symptoms:\n- Increased drooling (starts 2-3 months before first tooth)\n- Chewing on everything\n- Irritability and fussiness\n- Swollen gum ridge\n- Mild disrupted sleep\n\nNot Teething Symptoms (seek medical advice):\n- High fever (above 38°C)\n- Diarrhoea\n- Runny nose\n- Rash\nThese symptoms often coincide with teething age due to reduced immunity from passive maternal antibodies — but they are caused by illness, not teething.\n\nSafe Relief Strategies:\n- Cold teething ring (refrigerated, not frozen — frozen is too hard and can bruise gums)\n- Cold, wet flannel to chew on\n- Gentle gum massage with a clean finger\n- Pain relief: Paracetamol (as per age-appropriate dose) if baby is clearly in distress\n\nWhat to Avoid:\n- Teething gels with benzocaine or lidocaine (can affect breathing in infants)\n- Amber teething necklaces (serious strangulation and choking hazard — IAP advises against these)`,
+    preview: 'Teething typically begins between 4-7 months. While some little ones sail through it, others experience real discomfort. Here\'s what to expect and what actually helps — including which home remedies are safe.',
+    body: `Tooth Eruption Timeline:\n- 6-10 months: Lower central incisors (bottom front teeth)\n- 8-12 months: Upper central incisors\n- 9-13 months: Upper lateral incisors\n- 10-16 months: Lower lateral incisors\n- 13-19 months: First molars\n- 16-22 months: Canines\n- 25-33 months: Second molars\nAll 20 primary teeth usually in by age 3.\n\nReal Teething Symptoms:\n- Increased drooling (starts 2-3 months before first tooth)\n- Chewing on everything\n- Irritability and fussiness\n- Swollen gum ridge\n- Mild disrupted sleep\n\nNot Teething Symptoms (seek medical advice):\n- High fever (above 38°C)\n- Diarrhoea\n- Runny nose\n- Rash\nThese symptoms often coincide with teething age due to reduced immunity from passive maternal antibodies — but they are caused by illness, not teething.\n\nSafe Relief Strategies:\n- Cold teething ring (refrigerated, not frozen — frozen is too hard and can bruise gums)\n- Cold, wet flannel to chew on\n- Gentle gum massage with a clean finger\n- Pain relief: Paracetamol (as per age-appropriate dose) if your child is clearly in distress\n\nWhat to Avoid:\n- Teething gels with benzocaine or lidocaine (can affect breathing in infants)\n- Amber teething necklaces (serious strangulation and choking hazard — IAP advises against these)`,
     topic: 'Baby Care',
     readTime: '5 min',
     ageMin: 3,
@@ -925,9 +925,9 @@ You are more than a mother. You are a person who became a mother. Both things ca
   },
   {
     id: 'a45',
-    title: 'Baby Eczema: Managing Atopic Dermatitis in Indian Climate',
+    title: 'Eczema in Babies & Toddlers: Managing Atopic Dermatitis in Indian Climate',
     preview: 'Eczema affects up to 20% of children. India\'s climate — alternating between humid monsoons and dry winters — creates unique challenges. Here\'s how to manage it effectively.',
-    body: `What Is Eczema?\nAtopic dermatitis (eczema) is a chronic inflammatory skin condition caused by a defective skin barrier and immune dysregulation. It often has a family history of asthma, eczema, or hay fever ("atopic triad").\n\nIn Indian Babies:\n- Typically appears at 2-6 months\n- Common sites: cheeks, forehead, scalp, behind knees, inside elbows\n- In dark-skinned babies, eczema may appear as darker patches, not red (often missed)\n\nThe Moisturiser Is Everything:\nThe cornerstone of eczema treatment is barrier repair. Moisturise liberally (aim to use 250g per week) immediately after every bath (within 3 minutes of patting dry).\nGood choices available in India: CeraVe, Cetaphil, Aveeno baby, Vaseline (petroleum jelly — cheap and highly effective).\n\nBath Routine for Eczema:\n- Lukewarm water (not hot), 5-10 minutes maximum\n- Fragrance-free, soap-free wash\n- Pat dry gently, never rub\n- Apply moisturiser immediately\n\nClimate-Specific Tips:\n- Monsoon: Humidity can help, but sweat is an eczema trigger — keep baby cool and change sweaty clothes promptly\n- Winter: Indoor heating and dry air worsen eczema — humidifier in the room and extra moisturisation\n- Summer: Cotton clothing, shade, and frequent moisturisation\n\nWhen to See a Doctor:\n- Widespread weeping, crusted areas (possible bacterial superinfection)\n- Eczema not responding to moisturiser\n- Need for prescription-strength topical corticosteroids (do not fear these — used correctly, they are safe)`,
+    body: `What Is Eczema?\nAtopic dermatitis (eczema) is a chronic inflammatory skin condition caused by a defective skin barrier and immune dysregulation. It often has a family history of asthma, eczema, or hay fever ("atopic triad").\n\nIn Indian Children:\n- Typically appears at 2-6 months\n- Common sites: cheeks, forehead, scalp, behind knees, inside elbows\n- In dark-skinned children, eczema may appear as darker patches, not red (often missed)\n\nThe Moisturiser Is Everything:\nThe cornerstone of eczema treatment is barrier repair. Moisturise liberally (aim to use 250g per week) immediately after every bath (within 3 minutes of patting dry).\nGood choices available in India: CeraVe, Cetaphil, Aveeno baby, Vaseline (petroleum jelly — cheap and highly effective).\n\nBath Routine for Eczema:\n- Lukewarm water (not hot), 5-10 minutes maximum\n- Fragrance-free, soap-free wash\n- Pat dry gently, never rub\n- Apply moisturiser immediately\n\nClimate-Specific Tips:\n- Monsoon: Humidity can help, but sweat is an eczema trigger — keep your child cool and change sweaty clothes promptly\n- Winter: Indoor heating and dry air worsen eczema — humidifier in the room and extra moisturisation\n- Summer: Cotton clothing, shade, and frequent moisturisation\n\nWhen to See a Doctor:\n- Widespread weeping, crusted areas (possible bacterial superinfection)\n- Eczema not responding to moisturiser\n- Need for prescription-strength topical corticosteroids (do not fear these — used correctly, they are safe)`,
     topic: 'Baby Care',
     readTime: '6 min',
     ageMin: 0,
@@ -974,8 +974,8 @@ You are more than a mother. You are a person who became a mother. Both things ca
   {
     id: 'a50',
     title: 'Mindful Parenting: Being Present in the Digital Age',
-    preview: 'Research shows that parental smartphone use affects baby\'s emotional development in measurable ways. Here\'s what mindful parenting looks like in practice — and why it matters more than any toy or class.',
-    body: `What the Research Shows:\nA 2018 study found that babies of mothers who were distracted by smartphones showed more negative emotional responses and explored less. The still-face experiment demonstrates that brief periods of non-responsiveness cause measurable stress in infants.\n\nWhy Presence Matters:\nParental responsiveness — noticing and responding to your child's cues — is the primary driver of secure attachment. Secure attachment is associated with better emotional regulation, higher self-esteem, better academic outcomes, and healthier relationships in adulthood.\n\nMindful Parenting in Practice:\n\n1. Phone-free floors: When you are with your baby on the floor or playmat, leave your phone in another room\n2. The 20-20 rule: For every 20 minutes of independent play, offer 20 minutes of undivided attention\n3. Narrate your inner experience: "I was on my phone and I missed what you were doing — I'm sorry. Let me put this away now."\n4. Scheduled connection: Even 30 minutes of truly present, phone-free play daily makes a measurable difference\n5. Manage your own stress: Stressed, overwhelmed parents cannot be present. Your self-care is your child's wellbeing.\n\nBeing Present Doesn't Mean Perfect:\nResponsive parenting doesn't require constant, intense stimulation — it means noticing and responding to cues. Comfortable, quiet companionship is deeply nourishing for a baby. You do not need to be "on" all the time.`,
+    preview: 'Research shows that parental smartphone use affects a child\'s emotional development in measurable ways. Here\'s what mindful parenting looks like in practice — and why it matters more than any toy or class.',
+    body: `What the Research Shows:\nA 2018 study found that babies of mothers who were distracted by smartphones showed more negative emotional responses and explored less. The still-face experiment demonstrates that brief periods of non-responsiveness cause measurable stress in infants.\n\nWhy Presence Matters:\nParental responsiveness — noticing and responding to your child's cues — is the primary driver of secure attachment. Secure attachment is associated with better emotional regulation, higher self-esteem, better academic outcomes, and healthier relationships in adulthood.\n\nMindful Parenting in Practice:\n\n1. Phone-free floors: When you are with your child on the floor or playmat, leave your phone in another room\n2. The 20-20 rule: For every 20 minutes of independent play, offer 20 minutes of undivided attention\n3. Narrate your inner experience: "I was on my phone and I missed what you were doing — I'm sorry. Let me put this away now."\n4. Scheduled connection: Even 30 minutes of truly present, phone-free play daily makes a measurable difference\n5. Manage your own stress: Stressed, overwhelmed parents cannot be present. Your self-care is your child's wellbeing.\n\nBeing Present Doesn't Mean Perfect:\nResponsive parenting doesn't require constant, intense stimulation — it means noticing and responding to cues. Comfortable, quiet companionship is deeply nourishing for a child. You do not need to be "on" all the time.`,
     topic: 'Mental Health',
     readTime: '5 min',
     ageMin: 0,
@@ -1023,7 +1023,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     topic: 'Fatherhood',
     readTime: '7 min',
     ageMin: 0,
-    ageMax: 12,
+    ageMax: 11,
     emoji: '🫂',
     tag: 'Bonding',
     audience: 'father',
@@ -1037,7 +1037,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     topic: 'Mental Health',
     readTime: '7 min',
     ageMin: 0,
-    ageMax: 12,
+    ageMax: 11,
     emoji: '🧠',
     tag: 'Paternal Mental Health',
     audience: 'father',
@@ -1079,7 +1079,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     topic: 'Sleep',
     readTime: '6 min',
     ageMin: 0,
-    ageMax: 12,
+    ageMax: 11,
     emoji: '🌙',
     tag: 'Sleep',
     audience: 'father',
@@ -1088,8 +1088,8 @@ You are more than a mother. You are a person who became a mother. Both things ca
     id: 'a58',
     title: "Diaper Changing Without Drama: A Practical Guide",
     preview:
-      "You will change around 2,000 diapers in your child's first year. Treating it as real work — not a chore to minimise — changes how your baby sees you and how your partner values your role.",
-    body: `Set Up Your Station:\n- Changing mat + waterproof liner (or a spare towel)\n- Fresh diaper (open and ready, absorbent side up)\n- Wipes or cotton + warm water (cotton is gentler for newborn bottoms, great for the first 6 weeks)\n- Barrier cream (zinc oxide based — Desitin, Siloderm, or Himalaya's diaper rash cream)\n- A change of baby clothes nearby (blowouts happen)\n- Hand sanitiser or wet wipes for your hands\n\nThe Change Itself:\n1. Lay baby on their back on the mat. Keep one hand on them at all times — rolling happens suddenly.\n2. Open the dirty diaper but don't pull it away yet\n3. Use the clean inside front of the dirty diaper to wipe off the majority of poop\n4. Lift baby's legs by gently holding both ankles with one hand (don't pull)\n5. Slide the dirty diaper out and fold it up with the mess inside\n6. Wipe thoroughly, front to back (very important for girls — prevents UTIs)\n7. Let the skin air-dry for 30 seconds (drastically reduces diaper rash)\n8. Apply barrier cream to any redness\n9. Slide the new diaper under and fasten snugly — two fingers should fit at the waist\n10. Wash your hands\n\nThe Boy-Specific Rule:\nBoys pee mid-change. Often. Keep a cloth or second wipe ready to cover as you change. It's not personal.\n\nWhen to Change:\n- Newborns: 8-12 changes a day minimum\n- 3-6 months: 6-8 changes a day\n- Older: 4-6 changes a day\n- Always change after a poop, even if it's been 20 minutes since the last pee change\n- Change before bed and immediately on waking\n\nDiaper Rash Warning Signs:\n- Red, raw skin → more frequent changes + barrier cream + air time\n- Bright red with satellite dots → yeast infection (see paediatrician, needs antifungal)\n- Blood → call paediatrician\n\nCloth vs Disposable:\nBoth work. Cloth is cheaper long-term and greener, but needs a household setup (washing, drying). Disposable is faster for dads still learning. No judgment either way — do what works for your family.\n\nWhy This Matters:\nDiaper changes are 5-minute windows of concentrated connection. You talk, make faces, narrate what you're doing. Over a year, that's 150+ hours of bonding time. Don't rush them, don't outsource them, don't resent them.`,
+      "You will change around 2,000 diapers in your child's first year. Treating it as real work — not a chore to minimise — changes how your child sees you and how your partner values your role.",
+    body: `Set Up Your Station:\n- Changing mat + waterproof liner (or a spare towel)\n- Fresh diaper (open and ready, absorbent side up)\n- Wipes or cotton + warm water (cotton is gentler for newborn bottoms, great for the first 6 weeks)\n- Barrier cream (zinc oxide based — Desitin, Siloderm, or Himalaya's diaper rash cream)\n- A change of clothes nearby (blowouts happen)\n- Hand sanitiser or wet wipes for your hands\n\nThe Change Itself:\n1. Lay your little one on their back on the mat. Keep one hand on them at all times — rolling happens suddenly.\n2. Open the dirty diaper but don't pull it away yet\n3. Use the clean inside front of the dirty diaper to wipe off the majority of poop\n4. Lift your little one's legs by gently holding both ankles with one hand (don't pull)\n5. Slide the dirty diaper out and fold it up with the mess inside\n6. Wipe thoroughly, front to back (very important for girls — prevents UTIs)\n7. Let the skin air-dry for 30 seconds (drastically reduces diaper rash)\n8. Apply barrier cream to any redness\n9. Slide the new diaper under and fasten snugly — two fingers should fit at the waist\n10. Wash your hands\n\nThe Boy-Specific Rule:\nBoys pee mid-change. Often. Keep a cloth or second wipe ready to cover as you change. It's not personal.\n\nWhen to Change:\n- Newborns: 8-12 changes a day minimum\n- 3-6 months: 6-8 changes a day\n- Older: 4-6 changes a day\n- Always change after a poop, even if it's been 20 minutes since the last pee change\n- Change before bed and immediately on waking\n\nDiaper Rash Warning Signs:\n- Red, raw skin → more frequent changes + barrier cream + air time\n- Bright red with satellite dots → yeast infection (see paediatrician, needs antifungal)\n- Blood → call paediatrician\n\nCloth vs Disposable:\nBoth work. Cloth is cheaper long-term and greener, but needs a household setup (washing, drying). Disposable is faster for dads still learning. No judgment either way — do what works for your family.\n\nWhy This Matters:\nDiaper changes are 5-minute windows of concentrated connection. You talk, make faces, narrate what you're doing. Over a year, that's 150+ hours of bonding time. Don't rush them, don't outsource them, don't resent them.`,
     topic: 'Newborn Care',
     readTime: '6 min',
     ageMin: 0,
@@ -1103,7 +1103,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     title: "From Partner to Dad: Your Identity Shift",
     preview:
       "No one warns you that becoming a dad changes who you are, not just what you do. Many fathers quietly struggle with the loss of their old life while pretending everything's fine. Acknowledging the shift is the first step to thriving in it.",
-    body: `What Actually Changes:\n- Your time is no longer yours\n- Your sleep is no longer yours\n- Your money has a new first priority\n- Your marriage becomes a working partnership, not just a romantic one\n- Your sense of identity — work, hobbies, friends, fitness — gets reshuffled\n- Your parents and in-laws have new expectations of you\n- You become "responsible" in the eyes of the world overnight\n\nWhat Dads Commonly Feel (and Rarely Say):\n\nGrief for your old life. The freedom to say yes to a weekend trip. The evenings at the gym. The spontaneous dinners. This grief is real, and it co-exists with love for your child. Both can be true.\n\nResentment at times. Toward the baby, your partner, or your situation. If you never feel a flash of resentment, you're not paying attention. It passes. Don't act on it, don't deny it.\n\nFeeling invisible. The attention is on the mother and the baby. No one asks how you are. This is normal and largely necessary — but it wears on you if it continues too long.\n\nPressure to "provide". Indian culture often doubles this pressure on fathers. You can carry it without letting it crush you.\n\nFear of being a bad dad. Especially if your own father was absent, angry, or unavailable. This fear is a sign you care — and it's the first step to not repeating the pattern.\n\nHow to Ride the Shift:\n\n1. Keep one anchor. Pick one thing from your old life — exercise 3x a week, a weekly chai with a friend, one hobby — and fiercely protect it. You need a place where you are still you.\n\n2. Talk to another dad. Someone 1-2 years ahead of you. They will normalise everything you're feeling and tell you what actually helped.\n\n3. Have a weekly 20-minute conversation with your partner that isn't about logistics. How are you, really? What do you need this week? Work becomes teamwork when communication is deliberate.\n\n4. Rebuild your friendships slowly. Dad friends are different from single-guy friends. Find a few. It's worth the effort.\n\n5. Reflect on your father. What do you want to take? What do you want to break? Write it down. This isn't therapy-speak, it's the most important parenting work you will do.\n\nThe identity shift takes 1-2 years to fully settle. You won't go back to who you were before — you will become someone new, and if you pay attention, someone better.`,
+    body: `What Actually Changes:\n- Your time is no longer yours\n- Your sleep is no longer yours\n- Your money has a new first priority\n- Your marriage becomes a working partnership, not just a romantic one\n- Your sense of identity — work, hobbies, friends, fitness — gets reshuffled\n- Your parents and in-laws have new expectations of you\n- You become "responsible" in the eyes of the world overnight\n\nWhat Dads Commonly Feel (and Rarely Say):\n\nGrief for your old life. The freedom to say yes to a weekend trip. The evenings at the gym. The spontaneous dinners. This grief is real, and it co-exists with love for your child. Both can be true.\n\nResentment at times. Toward your child, your partner, or your situation. If you never feel a flash of resentment, you're not paying attention. It passes. Don't act on it, don't deny it.\n\nFeeling invisible. The attention is on the mother and the child. No one asks how you are. This is normal and largely necessary — but it wears on you if it continues too long.\n\nPressure to "provide". Indian culture often doubles this pressure on fathers. You can carry it without letting it crush you.\n\nFear of being a bad dad. Especially if your own father was absent, angry, or unavailable. This fear is a sign you care — and it's the first step to not repeating the pattern.\n\nHow to Ride the Shift:\n\n1. Keep one anchor. Pick one thing from your old life — exercise 3x a week, a weekly chai with a friend, one hobby — and fiercely protect it. You need a place where you are still you.\n\n2. Talk to another dad. Someone 1-2 years ahead of you. They will normalise everything you're feeling and tell you what actually helped.\n\n3. Have a weekly 20-minute conversation with your partner that isn't about logistics. How are you, really? What do you need this week? Work becomes teamwork when communication is deliberate.\n\n4. Rebuild your friendships slowly. Dad friends are different from single-guy friends. Find a few. It's worth the effort.\n\n5. Reflect on your father. What do you want to take? What do you want to break? Write it down. This isn't therapy-speak, it's the most important parenting work you will do.\n\nThe identity shift takes 1-2 years to fully settle. You won't go back to who you were before — you will become someone new, and if you pay attention, someone better.`,
     topic: 'Fatherhood',
     readTime: '7 min',
     ageMin: 0,
@@ -1117,7 +1117,7 @@ You are more than a mother. You are a person who became a mother. Both things ca
     title: "Rough-and-Tumble Play: Why Dads Should Lean In",
     preview:
       "Dads tend to play rougher — swinging, tossing, chasing, wrestling. This isn't just fun; it builds emotional regulation, body awareness, and risk assessment in ways quieter play can't replicate. Here's how to do it safely and well.",
-    body: `What the Research Shows:\nChildren whose fathers engaged in rough-and-tumble play from infancy show:\n- Better emotional self-regulation\n- Stronger social skills (reading cues, taking turns, handling excitement)\n- Healthier risk assessment (they take appropriate risks, not reckless ones)\n- Lower rates of anxiety disorders\n- Stronger father-child bonds through adolescence\n\nWhat It Looks Like at Each Age:\n\n0-3 months:\n- Gentle bouncing on your knee while supporting the neck\n- "Airplane" — lifting baby above your chest while lying down, with firm two-handed hold\n- Tummy-to-tummy lying with slow rolling side to side\n\n3-6 months:\n- Faster airplane dips (baby will start laughing around 4 months)\n- "This little piggy" with animated voices\n- Lifting baby overhead (they love the view)\n- Gentle wrestle on the bed — letting them land on you\n\n6-12 months:\n- Chasing on hands and knees\n- Hiding and popping out (peek-a-boo at scale)\n- Lifting and spinning\n- Tickle-chase games\n\n12 months+:\n- Full wrestle on a soft surface\n- Shoulder rides\n- "Horse" — crawling with child on your back\n- Chase games where you "just catch" them\n- Throw-and-catch games (small distance, soft objects)\n\nSafety Rules (Important):\n- Never shake. The neck rule still applies in every game for the first 6 months.\n- Support the head fully for all lifting games until 4 months.\n- Watch baby's cues — too much excitement becomes overwhelming. Signs: eyes darting, body arching away, crying. Stop and calm down.\n- Soft surfaces only — bed, carpet, rug. No tile.\n- Remove watches, rings, sharp-edged belt buckles.\n- No rough play right before bed — winds them up, makes sleep harder.\n- No rough play right after a feed — they will vomit.\n\nWhen Your Partner Worries:\nMany mothers watch rough play nervously. This is normal. Explain what you're doing and why, invite her to join, and show her the baby's delighted face. Most of the worry dissolves once she sees the joy in it.\n\nWhen to Pull Back:\n- If baby is crying, not laughing\n- If either of you is tired or frustrated\n- If baby has just eaten\n- If baby is unwell\n- If your partner is truly uncomfortable (it's not the hill to die on — choose another game)\n\nRough-and-tumble play is one of the most distinct things fathers contribute. Lean in — the laughter is priceless and the brain-building is real.`,
+    body: `What the Research Shows:\nChildren whose fathers engaged in rough-and-tumble play from infancy show:\n- Better emotional self-regulation\n- Stronger social skills (reading cues, taking turns, handling excitement)\n- Healthier risk assessment (they take appropriate risks, not reckless ones)\n- Lower rates of anxiety disorders\n- Stronger father-child bonds through adolescence\n\nWhat It Looks Like at Each Age:\n\n0-3 months:\n- Gentle bouncing on your knee while supporting the neck\n- "Airplane" — lifting baby above your chest while lying down, with firm two-handed hold\n- Tummy-to-tummy lying with slow rolling side to side\n\n3-6 months:\n- Faster airplane dips (baby will start laughing around 4 months)\n- "This little piggy" with animated voices\n- Lifting baby overhead (they love the view)\n- Gentle wrestle on the bed — letting them land on you\n\n6-12 months:\n- Chasing on hands and knees\n- Hiding and popping out (peek-a-boo at scale)\n- Lifting and spinning\n- Tickle-chase games\n\n12 months+:\n- Full wrestle on a soft surface\n- Shoulder rides\n- "Horse" — crawling with child on your back\n- Chase games where you "just catch" them\n- Throw-and-catch games (small distance, soft objects)\n\nSafety Rules (Important):\n- Never shake. The neck rule still applies in every game for the first 6 months.\n- Support the head fully for all lifting games until 4 months.\n- Watch your child's cues — too much excitement becomes overwhelming. Signs: eyes darting, body arching away, crying. Stop and calm down.\n- Soft surfaces only — bed, carpet, rug. No tile.\n- Remove watches, rings, sharp-edged belt buckles.\n- No rough play right before bed — winds them up, makes sleep harder.\n- No rough play right after a feed — they will vomit.\n\nWhen Your Partner Worries:\nMany mothers watch rough play nervously. This is normal. Explain what you're doing and why, invite her to join, and show her your child's delighted face. Most of the worry dissolves once she sees the joy in it.\n\nWhen to Pull Back:\n- If your child is crying, not laughing\n- If either of you is tired or frustrated\n- If your child has just eaten\n- If your child is unwell\n- If your partner is truly uncomfortable (it's not the hill to die on — choose another game)\n\nRough-and-tumble play is one of the most distinct things fathers contribute. Lean in — the laughter is priceless and the brain-building is real.`,
     topic: 'Development',
     readTime: '7 min',
     ageMin: 0,

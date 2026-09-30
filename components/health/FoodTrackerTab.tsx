@@ -74,7 +74,7 @@ export default function FoodTrackerTab() {
     return (
       <Card style={styles.emptyCard} shadow="sm">
         <Ionicons name="restaurant-outline" size={40} color={ROSE} style={{ marginBottom: 12, opacity: 0.85 }} />
-        <Text style={styles.emptyTitle}>Add your baby first</Text>
+        <Text style={styles.emptyTitle}>Add your child first</Text>
         <Text style={styles.emptyText}>
           Add a child in your family profile to start tracking their first foods.
         </Text>

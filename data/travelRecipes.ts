@@ -152,7 +152,7 @@ export const TRAVEL_RECIPES: TravelRecipe[] = [
     gearRequired: ['none'],
     storageNotes: 'Stays good 2–3 weeks at room temperature in an airtight jar.',
     allergenContains: ['tree_nuts'],
-    allergenNote: 'Contains almonds and cashews (tree nuts). Skip nuts entirely for nut-allergic babies.',
+    allergenNote: 'Contains almonds and cashews (tree nuts). Skip nuts entirely for little ones with a nut allergy.',
     goldenRuleFlag: true,
     nutritionHighlights: ['healthy_fats', 'calcium', 'iron_rich'],
     ingredients: [
@@ -274,7 +274,7 @@ export const TRAVEL_RECIPES: TravelRecipe[] = [
     nutritionHighlights: ['iron_rich', 'calcium', 'energy'],
     ingredients: [
       { name: 'Ragi (finger millet) flour, dry-roasted', quantity: '2', unit: 'tbsp' },
-      { name: 'Hot water', quantity: '5', unit: 'tbsp', substitute: 'Milk, if baby already has it' },
+      { name: 'Hot water', quantity: '5', unit: 'tbsp', substitute: 'Milk, if your child already has it' },
       { name: 'Ripe banana (mashed)', quantity: '¼', unit: 'nos', notes: 'Natural sweetness — no sugar or jaggery' },
     ],
     steps: [
@@ -300,7 +300,7 @@ export const TRAVEL_RECIPES: TravelRecipe[] = [
     gearRequired: ['none'],
     storageNotes: 'Mix just before feeding. Once mixed, feed within 2 hrs.',
     allergenContains: ['milk', 'gluten', 'soy'],
-    allergenNote: 'Most variants contain milk, wheat and soy — check the label of the one baby already eats.',
+    allergenNote: 'Most variants contain milk, wheat and soy — check the label of the one your child already eats.',
     goldenRuleFlag: true,
     nutritionHighlights: ['iron_rich', 'energy', 'easy_digest'],
     ingredients: [
@@ -308,7 +308,7 @@ export const TRAVEL_RECIPES: TravelRecipe[] = [
       { name: 'Warm water (boiled, cooled)', quantity: '5', unit: 'tbsp' },
     ],
     steps: [
-      'Choose the variant for baby\'s age stage.',
+      'Choose the variant for your child\'s age stage.',
       'Add warm water and mix to a smooth, lump-free consistency. Feed straight away.',
     ],
     stepTips: {},
@@ -366,7 +366,7 @@ export const TRAVEL_RECIPES: TravelRecipe[] = [
     ],
     steps: [
       'Peel and mash with a spoon directly in the peel for minimal mess, or in a small bowl.',
-      'For older babies (8m+): offer as soft finger-food slices.',
+      'For little ones 8m+: offer as soft finger-food slices.',
     ],
     stepTips: {},
     packingTips: ['Keep the peel on until just before feeding. The peel is nature\'s packaging.'],
@@ -450,7 +450,7 @@ export const TRAVEL_RECIPES: TravelRecipe[] = [
       'Mash in the shell with a spoon, or scoop and feed.',
     ],
     stepTips: {},
-    packingTips: ['Carry uncut. Cut only when baby is ready to eat.'],
+    packingTips: ['Carry uncut. Cut only when your child is ready to eat.'],
     tags: ['no_prep', 'no_fridge', 'allergen_free', 'healthy_fats'],
   },
   {
@@ -563,7 +563,7 @@ export const TRAVEL_RECIPES: TravelRecipe[] = [
       'Cool completely before storing in an airtight container.',
     ],
     stepTips: { 0: 'Low and slow — they go from pale to burnt quickly. Stir constantly.' },
-    packingTips: ['Pack in a small zip-lock or container. Perfect finger food for 8m+ babies.'],
+    packingTips: ['Pack in a small zip-lock or container. Perfect finger food for little ones 8m+.'],
     tags: ['no_fridge', 'finger_food', 'shelf_stable', 'calcium'],
   },
   {
@@ -614,7 +614,7 @@ export const TRAVEL_RECIPES: TravelRecipe[] = [
     ],
     steps: [
       'Offer a few puffs at a time for self-feeding.',
-      'Stay with baby while they eat — puffs dissolve quickly but still need supervision.',
+      'Stay with your child while they eat — puffs dissolve quickly but still need supervision.',
     ],
     stepTips: {},
     packingTips: ['Decant into a snack cup with a soft lid — fewer spills on the move.'],
@@ -663,7 +663,7 @@ export const TRAVEL_RECIPES: TravelRecipe[] = [
     gearRequired: ['airtight_container'],
     storageNotes: 'Lasts 1–2 weeks at room temperature. Keep away from direct sunlight.',
     allergenContains: ['tree_nuts', 'milk'],
-    allergenNote: 'Contains tree nuts and ghee (milk). Skip nuts for nut-allergic babies.',
+    allergenNote: 'Contains tree nuts and ghee (milk). Skip nuts for little ones with a nut allergy.',
     goldenRuleFlag: false,
     nutritionHighlights: ['iron_rich', 'energy', 'healthy_fats', 'calcium'],
     ingredients: [
@@ -727,7 +727,7 @@ export const TRAVEL_RECIPES: TravelRecipe[] = [
     gearRequired: ['insulated_bag'],
     storageNotes: 'Carry in insulated bag. Safe for up to 4 hrs if kept cold. Discard if warmed.',
     allergenContains: ['milk'],
-    allergenNote: 'Dairy product. Not suitable for milk-allergic babies.',
+    allergenNote: 'Dairy product. Not suitable for little ones with a milk allergy.',
     goldenRuleFlag: false,
     nutritionHighlights: ['protein_rich', 'calcium', 'probiotic'],
     ingredients: [
@@ -783,7 +783,7 @@ export const TRAVEL_RECIPES: TravelRecipe[] = [
     gearRequired: ['insulated_bag'],
     storageNotes: 'Keep in insulated bag. Safe for 3–4 hours without refrigeration.',
     allergenContains: ['milk'],
-    allergenNote: 'Dairy product. Not suitable for milk-allergic babies.',
+    allergenNote: 'Dairy product. Not suitable for little ones with a milk allergy.',
     goldenRuleFlag: false,
     nutritionHighlights: ['calcium', 'protein_rich', 'healthy_fats'],
     ingredients: [
@@ -872,8 +872,8 @@ export const TRAVEL_RECIPES: TravelRecipe[] = [
     goldenRuleFlag: false,
     nutritionHighlights: ['protein_rich', 'easy_digest', 'fermented'],
     ingredients: [
-      { name: 'Idli (steamed)', quantity: '3–4', unit: 'nos', notes: "Steam baby's idlis from batter before salt is added" },
-      { name: 'Mild sambar (thinned)', quantity: '½', unit: 'cup', notes: "Take baby's portion out before adding salt" },
+      { name: 'Idli (steamed)', quantity: '3–4', unit: 'nos', notes: "Steam your child's idlis from batter before salt is added" },
+      { name: 'Mild sambar (thinned)', quantity: '½', unit: 'cup', notes: "Take your child's portion out before adding salt" },
     ],
     steps: [
       'Steam fresh idlis at home. Pack in an airtight container while slightly warm.',
@@ -914,7 +914,7 @@ export const TRAVEL_RECIPES: TravelRecipe[] = [
       'Stir ghee into khichdi. Pour into preheated thermos immediately. Seal tight.',
     ],
     stepTips: {
-      0: "No salt for baby — season the family's portion after taking baby's out.",
+      0: "No salt for your little one — season the family's portion after taking theirs out.",
       2: 'A preheated thermos keeps food warm 2 hours longer.',
       3: 'Fill to the brim — no airspace = stays hotter longer.',
     },
@@ -943,7 +943,7 @@ export const TRAVEL_RECIPES: TravelRecipe[] = [
     goldenRuleFlag: false,
     nutritionHighlights: ['iron_rich', 'fiber_rich', 'energy'],
     ingredients: [
-      { name: 'Wheat flour (atta)', quantity: '½', unit: 'cup', allergenFlag: 'gluten', notes: "No salt in baby's dough" },
+      { name: 'Wheat flour (atta)', quantity: '½', unit: 'cup', allergenFlag: 'gluten', notes: "No salt in your child's dough" },
       { name: 'Fresh methi (fenugreek) leaves', quantity: '¼', unit: 'cup' },
       { name: 'Ghee', quantity: '1', unit: 'tsp', allergenFlag: 'milk', substitute: 'Oil' },
     ],
@@ -1000,7 +1000,7 @@ export const TRAVEL_RECIPES: TravelRecipe[] = [
     gearRequired: ['airtight_container', 'insulated_bag'],
     storageNotes: 'Keep in insulated bag. Safe at room temperature for 3 hrs.',
     allergenContains: ['milk'],
-    allergenNote: 'Contains curd (dairy). Not suitable for milk-allergic babies.',
+    allergenNote: 'Contains curd (dairy). Not suitable for little ones with a milk allergy.',
     goldenRuleFlag: false,
     nutritionHighlights: ['probiotic', 'easy_digest', 'cooling'],
     ingredients: [
@@ -1010,7 +1010,7 @@ export const TRAVEL_RECIPES: TravelRecipe[] = [
     ],
     steps: [
       'Mix cooled rice with curd until well combined.',
-      'Add mild tempering if baby is used to it.',
+      'Add mild tempering if your child is used to it.',
       'Pack in an airtight container. Keep in insulated bag.',
     ],
     stepTips: {},
@@ -1189,7 +1189,7 @@ export const TRAVEL_RECIPES: TravelRecipe[] = [
     goldenRuleFlag: false,
     nutritionHighlights: ['protein_rich', 'fermented', 'easy_digest'],
     ingredients: [
-      { name: 'Dosa / Idli batter (fermented)', quantity: '½', unit: 'cup', notes: "Take baby's batter out before salting" },
+      { name: 'Dosa / Idli batter (fermented)', quantity: '½', unit: 'cup', notes: "Take your child's batter out before salting" },
       { name: 'Finely grated carrot', quantity: '1', unit: 'tbsp' },
       { name: 'Finely chopped tomato (deseeded)', quantity: '1', unit: 'tsp' },
       { name: 'Oil for the pan', quantity: '½', unit: 'tsp' },

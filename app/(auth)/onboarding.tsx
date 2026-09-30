@@ -70,7 +70,7 @@ export default function OnboardingScreen() {
   const dateLabel = stage === 'pregnant' ? 'Due date' : 'Date of birth';
   const nameFieldLabel = stage === 'pregnant'
     ? 'Have you picked a name yet? (optional)'
-    : "Baby's name (optional)";
+    : "Child's name (optional)";
   const nameFieldPlaceholder = stage === 'pregnant' ? 'Even a working name helps' : 'e.g. Aarav';
 
   // 7. Event handlers
@@ -214,7 +214,7 @@ export default function OnboardingScreen() {
                   placeholderTextColor={Colors.textLight}
                   style={styles.input}
                   autoCapitalize="words"
-                  accessibilityLabel="Baby's name"
+                  accessibilityLabel="Child's name"
                   returnKeyType="next"
                 />
               </View>

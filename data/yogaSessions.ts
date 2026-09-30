@@ -9,6 +9,15 @@ export interface YogaPose {
   durationSeconds: number;
 }
 
+/**
+ * The parent's life stage for Wellness, from the youngest child's age:
+ *   pregnant   — expecting
+ *   postpartum — youngest child under 12 months
+ *   toddler    — youngest child 12–35 months
+ *   child      — youngest child 3 years+
+ */
+export type WellnessStage = 'pregnant' | 'postpartum' | 'toddler' | 'child';
+
 export interface YogaSession {
   id: string;
   name: string;
@@ -21,6 +30,17 @@ export interface YogaSession {
   poses: YogaPose[];
   /** Who this session is written for. Untagged = everyone. */
   audience?: Audience;
+  /** Life stages this session is shown for. Untagged = every stage. */
+  stages?: WellnessStage[];
+}
+
+/** Keep sessions tagged for this stage (untagged sessions suit everyone). */
+export function filterByStage<T extends { stages?: WellnessStage[] }>(
+  items: T[],
+  stage: WellnessStage | null,
+): T[] {
+  if (!stage) return items;
+  return items.filter((it) => !it.stages || it.stages.includes(stage));
 }
 
 export const YOGA_SESSIONS: YogaSession[] = [
@@ -28,7 +48,7 @@ export const YOGA_SESSIONS: YogaSession[] = [
     id: 'y01',
     name: 'Morning Stretch & Breathe',
     description:
-      'A gentle morning sequence to wake up your body, release overnight tension, and set a calm tone for the day. Perfect for new mothers who want to begin a gentle movement practice without overexerting a recovering body.',
+      'A gentle morning sequence to wake up your body, release overnight tension, and set a calm tone for the day. Perfect for busy mothers who want a gentle movement practice without overexerting a tired body.',
     duration: 15,
     level: 'Beginner',
     poseCount: 5,
@@ -93,6 +113,7 @@ export const YOGA_SESSIONS: YogaSession[] = [
     poseCount: 6,
     emoji: '💪',
     audience: 'mother',
+    stages: ['postpartum'],
     contraindications: ['Diastasis recti', 'C-section recovery', 'Uterine prolapse'],
     poses: [
       {
@@ -161,6 +182,7 @@ export const YOGA_SESSIONS: YogaSession[] = [
     poseCount: 6,
     emoji: '👶',
     audience: 'all',
+    stages: ['postpartum'],
     contraindications: [],
     poses: [
       {
@@ -469,6 +491,145 @@ export const YOGA_SESSIONS: YogaSession[] = [
         instruction:
           'Lie flat on your back with legs extended slightly apart and arms resting alongside your body with palms facing up. Close your eyes. Let your feet fall open. Soften your face, unclench your jaw, let your tongue drop from the roof of your mouth. This is the most important pose — the one most dads skip. Five minutes of conscious rest here gives you more recovery than twenty minutes of half-attention elsewhere. Stay until you feel fully settled.',
         breathCue: 'Simply breathe. There is nothing to fix, nothing to do. You have earned this.',
+        durationSeconds: 120,
+      },
+    ],
+  },
+  // ── Toddler / child stage (youngest kid 1y+) ──────────────────────────
+  {
+    id: 'y08',
+    name: 'Animal Play Yoga Together',
+    description:
+      'A playful, animal-themed flow your toddler or child can copy — meow like a cat, woof like a dog, flap like a butterfly. It moves your body, burns off some of their energy, and turns twenty minutes into play time together. Expect giggles, not perfect poses.',
+    duration: 20,
+    level: 'Playful',
+    poseCount: 6,
+    emoji: '🐾',
+    audience: 'all',
+    stages: ['toddler', 'child'],
+    contraindications: ['Severe back pain'],
+    poses: [
+      {
+        id: 'y08-p01',
+        emoji: '🐄',
+        name: 'Cat-Cow Stretch (Meow & Moo)',
+        instruction:
+          'Come to all fours side by side with your little one. As you drop your belly and lift your head into Cow, both say "Moo!". As you round your back up into Cat, both say "Meow!". Let them set the pace — the sillier the sounds, the better. Keep your wrists under your shoulders and move slowly for your own spine.',
+        breathCue: 'Inhale for Moo, exhale for Meow. Your breath, their sound effects.',
+        durationSeconds: 60,
+      },
+      {
+        id: 'y08-p02',
+        emoji: '🐕',
+        name: 'Downward Dog (Woof!)',
+        instruction:
+          'From all fours, tuck your toes and lift your hips up and back into an upside-down V. Bend your knees as much as you need. Invite your child to make their own dog next to you, or crawl through the "tunnel" under your body. Pedal your heels one at a time to open the backs of your legs. Give a big "Woof!" before coming down.',
+        breathCue: 'Long breaths in and out through the nose. Drop your knees to rest whenever you need.',
+        durationSeconds: 45,
+      },
+      {
+        id: 'y08-p03',
+        emoji: '🦋',
+        name: 'Butterfly Pose (Flap Your Wings)',
+        instruction:
+          'Sit facing each other with the soles of your feet together and knees falling open. Hold your feet and gently flap your knees like butterfly wings — fast, slow, then very still. Ask your child where your butterflies are flying today. Sit tall to open your hips, a spot that gets tight from carrying a little one on one side.',
+        breathCue: 'Inhale to sit tall; exhale to let the knees soften toward the floor.',
+        durationSeconds: 60,
+      },
+      {
+        id: 'y08-p04',
+        emoji: '🏹',
+        name: 'Warrior II (Brave Explorer)',
+        instruction:
+          'Stand with your feet wide apart. Turn your right foot out and bend your right knee over your ankle. Stretch your arms out at shoulder height and gaze over your right hand like an explorer spotting land. Show your child and let them copy. Hold for a few breaths, then switch sides. Builds strength in the legs you use to lift and chase all day.',
+        breathCue: 'Steady breaths. Feel strong through both legs, soft through the shoulders.',
+        durationSeconds: 60,
+      },
+      {
+        id: 'y08-p05',
+        emoji: '🐭',
+        name: "Child's Pose (Sleepy Mouse)",
+        instruction:
+          'Kneel and fold forward, resting your forehead on the mat with your arms by your sides or stretched ahead. Become tiny "sleepy mice" together and see who can stay the quietest. This gentle rest brings the energy down after the active poses and releases your lower back.',
+        breathCue: 'Breathe slowly into your back. Whisper-quiet breaths, like a sleeping mouse.',
+        durationSeconds: 60,
+      },
+      {
+        id: 'y08-p06',
+        emoji: '🤗',
+        name: 'Savasana Cuddle',
+        instruction:
+          'Lie on your back with your child snuggled next to you or resting their head on your tummy. Close your eyes and notice their breathing rising and falling with yours. Stay here as long as they will — even thirty seconds of stillness together counts.',
+        breathCue: 'Let your breath slow down. Feel it move under their head.',
+        durationSeconds: 90,
+      },
+    ],
+  },
+  {
+    id: 'y09',
+    name: 'Back & Hip Relief for Busy Mums',
+    description:
+      'Lifting, carrying a toddler on one hip, bending to pick up toys all day — it adds up in your back, shoulders and hips. This short sequence unwinds exactly those spots. Do it during nap time or after bedtime; no warm-up needed.',
+    duration: 15,
+    level: 'Beginner',
+    poseCount: 6,
+    emoji: '🌿',
+    audience: 'all',
+    stages: ['toddler', 'child'],
+    contraindications: ['Herniated disc'],
+    poses: [
+      {
+        id: 'y09-p01',
+        emoji: '🐄',
+        name: 'Cat-Cow Stretch',
+        instruction:
+          'Come to all fours with wrists under shoulders and knees under hips. Inhale, drop your belly and lift your chest into Cow. Exhale, round your spine up into Cat and tuck your chin. Move slowly, one vertebra at a time, to warm up a back that has been lifting all day.',
+        breathCue: 'Inhale into Cow, exhale into Cat. Let the breath lead.',
+        durationSeconds: 60,
+      },
+      {
+        id: 'y09-p02',
+        emoji: '🧵',
+        name: 'Thread the Needle',
+        instruction:
+          'From all fours, slide your right arm under your left arm, palm facing up, and lower your right shoulder and ear to the mat. Keep your hips over your knees. Feel the stretch between your shoulder blades — where carrying tension collects. Hold, then switch sides.',
+        breathCue: 'Breathe into the back of the shoulder that is stretching.',
+        durationSeconds: 60,
+      },
+      {
+        id: 'y09-p03',
+        emoji: '🦅',
+        name: 'Eagle Arms',
+        instruction:
+          'Sit tall. Cross your right arm under your left at the elbows and bring your palms together (or hold opposite shoulders). Lift your elbows to shoulder height and draw them slightly away from your face. This opens the upper back and neck that tighten from carrying and phone-scrolling. Switch arms.',
+        breathCue: 'Inhale to lift the elbows; exhale to drop the shoulders away from your ears.',
+        durationSeconds: 45,
+      },
+      {
+        id: 'y09-p04',
+        emoji: '🙇',
+        name: 'Standing Forward Fold',
+        instruction:
+          'Stand with feet hip-width apart. Bend your knees generously and fold forward from the hips, letting your head and arms hang heavy. Hold opposite elbows and sway gently side to side. Keep the knees bent to protect your lower back. Roll up slowly, head coming up last.',
+        breathCue: 'Exhale to let your head get heavy. No need to touch the floor.',
+        durationSeconds: 45,
+      },
+      {
+        id: 'y09-p05',
+        emoji: '🔄',
+        name: 'Supine Twist',
+        instruction:
+          'Lie on your back, hug your knees in, then let both knees drop to the right while your arms stretch out in a T. Turn your gaze left if it feels good for your neck. Let gravity do the work on your lower back and hips. Stay for a few breaths, then switch sides.',
+        breathCue: 'Each exhale, let the knees sink a little heavier.',
+        durationSeconds: 60,
+      },
+      {
+        id: 'y09-p06',
+        emoji: '🦵',
+        name: 'Legs Up the Wall',
+        instruction:
+          'Sit sideways close to a wall, then swing your legs up the wall as you lie back. Rest your arms by your sides. This drains tired legs after a day on your feet and calms the nervous system. Stay two to five minutes.',
+        breathCue: 'Slow, easy breaths. Let the floor hold all of you.',
         durationSeconds: 120,
       },
     ],
