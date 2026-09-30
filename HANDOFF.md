@@ -24,15 +24,14 @@ treats a 1y+ child as a "baby"; trackers hide once the child outgrows them.
 - "baby" wording rewritten in articles, nuskhe, milestones, affirmations
   (age-aware pool), travel recipes, onboarding labels, AI prompt.
 
-**Status:** committed locally on `main` (commit "feat(age): …") but NOT pushed
-or deployed — this machine has no GitHub credentials (osxkeychain empty, no
-`gh`), no `firebase login`, no `eas login`, no `wrangler login`. Next agent
-with credentials: `git push origin main` → `npx expo export` →
-`firebase deploy --only hosting` → `npm run update` → `cd cloudflare-worker &&
-npx wrangler deploy`. Also check whether Firestore `travel_recipes` is populated
-(if so, its docs still hold the old "baby" wording; the local seed was fixed).
+**Status:** SHIPPED 2026-09-30 — pushed to main, GitHub Actions "Deploy Web +
+Ship OTA" run 36690499158 succeeded (web on maamitra.co.in + production OTA).
+CI had been failing since 2026-09-22 because latest eas-cli needs Node 22; the
+workflows now use Node 22 (commit cf898f8). The Mac's GitHub token (Keychain)
+has repo + workflow scopes, so `git push` works. Still unverified: whether
+Firestore `travel_recipes` holds docs with old "baby" wording.
 
-**Also not done:** Cloudflare Worker (`cloudflare-worker/`, builds the system
+**Still not done:** Cloudflare Worker (`cloudflare-worker/`, builds the system
 prompt server-side from `lib/promptBuilder.ts`) needs `wrangler deploy` —
 wrangler is not logged in on this machine. Until then the AI prompt still
 uses the old "baby" wording and ignores the new teeth fields.
