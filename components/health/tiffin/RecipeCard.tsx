@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Colors, Fonts } from '../../../constants/theme';
 import { CUISINE_BY_ID } from '../../../data/cuisines';
 import { Recipe } from '../../../data/recipes';
+import { tiffinRecipeImage } from '../../../data/tiffinRecipeImages';
 
 const INK = '#1C1033';
 const STONE = '#6B7280';
@@ -20,6 +21,7 @@ interface Props {
 
 export default function RecipeCard({ recipe, flaggedFoodIds, onPress }: Props) {
   const cuisine = CUISINE_BY_ID[recipe.cuisine];
+  const photo = tiffinRecipeImage(recipe.id);
   const flagged = flaggedFoodIds
     ? recipe.containsFoodIds.filter((id) => flaggedFoodIds.has(id))
     : [];
@@ -31,9 +33,13 @@ export default function RecipeCard({ recipe, flaggedFoodIds, onPress }: Props) {
 
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={styles.card}>
-      <View style={[styles.iconBox, { backgroundColor: cuisine.tint }]}>
-        <Ionicons name={cuisine.icon as any} size={20} color={INK} />
-      </View>
+      {photo ? (
+        <Image source={photo} style={styles.photo} accessibilityIgnoresInvertColors />
+      ) : (
+        <View style={[styles.iconBox, { backgroundColor: cuisine.tint }]}>
+          <Ionicons name={cuisine.icon as any} size={20} color={INK} />
+        </View>
+      )}
       <View style={{ flex: 1, minWidth: 0 }}>
         <Text style={styles.name} numberOfLines={1}>{recipe.name}</Text>
         <Text style={styles.meta} numberOfLines={1}>
@@ -65,6 +71,7 @@ const styles = StyleSheet.create({
     borderColor: MIST,
     marginBottom: 8,
   },
+  photo: { width: 64, height: 64, borderRadius: 12, backgroundColor: MIST },
   iconBox: {
     width: 44, height: 44, borderRadius: 11,
     alignItems: 'center', justifyContent: 'center',

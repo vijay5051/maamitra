@@ -37,7 +37,7 @@ export interface Recipe {
   /** IDs from data/babyFoods.ts — drives allergy warnings. Empty = no flagged ingredients. */
   containsFoodIds: string[];
   tags: RecipeTag[];
-  /** V1 reserved for Phase 1.5 illustrations. Always null in V1. */
+  /** Unused — photos live in data/tiffinRecipeImages.ts, keyed by id. */
   image?: string | null;
 }
 

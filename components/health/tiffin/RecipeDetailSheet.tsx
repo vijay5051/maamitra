@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
-import { Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Fonts } from '../../../constants/theme';
 import { CUISINE_BY_ID } from '../../../data/cuisines';
 import { Recipe } from '../../../data/recipes';
+import { tiffinRecipeImage } from '../../../data/tiffinRecipeImages';
 import { DAY_KEYS, DayKey } from '../../../lib/weekKeys';
 import { FOOD_BY_ID } from '../../../data/babyFoods';
 
@@ -49,9 +50,18 @@ export default function RecipeDetailSheet({ visible, recipe, flaggedFoodIds, onC
         </View>
         {recipe && cuisine && (
           <ScrollView contentContainerStyle={styles.scroll}>
-            <View style={[styles.heroIcon, { backgroundColor: cuisine.tint }]}>
-              <Ionicons name={cuisine.icon as any} size={36} color={INK} />
-            </View>
+            {tiffinRecipeImage(recipe.id) ? (
+              <Image
+                source={tiffinRecipeImage(recipe.id)!}
+                style={styles.heroPhoto}
+                resizeMode="cover"
+                accessibilityIgnoresInvertColors
+              />
+            ) : (
+              <View style={[styles.heroIcon, { backgroundColor: cuisine.tint }]}>
+                <Ionicons name={cuisine.icon as any} size={36} color={INK} />
+              </View>
+            )}
             <Text style={styles.recipeName}>{recipe.name}</Text>
             <Text style={styles.recipeMeta}>{cuisine.label} · {recipe.timeMinutes} min · Serves {recipe.serves}</Text>
 
@@ -112,6 +122,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontFamily: Fonts.sansBold, fontSize: 15, color: INK, flex: 1, textAlign: 'center', marginHorizontal: 8 },
   scroll: { padding: 18, paddingBottom: 60 },
+  heroPhoto: { width: '100%', height: 240, borderRadius: 18, marginBottom: 14 },
   heroIcon: {
     width: 64, height: 64, borderRadius: 18,
     alignItems: 'center', justifyContent: 'center',

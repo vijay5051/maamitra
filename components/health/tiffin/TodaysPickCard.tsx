@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Colors, Fonts } from '../../../constants/theme';
 import { CUISINE_BY_ID } from '../../../data/cuisines';
 import { Recipe } from '../../../data/recipes';
+import { tiffinRecipeImage } from '../../../data/tiffinRecipeImages';
 
 const INK = '#1C1033';
 const STONE = '#6B7280';
@@ -30,6 +31,7 @@ export default function TodaysPickCard({ recipe, reasonOneLine, isPlanned, today
     );
   }
   const cuisine = CUISINE_BY_ID[recipe.cuisine];
+  const photo = tiffinRecipeImage(recipe.id);
   return (
     <View style={styles.card}>
       <View style={styles.topRow}>
@@ -37,9 +39,13 @@ export default function TodaysPickCard({ recipe, reasonOneLine, isPlanned, today
         <Text style={styles.dayBadge}>{todayLabel}</Text>
       </View>
       <View style={styles.recipeRow}>
-        <View style={[styles.iconBox, { backgroundColor: cuisine.tint }]}>
-          <Ionicons name={cuisine.icon as any} size={28} color={INK} />
-        </View>
+        {photo ? (
+          <Image source={photo} style={styles.photo} accessibilityIgnoresInvertColors />
+        ) : (
+          <View style={[styles.iconBox, { backgroundColor: cuisine.tint }]}>
+            <Ionicons name={cuisine.icon as any} size={28} color={INK} />
+          </View>
+        )}
         <View style={{ flex: 1 }}>
           <Text style={styles.recipeName}>{recipe.name}</Text>
           <Text style={styles.recipeMeta}>
@@ -78,6 +84,7 @@ const styles = StyleSheet.create({
   label: { fontFamily: Fonts.sansBold, fontSize: 11, color: ROSE, letterSpacing: 1 },
   dayBadge: { fontFamily: Fonts.sansSemiBold, fontSize: 11, color: STONE },
   recipeRow: { flexDirection: 'row', gap: 12, alignItems: 'center' },
+  photo: { width: 84, height: 84, borderRadius: 14 },
   iconBox: {
     width: 56, height: 56, borderRadius: 14,
     alignItems: 'center', justifyContent: 'center',
