@@ -10,6 +10,8 @@ import { CUISINE_BY_ID } from '../../../data/cuisines';
 import { FoodDiet } from '../../../data/babyFoods';
 import { PlannedDay } from '../../../store/useMealPlannerStore';
 import RecipeCard from './RecipeCard';
+import { tiffinMeal, useMealSafety } from '../../../hooks/useMealSafety';
+import { confirmDespiteAllergy } from '../MealSafetyNotice';
 
 const INK = '#1C1033';
 const STONE = '#6B7280';
@@ -42,6 +44,7 @@ export default function DayPickerSheet({
 }: Props) {
   const [search, setSearch] = useState('');
   const [freeText, setFreeText] = useState('');
+  const { check, activeKid } = useMealSafety();
 
   const recipes = useMemo(
     () => filterRecipes({ diet, ageBand, search }),
@@ -129,7 +132,12 @@ export default function DayPickerSheet({
                 <RecipeCard
                   recipe={rec}
                   flaggedFoodIds={flaggedFoodIds}
-                  onPress={() => { onPick({ recipeId: rec.id }); onClose(); }}
+                  onPress={async () => {
+                    const hits = check(tiffinMeal(rec)).allergyHits;
+                    if (!(await confirmDespiteAllergy(activeKid?.name, hits))) return;
+                    onPick({ recipeId: rec.id });
+                    onClose();
+                  }}
                 />
               </View>
             );

@@ -24,6 +24,10 @@ export interface PickInput {
   dayOfWeek: number;
   /** If today is already planned, that wins. */
   todayPlanned?: PlannedDayInput;
+  /** Recipes never to suggest (e.g. contain one of the child's allergens). */
+  excludeRecipeIds?: Set<string>;
+  /** "Swap" presses so far today — steps to the next-best candidate. */
+  skip?: number;
 }
 
 export interface PickResult {
@@ -62,7 +66,8 @@ export function pickDailyRecipe(input: PickInput): PickResult {
   const candidates = RECIPES.filter((rec) =>
     isRecipeVisibleForDiet(rec.diet, input.diet) &&
     isRecipeForBand(rec, input.ageBand) &&
-    !last7.has(rec.id),
+    !last7.has(rec.id) &&
+    !input.excludeRecipeIds?.has(rec.id),
   );
 
   if (candidates.length === 0) {
@@ -87,7 +92,7 @@ export function pickDailyRecipe(input: PickInput): PickResult {
     return stableHash(a.rec.id + input.todayISO) - stableHash(b.rec.id + input.todayISO);
   });
 
-  const pick = scored[0].rec;
+  const pick = scored[(input.skip ?? 0) % scored.length].rec;
 
   // 5. Reason one-liner — pick the rule that fired hardest
   let clause: string;

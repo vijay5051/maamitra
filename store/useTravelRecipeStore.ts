@@ -46,6 +46,14 @@ interface TravelRecipeState {
   setTestedAtHome: (recipeId: string, tested: boolean) => void;
   isBookmarked: (recipeId: string) => boolean;
 
+  /**
+   * "Already tested at home?" per child, per recipe. Kept separate from
+   * bookmarks — it used to live only on the bookmark, so the switch did
+   * nothing for recipes that weren't saved to My Travel Pack.
+   */
+  testedByKid: Record<string /*kidId*/, Record<string /*recipeId*/, boolean>>;
+  setTestedForKid: (kidId: string, recipeId: string, tested: boolean) => void;
+
   // Derived
   getFiltered: (ageMonths?: number) => TravelRecipe[];
   getBookmarkedRecipes: () => TravelRecipe[];
@@ -101,6 +109,18 @@ export const useTravelRecipeStore = create<TravelRecipeState>()(
 
       isBookmarked: (recipeId) => !!get().bookmarks[recipeId],
 
+      testedByKid: {},
+      setTestedForKid: (kidId, recipeId, tested) => {
+        set((s) => ({
+          testedByKid: {
+            ...s.testedByKid,
+            [kidId]: { ...(s.testedByKid[kidId] ?? {}), [recipeId]: tested },
+          },
+        }));
+        // Mirror onto the bookmark (synced to Firestore) when there is one.
+        get().setTestedAtHome(recipeId, tested);
+      },
+
       getFiltered: (ageMonths) => {
         const { recipes, filter } = get();
         return filterTravelRecipes(recipes, {
@@ -133,6 +153,7 @@ export const useTravelRecipeStore = create<TravelRecipeState>()(
       reset: () =>
         set({
           bookmarks: {},
+          testedByKid: {},
           filter: DEFAULT_FILTER,
           lastFetchedAt: null,
         }),
@@ -142,6 +163,7 @@ export const useTravelRecipeStore = create<TravelRecipeState>()(
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (s) => ({
         bookmarks: s.bookmarks,
+        testedByKid: s.testedByKid,
         filter: s.filter,
         lastFetchedAt: s.lastFetchedAt,
       }),

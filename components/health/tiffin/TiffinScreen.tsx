@@ -15,6 +15,9 @@ import WeekStrip from './WeekStrip';
 import DayPickerSheet from './DayPickerSheet';
 import BrowseLibrary from './BrowseLibrary';
 import RecipeDetailSheet from './RecipeDetailSheet';
+import KidAllergyCard from '../KidAllergyCard';
+import { tiffinMeal, useMealSafety } from '../../../hooks/useMealSafety';
+import { RECIPES } from '../../../data/recipes';
 
 const ROSE = Colors.primary;
 const PLUM = Colors.primary;
@@ -75,6 +78,13 @@ export default function TiffinScreen({ kidId, kidName, ageMonths, diet }: Props)
   // Swap counter — incrementing this lets the user reroll today's pick
   const [swapCount, setSwapCount] = useState(0);
 
+  // Never suggest a meal containing one of the child's allergens.
+  const { check } = useMealSafety();
+  const allergenRecipeIds = useMemo(
+    () => new Set(RECIPES.filter((r) => check(tiffinMeal(r)).allergyHits.length > 0).map((r) => r.id)),
+    [check],
+  );
+
   const pick = useMemo(() => {
     return pickDailyRecipe({
       ageBand,
@@ -84,9 +94,11 @@ export default function TiffinScreen({ kidId, kidName, ageMonths, diet }: Props)
       todayISO: today.toISOString().slice(0, 10),
       dayOfWeek: today.getDay(),
       todayPlanned,
+      excludeRecipeIds: allergenRecipeIds,
+      skip: swapCount,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ageBand, diet, kidPlanner, flaggedFoodIds, todayPlanned, swapCount]);
+  }, [ageBand, diet, kidPlanner, flaggedFoodIds, todayPlanned, swapCount, allergenRecipeIds]);
 
   const pickedRecipe: Recipe | null = pick.recipeId ? RECIPE_BY_ID[pick.recipeId] ?? null : null;
 
@@ -112,6 +124,8 @@ export default function TiffinScreen({ kidId, kidName, ageMonths, diet }: Props)
 
   return (
     <View>
+      <KidAllergyCard />
+
       {/* SECTION 1 — Today's pick */}
       <Text style={styles.eyebrow}>For today</Text>
       <TodaysPickCard

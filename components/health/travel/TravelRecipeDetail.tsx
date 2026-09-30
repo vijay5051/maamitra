@@ -13,6 +13,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Fonts } from '../../../constants/theme';
 import { TravelRecipe, CATEGORY_BY_KEY, GEAR_LABELS, NO_SALT_SUGAR_NOTE } from '../../../data/travelRecipes';
 import { travelRecipeImage } from '../../../data/travelRecipeImages';
+import { travelMeal, useMealSafety } from '../../../hooks/useMealSafety';
+import MealSafetyNotice from '../MealSafetyNotice';
 
 const INK = Colors.textDark;
 const STONE = Colors.textMuted;
@@ -71,6 +73,7 @@ export default function TravelRecipeDetail({
   onToggleHotWeather,
   onSetTestedAtHome,
 }: Props) {
+  const { check, activeKid } = useMealSafety();
   const [checkedIngredients, setCheckedIngredients] = useState<Record<number, boolean>>({});
   const [checkedGear, setCheckedGear] = useState<Record<string, boolean>>({});
   const [checkedSteps, setCheckedSteps] = useState<Record<number, boolean>>({});
@@ -225,6 +228,11 @@ export default function TravelRecipeDetail({
                 <Text style={styles.gearNote}>{recipe.storageNotes}</Text>
               )}
             </View>
+          </View>
+
+          {/* ── Child-specific: allergy list + 3-day rule ── */}
+          <View style={[styles.section, { marginBottom: -4 }]}>
+            <MealSafetyNotice safety={check(travelMeal(recipe))} kidName={activeKid?.name} variant="full" />
           </View>
 
           {/* ── Allergen strips ── */}

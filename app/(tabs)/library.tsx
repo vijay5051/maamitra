@@ -40,6 +40,7 @@ import { TabIcon, AppIcon } from '../../components/ui/AppIcon';
 import { Illustration } from '../../components/ui/Illustration';
 import { Fonts } from '../../constants/theme';
 import { Colors, withAlpha } from '../../constants/theme';
+import BackToHomeButton from '../../components/ui/BackToHomeButton';
 
 type SubTab = 'read' | 'books' | 'products' | 'saved' | 'journey';
 type SortMode = 'Featured' | 'Price ↑' | 'Price ↓' | 'Top Rated';
@@ -1307,6 +1308,7 @@ export default function LibraryScreen() {
       >
         <View style={styles.glowTopRight} pointerEvents="none" />
         <View style={styles.glowBottomLeft} pointerEvents="none" />
+        <BackToHomeButton />
         <View style={styles.headerInner}>
           <View>
             <Text style={styles.headerTitle}>Library</Text>

@@ -36,6 +36,7 @@ import StageChip, { type Stage } from '../../components/onboarding/StageChip';
 import GenderChip, { type GenderChipValue } from '../../components/onboarding/GenderChip';
 import LivePreviewPill from '../../components/onboarding/LivePreviewPill';
 import { validateNewbornDob, validatePregnantDueDate } from '../../lib/dateValidation';
+import BackToHomeButton from '../../components/ui/BackToHomeButton';
 
 // ─── ChildCard ─────────────────────────────────────────────────────────────────
 
@@ -471,6 +472,7 @@ export default function FamilyScreen() {
         <View style={styles.glowTopRight} pointerEvents="none" />
         <View style={styles.glowBottomLeft} pointerEvents="none" />
 
+        <BackToHomeButton />
         <View style={styles.headerInner}>
           <View>
             <Text style={styles.headerTitle}>My Family</Text>

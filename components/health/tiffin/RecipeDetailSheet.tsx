@@ -5,6 +5,8 @@ import { Colors, Fonts } from '../../../constants/theme';
 import { CUISINE_BY_ID } from '../../../data/cuisines';
 import { Recipe } from '../../../data/recipes';
 import { tiffinRecipeImage } from '../../../data/tiffinRecipeImages';
+import { tiffinMeal, useMealSafety } from '../../../hooks/useMealSafety';
+import MealSafetyNotice, { confirmDespiteAllergy } from '../MealSafetyNotice';
 import { DAY_KEYS, DayKey } from '../../../lib/weekKeys';
 import { FOOD_BY_ID } from '../../../data/babyFoods';
 
@@ -29,6 +31,7 @@ const DAY_LABELS: Record<DayKey, string> = {
 };
 
 export default function RecipeDetailSheet({ visible, recipe, flaggedFoodIds, onClose, onAddToDay }: Props) {
+  const { check, activeKid, withThreeDay } = useMealSafety();
   const cuisine = recipe ? CUISINE_BY_ID[recipe.cuisine] : null;
   const flaggedNames = useMemo(() => {
     if (!recipe || !flaggedFoodIds) return [];
@@ -65,7 +68,9 @@ export default function RecipeDetailSheet({ visible, recipe, flaggedFoodIds, onC
             <Text style={styles.recipeName}>{recipe.name}</Text>
             <Text style={styles.recipeMeta}>{cuisine.label} · {recipe.timeMinutes} min · Serves {recipe.serves}</Text>
 
-            {flaggedNames.length > 0 && (
+            <MealSafetyNotice safety={check(tiffinMeal(recipe))} kidName={activeKid?.name} variant="full" />
+
+            {!withThreeDay && flaggedNames.length > 0 && (
               <View style={styles.warnBanner}>
                 <Ionicons name="warning-outline" size={16} color={WARN_FG} />
                 <Text style={styles.warnText}>
@@ -99,7 +104,10 @@ export default function RecipeDetailSheet({ visible, recipe, flaggedFoodIds, onC
               {DAY_KEYS.map((d) => (
                 <TouchableOpacity
                   key={d}
-                  onPress={() => onAddToDay(d)}
+                  onPress={async () => {
+                    const hits = check(tiffinMeal(recipe)).allergyHits;
+                    if (await confirmDespiteAllergy(activeKid?.name, hits)) onAddToDay(d);
+                  }}
                   style={styles.dayBtn}
                   activeOpacity={0.85}
                 >

@@ -376,6 +376,12 @@ function sanitiseProfilePayload(data: Record<string, any>): Record<string, any> 
       if (typeof kk.name === 'string') kk.name = neutraliseProfileString(kk.name, 60);
       if (typeof kk.notes === 'string') kk.notes = neutraliseProfileString(kk.notes, 240);
       if (typeof kk.gender === 'string') kk.gender = neutraliseProfileString(kk.gender, 20);
+      if (Array.isArray(kk.allergies)) {
+        kk.allergies = kk.allergies
+          .filter((a: unknown) => typeof a === 'string' && a.trim())
+          .slice(0, 20)
+          .map((a: string) => neutraliseProfileString(a, 40));
+      }
       // DOB plausibility — null out a bad value so app paths show "Set DOB"
       // instead of computing garbage. Year < 2010 = definitely not a kid.
       if (typeof kk.dob === 'string') {

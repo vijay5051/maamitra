@@ -3,6 +3,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Fonts } from '../../../constants/theme';
 import { TravelRecipe, CATEGORY_BY_KEY } from '../../../data/travelRecipes';
 import { travelRecipeImage } from '../../../data/travelRecipeImages';
+import { travelMeal, useMealSafety } from '../../../hooks/useMealSafety';
+import MealSafetyNotice from '../MealSafetyNotice';
 
 const INK = Colors.textDark;
 const STONE = Colors.textMuted;
@@ -16,6 +18,8 @@ interface Props {
 }
 
 export default function TravelRecipeCard({ recipe, isBookmarked, hotWeather, onPress, onBookmark }: Props) {
+  const { check, activeKid } = useMealSafety();
+  const safety = check(travelMeal(recipe));
   const cat = CATEGORY_BY_KEY[recipe.category];
   const photo = travelRecipeImage(recipe.id);
 
@@ -88,6 +92,8 @@ export default function TravelRecipeCard({ recipe, isBookmarked, hotWeather, onP
               </View>
             )}
           </View>
+
+          <MealSafetyNotice safety={safety} kidName={activeKid?.name} variant="compact" />
 
           {/* Top allergen */}
           {recipe.allergenContains.length > 0 && (

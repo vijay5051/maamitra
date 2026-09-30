@@ -7,6 +7,7 @@ import Card from '../ui/Card';
 import FoodCategoryAccordion from './FoodCategoryAccordion';
 import FoodDetailSheet from './FoodDetailSheet';
 import TiffinScreen from './tiffin/TiffinScreen';
+import KidAllergyCard from './KidAllergyCard';
 import {
   babyFoodsForDiet,
   FOOD_BY_ID,
@@ -183,6 +184,8 @@ export default function FoodTrackerTab() {
 
   return (
     <View>
+      <KidAllergyCard />
+
       {/* Summary */}
       <View style={styles.summaryCard}>
         <View style={styles.summaryHeader}>

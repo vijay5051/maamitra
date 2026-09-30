@@ -15,6 +15,9 @@ import { TravelRecipe, TRAVEL_CATEGORIES, NO_SALT_SUGAR_NOTE } from '../../../da
 import TravelFilterBar from './TravelFilterBar';
 import TravelRecipeCard from './TravelRecipeCard';
 import TravelRecipeDetail from './TravelRecipeDetail';
+import KidAllergyCard from '../KidAllergyCard';
+import { confirmDespiteAllergy } from '../MealSafetyNotice';
+import { travelMeal, useMealSafety } from '../../../hooks/useMealSafety';
 
 interface Section {
   title: string;
@@ -40,7 +43,21 @@ export default function TravelRecipeHub() {
     toggleBookmark,
     bookmarks,
     getBookmarkedRecipes,
+    testedByKid,
+    setTestedForKid,
   } = useTravelRecipeStore();
+  const { check } = useMealSafety();
+
+  // Saving a recipe that contains one of the child's allergens asks first.
+  const handleToggleBookmark = async (recipe: TravelRecipe) => {
+    if (!isBookmarked(recipe.id)) {
+      const hits = check(travelMeal(recipe)).allergyHits;
+      if (!(await confirmDespiteAllergy(activeKid?.name, hits))) return;
+    }
+    toggleBookmark(recipe.id);
+  };
+  const isTested = (recipeId: string) =>
+    (activeKid ? testedByKid[activeKid.id]?.[recipeId] : undefined) ?? !!bookmarks[recipeId]?.testedAtHome;
 
   const [selectedRecipe, setSelectedRecipe] = useState<TravelRecipe | null>(null);
   const [showPackOnly, setShowPackOnly] = useState(false);
@@ -68,13 +85,17 @@ export default function TravelRecipeHub() {
         isBookmarked={isBookmarked(item.id)}
         hotWeather={filter.hotWeather}
         onPress={() => setSelectedRecipe(item)}
-        onBookmark={() => toggleBookmark(item.id)}
+        onBookmark={() => handleToggleBookmark(item)}
       />
     </View>
   );
 
   return (
     <View style={styles.container}>
+      <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
+        <KidAllergyCard />
+      </View>
+
       {/* Pack toggle row */}
       <View style={styles.packRow}>
         <TouchableOpacity
@@ -149,10 +170,12 @@ export default function TravelRecipeHub() {
           scroll events, so it only ever drew its first ~10 cards. */}
       {sections.length > 0 && (
         <View style={styles.listContent}>
-          <View style={styles.ruleBanner}>
-            <Text style={styles.ruleTitle}>🧂 Under 1 year: no added salt or sugar</Text>
-            <Text style={styles.ruleBody}>{NO_SALT_SUGAR_NOTE}</Text>
-          </View>
+          {(ageMonths === undefined || ageMonths < 12) && (
+            <View style={styles.ruleBanner}>
+              <Text style={styles.ruleTitle}>🧂 Under 1 year: no added salt or sugar</Text>
+              <Text style={styles.ruleBody}>{NO_SALT_SUGAR_NOTE}</Text>
+            </View>
+          )}
           {sections.map((section) => (
             <View key={section.title}>
               <View style={styles.sectionHeader}>
@@ -172,13 +195,15 @@ export default function TravelRecipeHub() {
         recipe={selectedRecipe}
         hotWeather={filter.hotWeather}
         isBookmarked={selectedRecipe ? isBookmarked(selectedRecipe.id) : false}
-        testedAtHome={
-          selectedRecipe ? !!useTravelRecipeStore.getState().bookmarks[selectedRecipe.id]?.testedAtHome : false
-        }
+        testedAtHome={selectedRecipe ? isTested(selectedRecipe.id) : false}
         onClose={() => setSelectedRecipe(null)}
-        onToggleBookmark={() => selectedRecipe && toggleBookmark(selectedRecipe.id)}
+        onToggleBookmark={() => selectedRecipe && handleToggleBookmark(selectedRecipe)}
         onToggleHotWeather={(v) => setFilter({ hotWeather: v })}
-        onSetTestedAtHome={(v) => selectedRecipe && useTravelRecipeStore.getState().setTestedAtHome(selectedRecipe.id, v)}
+        onSetTestedAtHome={(v) => {
+          if (!selectedRecipe) return;
+          if (activeKid) setTestedForKid(activeKid.id, selectedRecipe.id, v);
+          else useTravelRecipeStore.getState().setTestedAtHome(selectedRecipe.id, v);
+        }}
       />
     </View>
   );

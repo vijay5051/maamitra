@@ -32,6 +32,12 @@ export interface Kid {
    * confirmation because it remaps which vaccines show).
    */
   vaccineSchedule?: VaccineScheduleType | null;
+  /**
+   * Foods / allergens this child must avoid (lib/mealSafety AllergenKey or
+   * free text like "banana"). Undefined = never set → falls back to the
+   * older family-level list from the chat allergy picker.
+   */
+  allergies?: string[];
 }
 
 export interface VisibilitySettings {

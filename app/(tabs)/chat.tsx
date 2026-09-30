@@ -26,6 +26,7 @@ import { detectIsFood } from '../../services/claude';
 import { INDIAN_LANGUAGES } from '../../services/voice';
 import { TEETH } from '../../data/teeth';
 import { isBigKidTeeth } from '../../lib/kidStage';
+import { allergyLabel } from '../../lib/mealSafety';
 import ChatBubble from '../../components/chat/ChatBubble';
 import ChatInput from '../../components/chat/ChatInput';
 import QuickChips from '../../components/chat/QuickChips';
@@ -35,6 +36,7 @@ import GradientAvatar from '../../components/ui/GradientAvatar';
 import { Illustration } from '../../components/ui/Illustration';
 import { AppIcon } from '../../components/ui/AppIcon';
 import { Colors, Fonts, withAlpha } from '../../constants/theme';
+import BackToHomeButton from '../../components/ui/BackToHomeButton';
 
 // ─── Allergy Modal ─────────────────────────────────────────────────────────────
 
@@ -374,7 +376,9 @@ export default function ChatScreen() {
       kidDOB: activeKid?.dob,
       kidGender: activeKid?.gender,
       isExpecting: activeKid?.isExpecting ?? false,
-      allergies,
+      // The child's own allergy list (Health → food screens) wins over the
+      // older family-level chat picker.
+      allergies: activeKid?.allergies ? activeKid.allergies.map(allergyLabel) : allergies,
       healthConditions,
       parentGender,
       // Pass 2 signals
@@ -411,7 +415,7 @@ export default function ChatScreen() {
       // getting in the way of vision queries.
       const isFood = !attachment && detectIsFood(text);
 
-      if (isFood && allergies === null) {
+      if (isFood && allergies === null && !activeKid?.allergies) {
         setPendingMessage(text);
         setAllergyModalVisible(true);
         return;
@@ -419,7 +423,7 @@ export default function ChatScreen() {
 
       await sendMessage(text, buildContext(), attachment);
     },
-    [allergies, sendMessage, buildContext]
+    [allergies, activeKid?.allergies, sendMessage, buildContext]
   );
 
   const handleAllergyDone = useCallback(
@@ -467,6 +471,7 @@ export default function ChatScreen() {
         >
           <View style={styles.glowTopRight} pointerEvents="none" />
           <View style={styles.glowBottomLeft} pointerEvents="none" />
+          <BackToHomeButton />
           <View style={styles.headerInner}>
             <View style={styles.headerLeft}>
               <View style={styles.headerInfo}>
