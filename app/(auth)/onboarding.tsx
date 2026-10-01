@@ -13,6 +13,9 @@ import LivePreviewPill from '../../components/onboarding/LivePreviewPill';
 import { validateNewbornDob, validatePregnantDueDate } from '../../lib/dateValidation';
 import { Colors, Fonts } from '../../constants/theme';
 
+import FoodAllergySetupRow from '../../components/health/allergy/FoodAllergySetupRow';
+import { EMPTY_ALLERGIES, KidFoodAllergies } from '../../lib/foodAllergies';
+
 export default function OnboardingScreen() {
   // 1. Routing + layout hooks
   const router = useRouter();
@@ -37,6 +40,7 @@ export default function OnboardingScreen() {
   const [kidGenderChip, setKidGenderChip] = useState<GenderChipValue | null>(null);
   const [dateError, setDateError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [kidAllergies, setKidAllergies] = useState<KidFoodAllergies>(EMPTY_ALLERGIES);
 
   // 4. Memos — also above early returns for the same reason.
   // LivePreview — rendered only once stage + valid date are set.
@@ -139,6 +143,10 @@ export default function OnboardingScreen() {
         stage: isExpecting ? 'pregnant' : 'newborn',
         gender: genderToStore,
         isExpecting,
+        // Only stored when the parent actually filled it in / chose "Not sure yet".
+        ...(!isExpecting && (kidAllergies.entries.length > 0 || kidAllergies.notSure)
+          ? { foodAllergies: kidAllergies }
+          : {}),
       });
 
       // Hand off to the existing setup screen — owns the Firestore write +
@@ -223,6 +231,17 @@ export default function OnboardingScreen() {
                 <Text style={styles.label}>Gender</Text>
                 <GenderChip stage={stage} value={kidGenderChip} onChange={setKidGenderChip} />
               </View>
+
+              {stage === 'newborn' && (
+                <View style={styles.field}>
+                  <Text style={styles.label}>Food allergies &amp; reactions (optional)</Text>
+                  <FoodAllergySetupRow
+                    kidName={kidName.trim() || 'your child'}
+                    value={kidAllergies}
+                    onChange={setKidAllergies}
+                  />
+                </View>
+              )}
 
               <LivePreviewPill message={livePreview} />
             </>

@@ -37,6 +37,8 @@ import GenderChip, { type GenderChipValue } from '../../components/onboarding/Ge
 import LivePreviewPill from '../../components/onboarding/LivePreviewPill';
 import { validateNewbornDob, validatePregnantDueDate } from '../../lib/dateValidation';
 import BackToHomeButton from '../../components/ui/BackToHomeButton';
+import FoodAllergySetupRow from '../../components/health/allergy/FoodAllergySetupRow';
+import { EMPTY_ALLERGIES, KidFoodAllergies } from '../../lib/foodAllergies';
 
 // ─── ChildCard ─────────────────────────────────────────────────────────────────
 
@@ -219,13 +221,14 @@ function AddChildModal({
 }: {
   visible: boolean;
   onClose: () => void;
-  onAdd: (data: { name: string; dob: string; isExpecting: boolean; gender: 'girl' | 'boy' | 'surprise' }) => void;
+  onAdd: (data: { name: string; dob: string; isExpecting: boolean; gender: 'girl' | 'boy' | 'surprise'; foodAllergies?: KidFoodAllergies }) => void;
 }) {
   const [stage, setStage] = useState<Stage | null>(null);
   const [keyDate, setKeyDate] = useState('');
   const [kidName, setKidName] = useState('');
   const [genderChip, setGenderChip] = useState<GenderChipValue | null>(null);
   const [dateError, setDateError] = useState<string | null>(null);
+  const [kidAllergies, setKidAllergies] = useState<KidFoodAllergies>(EMPTY_ALLERGIES);
 
   useEffect(() => {
     if (!visible) reset();
@@ -234,6 +237,7 @@ function AddChildModal({
   const reset = () => {
     setStage(null); setKeyDate(''); setKidName('');
     setGenderChip(null); setDateError(null);
+    setKidAllergies(EMPTY_ALLERGIES);
   };
 
   const onDateChange = (v: string) => {
@@ -276,6 +280,9 @@ function AddChildModal({
       dob: new Date(keyDate + 'T00:00:00').toISOString(),
       isExpecting,
       gender,
+      ...(!isExpecting && (kidAllergies.entries.length > 0 || kidAllergies.notSure)
+        ? { foodAllergies: kidAllergies }
+        : {}),
     });
     reset();
     onClose();
@@ -339,6 +346,17 @@ function AddChildModal({
                   <Text style={addChildStyles.label}>Gender</Text>
                   <GenderChip stage={stage} value={genderChip} onChange={setGenderChip} />
                 </View>
+
+                {stage === 'newborn' && (
+                  <View style={addChildStyles.field}>
+                    <Text style={addChildStyles.label}>Food allergies &amp; reactions (optional)</Text>
+                    <FoodAllergySetupRow
+                      kidName={kidName.trim() || 'your child'}
+                      value={kidAllergies}
+                      onChange={setKidAllergies}
+                    />
+                  </View>
+                )}
 
                 <LivePreviewPill message={livePreview} />
               </>
@@ -430,11 +448,13 @@ export default function FamilyScreen() {
     dob,
     isExpecting,
     gender,
+    foodAllergies,
   }: {
     name: string;
     dob: string;
     isExpecting: boolean;
     gender: 'girl' | 'boy' | 'surprise';
+    foodAllergies?: KidFoodAllergies;
   }) => {
     addKid({
       name,
@@ -442,6 +462,7 @@ export default function FamilyScreen() {
       stage: isExpecting ? 'pregnant' : 'newborn',
       gender,
       isExpecting,
+      ...(foodAllergies ? { foodAllergies } : {}),
     });
     if (user?.uid) {
       const updatedState = useProfileStore.getState();

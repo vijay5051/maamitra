@@ -8,6 +8,8 @@ export type ParentRelation = 'mother' | 'father' | 'guardian' | 'grandparent' | 
 
 export type VaccineScheduleType = 'iap' | 'nis';
 
+import type { KidFoodAllergies } from '../lib/foodAllergies';
+
 export interface Kid {
   id: string;
   name: string;
@@ -33,10 +35,12 @@ export interface Kid {
    */
   vaccineSchedule?: VaccineScheduleType | null;
   /**
-   * Foods / allergens this child must avoid (lib/mealSafety AllergenKey or
-   * free text like "banana"). Undefined = never set → falls back to the
-   * older family-level list from the chat allergy picker.
+   * This child's food allergies & suspected reactions (lib/foodAllergies).
+   * Undefined on profiles created before the feature — read it through
+   * readKidAllergies(), never directly.
    */
+  foodAllergies?: KidFoodAllergies;
+  /** @deprecated v1 list (2026-09-30). Migrated on read by readKidAllergies(). */
   allergies?: string[];
 }
 

@@ -10,8 +10,9 @@ import { CUISINE_BY_ID } from '../../../data/cuisines';
 import { FoodDiet } from '../../../data/babyFoods';
 import { PlannedDay } from '../../../store/useMealPlannerStore';
 import RecipeCard from './RecipeCard';
-import { tiffinMeal, useMealSafety } from '../../../hooks/useMealSafety';
-import { confirmDespiteAllergy } from '../MealSafetyNotice';
+import { tiffinMeal, useKidAllergies } from '../../../hooks/useKidAllergies';
+import { useAllergyGate } from '../allergy/useAllergyGate';
+import type { Recipe } from '../../../data/recipes';
 
 const INK = '#1C1033';
 const STONE = '#6B7280';
@@ -32,6 +33,8 @@ interface Props {
   onPick: (payload: { recipeId?: string; freeText?: string }) => void;
   /** Clear the existing plan for the open day. */
   onClear: () => void;
+  /** From the allergy popup: look at the recipe instead of planning it. */
+  onViewRecipe?: (recipe: Recipe) => void;
 }
 
 const DAY_LABELS: Record<DayKey, string> = {
@@ -40,11 +43,12 @@ const DAY_LABELS: Record<DayKey, string> = {
 };
 
 export default function DayPickerSheet({
-  visible, dayKey, ageBand, diet, flaggedFoodIds, currentPlanned, onClose, onPick, onClear,
+  visible, dayKey, ageBand, diet, flaggedFoodIds, currentPlanned, onClose, onPick, onClear, onViewRecipe,
 }: Props) {
   const [search, setSearch] = useState('');
   const [freeText, setFreeText] = useState('');
-  const { check, activeKid } = useMealSafety();
+  const { kidName, allergies } = useKidAllergies();
+  const gate = useAllergyGate();
 
   const recipes = useMemo(
     () => filterRecipes({ diet, ageBand, search }),
@@ -132,12 +136,16 @@ export default function DayPickerSheet({
                 <RecipeCard
                   recipe={rec}
                   flaggedFoodIds={flaggedFoodIds}
-                  onPress={async () => {
-                    const hits = check(tiffinMeal(rec)).allergyHits;
-                    if (!(await confirmDespiteAllergy(activeKid?.name, hits))) return;
-                    onPick({ recipeId: rec.id });
-                    onClose();
-                  }}
+                  onPress={() =>
+                    gate.select(
+                      tiffinMeal(rec),
+                      () => { onPick({ recipeId: rec.id }); onClose(); },
+                      {
+                        proceedLabel: dayKey ? `Plan it for ${DAY_LABELS[dayKey]} anyway` : 'Plan it anyway',
+                        onViewDetails: onViewRecipe ? () => { onClose(); onViewRecipe(rec); } : undefined,
+                      },
+                    )
+                  }
                 />
               </View>
             );
@@ -157,15 +165,25 @@ export default function DayPickerSheet({
               style={[styles.addBtn, freeText.trim().length === 0 && styles.addBtnDisabled]}
               disabled={freeText.trim().length === 0}
               onPress={() => {
-                onPick({ freeText: freeText.trim() });
-                setFreeText('');
-                onClose();
+                const text = freeText.trim();
+                // Typed meals aren't recipes: we can only check the words typed.
+                gate.select(
+                  { name: text, ingredients: [] },
+                  () => { onPick({ freeText: text }); setFreeText(''); onClose(); },
+                  { subject: 'This meal', partialCheck: true, proceedLabel: 'Add it anyway' },
+                );
               }}
               activeOpacity={0.85}
             >
               <Text style={styles.addBtnText}>Add</Text>
             </TouchableOpacity>
           </View>
+          {allergies.entries.length > 0 && (
+            <Text style={styles.freeHint}>
+              Typed meals aren’t a full ingredient list, so we can’t fully check them against {kidName}’s allergy list.
+            </Text>
+          )}
+          {gate.element}
         </ScrollView>
       </KeyboardAvoidingView>
     </Modal>
@@ -174,6 +192,7 @@ export default function DayPickerSheet({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFF9F0' },
+  freeHint: { fontFamily: Fonts.sansRegular, fontSize: 11.5, lineHeight: 17, color: STONE, marginTop: 8 },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: MIST,

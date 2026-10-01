@@ -5,8 +5,8 @@ import { Colors, Fonts } from '../../../constants/theme';
 import { CUISINE_BY_ID } from '../../../data/cuisines';
 import { Recipe } from '../../../data/recipes';
 import { tiffinRecipeImage } from '../../../data/tiffinRecipeImages';
-import { tiffinMeal, useMealSafety } from '../../../hooks/useMealSafety';
-import MealSafetyNotice from '../MealSafetyNotice';
+import { tiffinMeal, useKidAllergies } from '../../../hooks/useKidAllergies';
+import { AllergyChips } from '../allergy/AllergyNotice';
 
 const INK = '#1C1033';
 const STONE = '#6B7280';
@@ -24,7 +24,7 @@ interface Props {
 }
 
 export default function TodaysPickCard({ recipe, reasonOneLine, isPlanned, todayLabel, onView, onSwap }: Props) {
-  const { check, activeKid } = useMealSafety();
+  const { match } = useKidAllergies();
   if (!recipe) {
     return (
       <View style={styles.card}>
@@ -56,9 +56,7 @@ export default function TodaysPickCard({ recipe, reasonOneLine, isPlanned, today
           </Text>
         </View>
       </View>
-      <View style={{ marginTop: 8 }}>
-        <MealSafetyNotice safety={check(tiffinMeal(recipe))} kidName={activeKid?.name} variant="compact" />
-      </View>
+      <AllergyChips matches={match(tiffinMeal(recipe))} />
       <View style={styles.reasonBox}>
         <Text style={styles.reasonText}>{reasonOneLine}</Text>
       </View>

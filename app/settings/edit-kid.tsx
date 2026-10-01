@@ -30,6 +30,8 @@ import LivePreviewPill from '../../components/onboarding/LivePreviewPill';
 import { validateNewbornDob, validatePregnantDueDate } from '../../lib/dateValidation';
 import DatePickerField from '../../components/ui/DatePickerField';
 import { ScreenHeader } from '../../components/settings/ScreenHeader';
+import FoodAllergySetupRow from '../../components/health/allergy/FoodAllergySetupRow';
+import { KidFoodAllergies, readKidAllergies } from '../../lib/foodAllergies';
 import { Colors, Fonts, Radius, Spacing } from '../../constants/theme';
 
 async function pickSquareImage(): Promise<string | null> {
@@ -144,6 +146,9 @@ function EditKidForm({
   const [photoLoading, setPhotoLoading] = useState(false);
   const [imgError, setImgError] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Draft of this child's allergy list — saved with the rest of the form.
+  const [kidAllergies, setKidAllergies] = useState<KidFoodAllergies>(() => readKidAllergies(kid));
+  const [allergiesTouched, setAllergiesTouched] = useState(false);
 
   const onDateChange = (v: string) => {
     setKeyDate(v);
@@ -212,6 +217,7 @@ function EditKidForm({
       updates.isExpecting = stage === 'pregnant';
       updates.gender = genderChip ?? (stage === 'pregnant' ? 'surprise' : 'not-set');
       updates.photoUrl = photo.trim();
+      if (allergiesTouched) updates.foodAllergies = kidAllergies;
       updateKid(kid.id, updates);
 
       if (user?.uid) {
@@ -293,6 +299,17 @@ function EditKidForm({
 
         <Text style={[s.editSectionTitle, { marginTop: 18 }]}>Gender</Text>
         <GenderChip stage={stage} value={genderChip} onChange={setGenderChip} />
+
+        {stage !== 'pregnant' && (
+          <>
+            <Text style={[s.editSectionTitle, { marginTop: 18 }]}>Food allergies &amp; reactions (optional)</Text>
+            <FoodAllergySetupRow
+              kidName={name.trim() || kid.name || 'your child'}
+              value={kidAllergies}
+              onChange={(next) => { setKidAllergies(next); setAllergiesTouched(true); }}
+            />
+          </>
+        )}
 
         <TouchableOpacity style={s.saveBtn} onPress={handleSave} activeOpacity={0.85} disabled={saving}>
           <LinearGradient colors={[Colors.primary, Colors.primary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.saveBtnGrad}>

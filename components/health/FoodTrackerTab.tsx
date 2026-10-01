@@ -7,7 +7,7 @@ import Card from '../ui/Card';
 import FoodCategoryAccordion from './FoodCategoryAccordion';
 import FoodDetailSheet from './FoodDetailSheet';
 import TiffinScreen from './tiffin/TiffinScreen';
-import KidAllergyCard from './KidAllergyCard';
+import KidAllergyCard from './allergy/KidAllergyCard';
 import {
   babyFoodsForDiet,
   FOOD_BY_ID,

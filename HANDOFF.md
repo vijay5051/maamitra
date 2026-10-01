@@ -8,43 +8,27 @@
 
 ## Active task
 
-**Age-appropriate content (2026-09-30, Claude).** Goal: nothing in the app
-treats a 1y+ child as a "baby"; trackers hide once the child outgrows them.
+**Child food-allergy tracker (2026-10-01, Claude) — COMMITTED LOCALLY, NOT PUSHED.**
+The user asked not to deploy; pushing `main` auto-deploys (web + OTA), so the
+commit is waiting on their go-ahead. `git push origin main` ships it.
 
-- `lib/kidStage.ts` — single source of age cut-offs: `kidNoun()` (baby <12mo,
-  toddler 12–35, child 36+), Routine (diaper/sleep) hidden ≥24mo, Travel Meals
-  hidden ≥18mo, big-kid teeth mode ≥60mo. Tests in `tests/kidStage.test.ts`.
-- Health grid + `?tab=` deep links + Home stat strip respect those gates.
-- Teeth 5y+: "milk tooth / fell out / adult tooth" tracker (new ToothState
-  `'permanent'`, `permanentDate`), adult-tooth windows in `data/teeth.ts`,
-  AI context sends `milkTeethLost` / `adultTeethIn`.
-- Wellness stage = youngest born kid: postpartum (<1y) / toddler (1–3y) /
-  child (3y+). Yoga sessions tagged `stages`; new y08 Animal Play Yoga +
-  y09 Back & Hip Relief. Condition options drop pregnancy-only items for 1y+.
-- "baby" wording rewritten in articles, nuskhe, milestones, affirmations
-  (age-aware pool), travel recipes, onboarding labels, AI prompt.
+- `lib/foodAllergies.ts` — per-child list (`Kid.foodAllergies`: entries with
+  known/suspected status + note, or "Not sure yet"), matching (families,
+  aliases, catalogue foods, custom words; no substrings), alert wording.
+  `readKidAllergies()` migrates the v1 `Kid.allergies` list and tolerates
+  old/malformed data. Replaces `lib/mealSafety.ts`.
+- `components/health/allergy/*` — editor sheet, card (Health → Foods, Tiffin,
+  Travel Meals), setup row (onboarding, add child, edit child), alert popup
+  (`useAllergyGate`: open / select), chips + banner.
+- Removed every "3-day test pending" chip/banner from recipes; the food
+  diary is untouched and stays in its own tracker.
+- `store/useAuthStore.ts` hydration now forwards `foodAllergies` (it
+  whitelists kid fields — the list was being dropped on sign-in).
+- Daily pick excludes matching recipes. Tests: `tests/foodAllergies.test.ts`.
 
-**Status:** SHIPPED 2026-09-30 — pushed to main, GitHub Actions "Deploy Web +
-Ship OTA" run 36690499158 succeeded (web on maamitra.co.in + production OTA).
-CI had been failing since 2026-09-22 because latest eas-cli needs Node 22; the
-workflows now use Node 22 (commit cf898f8). The Mac's GitHub token (Keychain)
-has repo + workflow scopes, so `git push` works. Still unverified: whether
-Firestore `travel_recipes` holds docs with old "baby" wording.
-
-**Still not done:** Cloudflare Worker (`cloudflare-worker/`, builds the system
-prompt server-side from `lib/promptBuilder.ts`) needs `wrangler deploy` —
-wrangler is not logged in on this machine. Until then the AI prompt still
-uses the old "baby" wording and ignores the new teeth fields.
-
-Stashed by Claude on 2026-09-30: `stash@{0}` "accidental package downgrade"
-(package.json/lock downgrading expo 55→46 etc.). `marketing/` is locally
-ignored via `.git/info/exclude`.
-
-**Previous (shipped 2026-09-22):** Travel Meals — photos + full catalogue shipped 2026-09-22:
-- 37 meals (12 added from The Little Traveller's Cookbook), each with its own photo in `assets/travel-meals/` (mapped in `data/travelRecipeImages.ts`).
-- Under-1 "no added salt or sugar" banner (hub) + per-recipe note + ingredient notes.
-- Fixed: hub used a SectionList nested in Health's ScrollView, so only ~10 cards ever rendered.
-- Real photos for tr_curd_cup, tr_khichdi_thermos, tr_veg_soup added (replaced the cookbook's drawings).
+Still open from 2026-09-30: Cloudflare Worker (`cloudflare-worker/`) needs
+`wrangler deploy` for the AI prompt wording; Firestore `travel_recipes` docs
+may hold old "baby" wording.
 
 ---
 

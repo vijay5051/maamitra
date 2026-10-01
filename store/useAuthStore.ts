@@ -159,6 +159,11 @@ async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
         vaccineSchedule: kid.vaccineSchedule ?? null,
         isExpecting: kid.isExpecting,
         relation: kid.relation || '',
+        // Forward the child's allergy list (and the v1 field it migrates
+        // from). Hydration whitelists fields — without this the list was
+        // dropped on every sign-in and wiped by the next profile save.
+        ...(kid.foodAllergies ? { foodAllergies: kid.foodAllergies } : {}),
+        ...(Array.isArray(kid.allergies) ? { allergies: kid.allergies } : {}),
       })
     );
     Object.entries(fullProfile.completedVaccines).forEach(([kidId, vaccines]: [string, any]) => {

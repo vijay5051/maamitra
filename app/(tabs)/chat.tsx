@@ -26,7 +26,7 @@ import { detectIsFood } from '../../services/claude';
 import { INDIAN_LANGUAGES } from '../../services/voice';
 import { TEETH } from '../../data/teeth';
 import { isBigKidTeeth } from '../../lib/kidStage';
-import { allergyLabel } from '../../lib/mealSafety';
+import { readKidAllergies, summarizeAllergies } from '../../lib/foodAllergies';
 import ChatBubble from '../../components/chat/ChatBubble';
 import ChatInput from '../../components/chat/ChatInput';
 import QuickChips from '../../components/chat/QuickChips';
@@ -307,6 +307,14 @@ export default function ChatScreen() {
   const voiceLanguage = useChatStore((s) => s.voiceLanguage);
   const vaccineSchedule = useVaccineSchedule();
 
+  // Active child's allergy list as plain labels for the AI ("Milk & dairy,
+  // Banana (suspected)"). Null when the parent never set one for this child.
+  const kidAllergyLabels = React.useMemo(() => {
+    const a = readKidAllergies(activeKid);
+    if (a.entries.length === 0) return a.notSure || activeKid?.foodAllergies ? [] as string[] : null;
+    return summarizeAllergies(a).split(', ');
+  }, [activeKid]);
+
   const buildContext = useCallback(() => {
     const ageMo = activeKid && !activeKid.isExpecting ? calculateAgeInMonths(activeKid.dob) : 0;
 
@@ -376,9 +384,9 @@ export default function ChatScreen() {
       kidDOB: activeKid?.dob,
       kidGender: activeKid?.gender,
       isExpecting: activeKid?.isExpecting ?? false,
-      // The child's own allergy list (Health → food screens) wins over the
-      // older family-level chat picker.
-      allergies: activeKid?.allergies ? activeKid.allergies.map(allergyLabel) : allergies,
+      // The child's own allergy list (Health → Foods) wins over the older
+      // family-level chat picker.
+      allergies: kidAllergyLabels ?? allergies,
       healthConditions,
       parentGender,
       // Pass 2 signals
@@ -415,7 +423,7 @@ export default function ChatScreen() {
       // getting in the way of vision queries.
       const isFood = !attachment && detectIsFood(text);
 
-      if (isFood && allergies === null && !activeKid?.allergies) {
+      if (isFood && allergies === null && !kidAllergyLabels) {
         setPendingMessage(text);
         setAllergyModalVisible(true);
         return;
@@ -423,7 +431,7 @@ export default function ChatScreen() {
 
       await sendMessage(text, buildContext(), attachment);
     },
-    [allergies, activeKid?.allergies, sendMessage, buildContext]
+    [allergies, kidAllergyLabels, sendMessage, buildContext]
   );
 
   const handleAllergyDone = useCallback(

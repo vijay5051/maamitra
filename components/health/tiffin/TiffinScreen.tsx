@@ -15,8 +15,9 @@ import WeekStrip from './WeekStrip';
 import DayPickerSheet from './DayPickerSheet';
 import BrowseLibrary from './BrowseLibrary';
 import RecipeDetailSheet from './RecipeDetailSheet';
-import KidAllergyCard from '../KidAllergyCard';
-import { tiffinMeal, useMealSafety } from '../../../hooks/useMealSafety';
+import KidAllergyCard from '../allergy/KidAllergyCard';
+import { useAllergyGate } from '../allergy/useAllergyGate';
+import { tiffinMeal, useKidAllergies } from '../../../hooks/useKidAllergies';
 import { RECIPES } from '../../../data/recipes';
 
 const ROSE = Colors.primary;
@@ -78,12 +79,16 @@ export default function TiffinScreen({ kidId, kidName, ageMonths, diet }: Props)
   // Swap counter — incrementing this lets the user reroll today's pick
   const [swapCount, setSwapCount] = useState(0);
 
-  // Never suggest a meal containing one of the child's allergens.
-  const { check } = useMealSafety();
+  // Never auto-suggest a meal that matches the child's allergies or
+  // suspected reactions. (Browsing still shows them, with a warning.)
+  const { match } = useKidAllergies();
+  const gate = useAllergyGate();
   const allergenRecipeIds = useMemo(
-    () => new Set(RECIPES.filter((r) => check(tiffinMeal(r)).allergyHits.length > 0).map((r) => r.id)),
-    [check],
+    () => new Set(RECIPES.filter((r) => match(tiffinMeal(r)).length > 0).map((r) => r.id)),
+    [match],
   );
+  // Opening a recipe that matches shows the allergy popup first.
+  const openRecipeGated = (r: Recipe) => gate.open(tiffinMeal(r), () => setOpenRecipe(r));
 
   const pick = useMemo(() => {
     return pickDailyRecipe({
@@ -133,7 +138,7 @@ export default function TiffinScreen({ kidId, kidName, ageMonths, diet }: Props)
         reasonOneLine={pick.reasonOneLine}
         isPlanned={!!todayPlanned?.recipeId}
         todayLabel={todayLabel}
-        onView={() => pickedRecipe && setOpenRecipe(pickedRecipe)}
+        onView={() => pickedRecipe && openRecipeGated(pickedRecipe)}
         onSwap={() => setSwapCount((c) => c + 1)}
       />
 
@@ -161,7 +166,7 @@ export default function TiffinScreen({ kidId, kidName, ageMonths, diet }: Props)
           kidAgeBand={ageBand}
           diet={diet}
           flaggedFoodIds={flaggedFoodIds}
-          onPickRecipe={(r) => setOpenRecipe(r)}
+          onPickRecipe={openRecipeGated}
         />
       </View>
 
@@ -198,7 +203,10 @@ export default function TiffinScreen({ kidId, kidName, ageMonths, diet }: Props)
         onPick={(payload) => {
           if (openDay) setDay(kidId, openDay, payload);
         }}
+        onViewRecipe={(r) => setOpenRecipe(r)}
       />
+
+      {gate.element}
     </View>
   );
 }

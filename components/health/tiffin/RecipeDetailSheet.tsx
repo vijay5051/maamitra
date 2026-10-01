@@ -5,8 +5,9 @@ import { Colors, Fonts } from '../../../constants/theme';
 import { CUISINE_BY_ID } from '../../../data/cuisines';
 import { Recipe } from '../../../data/recipes';
 import { tiffinRecipeImage } from '../../../data/tiffinRecipeImages';
-import { tiffinMeal, useMealSafety } from '../../../hooks/useMealSafety';
-import MealSafetyNotice, { confirmDespiteAllergy } from '../MealSafetyNotice';
+import { tiffinMeal, useKidAllergies } from '../../../hooks/useKidAllergies';
+import { AllergyBanner } from '../allergy/AllergyNotice';
+import { useAllergyGate } from '../allergy/useAllergyGate';
 import { DAY_KEYS, DayKey } from '../../../lib/weekKeys';
 import { FOOD_BY_ID } from '../../../data/babyFoods';
 
@@ -31,7 +32,8 @@ const DAY_LABELS: Record<DayKey, string> = {
 };
 
 export default function RecipeDetailSheet({ visible, recipe, flaggedFoodIds, onClose, onAddToDay }: Props) {
-  const { check, activeKid, withThreeDay } = useMealSafety();
+  const { match, kidName, allergies } = useKidAllergies();
+  const gate = useAllergyGate();
   const cuisine = recipe ? CUISINE_BY_ID[recipe.cuisine] : null;
   const flaggedNames = useMemo(() => {
     if (!recipe || !flaggedFoodIds) return [];
@@ -68,9 +70,13 @@ export default function RecipeDetailSheet({ visible, recipe, flaggedFoodIds, onC
             <Text style={styles.recipeName}>{recipe.name}</Text>
             <Text style={styles.recipeMeta}>{cuisine.label} · {recipe.timeMinutes} min · Serves {recipe.serves}</Text>
 
-            <MealSafetyNotice safety={check(tiffinMeal(recipe))} kidName={activeKid?.name} variant="full" />
+            <AllergyBanner
+              matches={match(tiffinMeal(recipe))}
+              kidName={kidName}
+              hasList={allergies.entries.length > 0}
+            />
 
-            {!withThreeDay && flaggedNames.length > 0 && (
+            {flaggedNames.length > 0 && (
               <View style={styles.warnBanner}>
                 <Ionicons name="warning-outline" size={16} color={WARN_FG} />
                 <Text style={styles.warnText}>
@@ -104,10 +110,11 @@ export default function RecipeDetailSheet({ visible, recipe, flaggedFoodIds, onC
               {DAY_KEYS.map((d) => (
                 <TouchableOpacity
                   key={d}
-                  onPress={async () => {
-                    const hits = check(tiffinMeal(recipe)).allergyHits;
-                    if (await confirmDespiteAllergy(activeKid?.name, hits)) onAddToDay(d);
-                  }}
+                  onPress={() =>
+                    gate.select(tiffinMeal(recipe), () => onAddToDay(d), {
+                      proceedLabel: `Add to ${DAY_LABELS[d]} anyway`,
+                    })
+                  }
                   style={styles.dayBtn}
                   activeOpacity={0.85}
                 >
@@ -117,6 +124,7 @@ export default function RecipeDetailSheet({ visible, recipe, flaggedFoodIds, onC
             </View>
           </ScrollView>
         )}
+        {gate.element}
       </View>
     </Modal>
   );

@@ -15,9 +15,9 @@ import { TravelRecipe, TRAVEL_CATEGORIES, NO_SALT_SUGAR_NOTE } from '../../../da
 import TravelFilterBar from './TravelFilterBar';
 import TravelRecipeCard from './TravelRecipeCard';
 import TravelRecipeDetail from './TravelRecipeDetail';
-import KidAllergyCard from '../KidAllergyCard';
-import { confirmDespiteAllergy } from '../MealSafetyNotice';
-import { travelMeal, useMealSafety } from '../../../hooks/useMealSafety';
+import KidAllergyCard from '../allergy/KidAllergyCard';
+import { useAllergyGate } from '../allergy/useAllergyGate';
+import { travelMeal } from '../../../hooks/useKidAllergies';
 
 interface Section {
   title: string;
@@ -46,15 +46,23 @@ export default function TravelRecipeHub() {
     testedByKid,
     setTestedForKid,
   } = useTravelRecipeStore();
-  const { check } = useMealSafety();
+  // Two gates: one for the list (rendered here) and one handed to the
+  // detail modal, because a popup must be rendered inside the modal that
+  // triggers it to appear above it.
+  const gate = useAllergyGate();
+  const detailGate = useAllergyGate();
 
-  // Saving a recipe that contains one of the child's allergens asks first.
-  const handleToggleBookmark = async (recipe: TravelRecipe) => {
-    if (!isBookmarked(recipe.id)) {
-      const hits = check(travelMeal(recipe)).allergyHits;
-      if (!(await confirmDespiteAllergy(activeKid?.name, hits))) return;
+  // Saving to My Travel Pack never happens silently for a flagged recipe.
+  // Removing from the pack is always allowed.
+  const toggleBookmarkGated = (recipe: TravelRecipe, g: typeof gate, fromDetail: boolean) => {
+    if (isBookmarked(recipe.id)) {
+      toggleBookmark(recipe.id);
+      return;
     }
-    toggleBookmark(recipe.id);
+    g.select(travelMeal(recipe), () => toggleBookmark(recipe.id), {
+      proceedLabel: 'Save to My Travel Pack anyway',
+      onViewDetails: fromDetail ? undefined : () => setSelectedRecipe(recipe),
+    });
   };
   const isTested = (recipeId: string) =>
     (activeKid ? testedByKid[activeKid.id]?.[recipeId] : undefined) ?? !!bookmarks[recipeId]?.testedAtHome;
@@ -84,8 +92,8 @@ export default function TravelRecipeHub() {
         recipe={item}
         isBookmarked={isBookmarked(item.id)}
         hotWeather={filter.hotWeather}
-        onPress={() => setSelectedRecipe(item)}
-        onBookmark={() => handleToggleBookmark(item)}
+        onPress={() => gate.open(travelMeal(item), () => setSelectedRecipe(item))}
+        onBookmark={() => toggleBookmarkGated(item, gate, false)}
       />
     </View>
   );
@@ -197,7 +205,8 @@ export default function TravelRecipeHub() {
         isBookmarked={selectedRecipe ? isBookmarked(selectedRecipe.id) : false}
         testedAtHome={selectedRecipe ? isTested(selectedRecipe.id) : false}
         onClose={() => setSelectedRecipe(null)}
-        onToggleBookmark={() => selectedRecipe && handleToggleBookmark(selectedRecipe)}
+        onToggleBookmark={() => selectedRecipe && toggleBookmarkGated(selectedRecipe, detailGate, true)}
+        overlay={detailGate.element}
         onToggleHotWeather={(v) => setFilter({ hotWeather: v })}
         onSetTestedAtHome={(v) => {
           if (!selectedRecipe) return;
@@ -205,6 +214,8 @@ export default function TravelRecipeHub() {
           else useTravelRecipeStore.getState().setTestedAtHome(selectedRecipe.id, v);
         }}
       />
+
+      {gate.element}
     </View>
   );
 }

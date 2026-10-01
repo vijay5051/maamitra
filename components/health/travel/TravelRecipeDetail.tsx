@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { ReactNode, useState } from 'react';
 import {
   Image,
   Modal,
@@ -13,8 +13,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Fonts } from '../../../constants/theme';
 import { TravelRecipe, CATEGORY_BY_KEY, GEAR_LABELS, NO_SALT_SUGAR_NOTE } from '../../../data/travelRecipes';
 import { travelRecipeImage } from '../../../data/travelRecipeImages';
-import { travelMeal, useMealSafety } from '../../../hooks/useMealSafety';
-import MealSafetyNotice from '../MealSafetyNotice';
+import { travelMeal, useKidAllergies } from '../../../hooks/useKidAllergies';
+import { AllergyBanner } from '../allergy/AllergyNotice';
 
 const INK = Colors.textDark;
 const STONE = Colors.textMuted;
@@ -32,6 +32,8 @@ interface Props {
   testedAtHome: boolean;
   onClose: () => void;
   onToggleBookmark: () => void;
+  /** Rendered inside this modal so popups (allergy alert) appear above it. */
+  overlay?: ReactNode;
   onToggleHotWeather: (v: boolean) => void;
   onSetTestedAtHome: (v: boolean) => void;
 }
@@ -70,10 +72,11 @@ export default function TravelRecipeDetail({
   testedAtHome,
   onClose,
   onToggleBookmark,
+  overlay,
   onToggleHotWeather,
   onSetTestedAtHome,
 }: Props) {
-  const { check, activeKid } = useMealSafety();
+  const { match, kidName, allergies } = useKidAllergies();
   const [checkedIngredients, setCheckedIngredients] = useState<Record<number, boolean>>({});
   const [checkedGear, setCheckedGear] = useState<Record<string, boolean>>({});
   const [checkedSteps, setCheckedSteps] = useState<Record<number, boolean>>({});
@@ -230,9 +233,13 @@ export default function TravelRecipeDetail({
             </View>
           </View>
 
-          {/* ── Child-specific: allergy list + 3-day rule ── */}
+          {/* ── This child's allergy list ── */}
           <View style={[styles.section, { marginBottom: -4 }]}>
-            <MealSafetyNotice safety={check(travelMeal(recipe))} kidName={activeKid?.name} variant="full" />
+            <AllergyBanner
+              matches={match(travelMeal(recipe))}
+              kidName={kidName}
+              hasList={allergies.entries.length > 0}
+            />
           </View>
 
           {/* ── Allergen strips ── */}
@@ -432,6 +439,7 @@ export default function TravelRecipeDetail({
             </Text>
           </TouchableOpacity>
         </View>
+        {overlay}
       </View>
     </Modal>
   );

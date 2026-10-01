@@ -4,8 +4,8 @@ import { Colors, Fonts } from '../../../constants/theme';
 import { CUISINE_BY_ID } from '../../../data/cuisines';
 import { Recipe } from '../../../data/recipes';
 import { tiffinRecipeImage } from '../../../data/tiffinRecipeImages';
-import { tiffinMeal, useMealSafety } from '../../../hooks/useMealSafety';
-import MealSafetyNotice from '../MealSafetyNotice';
+import { tiffinMeal, useKidAllergies } from '../../../hooks/useKidAllergies';
+import { AllergyChips } from '../allergy/AllergyNotice';
 
 const INK = '#1C1033';
 const STONE = '#6B7280';
@@ -24,8 +24,8 @@ interface Props {
 export default function RecipeCard({ recipe, flaggedFoodIds, onPress }: Props) {
   const cuisine = CUISINE_BY_ID[recipe.cuisine];
   const photo = tiffinRecipeImage(recipe.id);
-  const { check, activeKid } = useMealSafety();
-  const safety = check(tiffinMeal(recipe));
+  const { match } = useKidAllergies();
+  const matches = match(tiffinMeal(recipe));
   const flagged = flaggedFoodIds
     ? recipe.containsFoodIds.filter((id) => flaggedFoodIds.has(id))
     : [];
@@ -49,9 +49,8 @@ export default function RecipeCard({ recipe, flaggedFoodIds, onPress }: Props) {
         <Text style={styles.meta} numberOfLines={1}>
           {cuisine.label} · {recipe.timeMinutes} min{tagsLine ? ` · ${tagsLine}` : ''}
         </Text>
-        <MealSafetyNotice safety={safety} kidName={activeKid?.name} variant="compact" />
-        {/* Reaction chip for older kids (the 3-day check above covers under-2s). */}
-        {!safety.threeDay && flagged.length > 0 && (
+        <AllergyChips matches={matches} />
+        {flagged.length > 0 && (
           <View style={styles.warnChip}>
             <Ionicons name="warning-outline" size={11} color={WARN_FG} />
             <Text style={styles.warnText}>

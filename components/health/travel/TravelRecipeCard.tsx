@@ -3,8 +3,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Fonts } from '../../../constants/theme';
 import { TravelRecipe, CATEGORY_BY_KEY } from '../../../data/travelRecipes';
 import { travelRecipeImage } from '../../../data/travelRecipeImages';
-import { travelMeal, useMealSafety } from '../../../hooks/useMealSafety';
-import MealSafetyNotice from '../MealSafetyNotice';
+import { travelMeal, useKidAllergies } from '../../../hooks/useKidAllergies';
+import { AllergyChips } from '../allergy/AllergyNotice';
 
 const INK = Colors.textDark;
 const STONE = Colors.textMuted;
@@ -18,8 +18,8 @@ interface Props {
 }
 
 export default function TravelRecipeCard({ recipe, isBookmarked, hotWeather, onPress, onBookmark }: Props) {
-  const { check, activeKid } = useMealSafety();
-  const safety = check(travelMeal(recipe));
+  const { match } = useKidAllergies();
+  const matches = match(travelMeal(recipe));
   const cat = CATEGORY_BY_KEY[recipe.category];
   const photo = travelRecipeImage(recipe.id);
 
@@ -93,7 +93,7 @@ export default function TravelRecipeCard({ recipe, isBookmarked, hotWeather, onP
             )}
           </View>
 
-          <MealSafetyNotice safety={safety} kidName={activeKid?.name} variant="compact" />
+          <AllergyChips matches={matches} />
 
           {/* Top allergen */}
           {recipe.allergenContains.length > 0 && (

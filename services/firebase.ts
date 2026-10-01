@@ -382,6 +382,24 @@ function sanitiseProfilePayload(data: Record<string, any>): Record<string, any> 
           .slice(0, 20)
           .map((a: string) => neutraliseProfileString(a, 40));
       }
+      // Per-child allergy list: cap size, keep only well-formed entries and
+      // neutralise the free-text parts (label / note).
+      if (kk.foodAllergies && typeof kk.foodAllergies === 'object') {
+        const fa = kk.foodAllergies;
+        const entries = (Array.isArray(fa.entries) ? fa.entries : [])
+          .filter((e: any) => e && typeof e.key === 'string' && /^(group|food|custom):.+/.test(e.key) && typeof e.label === 'string')
+          .slice(0, 60)
+          .map((e: any) => {
+            const out: Record<string, any> = {
+              key: neutraliseProfileString(e.key, 80),
+              label: neutraliseProfileString(e.label, 40),
+              status: e.status === 'suspected' ? 'suspected' : 'known',
+            };
+            if (typeof e.note === 'string' && e.note.trim()) out.note = neutraliseProfileString(e.note, 300);
+            return out;
+          });
+        kk.foodAllergies = { entries, notSure: entries.length === 0 && fa.notSure === true };
+      }
       // DOB plausibility — null out a bad value so app paths show "Set DOB"
       // instead of computing garbage. Year < 2010 = definitely not a kid.
       if (typeof kk.dob === 'string') {
