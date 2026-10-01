@@ -8,16 +8,18 @@
  */
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { createElement, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  Linking,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -35,6 +37,17 @@ import { submitMothersSurvey } from '../services/mothersSurvey';
 const DONE_KEY = 'maamitra_mothers_survey_done';
 const TOTAL = MOTHERS_SURVEY_QUESTIONS.length;
 
+// App promo shown next to the survey on wide screens and on the thank-you
+// screen on phones. The clips are plain files in public/videos (web only, so
+// they never weigh on the native bundle) and play one after the other.
+const PROMO_CLIPS = [
+  { src: '/videos/vaccine-tracker.mp4', poster: '/videos/vaccine-tracker.jpg' },
+  { src: '/videos/foods-tiffin.mp4', poster: '/videos/foods-tiffin.jpg' },
+];
+const PLAY_STORE_URL =
+  'https://play.google.com/store/apps/details?id=in.maamitra.app&referrer=utm_source%3Dmothers_survey';
+const SIDE_PROMO_MIN_WIDTH = 980;
+
 type Step = 'intro' | 'questions' | 'finish' | 'done';
 
 function alreadySubmitted(): boolean {
@@ -50,6 +63,9 @@ export default function MothersSurveyScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ src?: string; utm_source?: string }>();
   const scrollRef = useRef<ScrollView>(null);
+  const { width } = useWindowDimensions();
+  const isWeb = Platform.OS === 'web';
+  const sidePromo = isWeb && width >= SIDE_PROMO_MIN_WIDTH;
 
   const [step, setStep] = useState<Step>(() => (alreadySubmitted() ? 'done' : 'intro'));
   const [consent, setConsent] = useState(false);
@@ -165,7 +181,8 @@ export default function MothersSurveyScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.container}>
+        <View style={[styles.layout, sidePromo && styles.layoutWide]}>
+        <View style={[styles.container, sidePromo && styles.containerWide]}>
           <View style={styles.brandRow}>
             <Image source={require('../assets/play-store/icon-512-clean.png')} style={styles.logo} />
             <Text style={styles.brand}>MaaMitra</Text>
@@ -323,10 +340,55 @@ export default function MothersSurveyScreen() {
               </View>
               <Text style={[styles.h1, { textAlign: 'center' }]}>Thank you</Text>
               <Text style={[styles.body, { textAlign: 'center' }]}>{MOTHERS_SURVEY_CLOSING}</Text>
+              {isWeb && !sidePromo && <PromoPanel />}
             </View>
           )}
         </View>
+        {sidePromo && (
+          <View style={styles.side}>
+            <PromoPanel />
+          </View>
+        )}
+        </View>
       </ScrollView>
+    </View>
+  );
+}
+
+/** MaaMitra promo: the app videos on a loop plus a Play Store button. Web only. */
+function PromoPanel() {
+  const [clip, setClip] = useState(0);
+  const current = PROMO_CLIPS[clip];
+  return (
+    <View style={styles.promo}>
+      <Text style={styles.promoTitle}>Meet MaaMitra</Text>
+      <Text style={styles.promoBody}>
+        Vaccine reminders, first foods, growth and more — one app for your motherhood journey.
+      </Text>
+      <View style={styles.videoFrame}>
+        {createElement('video', {
+          key: current.src,
+          src: current.src,
+          poster: current.poster,
+          controls: true,
+          playsInline: true,
+          // Browsers only allow autoplay when muted; she can unmute from the controls.
+          muted: true,
+          autoPlay: true,
+          preload: 'metadata',
+          onEnded: () => setClip((clip + 1) % PROMO_CLIPS.length),
+          style: { width: '100%', height: '100%', display: 'block', objectFit: 'cover', backgroundColor: '#1C1033' },
+        })}
+      </View>
+      <TouchableOpacity
+        style={styles.storeBtn}
+        onPress={() => Linking.openURL(PLAY_STORE_URL)}
+        activeOpacity={0.85}
+        accessibilityRole="link"
+      >
+        <Ionicons name="logo-google-playstore" size={18} color="#fff" />
+        <Text style={styles.storeBtnText}>Download the app — free</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -356,7 +418,29 @@ function PrimaryButton({ label, onPress, disabled }: { label: string; onPress: (
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.bgLight },
   scroll: { paddingHorizontal: 20, flexGrow: 1 },
+  layout: { width: '100%' },
+  layoutWide: { flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-start', gap: 56 },
   container: { width: '100%', maxWidth: 560, alignSelf: 'center' },
+  containerWide: { alignSelf: 'flex-start', flexShrink: 1 },
+  // @ts-ignore position: sticky is web-only — keeps the video in view while she scrolls
+  side: { width: 300, position: Platform.OS === 'web' ? ('sticky' as any) : 'relative', top: 20 },
+
+  promo: { width: '100%', maxWidth: 300, alignSelf: 'center', alignItems: 'center', marginTop: 8 },
+  promoTitle: { fontFamily: Fonts.serif, fontSize: 22, color: Colors.textDark, marginBottom: 4, textAlign: 'center' },
+  promoBody: {
+    fontFamily: Fonts.sansRegular, fontSize: 14, lineHeight: 20, color: Colors.textLight,
+    textAlign: 'center', marginBottom: 14,
+  },
+  videoFrame: {
+    width: '100%', aspectRatio: 9 / 16, borderRadius: 24, overflow: 'hidden',
+    backgroundColor: Colors.textDark, borderWidth: 4, borderColor: Colors.textDark,
+  },
+  storeBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: Colors.textDark, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 18,
+    marginTop: 14, alignSelf: 'stretch',
+  },
+  storeBtnText: { fontFamily: Fonts.sansBold, fontSize: 15, color: '#fff' },
 
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 18 },
   logo: { width: 36, height: 36, borderRadius: 9 },
