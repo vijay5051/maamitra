@@ -8,7 +8,7 @@
 
 ## Active task
 
-**Mothers survey (2026-10-01, Claude) — code shipped; Firestore rules NOT yet deployed.**
+**Mothers survey (2026-10-01, Claude) — SHIPPED and live.**
 - Public, no-login page `/mothers-survey` (`app/mothers-survey.tsx`): 10
   questions about the motherhood journey (never about MaaMitra), one per
   screen, optional note + optional name / WhatsApp number with consent.
@@ -18,13 +18,13 @@
 - Writes to `mothers_survey_responses` via `services/mothersSurvey.ts`.
 - Admin → Engagement → "Mothers survey" (`app/admin/mothers-survey.tsx`):
   counts, per-question breakdown, every response, CSV export.
-- **BLOCKER:** `firestore.rules` has the new `mothers_survey_responses`
-  block, but CI does not deploy rules and the Firebase CLI on Divya's Mac is
-  not logged in. Until someone runs
+- Firestore rules deployed 2026-10-01 (CI does NOT deploy rules — run
   `npx firebase deploy --only firestore:rules --project maa-mitra-7kird8`
-  submissions fail ("could not save") and the admin screen shows
-  "Missing or insufficient permissions". After deploying: submit one test
-  response on the live URL, confirm it in admin, then delete it.
+  after any rules change). Live submit verified; one test response tagged
+  `source: claude-test` (doc `uTudjOYkA9pFNeoPZimN`) is still in the
+  collection — delete it before analysing results.
+- Not verified: the admin screen with real data (the password test admin
+  has an unverified email, so rules treat it as non-admin).
 
 **Community is OFF — shown as "Coming soon" (2026-10-01, user decision).**
 Low activity; re-open when downloads reach 10,000. Gate: `lib/communityGate.ts`

@@ -136,9 +136,15 @@ export default function MothersSurveyScreen() {
         /* private mode — the thank-you screen still shows for this visit */
       }
       setStep('done');
-    } catch (e) {
+    } catch (e: any) {
       console.error('submitMothersSurvey failed:', e);
-      setError('We could not save your answers. Please check your connection and try again.');
+      // Only blame the connection when that is the actual cause.
+      const offline = e?.code === 'unavailable' || (typeof navigator !== 'undefined' && navigator.onLine === false);
+      setError(
+        offline
+          ? 'You seem to be offline. Please check your connection and try again.'
+          : 'Sorry, we could not save your answers just now. Please try again in a moment.',
+      );
     } finally {
       setSubmitting(false);
     }
