@@ -21,6 +21,7 @@ mock.module('@react-native-async-storage/async-storage', () => ({
 mock.module('../../services/firebase', () => ({
   auth: { currentUser: null },
   syncMealPlanner: () => Promise.resolve(),
+  syncGrowthTracking: () => Promise.resolve(),
 }));
 
 // Dynamic import deferred until after mock.module() registers all stubs.

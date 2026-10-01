@@ -382,6 +382,16 @@ function sanitiseProfilePayload(data: Record<string, any>): Record<string, any> 
           .slice(0, 20)
           .map((a: string) => neutraliseProfileString(a, 40));
       }
+      // Milestone notes are free text typed by the parent — neutralise them.
+      if (kk.milestoneStates && typeof kk.milestoneStates === 'object') {
+        const ms: Record<string, any> = {};
+        for (const [id, st] of Object.entries(kk.milestoneStates as Record<string, any>).slice(0, 200)) {
+          if (!st || typeof st !== 'object') continue;
+          ms[id] = { ...st };
+          if (typeof st.note === 'string') ms[id].note = neutraliseProfileString(st.note, 300);
+        }
+        kk.milestoneStates = ms;
+      }
       // Per-child allergy list: cap size, keep only well-formed entries and
       // neutralise the free-text parts (label / note).
       if (kk.foodAllergies && typeof kk.foodAllergies === 'object') {

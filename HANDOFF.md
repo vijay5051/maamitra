@@ -8,24 +8,30 @@
 
 ## Active task
 
-**Child food-allergy tracker (2026-10-01, Claude) — SHIPPED (dca21d5, web + OTA).**
-- `lib/foodAllergies.ts` — per-child list (`Kid.foodAllergies`: entries with
-  known/suspected status + note, or "Not sure yet"), matching (families,
-  aliases, catalogue foods, custom words; no substrings), alert wording.
-  `readKidAllergies()` migrates the v1 `Kid.allergies` list and tolerates
-  old/malformed data. Replaces `lib/mealSafety.ts`.
-- `components/health/allergy/*` — editor sheet, card (Health → Foods, Tiffin,
-  Travel Meals), setup row (onboarding, add child, edit child), alert popup
-  (`useAllergyGate`: open / select), chips + banner.
-- Removed every "3-day test pending" chip/banner from recipes; the food
-  diary is untouched and stays in its own tracker.
-- `store/useAuthStore.ts` hydration now forwards `foodAllergies` (it
-  whitelists kid fields — the list was being dropped on sign-in).
-- Daily pick excludes matching recipes. Tests: `tests/foodAllergies.test.ts`.
+**Growth & Milestones (2026-10-01, Claude) — COMMITTED LOCALLY, NOT PUSHED.**
+The user asked not to deploy; pushing `main` auto-deploys (web + OTA).
+`git push origin main` ships it once they say so.
 
-Still open from 2026-09-30: Cloudflare Worker (`cloudflare-worker/`) needs
-`wrangler deploy` for the AI prompt wording; Firestore `travel_recipes` docs
-may hold old "baby" wording.
+- Health → "Growth & Milestones" (`components/health/growth/*`) replaces the
+  separate Growth and Milestones cards; `?tab=milestones` opens its
+  Milestones segment. Overview, age timeline, WHO graphs, milestone records.
+- `data/whoGrowthStandards.ts` — GENERATED from the official WHO `anthro`
+  LMS tables (weight / length-height / head, boys + girls, 0–60 months).
+  Do not hand-edit. `lib/growth.ts` — LMS maths, validation, visit grouping.
+- Measurements still live in `useGrowthStore` (weight/height/head entry
+  lists); new `saveVisit` / `deleteVisit` write a day's readings together.
+  Old records are preserved and shown.
+- `data/developmentMilestones.ts` — CDC (by-age) + WHO motor windows.
+  Milestones are never auto-marked from age; state on `Kid.milestoneStates`
+  (now with observedOn / note). `Kid.bornEarly`, `Kid.growthChartSex` added
+  and forwarded in `useAuthStore` hydration.
+- Old `MilestonesSection` in `app/(tabs)/health.tsx` and the `growth` mode
+  of `GrowthTab.tsx` are now unused (left in place; safe to delete).
+- Earlier milestone ticks (ids m01–m16) stay in the data but the new list
+  uses new ids, so they are not shown.
+
+Shipped earlier today: child food-allergy tracker (dca21d5).
+Still open: Cloudflare Worker deploy; Firestore `travel_recipes` wording.
 
 ---
 

@@ -30,6 +30,29 @@ export interface GrowthEntry {
   sleepStart?: string;
   sleepEnd?: string;
   note?: string;
+  /** Growth measurements only: where it was taken. */
+  place?: 'home' | 'clinic';
+  /** Height entries only: measured lying down (length) or standing (height). */
+  lengthMode?: 'lying' | 'standing';
+}
+
+/** One day's measurements, as saved by the Growth & Milestones form. */
+export interface VisitInput {
+  /** YYYY-MM-DD */
+  date: string;
+  weightKg?: number;
+  lengthCm?: number;
+  headCm?: number;
+  lengthMode?: 'lying' | 'standing';
+  place?: 'home' | 'clinic';
+  note?: string;
+}
+
+const MEASURE_TRACKERS = ['weight', 'height', 'head'] as const;
+
+function localDateKey(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 export type KidGrowthMap = Partial<Record<GrowthTracker, GrowthEntry[]>>;
@@ -41,6 +64,14 @@ interface GrowthState {
   addEntry: (kidId: string, tracker: GrowthTracker, entry: Omit<GrowthEntry, 'id'>) => void;
   updateEntry: (kidId: string, tracker: GrowthTracker, entryId: string, patch: Partial<GrowthEntry>) => void;
   deleteEntry: (kidId: string, tracker: GrowthTracker, entryId: string) => void;
+  /**
+   * Save one day's measurements for a child (add or edit). Values left
+   * undefined are removed for that day; `replaceDate` is the visit's
+   * previous date when the parent changed it. Other days, other children
+   * and the diaper/sleep logs are never touched.
+   */
+  saveVisit: (kidId: string, visit: VisitInput, replaceDate?: string) => void;
+  deleteVisit: (kidId: string, date: string) => void;
   getEntries: (kidId: string, tracker: GrowthTracker) => GrowthEntry[];
   resetGrowth: () => void;
 }
@@ -105,6 +136,44 @@ export const useGrowthStore = create<GrowthState>()(
           const list = kidMap[tracker]!.filter((e) => e.id !== entryId);
           const nextKidMap: KidGrowthMap = { ...kidMap, [tracker]: list };
           const byKid = { ...state.byKid, [kidId]: nextKidMap };
+          pushToFirestore(byKid);
+          return { byKid };
+        });
+      },
+
+      saveVisit: (kidId, visit, replaceDate) => {
+        set((state) => {
+          const kidMap: KidGrowthMap = { ...(state.byKid[kidId] ?? {}) };
+          const at = new Date(`${visit.date}T12:00:00`).toISOString();
+          const values = { weight: visit.weightKg, height: visit.lengthCm, head: visit.headCm } as const;
+          const drop = new Set([visit.date, replaceDate].filter(Boolean) as string[]);
+          for (const tracker of MEASURE_TRACKERS) {
+            const kept = (kidMap[tracker] ?? []).filter((e) => !drop.has(localDateKey(e.at)));
+            const value = values[tracker];
+            if (typeof value === 'number' && isFinite(value)) {
+              const entry: GrowthEntry = { id: newId(), at, value };
+              if (visit.note?.trim()) entry.note = visit.note.trim();
+              if (visit.place) entry.place = visit.place;
+              if (tracker === 'height' && visit.lengthMode) entry.lengthMode = visit.lengthMode;
+              kept.push(entry);
+            }
+            kidMap[tracker] = sortDesc(kept);
+          }
+          const byKid = { ...state.byKid, [kidId]: kidMap };
+          pushToFirestore(byKid);
+          return { byKid };
+        });
+      },
+
+      deleteVisit: (kidId, date) => {
+        set((state) => {
+          const existing = state.byKid[kidId];
+          if (!existing) return state;
+          const kidMap: KidGrowthMap = { ...existing };
+          for (const tracker of MEASURE_TRACKERS) {
+            kidMap[tracker] = (kidMap[tracker] ?? []).filter((e) => localDateKey(e.at) !== date);
+          }
+          const byKid = { ...state.byKid, [kidId]: kidMap };
           pushToFirestore(byKid);
           return { byKid };
         });

@@ -163,6 +163,8 @@ async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
         // from). Hydration whitelists fields — without this the list was
         // dropped on every sign-in and wiped by the next profile save.
         ...(kid.foodAllergies ? { foodAllergies: kid.foodAllergies } : {}),
+        ...(kid.bornEarly === 'yes' || kid.bornEarly === 'no' ? { bornEarly: kid.bornEarly } : {}),
+        ...(kid.growthChartSex === 'boy' || kid.growthChartSex === 'girl' ? { growthChartSex: kid.growthChartSex } : {}),
         ...(Array.isArray(kid.allergies) ? { allergies: kid.allergies } : {}),
       })
     );

@@ -9,6 +9,11 @@ import type { KidFoodAllergies } from '../../../lib/foodAllergies';
  */
 export function saveKidAllergies(kidId: string, value: KidFoodAllergies): void {
   useProfileStore.getState().updateKid(kidId, { foodAllergies: value });
+  persistProfile();
+}
+
+/** Push the current profile (kids array included) to Firebase. Local state is already saved. */
+export function persistProfile(): void {
   const uid = useAuthStore.getState().user?.uid;
   if (!uid) return;
   const s = useProfileStore.getState();
@@ -23,5 +28,5 @@ export function saveKidAllergies(kidId: string, value: KidFoodAllergies): void {
     bio: s.bio || '',
     expertise: s.expertise || [],
     visibilitySettings: s.visibilitySettings,
-  }).catch((err) => console.warn('saveFullProfile (food allergies) failed:', err));
+  }).catch((err) => console.warn('saveFullProfile (kid fields) failed:', err));
 }

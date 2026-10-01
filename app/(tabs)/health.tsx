@@ -40,7 +40,8 @@ import VaccineScheduleChooser from '../../components/health/VaccineScheduleChoos
 import TeethTab from '../../components/health/TeethTab';
 import FoodTrackerTab from '../../components/health/FoodTrackerTab';
 import DietPrompt from '../../components/jit/DietPrompt';
-import GrowthTab, { RoutineTab } from '../../components/health/GrowthTab';
+import { RoutineTab } from '../../components/health/GrowthTab';
+import GrowthMilestonesScreen from '../../components/health/growth/GrowthMilestonesScreen';
 import NuskheTab from '../../components/health/NuskheTab';
 import TravelRecipeHub from '../../components/health/travel/TravelRecipeHub';
 import { Illustration } from '../../components/ui/Illustration';
@@ -74,8 +75,8 @@ interface SubTabMeta {
 // fill colour.
 const SUB_TABS: SubTabMeta[] = [
   { key: 'vaccines', label: 'Vaccines',   icon: 'shield-checkmark-outline', description: 'IAP 2023 schedule · due & upcoming', category: 'baby'     },
-  { key: 'growth',   label: 'Growth',     icon: 'trending-up-outline',      description: 'Weight, height & head circumference', category: 'baby'     },
-  { key: 'milestones', label: 'Milestones', icon: 'star-outline',           description: 'Track what your child is doing now',    category: 'baby'     },
+  // Growth + Milestones are one section (the old 'milestones' deep link opens its Milestones tab).
+  { key: 'growth',   label: 'Growth & Milestones', icon: 'trending-up-outline', description: 'Measurements, WHO charts & milestones', category: 'baby' },
   { key: 'teeth',    label: 'Teeth',      icon: 'happy-outline',            description: 'Eruption & shedding tracker',         category: 'baby'     },
   { key: 'foods',    label: 'Foods',      icon: 'restaurant-outline',       description: 'Weaning tracker & tiffin recipes',     category: 'baby'     },
   { key: 'routine',  label: 'Routine',    icon: 'time-outline',             description: 'Diaper & sleep log',                   category: 'baby'     },
@@ -1556,12 +1557,14 @@ export default function HealthScreen() {
     !!t && (validTabs as string[]).includes(t) && isSubTabVisible(t as SubTab, kidAgeMonths);
   // Null => show the category landing grid. A valid ?tab=… deep-links directly
   // into a sub-screen (used by home Quick Actions) and bypasses the grid.
-  const initialTab: SubTab | null = isOpenable(params?.tab) ? params.tab : null;
+  // `?tab=milestones` (Home cards, AI chips) now lands on Growth & Milestones → Milestones.
+  const normalizeTab = (t: SubTab): SubTab => (t === 'milestones' ? 'growth' : t);
+  const initialTab: SubTab | null = isOpenable(params?.tab) ? normalizeTab(params.tab) : null;
   const [subTab, setSubTab] = useState<SubTab | null>(initialTab);
   // If the param changes after mount (re-deep-link), follow it.
   useEffect(() => {
     if (isOpenable(params?.tab)) {
-      setSubTab(params.tab);
+      setSubTab(normalizeTab(params.tab));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params?.tab]);
@@ -1757,14 +1760,10 @@ export default function HealthScreen() {
         )}
 
         {/* ── GROWTH (weight / height / head) ── */}
-        {subTab === 'growth' && <GrowthTab />}
-
-        {/* ── MILESTONES ── */}
-        {subTab === 'milestones' && (
-          <MilestonesSection
-            activeKid={activeKid}
-            onToggle={handleToggleMilestone}
-            onAskAboutMilestone={handleAskMilestone}
+        {subTab === 'growth' && (
+          <GrowthMilestonesScreen
+            key={`${activeKid?.id ?? 'none'}-${params?.tab === 'milestones' ? 'm' : 'g'}`}
+            initialSegment={params?.tab === 'milestones' ? 'milestones' : 'timeline'}
           />
         )}
 

@@ -10,6 +10,16 @@ export type VaccineScheduleType = 'iap' | 'nis';
 
 import type { KidFoodAllergies } from '../lib/foodAllergies';
 
+/** A parent's record for one developmental milestone. Never set automatically from age. */
+export interface MilestoneState {
+  /** true = "Observed", false = "Not yet". */
+  reached: boolean;
+  /** YYYY-MM-DD the parent first saw it. */
+  observedOn?: string;
+  note?: string;
+  updatedAt?: string;
+}
+
 export interface Kid {
   id: string;
   name: string;
@@ -22,7 +32,11 @@ export interface Kid {
    * back to the age-based default. This lets a parent uncheck a milestone
    * that would otherwise auto-mark as reached.
    */
-  milestoneStates?: Record<string, { reached: boolean; updatedAt?: string }>;
+  milestoneStates?: Record<string, MilestoneState>;
+  /** Born before 37 weeks? Undefined = not asked. We never guess — it changes how growth charts are read. */
+  bornEarly?: 'yes' | 'no';
+  /** Which WHO chart to draw when the profile gender isn't boy/girl. */
+  growthChartSex?: 'boy' | 'girl';
   ageInMonths: number;
   ageInWeeks: number;
   isExpecting: boolean;
@@ -188,6 +202,8 @@ interface ProfileState {
   unmarkVaccineDone: (vaccineId: string, kidId: string) => void;
   setKidVaccineSchedule: (kidId: string, schedule: VaccineScheduleType) => void;
   setKidMilestoneState: (kidId: string, milestoneId: string, reached: boolean) => void;
+  /** Record a milestone as observed / not yet (with date + note), or clear it with null. */
+  setKidMilestone: (kidId: string, milestoneId: string, state: Omit<MilestoneState, 'updatedAt'> | null) => void;
   /** Wipes ALL profile data — call on sign-out so no data leaks to the next user */
   resetProfile: () => void;
 
@@ -329,6 +345,18 @@ export const useProfileStore = create<ProfileState>()(
       setKidVaccineSchedule: (kidId, schedule) => {
         set((state) => ({
           kids: state.kids.map((k) => (k.id === kidId ? { ...k, vaccineSchedule: schedule } : k)),
+        }));
+      },
+
+      setKidMilestone: (kidId, milestoneId, mState) => {
+        set((state) => ({
+          kids: state.kids.map((k) => {
+            if (k.id !== kidId) return k;
+            const next = { ...(k.milestoneStates ?? {}) };
+            if (mState === null) delete next[milestoneId];
+            else next[milestoneId] = { ...mState, updatedAt: new Date().toISOString() };
+            return { ...k, milestoneStates: next };
+          }),
         }));
       },
 
