@@ -8,10 +8,7 @@
 
 ## Active task
 
-**Child food-allergy tracker (2026-10-01, Claude) — COMMITTED LOCALLY, NOT PUSHED.**
-The user asked not to deploy; pushing `main` auto-deploys (web + OTA), so the
-commit is waiting on their go-ahead. `git push origin main` ships it.
-
+**Child food-allergy tracker (2026-10-01, Claude) — SHIPPED (dca21d5, web + OTA).**
 - `lib/foodAllergies.ts` — per-child list (`Kid.foodAllergies`: entries with
   known/suspected status + note, or "Not sure yet"), matching (families,
   aliases, catalogue foods, custom words; no substrings), alert wording.
