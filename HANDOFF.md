@@ -22,6 +22,9 @@
   web only) — beside the survey on screens >= 980px, on the thank-you
   screen on phones — with a Play Store button (`PromoPanel`). To change
   the clips, replace the files / edit `PROMO_CLIPS` in the page.
+  The web clips are trimmed to stop BEFORE the "Get it on Google Play"
+  end screen (intro only, user request) and the player has no native
+  controls / download / right-click menu — keep both when swapping clips.
 - Firestore rules deployed 2026-10-01 (CI does NOT deploy rules — run
   `npx firebase deploy --only firestore:rules --project maa-mitra-7kird8`
   after any rules change). Live submit verified; one test response tagged

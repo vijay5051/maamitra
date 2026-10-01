@@ -355,10 +355,31 @@ export default function MothersSurveyScreen() {
   );
 }
 
-/** MaaMitra promo: the app videos on a loop plus a Play Store button. Web only. */
+/**
+ * MaaMitra promo: the app intro videos on a loop plus a Play Store button.
+ * Web only. The browser's own controls are left off (they carry the
+ * "Download" and picture-in-picture entries) — we draw play and sound buttons
+ * ourselves and swallow the right-click / long-press menu.
+ */
 function PromoPanel() {
   const [clip, setClip] = useState(0);
+  const [muted, setMuted] = useState(true);
+  const [paused, setPaused] = useState(false);
+  const videoRef = useRef<any>(null);
   const current = PROMO_CLIPS[clip];
+
+  // React does not keep the `muted` attribute in sync after mount.
+  useEffect(() => {
+    if (videoRef.current) videoRef.current.muted = muted;
+  }, [muted, clip]);
+
+  const togglePlay = () => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (v.paused) void v.play()?.catch?.(() => {});
+    else v.pause();
+  };
+
   return (
     <View style={styles.promo}>
       <Text style={styles.promoTitle}>Meet MaaMitra</Text>
@@ -368,17 +389,44 @@ function PromoPanel() {
       <View style={styles.videoFrame}>
         {createElement('video', {
           key: current.src,
+          ref: videoRef,
           src: current.src,
           poster: current.poster,
-          controls: true,
           playsInline: true,
-          // Browsers only allow autoplay when muted; she can unmute from the controls.
+          // Browsers only allow autoplay when muted; the sound button unmutes.
           muted: true,
           autoPlay: true,
           preload: 'metadata',
+          controlsList: 'nodownload noplaybackrate noremoteplayback',
+          disablePictureInPicture: true,
+          disableRemotePlayback: true,
+          onContextMenu: (e: any) => e.preventDefault(),
+          onClick: togglePlay,
+          onPlay: () => setPaused(false),
+          onPause: () => setPaused(true),
           onEnded: () => setClip((clip + 1) % PROMO_CLIPS.length),
-          style: { width: '100%', height: '100%', display: 'block', objectFit: 'cover', backgroundColor: '#1C1033' },
+          style: {
+            width: '100%', height: '100%', display: 'block', objectFit: 'cover',
+            backgroundColor: '#1C1033', cursor: 'pointer',
+          },
         })}
+        {paused && (
+          <View style={styles.playOverlay} pointerEvents="none">
+            <View style={styles.playBadge}>
+              <Ionicons name="play" size={30} color="#fff" />
+            </View>
+          </View>
+        )}
+        <TouchableOpacity
+          style={styles.soundBtn}
+          onPress={() => setMuted(!muted)}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={muted ? 'Turn sound on' : 'Turn sound off'}
+        >
+          <Ionicons name={muted ? 'volume-mute' : 'volume-high'} size={18} color="#fff" />
+          {muted && <Text style={styles.soundBtnText}>Tap for sound</Text>}
+        </TouchableOpacity>
       </View>
       <TouchableOpacity
         style={styles.storeBtn}
@@ -435,6 +483,21 @@ const styles = StyleSheet.create({
     width: '100%', aspectRatio: 9 / 16, borderRadius: 24, overflow: 'hidden',
     backgroundColor: Colors.textDark, borderWidth: 4, borderColor: Colors.textDark,
   },
+  playOverlay: {
+    position: 'absolute', left: 0, right: 0, top: 0, bottom: 0,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  playBadge: {
+    width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(28,16,51,0.65)',
+    alignItems: 'center', justifyContent: 'center', paddingLeft: 4,
+  },
+  soundBtn: {
+    position: 'absolute', right: 10, bottom: 10,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: 'rgba(28,16,51,0.7)', borderRadius: 999,
+    paddingVertical: 8, paddingHorizontal: 12,
+  },
+  soundBtnText: { fontFamily: Fonts.sansSemiBold, fontSize: 12, color: '#fff' },
   storeBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     backgroundColor: Colors.textDark, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 18,
