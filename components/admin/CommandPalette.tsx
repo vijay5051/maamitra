@@ -47,6 +47,7 @@ const NAV_ITEMS: PaletteItem[] = [
   { kind: 'nav', title: 'In-app banner',     sub: 'Manage live banner',           href: '/admin/banner' },
   { kind: 'nav', title: 'Audit log',         sub: 'Who did what, when',           href: '/admin/audit' },
   { kind: 'nav', title: 'Tester feedback',   sub: 'Pricing & loved/frustrated',   href: '/admin/feedback' },
+  { kind: 'nav', title: 'Mothers survey',    sub: 'Public survey results · CSV',  href: '/admin/mothers-survey' },
   { kind: 'nav', title: 'App settings',      sub: 'Flags · % rollout · admin team', href: '/admin/settings' },
 ];
 

@@ -91,6 +91,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/whatsnew',      label: "What's new",     icon: 'sparkles-outline', cap: 'manage_banner', fresh: true },
       { href: '/admin/support',       label: 'Support inbox', icon: 'help-buoy-outline', cap: 'view_support' },
       { href: '/admin/feedback',      label: 'Tester feedback', icon: 'star-outline', cap: 'view_dashboard' },
+      { href: '/admin/mothers-survey', label: 'Mothers survey', icon: 'clipboard-outline', cap: 'view_dashboard', fresh: true },
     ],
   },
   {

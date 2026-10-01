@@ -763,5 +763,28 @@ service cloud.firestore {
         (!('appVersion' in request.resource.data) || shortText(request.resource.data.appVersion, 40));
       allow update, delete: if isAdmin();
     }
+
+    // ── Mothers survey (public research survey at /mothers-survey) ────────────
+    // The page needs no sign-in, so ANYONE may create a response — but only
+    // with this exact shape, size-capped, and stamped with the server time.
+    // Nobody but an admin can read, change or delete responses (they may
+    // hold a name and phone number the mother chose to share).
+    match /mothers_survey_responses/{responseId} {
+      allow read:   if isAdmin();
+      allow create: if
+        request.resource.data.keys().hasOnly(
+          ['version', 'answers', 'comment', 'name', 'phone', 'contactConsent', 'source', 'platform', 'createdAt']) &&
+        request.resource.data.version is int &&
+        request.resource.data.answers is map &&
+        request.resource.data.answers.size() <= 12 &&
+        request.resource.data.createdAt == request.time &&
+        (!('comment' in request.resource.data) || shortText(request.resource.data.comment, 1000)) &&
+        (!('name' in request.resource.data) || shortText(request.resource.data.name, 60)) &&
+        (!('phone' in request.resource.data) || shortText(request.resource.data.phone, 20)) &&
+        (!('contactConsent' in request.resource.data) || request.resource.data.contactConsent is bool) &&
+        (!('source' in request.resource.data) || shortText(request.resource.data.source, 80)) &&
+        (!('platform' in request.resource.data) || shortText(request.resource.data.platform, 20));
+      allow update, delete: if isAdmin();
+    }
   }
 }

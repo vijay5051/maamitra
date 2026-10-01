@@ -8,6 +8,24 @@
 
 ## Active task
 
+**Mothers survey (2026-10-01, Claude) — code shipped; Firestore rules NOT yet deployed.**
+- Public, no-login page `/mothers-survey` (`app/mothers-survey.tsx`): 10
+  questions about the motherhood journey (never about MaaMitra), one per
+  screen, optional note + optional name / WhatsApp number with consent.
+  `?src=` (or `utm_source`) is stored as the campaign source.
+- Questions live in `data/mothersSurvey.ts` (option KEYS are stored — never
+  rename them; bump `MOTHERS_SURVEY_VERSION` if the set changes).
+- Writes to `mothers_survey_responses` via `services/mothersSurvey.ts`.
+- Admin → Engagement → "Mothers survey" (`app/admin/mothers-survey.tsx`):
+  counts, per-question breakdown, every response, CSV export.
+- **BLOCKER:** `firestore.rules` has the new `mothers_survey_responses`
+  block, but CI does not deploy rules and the Firebase CLI on Divya's Mac is
+  not logged in. Until someone runs
+  `npx firebase deploy --only firestore:rules --project maa-mitra-7kird8`
+  submissions fail ("could not save") and the admin screen shows
+  "Missing or insufficient permissions". After deploying: submit one test
+  response on the live URL, confirm it in admin, then delete it.
+
 **Community is OFF — shown as "Coming soon" (2026-10-01, user decision).**
 Low activity; re-open when downloads reach 10,000. Gate: `lib/communityGate.ts`
 (`useCommunityEnabled`) reading runtime flag `features.community`, whose code

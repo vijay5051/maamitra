@@ -196,6 +196,9 @@ export default function RootLayout() {
   useEffect(() => {
     if (!user) return;
     if (pathname && pathname.startsWith('/(auth)')) return;
+    // The public mothers survey is its own questionnaire — never stack the
+    // tester survey on top of it.
+    if (pathname && pathname.startsWith('/mothers-survey')) return;
 
     let timer: ReturnType<typeof setTimeout> | null = null;
     let cancelled = false;
