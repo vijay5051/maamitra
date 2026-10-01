@@ -4,7 +4,6 @@ import { Ionicons } from '@expo/vector-icons';
 import GradientButton from '../ui/GradientButton';
 import { Illustration } from '../ui/Illustration';
 import { Colors, Fonts } from '../../constants/theme';
-import { COMMUNITY_DOWNLOAD_GOAL } from '../../lib/communityGate';
 
 const APP_URL = 'https://maamitra.co.in';
 
@@ -41,8 +40,6 @@ export default function CommunityComingSoon() {
         <Text style={styles.title}>A circle of parents, opening soon</Text>
         <Text style={styles.text}>
           We’re getting Community ready — a warm space to ask questions, share wins and support each other.
-          It opens when MaaMitra reaches {COMMUNITY_DOWNLOAD_GOAL.toLocaleString('en-IN')} downloads, so there are
-          enough parents here to make it lively.
         </Text>
         <GradientButton title="Invite a friend to MaaMitra" onPress={inviteFriend} style={styles.cta} />
         <Text style={styles.note}>Until then, ask MaaMitra anything from the ✨ button below.</Text>
