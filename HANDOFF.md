@@ -8,10 +8,7 @@
 
 ## Active task
 
-**Growth & Milestones (2026-10-01, Claude) — COMMITTED LOCALLY, NOT PUSHED.**
-The user asked not to deploy; pushing `main` auto-deploys (web + OTA).
-`git push origin main` ships it once they say so.
-
+**Growth & Milestones (2026-10-01, Claude) — SHIPPED (web + OTA).**
 - Health → "Growth & Milestones" (`components/health/growth/*`) replaces the
   separate Growth and Milestones cards; `?tab=milestones` opens its
   Milestones segment. Overview, age timeline, WHO graphs, milestone records.
