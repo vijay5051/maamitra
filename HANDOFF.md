@@ -18,13 +18,13 @@
 - Writes to `mothers_survey_responses` via `services/mothersSurvey.ts`.
 - Admin → Engagement → "Mothers survey" (`app/admin/mothers-survey.tsx`):
   counts, per-question breakdown, every response, CSV export.
-- Marketing: the page also plays the app promo videos (`public/videos/*`,
-  web only) — beside the survey on screens >= 980px, on the thank-you
-  screen on phones — with a Play Store button (`PromoPanel`). To change
-  the clips, replace the files / edit `PROMO_CLIPS` in the page.
-  The web clips are trimmed to stop BEFORE the "Get it on Google Play"
-  end screen (intro only, user request) and the player has no native
-  controls / download / right-click menu — keep both when swapping clips.
+- Marketing: the page also plays ONE looping app-intro video
+  (`public/videos/app-intro.mp4`, web only) — beside the survey on screens
+  >= 980px, on the thank-you screen on phones — with a Play Store button
+  (`PromoPanel`). User rules for this video: a single logo reveal (no
+  repeated intro), NO "Get it on Google Play" end screen, and no way to
+  download it (no native controls / right-click menu). Full-res master:
+  `marketing/video/maamitra-app-intro.mp4` (gitignored).
 - Firestore rules deployed 2026-10-01 (CI does NOT deploy rules — run
   `npx firebase deploy --only firestore:rules --project maa-mitra-7kird8`
   after any rules change). Live submit verified; one test response tagged

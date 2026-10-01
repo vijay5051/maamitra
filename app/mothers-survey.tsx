@@ -38,12 +38,10 @@ const DONE_KEY = 'maamitra_mothers_survey_done';
 const TOTAL = MOTHERS_SURVEY_QUESTIONS.length;
 
 // App promo shown next to the survey on wide screens and on the thank-you
-// screen on phones. The clips are plain files in public/videos (web only, so
-// they never weigh on the native bundle) and play one after the other.
-const PROMO_CLIPS = [
-  { src: '/videos/vaccine-tracker.mp4', poster: '/videos/vaccine-tracker.jpg' },
-  { src: '/videos/foods-tiffin.mp4', poster: '/videos/foods-tiffin.jpg' },
-];
+// screen on phones. The video is a plain file in public/videos (web only, so
+// it never weighs on the native bundle). It is ONE intro film — a single
+// logo reveal, then the features — so nothing repeats; it simply loops.
+const PROMO_VIDEO = { src: '/videos/app-intro.mp4', poster: '/videos/app-intro.jpg' };
 const PLAY_STORE_URL =
   'https://play.google.com/store/apps/details?id=in.maamitra.app&referrer=utm_source%3Dmothers_survey';
 const SIDE_PROMO_MIN_WIDTH = 980;
@@ -356,22 +354,20 @@ export default function MothersSurveyScreen() {
 }
 
 /**
- * MaaMitra promo: the app intro videos on a loop plus a Play Store button.
+ * MaaMitra promo: the app intro video on a loop plus a Play Store button.
  * Web only. The browser's own controls are left off (they carry the
  * "Download" and picture-in-picture entries) — we draw play and sound buttons
  * ourselves and swallow the right-click / long-press menu.
  */
 function PromoPanel() {
-  const [clip, setClip] = useState(0);
   const [muted, setMuted] = useState(true);
   const [paused, setPaused] = useState(false);
   const videoRef = useRef<any>(null);
-  const current = PROMO_CLIPS[clip];
 
   // React does not keep the `muted` attribute in sync after mount.
   useEffect(() => {
     if (videoRef.current) videoRef.current.muted = muted;
-  }, [muted, clip]);
+  }, [muted]);
 
   const togglePlay = () => {
     const v = videoRef.current;
@@ -388,10 +384,10 @@ function PromoPanel() {
       </Text>
       <View style={styles.videoFrame}>
         {createElement('video', {
-          key: current.src,
           ref: videoRef,
-          src: current.src,
-          poster: current.poster,
+          src: PROMO_VIDEO.src,
+          poster: PROMO_VIDEO.poster,
+          loop: true,
           playsInline: true,
           // Browsers only allow autoplay when muted; the sound button unmutes.
           muted: true,
@@ -404,7 +400,6 @@ function PromoPanel() {
           onClick: togglePlay,
           onPlay: () => setPaused(false),
           onPause: () => setPaused(true),
-          onEnded: () => setClip((clip + 1) % PROMO_CLIPS.length),
           style: {
             width: '100%', height: '100%', display: 'block', objectFit: 'cover',
             backgroundColor: '#1C1033', cursor: 'pointer',
