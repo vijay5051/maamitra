@@ -36,13 +36,13 @@ const FEATURES: { icon: keyof typeof Ionicons.glyphMap; illustration: Illustrati
   { icon: 'sparkles-outline',            illustration: 'featureGrowth',    title: 'Remembers you', text: 'Every detail about you and your little one' },
   { icon: 'shield-checkmark-outline',    illustration: 'featurePrivate',   title: 'Trusted info',  text: 'IAP and FOGSI aligned medical content' },
   { icon: 'people-outline',              illustration: 'featureLibrary',   title: 'Multi-child',   text: 'Separate profile for each of your children' },
-  { icon: 'heart-circle-outline',        illustration: 'featureCommunity', title: 'Community',     text: 'Connect with Indian parents going through it too' },
+  { icon: 'heart-circle-outline',        illustration: 'featureCommunity', title: 'Community · soon', text: 'A space to connect with Indian parents, opening soon' },
 ];
 
 const STEPS: { n: string; title: string; text: string }[] = [
   { n: '1', title: 'Sign up & tell us about your little one', text: 'Just a due date or DOB to start — add more whenever you like.' },
   { n: '2', title: 'Ask anything, anytime',              text: 'Feeding, fevers, milestones, government schemes — your mitra is awake at 2 a.m.' },
-  { n: '3', title: 'Grow together',                      text: 'Milestone reminders, a private community, and content that speaks Indian.' },
+  { n: '3', title: 'Grow together',                      text: 'Milestone reminders, growth charts, and content that speaks Indian.' },
 ];
 
 // Web (maamitra.co.in) shows the full marketing landing page — required for
@@ -168,8 +168,8 @@ export default function WelcomeScreen() {
           {IS_WEB && (
             <Text style={[styles.subTagline, isWide && styles.taglineWide]}>
               An India-first AI mitra for new and expecting mothers — answers your
-              2 a.m. questions, remembers your little one, and connects you with parents
-              going through the same thing.
+              2 a.m. questions, remembers your little one, and keeps their vaccines,
+              growth and meals on track.
             </Text>
           )}
         </View>

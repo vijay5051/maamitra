@@ -9,6 +9,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import CommunityComingSoon from '../../components/community/CommunityComingSoon';
+import { useCommunityEnabled } from '../../lib/communityGate';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -45,6 +47,13 @@ function timeAgo(date: Date | string): string {
 }
 
 export default function PublicPostScreen() {
+  // Community is switched off until launch — shared links land on "Coming soon".
+  const { enabled } = useCommunityEnabled();
+  if (!enabled) return <CommunityComingSoon />;
+  return <PublicPostScreenInner />;
+}
+
+function PublicPostScreenInner() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const router = useRouter();

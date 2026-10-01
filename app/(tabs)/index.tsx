@@ -29,6 +29,7 @@ import {
 } from '../../constants/theme';
 import { calculateAgeInMonths, isPlausibleDob } from '../../lib/dob';
 import { isBigKidTeeth, showsRoutineTracker } from '../../lib/kidStage';
+import { useCommunityEnabled } from '../../lib/communityGate';
 import { useProfileStore } from '../../store/useProfileStore';
 import { useWellnessStore } from '../../store/useWellnessStore';
 import { useSocialStore } from '../../store/useSocialStore';
@@ -176,8 +177,9 @@ const FEATURE_GUIDE_CARDS: Array<{
   },
   {
     illustration: 'featureCommunity',
-    title: 'Community',
-    text: 'Connect with Indian parents going through it too',
+    // Community is switched off until launch (lib/communityGate) — say so.
+    title: 'Community · coming soon',
+    text: 'A space to connect with Indian parents, opening soon',
   },
 ];
 
@@ -268,6 +270,8 @@ export default function HomeTab() {
 
   // Direct message unread count — drives the badge on the messages icon.
   const unreadDMs = useDMStore((s) => s.unreadTotal);
+  // Community (feed, messages, find-moms) is off until launch — hide every entry point.
+  const communityOn = useCommunityEnabled().enabled;
   const loadDMUnreadCount = useDMStore((s) => s.loadUnreadCount);
   useEffect(() => {
     if (user?.uid) loadDMUnreadCount();
@@ -929,6 +933,7 @@ export default function HomeTab() {
             )}
           </TouchableOpacity>
 
+          {communityOn && (
           <TouchableOpacity
             style={[styles.iconBtn, { marginLeft: 8 }]}
             onPress={() => setMessagesOpen(true)}
@@ -942,6 +947,7 @@ export default function HomeTab() {
               </View>
             )}
           </TouchableOpacity>
+          )}
 
         </View>
 
@@ -1176,8 +1182,8 @@ export default function HomeTab() {
         {/* ═══ COMMUNITY ═══ Latest post if any, else a seed CTA pulling
             users into making the first post. The local-parents tile lives
             on the Community tab now — no longer gates this header. */}
-        <Text style={styles.groupLabel}>Community</Text>
-        {!latestPost && (
+        {communityOn && <Text style={styles.groupLabel}>Community</Text>}
+        {communityOn && !latestPost && (
           <TouchableOpacity
             activeOpacity={0.9}
             onPress={() => router.push('/(tabs)/community')}
@@ -1197,7 +1203,7 @@ export default function HomeTab() {
             </View>
           </TouchableOpacity>
         )}
-        {latestPost && (() => {
+        {communityOn && latestPost && (() => {
           const created = latestPost.createdAt instanceof Date
             ? latestPost.createdAt
             : new Date(latestPost.createdAt);
@@ -1301,7 +1307,7 @@ export default function HomeTab() {
         {(weeklyDigest.moodLoggedDays > 0 ||
           weeklyDigest.vaccinesDone > 0 ||
           weeklyDigest.vaccinesPending > 0 ||
-          weeklyDigest.myPostsThisWeek > 0 ||
+          (communityOn && weeklyDigest.myPostsThisWeek > 0) ||
           weeklyDigest.newNotifs > 0) && (
           <>
             <View style={styles.sectionHeader}>
@@ -1345,6 +1351,7 @@ export default function HomeTab() {
                     : 'All caught up'}
                 </Text>
               </AnimatedPressable>
+              {communityOn && (
               <AnimatedPressable
                 style={styles.weekTile}
                 onPress={() => router.push('/(tabs)/community')}
@@ -1360,6 +1367,7 @@ export default function HomeTab() {
                     : 'Share your week'}
                 </Text>
               </AnimatedPressable>
+              )}
             </Reanimated.View>
           </>
         )}
@@ -1439,6 +1447,7 @@ export default function HomeTab() {
               router.push({ pathname: '/(tabs)/health', params: { tab: 'myhealth' } })
             }
           />
+          {communityOn && (
           <JumpTile
             icon="search-outline"
             label="Find moms"
@@ -1447,6 +1456,7 @@ export default function HomeTab() {
               router.push({ pathname: '/(tabs)/community', params: { search: '1' } })
             }
           />
+          )}
         </View>
       </ScrollView>
 
@@ -1613,16 +1623,20 @@ export default function HomeTab() {
                   setTimeout(() => setNotifsOpen(true), 120);
                 }}
               />
-              <View style={styles.profileDivider} />
-              <ProfileRow
-                icon="chatbubbles-outline"
-                label="Messages"
-                sub={unreadDMs > 0 ? `${unreadDMs} unread` : 'Direct messages'}
-                onPress={() => {
-                  setProfileOpen(false);
-                  setTimeout(() => setMessagesOpen(true), 120);
-                }}
-              />
+              {communityOn && (
+                <>
+                  <View style={styles.profileDivider} />
+                  <ProfileRow
+                    icon="chatbubbles-outline"
+                    label="Messages"
+                    sub={unreadDMs > 0 ? `${unreadDMs} unread` : 'Direct messages'}
+                    onPress={() => {
+                      setProfileOpen(false);
+                      setTimeout(() => setMessagesOpen(true), 120);
+                    }}
+                  />
+                </>
+              )}
             </View>
 
             <View style={styles.profileGroup}>

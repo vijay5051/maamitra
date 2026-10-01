@@ -11,6 +11,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import CommunityComingSoon from '../../components/community/CommunityComingSoon';
+import { useCommunityEnabled } from '../../lib/communityGate';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -144,6 +146,13 @@ async function compressImageToDataUrl(file: File): Promise<string> {
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 
 export default function ConversationScreen() {
+  // Community is switched off until launch — shared links land on "Coming soon".
+  const { enabled } = useCommunityEnabled();
+  if (!enabled) return <CommunityComingSoon />;
+  return <ConversationScreenInner />;
+}
+
+function ConversationScreenInner() {
   const { uid: otherUid } = useLocalSearchParams<{ uid: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();

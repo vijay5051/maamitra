@@ -8,6 +8,15 @@
 
 ## Active task
 
+**Community is OFF — shown as "Coming soon" (2026-10-01, user decision).**
+Low activity; re-open when downloads reach 10,000. Gate: `lib/communityGate.ts`
+(`useCommunityEnabled`) reading runtime flag `features.community`, whose code
+default is now `enabled: false` (`services/featureFlags.ts`). To re-open:
+Admin → Visibility → switch "Community feed" on (no release needed), then
+revert the "coming soon" copy in `app/(auth)/welcome.tsx` and the Home
+feature-guide card. Gated: Community tab, Home section/tiles/Find moms,
+Messages icons (Home, Family), `/post/[id]`, `/conversation/[uid]`.
+
 **Growth & Milestones (2026-10-01, Claude) — SHIPPED (web + OTA).**
 - Health → "Growth & Milestones" (`components/health/growth/*`) replaces the
   separate Growth and Milestones cards; `?tab=milestones` opens its

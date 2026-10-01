@@ -23,6 +23,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import CommunityComingSoon from '../../components/community/CommunityComingSoon';
+import { useCommunityEnabled } from '../../lib/communityGate';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCommunityStore, CommunityFilter } from '../../store/useCommunityStore';
 import { useProfileStore } from '../../store/useProfileStore';
@@ -947,6 +949,13 @@ const heroStyles = StyleSheet.create({
 const __commentTeardowns = new Map<string, () => void>();
 
 export default function CommunityScreen() {
+  // Switched off until launch (lib/communityGate) → clear "Coming soon" state.
+  const { enabled } = useCommunityEnabled();
+  if (!enabled) return <CommunityComingSoon />;
+  return <CommunityFeedScreen />;
+}
+
+function CommunityFeedScreen() {
   const insets = useSafeAreaInsets();
   const {
     activeFilter,

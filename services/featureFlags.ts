@@ -127,6 +127,9 @@ export const FEATURE_GROUPS: { label: string; keys: FeatureKey[] }[] = [
 export function defaultRuntimeConfig(): RuntimeConfig {
   const features: Record<FeatureKey, FeatureConfig> = {} as any;
   for (const k of FEATURE_KEYS) features[k] = { ...DEFAULT_FEATURE };
+  // Community stays off ("Coming soon") until it is explicitly switched on in
+  // Admin → Visibility — see lib/communityGate.ts.
+  features.community = { ...DEFAULT_FEATURE, enabled: false };
   return {
     features,
     maintenance: { enabled: false, title: 'We\'ll be right back', message: 'MaaMitra is undergoing a quick maintenance — we\'ll be back in a few minutes.', allowReadOnly: false },

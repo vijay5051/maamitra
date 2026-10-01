@@ -37,6 +37,7 @@ import GenderChip, { type GenderChipValue } from '../../components/onboarding/Ge
 import LivePreviewPill from '../../components/onboarding/LivePreviewPill';
 import { validateNewbornDob, validatePregnantDueDate } from '../../lib/dateValidation';
 import BackToHomeButton from '../../components/ui/BackToHomeButton';
+import { useCommunityEnabled } from '../../lib/communityGate';
 import FoodAllergySetupRow from '../../components/health/allergy/FoodAllergySetupRow';
 import { EMPTY_ALLERGIES, KidFoodAllergies } from '../../lib/foodAllergies';
 
@@ -435,6 +436,7 @@ export default function FamilyScreen() {
   const socialUnread = useSocialStore((s) => s.unreadCount);
   const loadNotifications = useSocialStore((s) => s.loadNotifications);
   const unreadDMs = useDMStore((s) => s.unreadTotal);
+  const communityOn = useCommunityEnabled().enabled;
   const loadDMUnreadCount = useDMStore((s) => s.loadUnreadCount);
   useEffect(() => {
     if (user?.uid) {
@@ -531,6 +533,7 @@ export default function FamilyScreen() {
                 </View>
               )}
             </TouchableOpacity>
+            {communityOn && (
             <TouchableOpacity
               style={styles.headerBtn}
               onPress={() => setShowMessages(true)}
@@ -545,6 +548,7 @@ export default function FamilyScreen() {
                 </View>
               )}
             </TouchableOpacity>
+            )}
           </View>
         </View>
       </LinearGradient>
