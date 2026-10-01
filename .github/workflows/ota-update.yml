@@ -46,4 +46,7 @@ jobs:
           npx eas-cli env:pull production --path .env --non-interactive
 
       - name: Publish OTA update
-        run: npx eas-cli update --branch "${{ inputs.branch }}" --message "${{ inputs.message }}" --non-interactive
+        env:
+          OTA_BRANCH: ${{ inputs.branch }}
+          OTA_MESSAGE: ${{ inputs.message }}
+        run: npx eas-cli update --branch "$OTA_BRANCH" --message "$OTA_MESSAGE" --non-interactive

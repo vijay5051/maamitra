@@ -62,13 +62,24 @@ jobs:
 
       - name: Compute OTA message
         id: ota_msg
+        # Values go through env vars, never straight into the script text —
+        # a commit subject containing quotes (or $(...)) used to break, and
+        # could inject into, the shell command.
+        env:
+          INPUT_MESSAGE: ${{ github.event.inputs.message }}
         run: |
-          if [ -n "${{ github.event.inputs.message }}" ]; then
-            echo "msg=${{ github.event.inputs.message }}" >> "$GITHUB_OUTPUT"
+          if [ -n "$INPUT_MESSAGE" ]; then
+            MSG="$INPUT_MESSAGE"
           else
-            FIRST_LINE=$(git log -1 --pretty=%s)
-            echo "msg=$FIRST_LINE" >> "$GITHUB_OUTPUT"
+            MSG=$(git log -1 --pretty=%s)
           fi
+          {
+            echo 'msg<<__OTA_MSG_EOF__'
+            echo "$MSG"
+            echo '__OTA_MSG_EOF__'
+          } >> "$GITHUB_OUTPUT"
 
       - name: Publish OTA update
-        run: npx eas-cli update --branch production --message "${{ steps.ota_msg.outputs.msg }}" --non-interactive
+        env:
+          OTA_MESSAGE: ${{ steps.ota_msg.outputs.msg }}
+        run: npx eas-cli update --branch production --message "$OTA_MESSAGE" --non-interactive
