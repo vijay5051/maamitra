@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import DatePickerField from '../ui/DatePickerField';
 import { VaccineWithDate } from '../../hooks/useVaccineSchedule';
 import { useProfileStore } from '../../store/useProfileStore';
@@ -22,6 +23,7 @@ function statusColor(status: VaccineWithDate['status']): string {
 }
 
 export default function VaccineCard({ vaccine }: VaccineCardProps) {
+  const router = useRouter();
   const { markVaccineDone, unmarkVaccineDone } = useProfileStore();
   const { activeKid } = useActiveKid();
   const kidId = activeKid?.id ?? '';
@@ -34,6 +36,10 @@ export default function VaccineCard({ vaccine }: VaccineCardProps) {
   const [showDateInput, setShowDateInput] = useState(false);
   const [pendingDate, setPendingDate] = useState('');
   const [dateError, setDateError] = useState('');
+
+  const openDetail = () => {
+    router.push({ pathname: '/vaccine/[id]', params: { id: vaccine.id } });
+  };
 
   const syncToCloud = () => {
     const uid = useAuthStore.getState().user?.uid;
@@ -83,36 +89,50 @@ export default function VaccineCard({ vaccine }: VaccineCardProps) {
 
   return (
     <View style={[styles.row, isDone && styles.rowDone]}>
-      <TouchableOpacity
-        onPress={handleToggle}
-        activeOpacity={canMark ? 0.6 : 1}
-        disabled={!canMark}
-        style={styles.main}
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: isDone, disabled: !canMark }}
-        accessibilityLabel={`${vaccine.name}, ${rightLabel}`}
-      >
-        <View style={[
-          styles.checkbox,
-          isDone && styles.checkboxDone,
-          !canMark && styles.checkboxDisabled,
-        ]}>
+      <View style={styles.main}>
+        {/* Checkbox is its own touchable so a quick tap marks/unmarks without
+            navigating away — the fast path we had before. */}
+        <TouchableOpacity
+          onPress={handleToggle}
+          activeOpacity={canMark ? 0.6 : 1}
+          disabled={!canMark}
+          style={[
+            styles.checkbox,
+            isDone && styles.checkboxDone,
+            !canMark && styles.checkboxDisabled,
+          ]}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: isDone, disabled: !canMark }}
+          accessibilityLabel={`Mark ${vaccine.name} ${isDone ? 'as not given' : 'as given'}`}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
           {isDone && <Ionicons name="checkmark" size={13} color="#fff" />}
-        </View>
+        </TouchableOpacity>
 
-        <View style={styles.textCol}>
-          <Text style={[styles.name, isDone && styles.nameDone]} numberOfLines={1}>
-            {vaccine.name}
+        {/* Rest of the row navigates to the detail screen (what it protects
+            against, why it matters, side effects, aliases). */}
+        <TouchableOpacity
+          onPress={openDetail}
+          activeOpacity={0.7}
+          style={styles.detailTap}
+          accessibilityRole="button"
+          accessibilityLabel={`${vaccine.name} details, ${rightLabel}`}
+        >
+          <View style={styles.textCol}>
+            <Text style={[styles.name, isDone && styles.nameDone]} numberOfLines={1}>
+              {vaccine.name}
+            </Text>
+            {!!vaccine.description && !isDone && (
+              <Text style={styles.desc} numberOfLines={1}>{vaccine.description}</Text>
+            )}
+          </View>
+
+          <Text style={[styles.right, { color }]} numberOfLines={1}>
+            {rightLabel}
           </Text>
-          {!!vaccine.description && !isDone && (
-            <Text style={styles.desc} numberOfLines={1}>{vaccine.description}</Text>
-          )}
-        </View>
-
-        <Text style={[styles.right, { color }]} numberOfLines={1}>
-          {rightLabel}
-        </Text>
-      </TouchableOpacity>
+          <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} style={{ marginLeft: 4 }} />
+        </TouchableOpacity>
+      </View>
 
       {showDateInput && (
         <View style={styles.dateWrap}>
@@ -162,6 +182,12 @@ const styles = StyleSheet.create({
     borderColor: '#E4F4EA',
   },
   main: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  detailTap: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,

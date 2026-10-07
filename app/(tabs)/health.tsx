@@ -28,6 +28,7 @@ import { GOVERNMENT_SCHEMES } from '../../data/schemes';
 import { MILESTONES } from '../../data/milestones';
 import { filterByAudience, parentGenderToAudience } from '../../data/audience';
 import { SCHEDULE_INFO, VaccineScheduleType } from '../../data/vaccines';
+import { downloadVaccineReport } from '../../lib/vaccineReport';
 import { useActiveKid } from '../../hooks/useActiveKid';
 import { calculateAgeInMonths, isPlausibleDob } from '../../lib/dob';
 import { kidNoun, showsRoutineTracker, showsTravelMeals, yourKid } from '../../lib/kidStage';
@@ -677,6 +678,31 @@ function VaccinesSection({
         </View>
       </View>
 
+      {/* Download record — generates a parent-shareable PDF of this
+          child's completed, overdue and upcoming vaccines. Native: share
+          sheet. Web: browser print dialog (Save as PDF). */}
+      <TouchableOpacity
+        onPress={() =>
+          downloadVaccineReport({
+            kid: activeKid,
+            motherName: useProfileStore.getState().motherName,
+            vaccines,
+            scheduleLabel: info.fullName,
+          })
+        }
+        style={vStyles.downloadBtn}
+        activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityLabel="Download vaccination record as PDF"
+      >
+        <Ionicons name="download-outline" size={16} color={Colors.primary} />
+        <View style={{ flex: 1 }}>
+          <Text style={vStyles.downloadBtnText}>Download record (PDF)</Text>
+          <Text style={vStyles.downloadBtnSub}>Share with doctor, school or family</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
+      </TouchableOpacity>
+
       {groups.map((group) => (
         <VaccineAgeGroup key={group.ageLabel} group={group} />
       ))}
@@ -728,6 +754,29 @@ function VaccinesSection({
 }
 
 const vStyles = StyleSheet.create({
+  downloadBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#EDE9F6',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 14,
+  },
+  downloadBtnText: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 13.5,
+    color: Colors.textDark,
+  },
+  downloadBtnSub: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: 11,
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
   group: {
     marginBottom: 12,
   },

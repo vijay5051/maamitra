@@ -8,7 +8,81 @@
 
 ## Active task
 
-**Mothers survey (2026-10-01, Claude) — SHIPPED and live.**
+**Vaccine reminders + PDF report + per-vaccine detail screen (2026-10-07,
+Claude) — code shipped to main, OTA pending.**
+
+- Per-vaccine detail screen: new route `app/vaccine/[id].tsx`. Opens when
+  the user taps any vaccine row in Health → Vaccines. Shows:
+    – title, age label, dose status chip
+    – "Protects against" — chips per disease with one-liner + why-it-matters
+    – "Why this one matters" — single-sentence rationale
+    – "What to expect" — common side effects
+    – "Doctors may also call this" — aliases
+    – Mark-as-given / Undo action (uses the same markVaccineDone flow)
+- Vaccine data expanded via two new catalogs, keeping `data/vaccines.ts`
+  itself untouched:
+    – `data/vaccineDiseases.ts` — 21-entry disease catalog with
+      parent-friendly oneliners and whyItMatters lines (WHO + CDC + IAP
+      cross-check).
+    – `data/vaccineEnrichments.ts` — per-family (dtp, mmr, pcv, …) map of
+      diseases + whyImportant + sideEffects + aliases. A tiny
+      `familyForVaccineId` resolver maps schedule ids (iap-dtp-1 → dtp).
+    – Fallback: if a vaccine id has no enrichment, the detail screen shows
+      only the hero + existing one-line description — no empty sections.
+- PDF vaccine report:
+    – New `lib/vaccineReport.ts` — pure HTML builder plus
+      `downloadVaccineReport({kid, motherName, vaccines, scheduleLabel})`
+      that picks the right path per platform.
+    – Web: `Print.printAsync({ html })` → browser print dialog
+      (user hits Save as PDF).
+    – Native: `Print.printToFileAsync` → `Sharing.shareAsync` with
+      application/pdf UTI.
+    – `expo-print@~15.0.4` + `expo-sharing@~14.0.6` added to deps.
+    – "Download record (PDF)" button sits in the Vaccines section header
+      (`app/(tabs)/health.tsx`).
+- Vaccine reminder cron:
+    – `services/push.ts` + `functions/src/index.ts`: NotifPrefs grew a
+      `vaccines: boolean` (default true). `PushJob.notifType` grew
+      `'vaccine_reminder'`. `personalPrefKey` maps it to the `vaccines`
+      key so the pref gate works for free.
+    – New `functions/src/vaccines/schedule.ts` — MINIMAL mirror of
+      `data/vaccines.ts` (just id + name + daysFromBirth + schedule) for
+      ages 0–5. Add a vaccine on the client → mirror it here if it
+      should trigger reminders.
+    – New `functions/src/vaccines/reminderCron.ts` — pubsub schedule
+      `30 3 * * *` UTC = 09:00 IST. For every push-enabled user with
+      `notifPrefs.vaccines !== false`, scans their kids and queues one
+      `push_queue` doc per (kid, vaccine) that is due in ≤3 days OR
+      overdue. Dedup via `vaccine_reminder_log/{uid}_{kidId}_{vId}` with
+      a 7-day cooldown so repeat nudges don't badger.
+    – Export in `functions/src/index.ts` as `vaccineReminderCron`.
+- Settings → notifications screen:
+    – `app/settings/notifications.tsx` added "Vaccine reminders" as the
+      first per-topic toggle, and a "How to be reminded" section with
+      Push (Active/Off chip) + Email (Soon) + SMS (Soon). The email/SMS
+      rows go live once the provider wiring is added.
+
+**Deploy chain pending (none from this container — no EAS/Firebase creds
+locally):**
+  1. ✅ TypeScript clean (main app + functions)
+  2. ✅ bun test — 162 pass
+  3. ✅ Committed + pushed to `claude/redesign-settings-menu-28dzw` + main
+  4. ⏳ `npx firebase deploy --only functions:vaccineReminderCron` —
+     deploys the new cron (first-time deploy; cron starts on next 03:30 UTC)
+  5. ⏳ `npm run update` — publishes the OTA bundle so the app shows the
+     Vaccines topic toggle, Download PDF button, and detail screen.
+     (No new Firestore rules are needed — the cron writes with admin SDK.)
+
+**Known gaps (deliberate, documented):**
+  - Email + SMS reminders are UI-only. Wiring needs a provider: Trigger
+    Email extension + SendGrid for mail (free tier OK); MSG91 or Twilio
+    for SMS (per-message cost). Once provider is configured, the "Soon"
+    chips flip to "Active" + email/SMS send alongside the push.
+  - The cron only mirrors vaccines up to 5y. Older-age boosters (10y Td,
+    16y Td, HPV 9–14y) are still in the UI but not covered by reminders.
+    Mirror them in `functions/src/vaccines/schedule.ts` when needed.
+
+**Earlier (2026-10-01) — Mothers survey — SHIPPED and live.**
 - Public, no-login page `/mothers-survey` (`app/mothers-survey.tsx`): 10
   questions about the motherhood journey (never about MaaMitra), one per
   screen, optional note + optional name / WhatsApp number with consent.

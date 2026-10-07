@@ -28,11 +28,12 @@ import {
 import { Colors, Fonts, Radius, Spacing } from '../../constants/theme';
 
 const PREF_ROWS: Array<{ key: keyof NotifPrefs; label: string; sub: string }> = [
-  { key: 'reactions',     label: 'Reactions',       sub: 'When someone reacts to your post' },
-  { key: 'comments',      label: 'Comments',        sub: 'When someone comments on your post' },
-  { key: 'dms',           label: 'Direct messages', sub: 'New chat messages' },
-  { key: 'follows',       label: 'Follows',         sub: 'Follow requests & accepts' },
-  { key: 'announcements', label: 'Announcements',   sub: 'Broadcasts from MaaMitra' },
+  { key: 'vaccines',      label: 'Vaccine reminders', sub: 'Due, upcoming and overdue vaccines for your children' },
+  { key: 'reactions',     label: 'Reactions',         sub: 'When someone reacts to your post' },
+  { key: 'comments',      label: 'Comments',          sub: 'When someone comments on your post' },
+  { key: 'dms',           label: 'Direct messages',   sub: 'New chat messages' },
+  { key: 'follows',       label: 'Follows',           sub: 'Follow requests & accepts' },
+  { key: 'announcements', label: 'Announcements',     sub: 'Broadcasts from MaaMitra' },
 ];
 
 export default function NotificationsScreen() {
@@ -296,6 +297,63 @@ export default function NotificationsScreen() {
         <Text style={s.footnote}>
           You can still see reactions, comments, and DMs in your Activity and Messages inbox even if push is off.
         </Text>
+
+        <SectionHeader
+          title="How to be reminded"
+          subtitle="Choose where vaccine reminders should reach you"
+        />
+        <Card>
+          <View style={s.channelRow}>
+            <View style={s.channelIcon}>
+              <Ionicons name="notifications-outline" size={18} color={Colors.primary} />
+            </View>
+            <View style={s.channelContent}>
+              <Text style={s.channelLabel}>Push notification</Text>
+              <Text style={s.channelValue}>
+                {enabled ? 'On · this device' : 'Off · enable at the top of this screen'}
+              </Text>
+            </View>
+            <View style={[s.channelBadge, enabled && s.channelBadgeOn]}>
+              <Text style={[s.channelBadgeText, enabled && s.channelBadgeTextOn]}>
+                {enabled ? 'Active' : 'Off'}
+              </Text>
+            </View>
+          </View>
+          <View style={s.channelDivider} />
+          <View style={s.channelRow}>
+            <View style={s.channelIcon}>
+              <Ionicons name="mail-outline" size={18} color={Colors.textMuted} />
+            </View>
+            <View style={s.channelContent}>
+              <Text style={s.channelLabel}>Email</Text>
+              <Text style={s.channelValue}>
+                Reminders to your signed-in email address
+              </Text>
+            </View>
+            <View style={[s.channelBadge, s.channelBadgeSoon]}>
+              <Text style={s.channelBadgeTextSoon}>Soon</Text>
+            </View>
+          </View>
+          <View style={s.channelDivider} />
+          <View style={s.channelRow}>
+            <View style={s.channelIcon}>
+              <Ionicons name="phone-portrait-outline" size={18} color={Colors.textMuted} />
+            </View>
+            <View style={s.channelContent}>
+              <Text style={s.channelLabel}>SMS</Text>
+              <Text style={s.channelValue}>
+                A text to your verified mobile number
+              </Text>
+            </View>
+            <View style={[s.channelBadge, s.channelBadgeSoon]}>
+              <Text style={s.channelBadgeTextSoon}>Soon</Text>
+            </View>
+          </View>
+        </Card>
+        <Text style={s.footnote}>
+          Push works today. Email and SMS reminders will become available once your admin
+          enables them — the toggles will light up automatically.
+        </Text>
       </ScrollView>
     </View>
   );
@@ -351,5 +409,68 @@ const s = StyleSheet.create({
     lineHeight: 18,
     marginTop: Spacing.md,
     paddingHorizontal: Spacing.xs,
+  },
+  channelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    gap: Spacing.md,
+  },
+  channelIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: Colors.bgTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  channelContent: { flex: 1 },
+  channelLabel: {
+    fontFamily: Fonts.sansSemiBold,
+    fontSize: 15,
+    color: Colors.textDark,
+  },
+  channelValue: {
+    fontFamily: Fonts.sansRegular,
+    fontSize: 12,
+    color: Colors.textMuted,
+    marginTop: 2,
+  },
+  channelDivider: {
+    height: 1,
+    backgroundColor: Colors.borderSoft,
+    marginLeft: 60,
+  },
+  channelBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: Radius.xs,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  channelBadgeOn: {
+    backgroundColor: '#DCFCE7',
+    borderColor: '#86EFAC',
+  },
+  channelBadgeSoon: {
+    backgroundColor: '#F7F3FA',
+    borderColor: '#EDE9F6',
+  },
+  channelBadgeText: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 10,
+    color: Colors.textMuted,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  channelBadgeTextOn: { color: '#15803D' },
+  channelBadgeTextSoon: {
+    fontFamily: Fonts.sansBold,
+    fontSize: 10,
+    color: Colors.primary,
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
   },
 });

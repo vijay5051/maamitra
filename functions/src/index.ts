@@ -83,10 +83,17 @@ interface PushJob {
   data?: Record<string, string>;
   fromUid?: string;
   pushType?: string;
-  // For personal pushes, the in-app notification type (reaction / comment
-  // / follow_request / follow_accepted / message) so we can look up the
-  // matching per-topic pref on the recipient.
-  notifType?: 'reaction' | 'comment' | 'follow_request' | 'follow_accepted' | 'message';
+  // For personal pushes, the in-app notification type so we can look up
+  // the matching per-topic pref on the recipient.
+  //   reaction / comment / message / follow_* → social
+  //   vaccine_reminder                        → vaccines topic
+  notifType?:
+    | 'reaction'
+    | 'comment'
+    | 'follow_request'
+    | 'follow_accepted'
+    | 'message'
+    | 'vaccine_reminder';
 }
 
 interface ResolvedRecipient {
@@ -103,6 +110,7 @@ interface NotifPrefs {
   dms: boolean;
   follows: boolean;
   announcements: boolean;
+  vaccines: boolean;
 }
 
 const DEFAULT_PREFS: NotifPrefs = {
@@ -111,6 +119,7 @@ const DEFAULT_PREFS: NotifPrefs = {
   dms: true,
   follows: true,
   announcements: true,
+  vaccines: true,
 };
 
 const MAX_BATCH = 500;
@@ -421,6 +430,8 @@ function personalPrefKey(
     case 'follow_request':
     case 'follow_accepted':
       return 'follows';
+    case 'vaccine_reminder':
+      return 'vaccines';
     default:
       // Missing type (older client) — don't gate. Better to deliver than
       // silently drop during rollout.
@@ -1538,3 +1549,9 @@ export const generateProductsNow  = buildGenerateProductsNow(ADMIN_EMAILS);
 export const archiveLibraryItem   = buildArchiveLibraryItem(ADMIN_EMAILS);
 export const dailyLibraryAiCron   = buildDailyLibraryAiCron();
 export const expireStaleLibrary   = buildExpireStaleLibrary();
+
+// Daily vaccine-reminder scan — queues one personal push per (kid,
+// vaccine) that is due within 3 days OR overdue, honouring the vaccines
+// pref + a 7-day cooldown so the parent isn't badgered.
+import { buildVaccineReminderCron } from './vaccines/reminderCron';
+export const vaccineReminderCron = buildVaccineReminderCron();

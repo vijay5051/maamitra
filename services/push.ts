@@ -17,6 +17,12 @@ export interface NotifPrefs {
   dms: boolean;
   follows: boolean;
   announcements: boolean;
+  /**
+   * Reminders for upcoming / due / overdue vaccines for every child on the
+   * account. Default on — parents overwhelmingly want these; the opt-out
+   * path is a single toggle in /settings/notifications.
+   */
+  vaccines: boolean;
 }
 
 export const DEFAULT_NOTIF_PREFS: NotifPrefs = {
@@ -25,6 +31,7 @@ export const DEFAULT_NOTIF_PREFS: NotifPrefs = {
   dms: true,
   follows: true,
   announcements: true,
+  vaccines: true,
 };
 
 /** Read the user's current prefs, defaulting missing fields to true. */
