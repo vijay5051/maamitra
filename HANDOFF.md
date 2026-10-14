@@ -8,6 +8,16 @@
 
 ## Active task
 
+**Travel Meals — Toddler Snacks (12m+) set (2026-10-14, Claude) — code on
+main, OTA pending.** New `toddler_snack` category ("Toddler Snacks (1y+)") in
+`data/travelRecipes.ts` with 6 recipes: Suji Mathri (18m+), Masala Makhana,
+Roasted Murmura, Atta Coconut Cookies, Dates Barfi, Energy Bars (all 12m+).
+Photos in `assets/travel-meals/tr_<id>.webp`, registered in
+`data/travelRecipeImages.ts`. Hidden for babies under the min age by the
+existing `filterTravelRecipes` age check. Firestore `travel_recipes` is empty
+(checked 2026-10-14), so the local seed is what users see.
+Next: deploy web + OTA, then check the Toddler Snacks section on the live app.
+
 **Vaccine reminders + PDF report + per-vaccine detail screen (2026-10-07,
 Claude) — code shipped to main, OTA pending.**
 

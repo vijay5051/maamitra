@@ -1,6 +1,7 @@
-// Travel recipe catalogue — all 37 recipes sourced from The Little Traveller's Cookbook
-// (babies 6–12 months). Fetched from Firestore at runtime; this file is the
-// local seed / fallback used when the network is unavailable.
+// Travel recipe catalogue — 37 baby recipes (6–12 months) from The Little
+// Traveller's Cookbook, plus a Toddler Snacks set (12 months+). Fetched from
+// Firestore at runtime; this file is the local seed / fallback used when the
+// network is unavailable.
 
 export type TravelAllergen =
   | 'milk' | 'gluten' | 'tree_nuts' | 'egg' | 'soy' | 'sesame' | 'peanut';
@@ -11,7 +12,8 @@ export type TravelCategory =
   | 'shelf_stable_snack'
   | 'ready_to_eat'
   | 'packed_home_meal'
-  | 'homemade_snack';
+  | 'homemade_snack'
+  | 'toddler_snack';
 
 export type TravelType =
   | 'flight_short' | 'flight_long' | 'train' | 'road_trip' | 'vacation';
@@ -81,6 +83,7 @@ export const TRAVEL_CATEGORIES: {
   { key: 'ready_to_eat',       label: 'Ready-to-Eat',      icon: '🥛', sortOrder: 4 },
   { key: 'packed_home_meal',   label: 'Packed Meals',      icon: '🍱', sortOrder: 5 },
   { key: 'homemade_snack',     label: 'Homemade Snacks',   icon: '🥞', sortOrder: 6 },
+  { key: 'toddler_snack',      label: 'Toddler Snacks (1y+)', icon: '🧒', sortOrder: 7 },
 ];
 
 export const CATEGORY_BY_KEY = Object.fromEntries(
@@ -1202,6 +1205,246 @@ export const TRAVEL_RECIPES: TravelRecipe[] = [
     stepTips: {},
     packingTips: ['Cool fully before stacking in a box. Pairs well with curd carried separately in an insulated bag.'],
     tags: ['home_cooked', 'no_fridge', 'allergen_free', 'finger_food', 'fermented'],
+  },
+  // ── 🧒 Toddler Snacks (1 year+) ───────────────────────────────────────────
+  // Dry, homemade snacks that keep for days without a fridge. Light salt and
+  // jaggery are fine from 12 months; nuts are always ground for under-3s.
+  {
+    id: 'tr_suji_mathri',
+    title: 'Suji Mathri',
+    subtitle: 'Crisp ajwain crackers that last the whole trip',
+    category: 'toddler_snack',
+    travelTypes: ['flight_short', 'flight_long', 'train', 'road_trip', 'vacation'],
+    prepLocation: 'home_before_trip',
+    prepTimeMinutes: 45,
+    ageMinMonths: 18, ageMaxMonths: 60, stageBadge: '🧒 18m+',
+    roomTempHours: 336, insulatedBagHours: 0, thermosHours: 0,
+    requiresRefrigeration: false,
+    gearRequired: ['airtight_container'],
+    storageNotes: 'Keeps 2–3 weeks in an airtight container at room temperature. Cool completely before packing so it stays crisp.',
+    allergenContains: ['gluten', 'milk'],
+    allergenNote: 'Semolina and atta are wheat (gluten). Ghee has trace milk — use oil in the dough for dairy-free.',
+    goldenRuleFlag: false,
+    nutritionHighlights: ['energy'],
+    ingredients: [
+      { name: 'Suji (fine semolina)', quantity: '1', unit: 'cup', allergenFlag: 'gluten' },
+      { name: 'Atta (whole-wheat flour)', quantity: '¼', unit: 'cup', allergenFlag: 'gluten' },
+      { name: 'Ghee', quantity: '2', unit: 'tbsp', allergenFlag: 'milk', substitute: 'Oil' },
+      { name: 'Ajwain (carom seeds)', quantity: '½', unit: 'tsp' },
+      { name: 'Salt', quantity: '1', unit: 'pinch', notes: 'Keep it light for toddlers' },
+      { name: 'Water', quantity: '⅓', unit: 'cup', notes: 'Add a little at a time' },
+      { name: 'Oil for frying', quantity: '', unit: 'as needed' },
+    ],
+    steps: [
+      'Mix suji, atta, ajwain and salt. Rub in the ghee until the mix holds together when pressed.',
+      'Knead into a stiff dough with water, a little at a time. Cover and rest 20 minutes.',
+      'Roll out thin, prick all over with a fork and cut into small diamonds.',
+      'Fry on low-medium heat, turning, until golden and crisp. Drain and cool completely.',
+    ],
+    stepTips: {
+      1: 'Resting lets the suji soak up water — skip it and the mathri turns hard rather than crisp.',
+      3: 'High heat browns the outside before the inside cooks. Keep the flame low-medium.',
+    },
+    packingTips: [
+      'Pack a day’s portion per small zip-lock so the rest stays sealed and crisp.',
+      'For 12–18 months, roll extra thin and break into small pieces, and stay close while they eat.',
+    ],
+    tags: ['no_fridge', 'finger_food', 'shelf_stable', 'make_ahead'],
+  },
+  {
+    id: 'tr_masala_makhana',
+    title: 'Roasted Makhana (Toddler Masala)',
+    subtitle: 'Turmeric and pepper fox nuts — no chilli',
+    category: 'toddler_snack',
+    travelTypes: ['flight_short', 'flight_long', 'train', 'road_trip', 'vacation'],
+    prepLocation: 'home_before_trip',
+    prepTimeMinutes: 15,
+    ageMinMonths: 12, ageMaxMonths: 60, stageBadge: '🧒 12m+',
+    roomTempHours: 168, insulatedBagHours: 0, thermosHours: 0,
+    requiresRefrigeration: false,
+    gearRequired: ['airtight_container'],
+    storageNotes: 'Stays crisp about a week in an airtight container. If it goes soft, dry-roast 2 minutes to re-crisp.',
+    allergenContains: ['milk'],
+    allergenNote: 'Roasted in ghee — contains trace milk. Use coconut oil for dairy-free.',
+    goldenRuleFlag: false,
+    nutritionHighlights: ['calcium', 'protein_rich', 'low_sodium'],
+    ingredients: [
+      { name: 'Makhana (fox nuts)', quantity: '2', unit: 'cups' },
+      { name: 'Ghee', quantity: '1', unit: 'tsp', allergenFlag: 'milk', substitute: 'Coconut oil' },
+      { name: 'Turmeric', quantity: '1', unit: 'pinch' },
+      { name: 'Black pepper powder', quantity: '1', unit: 'pinch' },
+      { name: 'Salt', quantity: '1', unit: 'tiny pinch' },
+    ],
+    steps: [
+      'Dry-roast makhana on low heat for 8–10 minutes, stirring, until one crunches when pressed.',
+      'Add ghee, turmeric, pepper and salt. Toss for 1 minute so every piece is coated.',
+      'Spread on a plate and cool completely before packing.',
+    ],
+    stepTips: {
+      0: 'Low and slow — makhana goes from pale to burnt fast.',
+    },
+    packingTips: [
+      'Leave out chilli flakes for toddlers.',
+      'Crush lightly for younger toddlers — it melts in the mouth.',
+    ],
+    tags: ['no_fridge', 'finger_food', 'shelf_stable', 'calcium'],
+  },
+  {
+    id: 'tr_roasted_murmura',
+    title: 'Roasted Murmura (Tadka)',
+    subtitle: 'Light turmeric puffed rice with hing and curry leaves',
+    category: 'toddler_snack',
+    travelTypes: ['flight_short', 'flight_long', 'train', 'road_trip', 'vacation'],
+    prepLocation: 'home_before_trip',
+    prepTimeMinutes: 10,
+    ageMinMonths: 12, ageMaxMonths: 60, stageBadge: '🧒 12m+',
+    roomTempHours: 168, insulatedBagHours: 0, thermosHours: 0,
+    requiresRefrigeration: false,
+    gearRequired: ['airtight_container'],
+    storageNotes: 'Keeps about a week in an airtight container at room temperature.',
+    allergenContains: ['milk'],
+    allergenNote: 'Tossed in ghee — contains trace milk. Use oil for dairy-free.',
+    goldenRuleFlag: false,
+    nutritionHighlights: ['energy', 'easy_digest'],
+    ingredients: [
+      { name: 'Murmura (puffed rice)', quantity: '3', unit: 'cups' },
+      { name: 'Ghee', quantity: '1', unit: 'tsp', allergenFlag: 'milk', substitute: 'Oil' },
+      { name: 'Turmeric', quantity: '¼', unit: 'tsp' },
+      { name: 'Hing (asafoetida)', quantity: '1', unit: 'pinch' },
+      { name: 'Curry leaves', quantity: '8', unit: 'leaves', notes: 'Crushed fine after roasting' },
+      { name: 'Salt', quantity: '1', unit: 'tiny pinch' },
+    ],
+    steps: [
+      'Warm the ghee on low. Add hing, curry leaves and turmeric for a few seconds.',
+      'Add the murmura and salt. Toss on low heat for 4–5 minutes until crisp.',
+      'Cool completely, crush the curry leaves fine, and pack.',
+    ],
+    stepTips: {
+      0: 'Keep the heat low — turmeric burns and turns bitter quickly.',
+    },
+    packingTips: [
+      'Skip whole peanuts until about 4 years — choking risk.',
+      'Roasted chana dal can be added for older toddlers who chew well.',
+    ],
+    tags: ['no_fridge', 'finger_food', 'shelf_stable', 'make_ahead'],
+  },
+  {
+    id: 'tr_atta_coconut_cookies',
+    title: 'Atta Coconut Cookies',
+    subtitle: 'Whole-wheat jaggery cookies with coconut',
+    category: 'toddler_snack',
+    travelTypes: ['flight_short', 'flight_long', 'train', 'road_trip', 'vacation'],
+    prepLocation: 'home_before_trip',
+    prepTimeMinutes: 35,
+    ageMinMonths: 12, ageMaxMonths: 60, stageBadge: '🧒 12m+',
+    roomTempHours: 168, insulatedBagHours: 0, thermosHours: 0,
+    requiresRefrigeration: false,
+    gearRequired: ['airtight_container'],
+    storageNotes: 'Keeps 7–10 days in an airtight container. Coconut and ghee can turn rancid after that.',
+    allergenContains: ['gluten', 'milk'],
+    allergenNote: 'Atta is wheat (gluten). Ghee and milk contain dairy — use coconut oil and water for dairy-free.',
+    goldenRuleFlag: true,
+    nutritionHighlights: ['energy', 'fiber_rich', 'healthy_fats'],
+    ingredients: [
+      { name: 'Atta (whole-wheat flour)', quantity: '1', unit: 'cup', allergenFlag: 'gluten' },
+      { name: 'Desiccated coconut', quantity: '½', unit: 'cup' },
+      { name: 'Ghee', quantity: '⅓', unit: 'cup', allergenFlag: 'milk', substitute: 'Coconut oil' },
+      { name: 'Powdered jaggery', quantity: '⅓', unit: 'cup', notes: 'Use less for under-2s' },
+      { name: 'Baking powder', quantity: '½', unit: 'tsp' },
+      { name: 'Cardamom powder', quantity: '¼', unit: 'tsp' },
+      { name: 'Milk', quantity: '3', unit: 'tbsp', allergenFlag: 'milk', substitute: 'Water', notes: 'Add only as much as the dough needs' },
+    ],
+    steps: [
+      'Cream the ghee and jaggery until smooth.',
+      'Add atta, coconut, baking powder and cardamom. Bind into a soft dough with milk.',
+      'Shape into thick rounds and place on a lined tray.',
+      'Bake at 170°C for 15–18 minutes until golden at the edges. Cool on the tray.',
+    ],
+    stepTips: {
+      3: 'They feel soft when hot and crisp up as they cool — don’t overbake.',
+    },
+    packingTips: [
+      'Pack in a hard box so they don’t crumble in the bag.',
+      'Try one at home first — this is your toddler’s first coconut, or first jaggery, for many families.',
+    ],
+    tags: ['no_fridge', 'finger_food', 'shelf_stable', 'make_ahead', 'baked'],
+  },
+  {
+    id: 'tr_dates_barfi',
+    title: 'Dates Barfi',
+    subtitle: 'No-sugar date and nut squares in a poppy seed coat',
+    category: 'toddler_snack',
+    travelTypes: ['flight_short', 'flight_long', 'train', 'road_trip', 'vacation'],
+    prepLocation: 'home_before_trip',
+    prepTimeMinutes: 25,
+    ageMinMonths: 12, ageMaxMonths: 60, stageBadge: '🧒 12m+',
+    roomTempHours: 168, insulatedBagHours: 0, thermosHours: 0,
+    requiresRefrigeration: false,
+    gearRequired: ['airtight_container'],
+    storageNotes: 'Keeps about a week at room temperature and 2–3 weeks in the fridge. In hot weather, keep it in an insulated bag.',
+    allergenContains: ['tree_nuts', 'milk'],
+    allergenNote: 'Contains almonds and cashews. Grind nuts to a powder for under-3s. Replace nuts with roasted seeds for nut-free.',
+    goldenRuleFlag: true,
+    nutritionHighlights: ['iron_rich', 'energy', 'natural_sweetness'],
+    ingredients: [
+      { name: 'Seedless dates', quantity: '1', unit: 'cup', notes: 'Chopped' },
+      { name: 'Almonds and cashews', quantity: '½', unit: 'cup', allergenFlag: 'tree_nuts', substitute: 'Roasted sunflower or melon seeds', notes: 'Ground to powder for under-3s' },
+      { name: 'Ghee', quantity: '1', unit: 'tsp', allergenFlag: 'milk', substitute: 'Coconut oil' },
+      { name: 'Poppy seeds (khus khus)', quantity: '2', unit: 'tbsp' },
+    ],
+    steps: [
+      'Dry-roast the nuts and grind them — fine powder for under-3s, coarse for older children.',
+      'Cook the chopped dates in ghee on low for 4–5 minutes until they form a soft mass. Mix in the nuts.',
+      'Toast the poppy seeds and spread on a plate. Press the date mixture flat over them, flip, and coat the other side.',
+      'Cool, then cut into small squares.',
+    ],
+    stepTips: {
+      1: 'Grease your palms with a drop of ghee to shape the warm mixture without sticking.',
+    },
+    packingTips: [
+      'No added sugar needed — dates are sweet enough.',
+      'Introduce each nut at home before the trip.',
+    ],
+    tags: ['no_fridge', 'finger_food', 'make_ahead', 'no_added_sugar'],
+  },
+  {
+    id: 'tr_energy_bars',
+    title: 'Homemade Energy Bars',
+    subtitle: 'Oats, dates and ground nuts — no baking',
+    category: 'toddler_snack',
+    travelTypes: ['flight_short', 'flight_long', 'train', 'road_trip', 'vacation'],
+    prepLocation: 'home_before_trip',
+    prepTimeMinutes: 20,
+    ageMinMonths: 12, ageMaxMonths: 60, stageBadge: '🧒 12m+',
+    roomTempHours: 168, insulatedBagHours: 0, thermosHours: 0,
+    requiresRefrigeration: false,
+    gearRequired: ['airtight_container'],
+    storageNotes: 'Keeps about a week at room temperature and 2–3 weeks in the fridge. Wrap each bar separately.',
+    allergenContains: ['gluten', 'tree_nuts', 'peanut'],
+    allergenNote: 'Oats can carry gluten — pick certified gluten-free oats if needed. Contains nuts and peanut butter; use ghee and seeds instead for nut-free.',
+    goldenRuleFlag: true,
+    nutritionHighlights: ['energy', 'fiber_rich', 'iron_rich'],
+    ingredients: [
+      { name: 'Rolled oats', quantity: '1', unit: 'cup', allergenFlag: 'gluten', substitute: 'Certified gluten-free oats' },
+      { name: 'Ground nuts and seeds', quantity: '½', unit: 'cup', allergenFlag: 'tree_nuts', substitute: 'Ground seeds only', notes: 'Fine powder for under-3s' },
+      { name: 'Date paste', quantity: '½', unit: 'cup', notes: 'Or melted jaggery' },
+      { name: 'Peanut butter', quantity: '2', unit: 'tbsp', allergenFlag: 'peanut', substitute: 'Ghee' },
+      { name: 'Raisins', quantity: '2', unit: 'tbsp', notes: 'Chopped small' },
+    ],
+    steps: [
+      'Dry-roast the oats on low for 5 minutes until fragrant. Cool.',
+      'Mix oats, ground nuts, date paste, peanut butter and raisins into a sticky dough.',
+      'Press firmly into a lined tray and refrigerate for 1 hour.',
+      'Cut into small bars.',
+    ],
+    stepTips: {
+      2: 'Press hard with the back of a spoon — loose bars crumble in the bag.',
+    },
+    packingTips: [
+      'No honey under 1 year.',
+      'Wrap each bar in butter paper so they don’t stick together.',
+    ],
+    tags: ['no_fridge', 'finger_food', 'make_ahead', 'no_bake'],
   },
 ];
 

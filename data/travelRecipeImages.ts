@@ -45,6 +45,14 @@ export const TRAVEL_RECIPE_IMAGES: Record<string, ImageSourcePropType> = {
   tr_uttapam: require('../assets/travel-meals/tr_uttapam.webp'),
   tr_veg_soup: require('../assets/travel-meals/tr_veg_soup.webp'),
   tr_veg_tikki: require('../assets/travel-meals/tr_veg_tikki.webp'),
+
+  // Toddler Snacks (12m+) — generated in the same style, upscaled to 480×480.
+  tr_suji_mathri: require('../assets/travel-meals/tr_suji_mathri.webp'),
+  tr_masala_makhana: require('../assets/travel-meals/tr_masala_makhana.webp'),
+  tr_roasted_murmura: require('../assets/travel-meals/tr_roasted_murmura.webp'),
+  tr_atta_coconut_cookies: require('../assets/travel-meals/tr_atta_coconut_cookies.webp'),
+  tr_dates_barfi: require('../assets/travel-meals/tr_dates_barfi.webp'),
+  tr_energy_bars: require('../assets/travel-meals/tr_energy_bars.webp'),
 };
 
 export function travelRecipeImage(id: string): ImageSourcePropType | undefined {
