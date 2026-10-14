@@ -8,15 +8,18 @@
 
 ## Active task
 
-**Travel Meals — Toddler Snacks (12m+) set (2026-10-14, Claude) — code on
-main, OTA pending.** New `toddler_snack` category ("Toddler Snacks (1y+)") in
+**Travel Meals — Toddler Snacks (12m+) set (2026-10-14, Claude) — shipped.**
+Commits 0277508 (snacks) + b7465c7 (package-lock fix: expo-print/expo-sharing
+were missing, so every deploy since 7 Oct failed at npm ci). Deploy Web + Ship
+OTA run 38549383212 succeeded: Firebase Hosting + production OTA published;
+live bundle on maamitra.co.in contains the new recipes. Not yet eyeballed on a
+device — check Health → Travel Meals on a 1y+ child. New `toddler_snack` category ("Toddler Snacks (1y+)") in
 `data/travelRecipes.ts` with 6 recipes: Suji Mathri (18m+), Masala Makhana,
 Roasted Murmura, Atta Coconut Cookies, Dates Barfi, Energy Bars (all 12m+).
 Photos in `assets/travel-meals/tr_<id>.webp`, registered in
 `data/travelRecipeImages.ts`. Hidden for babies under the min age by the
 existing `filterTravelRecipes` age check. Firestore `travel_recipes` is empty
 (checked 2026-10-14), so the local seed is what users see.
-Next: deploy web + OTA, then check the Toddler Snacks section on the live app.
 
 **Vaccine reminders + PDF report + per-vaccine detail screen (2026-10-07,
 Claude) — code shipped to main, OTA pending.**
