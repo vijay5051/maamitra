@@ -8,6 +8,19 @@
 
 ## Active task
 
+**Vaccine reminder pushes — LIVE (2026-10-21, Claude).**
+Root cause of "no notification alerts on phones": `vaccineReminderCron` was
+never deployed (CI only ships web + OTA, not Cloud Functions), and the only
+other trigger (Community) is switched off — last push sent was 2026-06-13.
+Deployed `vaccineReminderCron` (Cloud Scheduler 03:30 UTC = 09:00 IST,
+ENABLED). Before deploying, fixed flooding: overdue reminders only for
+vaccines due in the last 30 days, ONE combined push per child per run,
+"due today" wording (`functions/src/vaccines/pick.ts`, tests in
+`tests/vaccineReminder.test.ts`). First run: next 09:00 IST — check
+`push_queue` docs with notifType `vaccine_reminder` and the function log
+line `[vaccineReminderCron] … queued=`. Functions are NOT deployed by CI:
+`npx firebase-tools deploy --only functions:<name> --project maa-mitra-7kird8`.
+
 **Travel Meals — Toddler Snacks (12m+) set (2026-10-14, Claude) — shipped.**
 Commits 0277508 (snacks) + b7465c7 (package-lock fix: expo-print/expo-sharing
 were missing, so every deploy since 7 Oct failed at npm ci). Deploy Web + Ship
@@ -75,14 +88,13 @@ Claude) — code shipped to main, OTA pending.**
       Push (Active/Off chip) + Email (Soon) + SMS (Soon). The email/SMS
       rows go live once the provider wiring is added.
 
-**Deploy chain pending (none from this container — no EAS/Firebase creds
-locally):**
+**Deploy chain (status as of 2026-10-21: cron deployed, OTA shipped 2026-10-14):**
   1. ✅ TypeScript clean (main app + functions)
   2. ✅ bun test — 162 pass
   3. ✅ Committed + pushed to `claude/redesign-settings-menu-28dzw` + main
-  4. ⏳ `npx firebase deploy --only functions:vaccineReminderCron` —
+  4. ✅ (2026-10-21) `npx firebase deploy --only functions:vaccineReminderCron` —
      deploys the new cron (first-time deploy; cron starts on next 03:30 UTC)
-  5. ⏳ `npm run update` — publishes the OTA bundle so the app shows the
+  5. ✅ (CI, 2026-10-14) `npm run update` — publishes the OTA bundle so the app shows the
      Vaccines topic toggle, Download PDF button, and detail screen.
      (No new Firestore rules are needed — the cron writes with admin SDK.)
 

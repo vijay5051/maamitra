@@ -19,10 +19,10 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions/v1';
 
-import { scheduleFor, type ScheduleVaccine, type VaccineScheduleType } from './schedule';
+import { scheduleFor, type VaccineScheduleType } from './schedule';
+import { CompletedVaccineEntry, pickRemindableVaccines, reminderMessage } from './pick';
 
 const RUN_LIMIT_USERS = 400;
-const LOOKAHEAD_DAYS = 3;
 const REMINDER_COOLDOWN_DAYS = 7;
 
 interface Kid {
@@ -31,11 +31,6 @@ interface Kid {
   dob?: string;
   isExpecting?: boolean;
   vaccineSchedule?: VaccineScheduleType;
-}
-
-interface CompletedVaccineEntry {
-  done?: boolean;
-  doneDate?: string;
 }
 
 interface UserDoc {
@@ -105,54 +100,45 @@ export function buildVaccineReminderCron() {
             completed: completedForThisKid,
           });
 
+          // Drop vaccines nudged in the last week, then send ONE push for
+          // whatever is left for this child (combined when several).
+          const due: typeof picks = [];
           for (const pick of picks) {
-            const logId = `${userSnap.id}_${kid.id}_${pick.vaccine.id}`;
-            const logRef = db.collection('vaccine_reminder_log').doc(logId);
-            const logDoc = await logRef.get();
-
-            if (logDoc.exists) {
-              const lastSentAt = (logDoc.data()?.lastSentAt as admin.firestore.Timestamp | undefined);
-              if (lastSentAt) {
-                const daysSince = (Date.now() - lastSentAt.toMillis()) / (1000 * 60 * 60 * 24);
-                if (daysSince < REMINDER_COOLDOWN_DAYS) {
-                  remindersSkippedCooldown++;
-                  continue;
-                }
-              }
+            const logDoc = await db.collection('vaccine_reminder_log').doc(`${userSnap.id}_${kid.id}_${pick.vaccine.id}`).get();
+            const lastSentAt = logDoc.exists ? (logDoc.data()?.lastSentAt as admin.firestore.Timestamp | undefined) : undefined;
+            if (lastSentAt && (Date.now() - lastSentAt.toMillis()) / 86400000 < REMINDER_COOLDOWN_DAYS) {
+              remindersSkippedCooldown++;
+              continue;
             }
+            due.push(pick);
+          }
+          if (due.length === 0) continue;
 
-            const title = pick.status === 'overdue'
-              ? `${kid.name || 'Your child'}'s ${pick.vaccine.name} is overdue`
-              : pick.diffDays <= 0
-                ? `${pick.vaccine.name} due today for ${kid.name || 'your child'}`
-                : `${pick.vaccine.name} due in ${pick.diffDays} day${pick.diffDays === 1 ? '' : 's'}`;
+          const { title, body } = reminderMessage(kid.name, due);
+          await db.collection('push_queue').add({
+            kind: 'personal',
+            toUid: userSnap.id,
+            title,
+            body,
+            notifType: 'vaccine_reminder',
+            data: {
+              vaccineId: due[0].vaccine.id,
+              kidId: kid.id,
+              status: due[0].status,
+              count: String(due.length),
+              url: '/(tabs)/health?tab=vaccines',
+            },
+            status: 'pending',
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
 
-            const body = pick.status === 'overdue'
-              ? `Was due ${isoShort(pick.dueDate)}. Tap to view the schedule or log the visit.`
-              : `Due ${isoShort(pick.dueDate)}. Tap to view the schedule or log it once given.`;
-
-            await db.collection('push_queue').add({
-              kind: 'personal',
-              toUid: userSnap.id,
-              title,
-              body,
-              notifType: 'vaccine_reminder',
-              data: {
-                vaccineId: pick.vaccine.id,
-                kidId: kid.id,
-                status: pick.status,
-                url: '/(tabs)/health?tab=vaccines',
-              },
-              status: 'pending',
-              createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            });
-
+          for (const pick of due) {
+            const logRef = db.collection('vaccine_reminder_log').doc(`${userSnap.id}_${kid.id}_${pick.vaccine.id}`);
             await logRef.set(
               {
                 userId: userSnap.id,
                 kidId: kid.id,
                 vaccineId: pick.vaccine.id,
-                firstSentAt: logDoc.exists ? logDoc.data()?.firstSentAt : admin.firestore.FieldValue.serverTimestamp(),
                 lastSentAt: admin.firestore.FieldValue.serverTimestamp(),
                 lastStatus: pick.status,
                 lastDueDate: pick.dueDate.toISOString(),
@@ -160,8 +146,8 @@ export function buildVaccineReminderCron() {
               },
               { merge: true },
             );
-            remindersQueued++;
           }
+          remindersQueued++;
         }
       }
 
@@ -173,42 +159,6 @@ export function buildVaccineReminderCron() {
     });
 }
 
-interface RemindablePick {
-  vaccine: ScheduleVaccine;
-  dueDate: Date;
-  diffDays: number;
-  status: 'due-soon' | 'overdue';
-}
-
-function pickRemindableVaccines({
-  dob,
-  today,
-  list,
-  completed,
-}: {
-  dob: Date;
-  today: Date;
-  list: ScheduleVaccine[];
-  completed: Record<string, CompletedVaccineEntry>;
-}): RemindablePick[] {
-  const out: RemindablePick[] = [];
-  const dayMs = 24 * 60 * 60 * 1000;
-
-  for (const v of list) {
-    if (completed[v.id]?.done) continue;
-    const dueDate = new Date(dob.getTime() + v.daysFromBirth * dayMs);
-    const diffDays = Math.round((dueDate.getTime() - today.getTime()) / dayMs);
-
-    if (diffDays <= 0) {
-      out.push({ vaccine: v, dueDate, diffDays, status: 'overdue' });
-    } else if (diffDays <= LOOKAHEAD_DAYS) {
-      out.push({ vaccine: v, dueDate, diffDays, status: 'due-soon' });
-    }
-  }
-
-  return out;
-}
-
 function startOfTodayUtc(): Date {
   const now = new Date();
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
@@ -218,6 +168,3 @@ function isoDay(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-function isoShort(d: Date): string {
-  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
-}
