@@ -53,7 +53,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.syncArticleSocialDraft = exports.syncPublishedArticleToMarketingDraft = exports.sendArticleToMarketingDraft = exports.retryArticleImage = exports.processPendingArticleImage = exports.generateArticleNow = exports.updateIntegrationConfig = exports.checkIntegrationHealth = exports.getTemplateImage = exports.probeMarketingHealthNow = exports.probeMarketingHealth = exports.composeStudioLogo = exports.uploadStudioImage = exports.editStudioImage = exports.generateTemplatePrefill = exports.createStudioDraft = exports.generateStudioVariants = exports.boostMarketingDraft = exports.renderUgcAsDraft = exports.generateWeeklyInsightDigest = exports.pollMarketingAccountInsights = exports.pollMarketingInsights = exports.publishMarketingDraftNow = exports.scheduledMarketingPublisher = exports.metaInboxReplyPublisher = exports.classifyInboxThread = exports.generateInboxReplies = exports.metaWebhookReceiver = exports.generateAheadDrafts = exports.dailyMarketingDraftCron = exports.unscheduleMarketingDraft = exports.scheduleMarketingDraft = exports.regenerateMarketingDraft = exports.generateMarketingDraft = exports.scoreMarketingDraft = exports.renderMarketingTemplate = exports.repairCommunityCounters = exports.onUserCreated = exports.onFollowDelete = exports.onFollowCreate = exports.onPostDelete = exports.onCommentDelete = exports.onCommentCreate = exports.synthesizeSpeech = exports.adminFactoryReset = exports.factoryReset = exports.processScheduledPushes = exports.adminCreateUser = exports.adminDeleteUser = exports.dispatchPush = void 0;
-exports.expireStaleLibrary = exports.dailyLibraryAiCron = exports.archiveLibraryItem = exports.generateProductsNow = exports.generateBooksNow = void 0;
+exports.vaccineReminderCron = exports.expireStaleLibrary = exports.dailyLibraryAiCron = exports.archiveLibraryItem = exports.generateProductsNow = exports.generateBooksNow = void 0;
 const functions = __importStar(require("firebase-functions/v1"));
 const admin = __importStar(require("firebase-admin"));
 const crypto = __importStar(require("crypto"));
@@ -74,6 +74,7 @@ const DEFAULT_PREFS = {
     dms: true,
     follows: true,
     announcements: true,
+    vaccines: true,
 };
 const MAX_BATCH = 500;
 exports.dispatchPush = functions.firestore
@@ -324,6 +325,8 @@ function personalPrefKey(type) {
         case 'follow_request':
         case 'follow_accepted':
             return 'follows';
+        case 'vaccine_reminder':
+            return 'vaccines';
         default:
             // Missing type (older client) — don't gate. Better to deliver than
             // silently drop during rollout.
@@ -1305,3 +1308,8 @@ exports.generateProductsNow = (0, library_1.buildGenerateProductsNow)(ADMIN_EMAI
 exports.archiveLibraryItem = (0, library_1.buildArchiveLibraryItem)(ADMIN_EMAILS);
 exports.dailyLibraryAiCron = (0, library_1.buildDailyLibraryAiCron)();
 exports.expireStaleLibrary = (0, library_1.buildExpireStaleLibrary)();
+// Daily vaccine-reminder scan — queues one personal push per (kid,
+// vaccine) that is due within 3 days OR overdue, honouring the vaccines
+// pref + a 7-day cooldown so the parent isn't badgered.
+const reminderCron_1 = require("./vaccines/reminderCron");
+exports.vaccineReminderCron = (0, reminderCron_1.buildVaccineReminderCron)();
