@@ -36,7 +36,7 @@ export default function ContactScreen() {
       <View style={[legalStyles.card, s.row]}>
         <View style={s.icon}><Ionicons name="location-outline" size={20} color={Colors.primary} /></View>
         <View style={{ flex: 1 }}>
-          <Text style={s.label}>Operated by</Text>
+          <Text style={s.label}>Operated by (sole proprietor)</Text>
           <Text style={s.value}>{OPERATOR_NAME}</Text>
           <Text style={s.hint}>{OPERATOR_PLACE}</Text>
         </View>
@@ -46,7 +46,10 @@ export default function ContactScreen() {
       <P>Please include the email or phone number on your MaaMitra account. For a payment question, add the date, amount and order or transaction ID.</P>
 
       <H2>Grievance Officer (DPDP Act 2023)</H2>
-      <P><B>{OPERATOR_NAME}</B> · <A href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</A> · {OPERATOR_PLACE}. We respond to grievances within 30 days.</P>
+      <P><B>Name:</B> {OPERATOR_NAME} (sole proprietor)</P>
+      <P><B>Email:</B> <A href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</A></P>
+      <P><B>Location:</B> {OPERATOR_PLACE}</P>
+      <P>We respond to grievances within 30 days.</P>
 
       <H2>Medical emergencies</H2>
       <P>MaaMitra is not a medical service. In an emergency call <B>108 / 102</B> or go to the nearest hospital.</P>

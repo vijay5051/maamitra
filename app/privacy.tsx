@@ -83,7 +83,7 @@ export default function PrivacyScreen() {
       <P>We will update this policy when our practices change, and tell you about material changes in the app or by email at least 7 days before they take effect.</P>
 
       <H2>11. Grievance Officer (DPDP Act 2023)</H2>
-      <P><B>Name:</B> {OPERATOR_NAME}</P>
+      <P><B>Name:</B> {OPERATOR_NAME} (sole proprietor)</P>
       <P><B>Email:</B> <A href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</A></P>
       <P><B>Location:</B> {OPERATOR_PLACE}</P>
       <P>We respond to grievances within 30 days.</P>

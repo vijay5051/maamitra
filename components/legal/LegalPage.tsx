@@ -65,7 +65,7 @@ export function LegalPage({ title, meta, children }: { title: string; meta?: str
             </React.Fragment>
           ))}
         </View>
-        <Text style={styles.footerMeta}>© {new Date().getFullYear()} MaaMitra · {OPERATOR_NAME} · {OPERATOR_PLACE}</Text>
+        <Text style={styles.footerMeta}>© {new Date().getFullYear()} MaaMitra · {OPERATOR_NAME} (sole proprietor) · {OPERATOR_PLACE}</Text>
       </View>
     </ScrollView>
   );
