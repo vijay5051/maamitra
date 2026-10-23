@@ -26,6 +26,24 @@ export default function AboutScreen() {
             label="Privacy policy"
             onPress={() => router.push('/privacy')}
           />
+          <View style={s.divider} />
+          <SettingsRow
+            icon="refresh-circle-outline"
+            label="Refund & cancellation policy"
+            onPress={() => router.push('/refund')}
+          />
+          <View style={s.divider} />
+          <SettingsRow
+            icon="pricetag-outline"
+            label="Pricing"
+            onPress={() => router.push('/pricing')}
+          />
+          <View style={s.divider} />
+          <SettingsRow
+            icon="mail-outline"
+            label="Contact us"
+            onPress={() => router.push('/contact')}
+          />
         </Card>
 
         <SectionHeader title="About MaaMitra" />

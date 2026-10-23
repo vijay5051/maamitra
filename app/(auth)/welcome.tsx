@@ -282,6 +282,33 @@ function WebMarketingSection({
           >
             <Text style={styles.footerLink}>Terms</Text>
           </TouchableOpacity>
+          <Text style={styles.footerDot}>·</Text>
+          <TouchableOpacity
+            onPress={() => router.push('/refund')}
+            hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+            accessibilityRole="link"
+            accessibilityLabel="Refund and cancellation policy"
+          >
+            <Text style={styles.footerLink}>Refunds</Text>
+          </TouchableOpacity>
+          <Text style={styles.footerDot}>·</Text>
+          <TouchableOpacity
+            onPress={() => router.push('/pricing')}
+            hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+            accessibilityRole="link"
+            accessibilityLabel="Pricing"
+          >
+            <Text style={styles.footerLink}>Pricing</Text>
+          </TouchableOpacity>
+          <Text style={styles.footerDot}>·</Text>
+          <TouchableOpacity
+            onPress={() => router.push('/contact')}
+            hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+            accessibilityRole="link"
+            accessibilityLabel="Contact us"
+          >
+            <Text style={styles.footerLink}>Contact</Text>
+          </TouchableOpacity>
         </View>
         {/* Always-visible contact email — `mailto:` silently no-ops in
             browsers without a configured handler, so we render the
@@ -382,7 +409,7 @@ const styles = StyleSheet.create({
   },
 
   footer: { marginTop: 24, alignItems: 'center', gap: 8 },
-  footerLinks: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  footerLinks: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: 8 },
   footerLink: { fontFamily: Fonts.sansBold, fontSize: 12, color: Colors.primary, paddingVertical: 4 },
   footerDot: { color: Colors.textLight, fontSize: 12 },
   footerContact: {

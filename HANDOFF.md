@@ -8,6 +8,15 @@
 
 ## Active task
 
+**Legal pages for Razorpay review (2026-10-23, Claude).** New public routes
+`/pricing` and `/refund`; `/contact` is now a real page (was a redirect to
+/privacy). `/terms` and `/privacy` rewritten: operator is now Divya Shekhawat
+(sole proprietor, Jaipur), with paid-plan, auto-renewal, refund and payment-data
+sections. All five share `components/legal/LegalPage.tsx` (operator name,
+email and date constants live there). Linked from the welcome footer,
+Settings footer and Settings → About. Paid plans are NOT live: the pricing page
+says so, and has no buy button, only "Get MaaMitra on Google Play".
+
 **Vaccine reminder pushes — LIVE (2026-10-21, Claude).**
 Root cause of "no notification alerts on phones": `vaccineReminderCron` was
 never deployed (CI only ships web + OTA, not Cloud Functions), and the only

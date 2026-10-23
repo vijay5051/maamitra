@@ -118,6 +118,14 @@ export default function SettingsIndex() {
           <TouchableOpacity onPress={() => router.push('/privacy')} activeOpacity={0.7}>
             <Text style={styles.legalLink}>Privacy</Text>
           </TouchableOpacity>
+          <Text style={styles.legalDot}>·</Text>
+          <TouchableOpacity onPress={() => router.push('/refund')} activeOpacity={0.7}>
+            <Text style={styles.legalLink}>Refunds</Text>
+          </TouchableOpacity>
+          <Text style={styles.legalDot}>·</Text>
+          <TouchableOpacity onPress={() => router.push('/contact')} activeOpacity={0.7}>
+            <Text style={styles.legalLink}>Contact</Text>
+          </TouchableOpacity>
         </View>
         <Text style={styles.version}>MaaMitra v1.0 · Made in India</Text>
       </ScrollView>
@@ -156,6 +164,7 @@ const styles = StyleSheet.create({
   },
   legalRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'center',
     alignItems: 'center',
     gap: Spacing.sm,
