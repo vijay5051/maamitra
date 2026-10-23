@@ -59,6 +59,10 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           channelId: live
           projectId: maa-mitra-7kird8
+          # 15.34.1 added a serviceusage.services.get check our deploy service
+          # account lacks (403). Pinned to the last version that deployed; unpin
+          # once the account has the Service Usage Consumer role.
+          firebaseToolsVersion: 15.34.0
 
       - name: Compute OTA message
         id: ota_msg
