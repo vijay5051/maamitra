@@ -8,7 +8,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -30,6 +30,7 @@ function copyToClipboard(text: string): void {
 }
 
 import { AdminPage } from '../../components/admin/ui';
+import { BillingSwitchCard } from '../../components/admin/BillingSwitchCard';
 import { Colors, FontSize, Radius, Shadow, Spacing } from '../../constants/theme';
 import {
   checkIntegrationHealth,
@@ -282,6 +283,33 @@ const INTEGRATIONS: IntegrationDef[] = [
     docsUrl: 'https://developers.facebook.com/docs/marketing-api',
   },
   // ── Infrastructure ────────────────────────────────────────────────────────
+  {
+    id: 'razorpay',
+    name: 'Razorpay (payments)',
+    icon: 'card-outline',
+    iconBg: '#0C2451',
+    category: 'infra',
+    tagline: 'Plus and Family subscriptions bought on the website.',
+    description:
+      'Website customers subscribe to Plus or Family through Razorpay (UPI AutoPay, cards, net banking, wallets). The Key Secret and Webhook Secret stay on the server; only the Key ID is sent to the checkout. Razorpay tells us about every payment, renewal and cancellation through the webhook, which updates the customer\'s plan. Use test-mode keys (rzp_test_…) until a full purchase has been tested end to end.',
+    healthKey: 'razorpay',
+    fields: [
+      { path: ['razorpay', 'keyId'], label: 'Key ID', hint: 'rzp_test_… or rzp_live_…', sensitive: false, placeholder: 'rzp_test_...' },
+      { path: ['razorpay', 'keySecret'], label: 'Key Secret', hint: 'Shown once when you generate the key', sensitive: true, placeholder: 'Key secret' },
+      { path: ['razorpay', 'webhookSecret'], label: 'Webhook Secret', hint: 'The secret you type when creating the webhook', sensitive: true, placeholder: 'Webhook secret' },
+    ],
+    setupSteps: [
+      'Razorpay Dashboard → Account & Settings → API Keys → choose Test mode → Generate Key. Paste the Key ID and Key Secret here and tap Save.',
+      'Razorpay Dashboard → Account & Settings → Webhooks → Add New Webhook.',
+      'Webhook URL: https://us-central1-maa-mitra-7kird8.cloudfunctions.net/razorpayWebhook',
+      'Secret: type a long random password, and paste the same value in Webhook Secret here.',
+      'Active events: tick every event under "subscription" (authenticated, activated, charged, pending, halted, cancelled, completed). Save.',
+      'Ask Razorpay support to enable Subscriptions with UPI AutoPay on your account.',
+      'Tap "Test" here to confirm the keys work, then switch on website checkout below once a full test purchase has worked.',
+    ],
+    dashboardUrl: 'https://dashboard.razorpay.com',
+    docsUrl: 'https://razorpay.com/docs/payments/subscriptions/',
+  },
   {
     id: 'firebase',
     name: 'Firebase (Google)',
@@ -538,8 +566,8 @@ export default function AdminIntegrations() {
           const isEditing = editingId === integ.id;
 
           return (
+            <Fragment key={integ.id}>
             <IntegrationCard
-              key={integ.id}
               integ={integ}
               config={config}
               result={serviceResult}
@@ -565,6 +593,8 @@ export default function AdminIntegrations() {
               onTest={integ.healthKey ? () => runHealthCheck(integ.id) : undefined}
               onSaveNote={(note) => handleSaveNote(integ.id, note)}
             />
+            {integ.id === 'razorpay' ? <BillingSwitchCard /> : null}
+            </Fragment>
           );
         })}
 

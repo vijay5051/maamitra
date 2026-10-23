@@ -29,6 +29,7 @@ export interface IntegrationConfig {
   pexels: { apiKey: string };
   anthropic: { workerUrl: string };
   meta: MetaIntegrationConfig;
+  razorpay: { keyId: string; keySecret: string; webhookSecret: string };
   notes: Record<string, string>;
 }
 
@@ -47,6 +48,7 @@ export const EMPTY_CONFIG: IntegrationConfig = {
     webhookVerifyToken: '',
     adAccountId: '',
   },
+  razorpay: { keyId: '', keySecret: '', webhookSecret: '' },
   notes: {},
 };
 
@@ -67,6 +69,7 @@ export interface HealthCheckResults {
     ig: ServiceResult;
     fb: ServiceResult;
     anthropicWorker: ServiceResult;
+    razorpay: ServiceResult;
   };
 }
 
@@ -147,6 +150,11 @@ function mergeWithDefaults(d: Record<string, any>): IntegrationConfig {
       appSecret:          str(m.appSecret),
       webhookVerifyToken: str(m.webhookVerifyToken),
       adAccountId:        str(m.adAccountId),
+    },
+    razorpay: {
+      keyId:         str(d.razorpay?.keyId),
+      keySecret:     str(d.razorpay?.keySecret),
+      webhookSecret: str(d.razorpay?.webhookSecret),
     },
     notes,
   };

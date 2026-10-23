@@ -139,6 +139,19 @@ async function probeAnthropicWorker(workerUrl: string): Promise<string | null> {
   throw new Error(`HTTP ${res.status}`);
 }
 
+async function probeRazorpay(keyId: string, keySecret: string): Promise<string | null> {
+  if (!keyId || !keySecret) throw new Error('Key ID or Key Secret not configured.');
+  const res = await fetch('https://api.razorpay.com/v1/plans?count=1', {
+    headers: { Authorization: `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString('base64')}` },
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({})) as any;
+    throw new Error(`HTTP ${res.status}: ${body?.error?.description ?? res.statusText}`);
+  }
+  return `Connected — ${keyId.startsWith('rzp_live_') ? 'live' : 'test'} mode`;
+}
+
 interface CheckHealthResponse {
   ok: true;
   checkedAt: string;
@@ -150,6 +163,7 @@ interface CheckHealthResponse {
     ig: ServiceResult;
     fb: ServiceResult;
     anthropicWorker: ServiceResult;
+    razorpay: ServiceResult;
   };
 }
 
@@ -172,7 +186,7 @@ export function buildCheckIntegrationHealth(allowList: ReadonlySet<string>) {
       const cfg = await getIntegrationConfig();
       const igToken = (cfg.meta.fbPageAccessToken?.startsWith('EAA') ? cfg.meta.fbPageAccessToken : cfg.meta.igAccessToken) ?? '';
 
-      const [openai, gemini, replicate, pexels, ig, fb, anthropicWorker] = await Promise.all([
+      const [openai, gemini, replicate, pexels, ig, fb, anthropicWorker, razorpay] = await Promise.all([
         probe(() => probeOpenAI(cfg.openai.apiKey)),
         probe(() => probeGemini(cfg.gemini.apiKey)),
         probe(() => probeReplicate(cfg.replicate.apiToken)),
@@ -180,12 +194,13 @@ export function buildCheckIntegrationHealth(allowList: ReadonlySet<string>) {
         probe(() => probeMetaIG(cfg.meta.igUserId, igToken)),
         probe(() => probeMetaFB(cfg.meta.fbPageId, cfg.meta.fbPageAccessToken || igToken)),
         probe(() => probeAnthropicWorker(cfg.anthropic.workerUrl)),
+        probe(() => probeRazorpay(cfg.razorpay.keyId, cfg.razorpay.keySecret)),
       ]);
 
       return {
         ok: true,
         checkedAt: new Date().toISOString(),
-        results: { openai, gemini, replicate, pexels, ig, fb, anthropicWorker },
+        results: { openai, gemini, replicate, pexels, ig, fb, anthropicWorker, razorpay },
       };
     });
 }
@@ -214,7 +229,7 @@ export function buildUpdateIntegrationConfig(allowList: ReadonlySet<string>) {
 }
 
 function sanitizePatch(raw: Record<string, any>): Record<string, any> {
-  const allowed = new Set(['openai', 'replicate', 'gemini', 'pexels', 'anthropic', 'meta', 'notes']);
+  const allowed = new Set(['openai', 'replicate', 'gemini', 'pexels', 'anthropic', 'meta', 'razorpay', 'notes']);
   const out: Record<string, any> = {};
   for (const [k, v] of Object.entries(raw)) {
     if (!allowed.has(k)) continue;

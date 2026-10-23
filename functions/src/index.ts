@@ -1555,3 +1555,16 @@ export const expireStaleLibrary   = buildExpireStaleLibrary();
 // pref + a 7-day cooldown so the parent isn't badgered.
 import { buildVaccineReminderCron } from './vaccines/reminderCron';
 export const vaccineReminderCron = buildVaccineReminderCron();
+
+// Razorpay subscriptions for website purchases. Off until app_settings/billing
+// has webCheckoutEnabled: true and keys are saved in /admin/integrations.
+// Razorpay dashboard → Webhooks should point at razorpayWebhook with the
+// subscription.* events enabled and the same webhook secret.
+import {
+  buildCancelRazorpaySubscription,
+  buildCreateRazorpaySubscription,
+  buildRazorpayWebhook,
+} from './billing/razorpay';
+export const createRazorpaySubscription = buildCreateRazorpaySubscription();
+export const cancelRazorpaySubscription = buildCancelRazorpaySubscription();
+export const razorpayWebhook = buildRazorpayWebhook();

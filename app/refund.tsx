@@ -12,7 +12,7 @@ export default function RefundScreen() {
       <H2>1. Cancelling your plan</H2>
       <P>You can cancel any time. Cancelling stops the next renewal; it does not end your plan straight away.</P>
       <LI><B>Bought in the Android app (Google Play):</B> open the Play Store → profile icon → Payments & subscriptions → Subscriptions → MaaMitra → Cancel.</LI>
-      <LI><B>Bought on the website (Razorpay):</B> email <A href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</A> from your account email, and we will cancel the renewal within 1 working day.</LI>
+      <LI><B>Bought on the website (Razorpay):</B> sign in at maamitra.co.in, open the <A href="/pricing">Pricing page</A> and tap Cancel renewal. Or email <A href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</A> from your account email and we will cancel it within 1 working day.</LI>
       <P>
         After cancelling, you keep your paid features until the end of the period you have paid for, then move to the
         Free plan. Your data stays in your account.

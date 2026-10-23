@@ -8,6 +8,22 @@
 
 ## Active task
 
+**Paid plans via Razorpay, piece 1 of 2 (2026-10-23, Claude) — code on main,
+switched OFF, Cloud Functions + Firestore rules NOT deployed yet.**
+Website-only purchases (Google Play forbids selling/linking web purchases in
+the Android app; the app only reads the plan). New: `functions/src/billing/`
+(createRazorpaySubscription, cancelRazorpaySubscription, razorpayWebhook),
+`entitlements/{uid}` (server-written, user-readable rule added),
+`app_settings/billing` switch (absent = OFF), Razorpay card + switch in
+/admin/integrations, checkout on /pricing (web only), `lib/plans.ts`,
+`services/billing.ts`, `hooks/useBilling.ts`, CSP allows checkout.razorpay.com.
+Needs, in order: (1) `firebase deploy --only functions,firestore:rules` from a
+machine with Firebase login; (2) Razorpay test keys + webhook secret entered in
+/admin/integrations, webhook pointed at .../razorpayWebhook; (3) test purchase.
+Do NOT switch checkout on until piece 2 (plan limits/locks: chat caps, kids,
+tiffin/travel/nuskhe tiers, vaccine reminders) ships — today a paid plan
+unlocks nothing extra.
+
 **Legal pages for Razorpay review (2026-10-23, Claude).** New public routes
 `/pricing` and `/refund`; `/contact` is now a real page (was a redirect to
 /privacy). `/terms` and `/privacy` rewritten: operator is now Divya Shekhawat

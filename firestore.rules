@@ -448,6 +448,14 @@ service cloud.firestore {
     // PERMISSION_DENIED on every cold start (caught by /qa-only 2026-05-14).
     // The doc only carries non-sensitive runtime config; the live API keys
     // doc `/integrations` keeps its own admin-only rule above.
+    // Paid plan per user. Written only by the Razorpay webhook (Admin SDK);
+    // billing_subscriptions / billing_events / billing_meta have no rule, so
+    // clients cannot touch them at all.
+    match /entitlements/{uid} {
+      allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      allow write: if false;
+    }
+
     match /app_settings/integrations {
       allow read:  if isAdmin();
       allow write: if isAdmin();

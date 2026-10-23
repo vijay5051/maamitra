@@ -21,6 +21,12 @@ export interface MetaConfig {
   adAccountId: string;
 }
 
+export interface RazorpayConfig {
+  keyId: string;
+  keySecret: string;
+  webhookSecret: string;
+}
+
 export interface IntegrationConfig {
   openai: { apiKey: string; defaultModel: string };
   replicate: { apiToken: string; loraModel: string; loraTrigger: string };
@@ -28,6 +34,7 @@ export interface IntegrationConfig {
   pexels: { apiKey: string };
   anthropic: { workerUrl: string };
   meta: MetaConfig;
+  razorpay: RazorpayConfig;
   factoryResetToken: string;
 }
 
@@ -93,6 +100,11 @@ function buildConfig(d: Record<string, any>): IntegrationConfig {
       appSecret:          str(m.appSecret,           process.env.META_APP_SECRET),
       webhookVerifyToken: str(m.webhookVerifyToken,  process.env.META_WEBHOOK_VERIFY_TOKEN),
       adAccountId:        str(m.adAccountId,         process.env.META_AD_ACCOUNT_ID),
+    },
+    razorpay: {
+      keyId:         str(d.razorpay?.keyId,         process.env.RAZORPAY_KEY_ID),
+      keySecret:     str(d.razorpay?.keySecret,     process.env.RAZORPAY_KEY_SECRET),
+      webhookSecret: str(d.razorpay?.webhookSecret, process.env.RAZORPAY_WEBHOOK_SECRET),
     },
     factoryResetToken: str(d.factoryResetToken, process.env.FACTORY_RESET_TOKEN),
   };
