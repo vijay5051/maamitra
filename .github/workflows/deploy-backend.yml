@@ -1,0 +1,39 @@
+name: Deploy Functions & Rules
+
+# Manual only. Deploys Cloud Functions and/or Firestore rules with the same
+# service account as the web deploy. "targets" is passed to
+# `firebase deploy --only`, e.g. "firestore:rules" or
+# "functions:razorpayWebhook,functions:createRazorpaySubscription".
+
+on:
+  workflow_dispatch:
+    inputs:
+      targets:
+        description: 'firebase deploy --only targets'
+        required: true
+        default: 'firestore:rules'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: functions/package-lock.json
+
+      - name: Install functions dependencies
+        run: npm ci --prefix functions
+
+      - name: Deploy
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          TARGETS: ${{ github.event.inputs.targets }}
+        run: |
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          npx --yes firebase-tools@latest deploy --only "$TARGETS" --project maa-mitra-7kird8 --non-interactive
