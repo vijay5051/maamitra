@@ -96,7 +96,8 @@ interface PushJob {
     | 'follow_accepted'
     | 'message'
     | 'vaccine_reminder'
-    | 'growth_reminder';
+    | 'growth_reminder'
+    | 'birthday';
 }
 
 interface ResolvedRecipient {
@@ -441,6 +442,7 @@ function personalPrefKey(
     case 'vaccine_reminder':
       return 'vaccines';
     case 'growth_reminder':
+    case 'birthday':
       return 'reminders';
     default:
       // Missing type (older client) — don't gate. Better to deliver than
@@ -1588,7 +1590,8 @@ export const createRazorpaySubscription = buildCreateRazorpaySubscription();
 export const cancelRazorpaySubscription = buildCancelRazorpaySubscription();
 export const razorpayWebhook = buildRazorpayWebhook();
 
-// Monthly growth/milestone reminders on each child's month-birthday, and a
+// Monthly growth/milestone reminders on each child's month-birthday (a
+// birthday wish on full-year birthdays), and a
 // weekly "New on MaaMitra" digest of new articles and travel recipes.
 import { buildGrowthReminderCron } from './notifications/growthReminderCron';
 import { buildContentDigestCron } from './notifications/contentDigestCron';

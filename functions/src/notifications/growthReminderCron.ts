@@ -1,12 +1,15 @@
 // Daily 09:30 IST: on each child's month-birthday (1–36 months), remind the
-// parent to log growth and look at this month's milestones. Gated downstream
-// by the `reminders` notification pref (notifType growth_reminder).
+// parent to log growth and look at this month's milestones. On a full-year
+// birthday (1–18 years) a birthday wish goes out instead; the app shows the
+// matching card on Home (components/birthday/BirthdayCard.tsx). Both are gated
+// downstream by the `reminders` notification pref.
 
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions/v1';
 
 const RUN_LIMIT_USERS = 2000;
 const MAX_MONTHS = 36;
+const MAX_BIRTHDAY_YEARS = 18;
 
 interface Kid {
   id?: string;
@@ -37,6 +40,12 @@ export function monthBirthday(dob: string, today: { y: number; m: number; d: num
   return today.d === dueDay ? months : null;
 }
 
+function ordinal(n: number): string {
+  const rem100 = n % 100;
+  if (rem100 >= 11 && rem100 <= 13) return `${n}th`;
+  return `${n}${['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`;
+}
+
 function ageLabel(months: number): string {
   if (months < 24) return `${months} months`;
   const y = Math.floor(months / 12);
@@ -61,15 +70,32 @@ export function buildGrowthReminderCron() {
         for (const kid of Array.isArray(data.kids) ? data.kids : []) {
           if (!kid?.dob || kid.isExpecting) continue;
           const months = monthBirthday(kid.dob, today);
-          if (months === null || months > MAX_MONTHS) continue;
+          if (months === null) continue;
+          const hasName = !!kid.name?.trim();
           const name = kid.name?.trim() || 'Your little one';
+          let job: Record<string, unknown>;
+          if (months % 12 === 0 && months / 12 <= MAX_BIRTHDAY_YEARS) {
+            const years = months / 12;
+            job = {
+              title: hasName ? `Happy ${ordinal(years)} birthday, ${name}! 🎂` : `Happy ${ordinal(years)} birthday to your little one! 🎂`,
+              body: 'We made a birthday card for you. Open MaaMitra to see it.',
+              notifType: 'birthday',
+              data: { kidId: kid.id ?? '', years: String(years), url: '/' },
+            };
+          } else if (months <= MAX_MONTHS) {
+            job = {
+              title: `${name} turns ${ageLabel(months)} today 🎉`,
+              body: 'Log weight and height, and see the milestones for this month.',
+              notifType: 'growth_reminder',
+              data: { kidId: kid.id ?? '', months: String(months), url: '/(tabs)/health?tab=growth' },
+            };
+          } else {
+            continue;
+          }
           await db.collection('push_queue').add({
             kind: 'personal',
             toUid: userSnap.id,
-            title: `${name} turns ${ageLabel(months)} today 🎉`,
-            body: 'Log weight and height, and see the milestones for this month.',
-            notifType: 'growth_reminder',
-            data: { kidId: kid.id ?? '', months: String(months), url: '/(tabs)/health?tab=growth' },
+            ...job,
             status: 'pending',
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
           });

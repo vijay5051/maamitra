@@ -92,3 +92,35 @@ export async function sharePost(
 
   return { method: 'none', ok: false };
 }
+
+/** Share a plain message (no link) with the same fallbacks as sharePost. */
+export async function shareText(
+  title: string,
+  text: string,
+): Promise<{ method: 'web-share' | 'clipboard' | 'native-share' | 'none'; ok: boolean }> {
+  if (Platform.OS === 'web' && typeof navigator !== 'undefined' && typeof (navigator as any).share === 'function') {
+    try {
+      await (navigator as any).share({ title, text });
+      return { method: 'web-share', ok: true };
+    } catch (err: any) {
+      if (err?.name === 'AbortError') return { method: 'web-share', ok: false };
+    }
+  }
+  if (Platform.OS === 'web' && typeof navigator !== 'undefined' && (navigator as any).clipboard?.writeText) {
+    try {
+      await (navigator as any).clipboard.writeText(text);
+      return { method: 'clipboard', ok: true };
+    } catch (_) {
+      /* fall through */
+    }
+  }
+  if (Platform.OS !== 'web') {
+    try {
+      await Share.share({ message: text, title });
+      return { method: 'native-share', ok: true };
+    } catch (_) {
+      /* ignore */
+    }
+  }
+  return { method: 'none', ok: false };
+}

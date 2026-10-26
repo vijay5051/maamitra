@@ -8,6 +8,15 @@
 
 ## Active task
 
+**Birthday cards (2026-10-26, Claude) — app part ships with this push;
+birthday push NOT deployed (same IAM blocker).** On a child's birthday Home
+opens a card (`components/birthday/BirthdayCard.tsx`, logic + notes in
+`lib/birthday.ts`, tests in `tests/birthday.test.ts`) once per child per year
+(dedup via `dismissedPrompts['birthdayCard-<kidId>-<year>']`), then a banner
+reopens it that day. "Share the joy" shares a text wish. `growthReminderCron`
+sends a birthday push (`notifType: 'birthday'`, pref `reminders`) instead of the
+growth reminder on full-year birthdays, 1–18 years.
+
 **Notifications (2026-10-26, Claude) — app parts live with this push; new
 crons NOT deployed (same IAM blocker as billing).** New prefs `content` (weekly
 "New on MaaMitra" digest, `contentDigestCron`, Sun 10:00 IST) and `reminders`
