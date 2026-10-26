@@ -15,6 +15,8 @@ import * as crypto from 'crypto';
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions/v1';
 
+import { userEarlyAccessUntil } from './access';
+
 import { getIntegrationConfig, RazorpayConfig } from '../lib/integrationConfig';
 import {
   BillingInterval,
@@ -35,6 +37,7 @@ interface BillingSettings {
   trialEnabled?: boolean;
   foundingOffer?: { enabled?: boolean; limit?: number };
   foundingCount?: number;
+  earlyAccess?: { start?: admin.firestore.Timestamp; days?: number };
 }
 
 interface SubscriptionRecord {
@@ -43,6 +46,8 @@ interface SubscriptionRecord {
   interval: BillingInterval;
   founding: boolean;
   trial: boolean;
+  /** Early member still in the free period: first charge waits until it ends. */
+  earlyAccessDeferred?: boolean;
   foundingCounted?: boolean;
 }
 
@@ -148,7 +153,16 @@ export function buildCreateRazorpaySubscription() {
         founding = true;
       }
 
-      const trial = plan === 'plus' && settings.trialEnabled !== false && ent?.trialUsed !== true;
+      // Early members who subscribe during their free period pay nothing until it ends
+      // (instead of the 7-day trial, which would end sooner).
+      const earlyUntil = await userEarlyAccessUntil(uid, settings);
+      const earlyAccessDeferred = earlyUntil !== null;
+      const trial = !earlyAccessDeferred && plan === 'plus' && settings.trialEnabled !== false && ent?.trialUsed !== true;
+      const startAt = earlyAccessDeferred
+        ? Math.floor(earlyUntil / 1000)
+        : trial
+          ? Math.floor(Date.now() / 1000) + TRIAL_DAYS * 86400
+          : null;
       const amount = founding ? FOUNDING_PLUS_YEARLY : PLAN_PRICES[plan][interval];
       const cfg = await requireRazorpayConfig();
       const planId = await ensurePlan(cfg, plan, interval, amount, founding);
@@ -157,18 +171,25 @@ export function buildCreateRazorpaySubscription() {
         plan_id: planId,
         total_count: interval === 'monthly' ? 120 : 10,
         customer_notify: 1,
-        ...(trial ? { start_at: Math.floor(Date.now() / 1000) + TRIAL_DAYS * 86400 } : {}),
+        ...(startAt !== null ? { start_at: startAt } : {}),
         notes: { uid, plan, interval, founding: founding ? '1' : '0' },
       });
 
-      const record: SubscriptionRecord = { uid, plan, interval, founding, trial };
+      const record: SubscriptionRecord = { uid, plan, interval, founding, trial, earlyAccessDeferred };
       await db().doc(`billing_subscriptions/${sub.id}`).set({
         ...record,
         status: sub.status,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
-      return { subscriptionId: sub.id, keyId: cfg.keyId, amount, trial, trialDays: TRIAL_DAYS };
+      return {
+        subscriptionId: sub.id,
+        keyId: cfg.keyId,
+        amount,
+        trial,
+        trialDays: TRIAL_DAYS,
+        firstChargeAt: startAt !== null ? startAt * 1000 : null,
+      };
     });
 }
 
@@ -248,10 +269,12 @@ async function applySubscriptionEvent(sub: RazorpaySubscription): Promise<void> 
     switch (sub.status) {
       case 'authenticated': {
         const start = ts(sub.start_at);
-        if (rec.trial && start && start.toMillis() > now.toMillis()) {
+        if ((rec.trial || rec.earlyAccessDeferred) && start && start.toMillis() > now.toMillis()) {
           activeUntil = later(activeUntil, start);
-          trialEndsAt = start;
-          trialUsed = true;
+          if (rec.trial) {
+            trialEndsAt = start;
+            trialUsed = true;
+          }
         }
         break;
       }
@@ -280,6 +303,7 @@ async function applySubscriptionEvent(sub: RazorpaySubscription): Promise<void> 
         activeUntil,
         trialEndsAt,
         trialUsed,
+        earlyAccessDeferred: rec.earlyAccessDeferred === true,
         cancelAtPeriodEnd: cancelled || ent?.cancelAtPeriodEnd === true,
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       },

@@ -27,7 +27,7 @@ import ForceUpdateOverlay from '../components/ForceUpdateOverlay';
 import ImpersonationBanner from '../components/ImpersonationBanner';
 import RootErrorBoundary from '../components/ui/RootErrorBoundary';
 import { SplashAnimation } from '../components/ui/SplashAnimation';
-import { hasSubmittedTesterFeedback } from '../services/firebase';
+import { auth, hasSubmittedTesterFeedback } from '../services/firebase';
 import { captureFirstVisitAttribution, writeAttributionToUser } from '../services/attribution';
 
 SplashScreen.preventAutoHideAsync();
@@ -178,7 +178,10 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
-    usePlanStore.getState().watchUser(user?.uid ?? null);
+    // Account age decides the early-member free period (lib/plans.ts).
+    const created = auth?.currentUser?.uid === user?.uid ? auth?.currentUser?.metadata.creationTime : undefined;
+    const createdMs = created ? Date.parse(created) : NaN;
+    usePlanStore.getState().watchUser(user?.uid ?? null, Number.isNaN(createdMs) ? null : createdMs);
   }, [user?.uid]);
 
   // Wire native FCM token-refresh + foreground message listeners once

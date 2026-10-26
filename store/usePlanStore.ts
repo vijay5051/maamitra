@@ -21,10 +21,12 @@ interface PlanState {
   settings: BillingSettings;
   entitlement: Entitlement;
   entitlementLoaded: boolean;
+  /** Firebase Auth account creation time (ms), used for the early-member free period. */
+  accountCreatedAt: number | null;
   upgradeReason: UpgradeReason | null;
   start: () => void;
   stop: () => void;
-  watchUser: (uid: string | null) => void;
+  watchUser: (uid: string | null, accountCreatedAt?: number | null) => void;
   openUpgrade: (reason: UpgradeReason) => void;
   closeUpgrade: () => void;
 }
@@ -37,6 +39,7 @@ export const usePlanStore = create<PlanState>((set) => ({
   settings: DEFAULT_BILLING_SETTINGS,
   entitlement: FREE_ENTITLEMENT,
   entitlementLoaded: false,
+  accountCreatedAt: null,
   upgradeReason: null,
 
   start: () => {
@@ -52,7 +55,8 @@ export const usePlanStore = create<PlanState>((set) => ({
     watchedUid = null;
   },
 
-  watchUser: (uid) => {
+  watchUser: (uid, accountCreatedAt = null) => {
+    set({ accountCreatedAt: uid ? accountCreatedAt : null });
     if (uid === watchedUid) return;
     entitlementUnsub?.();
     entitlementUnsub = null;

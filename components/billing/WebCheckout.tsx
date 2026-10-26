@@ -40,7 +40,16 @@ function errorText(e: unknown): string {
   return message;
 }
 
-export function WebCheckout({ settings, entitlement }: { settings: BillingSettings; entitlement: Entitlement }) {
+export function WebCheckout({
+  settings,
+  entitlement,
+  earlyAccessUntil = null,
+}: {
+  settings: BillingSettings;
+  entitlement: Entitlement;
+  /** Early member still in the free period: no trial, first payment when it ends. */
+  earlyAccessUntil?: number | null;
+}) {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const phone = useProfileStore((s) => s.phone);
@@ -49,7 +58,7 @@ export function WebCheckout({ settings, entitlement }: { settings: BillingSettin
   const [error, setError] = useState<string | null>(null);
   const [activating, setActivating] = useState(false);
 
-  const trialOffered = settings.trialEnabled && !entitlement.trialUsed;
+  const trialOffered = earlyAccessUntil === null && settings.trialEnabled && !entitlement.trialUsed;
   const foundingLeft = Math.max(0, settings.foundingLimit - settings.foundingCount);
   const foundingOpen = settings.foundingOfferEnabled && foundingLeft > 0;
 
@@ -159,6 +168,11 @@ export function WebCheckout({ settings, entitlement }: { settings: BillingSettin
       <PlanButton plan="plus" />
       <PlanButton plan="family" />
 
+      {earlyAccessUntil !== null ? (
+        <Text style={s.small}>
+          You are an early member, so you pay nothing now. You authorise payment today and your first payment is on {longDate(earlyAccessUntil)}, when your free period ends. Cancel before then and you pay nothing.
+        </Text>
+      ) : null}
       {trialOffered ? (
         <Text style={s.small}>
           The free trial is for Plus. You authorise payment now and are charged only after {TRIAL_DAYS} days. Cancel before then and you pay nothing.
@@ -175,6 +189,8 @@ export function YourPlanCard({ entitlement, canManage }: { entitlement: Entitlem
   const [error, setError] = useState<string | null>(null);
   const now = Date.now();
   const inTrial = !!entitlement.trialEndsAt && entitlement.trialEndsAt > now && entitlement.status === 'authenticated';
+  // Early member who subscribed during the free period: first charge on activeUntil.
+  const inEarlyFree = entitlement.earlyAccessDeferred && entitlement.status === 'authenticated' && (entitlement.activeUntil ?? 0) > now;
   const until = entitlement.activeUntil ?? now;
   const price =
     entitlement.plan === 'free' || !entitlement.interval
@@ -187,7 +203,11 @@ export function YourPlanCard({ entitlement, canManage }: { entitlement: Entitlem
   if (entitlement.cancelAtPeriodEnd) {
     line = inTrial
       ? `Cancelled. Your free trial runs until ${longDate(until)} and you won't be charged.`
-      : `Cancelled. Your plan stays active until ${longDate(until)}.`;
+      : inEarlyFree
+        ? `Cancelled. Everything stays free until ${longDate(until)} and you won't be charged.`
+        : `Cancelled. Your plan stays active until ${longDate(until)}.`;
+  } else if (inEarlyFree) {
+    line = `Free as an early member until ${longDate(until)}. Your first payment${price ? ` of ${rupees(price)}` : ''} is on that day.`;
   } else if (inTrial) {
     line = `Free trial until ${longDate(until)}. Your first payment${price ? ` of ${rupees(price)}` : ''} is on that day.`;
   } else if (entitlement.status === 'pending') {

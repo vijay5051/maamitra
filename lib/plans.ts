@@ -107,3 +107,22 @@ export function rankRoundRobin<T>(items: readonly T[], id: (t: T) => string, gro
   }
   return rank;
 }
+
+// ─── Early members ────────────────────────────────────────────────────
+// Everyone whose account existed before plans went live gets every feature
+// free for 3 months from that day. The start is stamped in
+// app_settings/billing.earlyAccess.start the first time an admin turns plan
+// locks on (components/admin/BillingSwitchCard.tsx). The server mirrors this
+// rule in functions/src/billing/access.ts.
+export const EARLY_ACCESS_DAYS = 90;
+
+/** End of the free period for this account (ms), or null if it isn't an early member. */
+export function earlyAccessUntil(
+  startMs: number | null,
+  days: number,
+  accountCreatedMs: number | null,
+): number | null {
+  if (startMs === null || accountCreatedMs === null) return null;
+  if (accountCreatedMs >= startMs) return null;
+  return startMs + days * 86400 * 1000;
+}

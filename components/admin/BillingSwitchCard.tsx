@@ -7,6 +7,7 @@ import { logAdminAction } from '../../services/audit';
 import { BillingSettings, DEFAULT_BILLING_SETTINGS, subscribeBillingSettings } from '../../services/billing';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Colors, Fonts } from '../../constants/theme';
+import { EARLY_ACCESS_DAYS } from '../../lib/plans';
 
 type Key = 'webCheckoutEnabled' | 'trialEnabled' | 'foundingOfferEnabled' | 'locksWeb' | 'locksApp';
 
@@ -31,7 +32,11 @@ export function BillingSwitchCard() {
             : key === 'locksApp'
               ? { locks: { app: value } }
               : { [key]: value };
-      await setDoc(doc(db, 'app_settings/billing'), { ...patch, updatedAt: serverTimestamp() }, { merge: true });
+      // The first time plan locks go on, stamp the launch: every account created
+      // before it is an early member with everything free for EARLY_ACCESS_DAYS.
+      const startsEarlyAccess = (key === 'locksWeb' || key === 'locksApp') && value && settings.earlyAccessStart === null;
+      const early = startsEarlyAccess ? { earlyAccess: { start: serverTimestamp(), days: EARLY_ACCESS_DAYS } } : {};
+      await setDoc(doc(db, 'app_settings/billing'), { ...patch, ...early, updatedAt: serverTimestamp() }, { merge: true });
       await logAdminAction({ uid: user.uid, email: user.email }, 'integration.update', { label: `billing.${key}` }, { value }).catch(() => {});
     } catch (e: any) {
       setError(e?.message ?? 'Could not save.');
@@ -78,10 +83,18 @@ export function BillingSwitchCard() {
         label={settings.locksApp ? 'Plan locks ON (app)' : 'Plan locks OFF (app)'}
         hint="Keep OFF until plans can be bought inside the Android app. Otherwise app users lose features with no way to pay."
       />
+      <Text style={s.hint}>
+        {settings.earlyAccessStart !== null
+          ? `Early members: accounts created before ${longDate(settings.earlyAccessStart)} have every feature free until ${longDate(settings.earlyAccessStart + settings.earlyAccessDays * 86400000)}.`
+          : `Early members: the first time you turn plan locks on, everyone who already has an account gets every feature free for ${EARLY_ACCESS_DAYS / 30} months from that moment.`}
+      </Text>
       {error ? <Text style={s.error}>{error}</Text> : null}
     </View>
   );
 }
+
+const longDate = (ms: number) =>
+  new Date(ms).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
 
 const s = StyleSheet.create({
   card: {

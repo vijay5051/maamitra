@@ -5,7 +5,7 @@
 import { doc, onSnapshot, Timestamp, Unsubscribe } from 'firebase/firestore';
 
 import { app, db } from './firebase';
-import type { BillingInterval, PaidPlanId, PlanId } from '../lib/plans';
+import { EARLY_ACCESS_DAYS, type BillingInterval, type PaidPlanId, type PlanId } from '../lib/plans';
 
 export interface BillingSettings {
   webCheckoutEnabled: boolean;
@@ -17,6 +17,9 @@ export interface BillingSettings {
   locksWeb: boolean;
   /** Plan locks in the Android/iOS app. Keep off until in-app purchase exists. */
   locksApp: boolean;
+  /** When plans went live (ms). Accounts created before it are early members. Null until locks are first turned on. */
+  earlyAccessStart: number | null;
+  earlyAccessDays: number;
 }
 
 export const DEFAULT_BILLING_SETTINGS: BillingSettings = {
@@ -27,6 +30,8 @@ export const DEFAULT_BILLING_SETTINGS: BillingSettings = {
   foundingCount: 0,
   locksWeb: false,
   locksApp: false,
+  earlyAccessStart: null,
+  earlyAccessDays: EARLY_ACCESS_DAYS,
 };
 
 export interface Entitlement {
@@ -39,6 +44,8 @@ export interface Entitlement {
   founding: boolean;
   trialUsed: boolean;
   source: 'razorpay' | null;
+  /** The subscription's first payment waits for the end of the early-member free period. */
+  earlyAccessDeferred: boolean;
 }
 
 export const FREE_ENTITLEMENT: Entitlement = {
@@ -51,6 +58,7 @@ export const FREE_ENTITLEMENT: Entitlement = {
   founding: false,
   trialUsed: false,
   source: null,
+  earlyAccessDeferred: false,
 };
 
 const millis = (v: unknown): number | null => (v instanceof Timestamp ? v.toMillis() : null);
@@ -76,6 +84,8 @@ export function subscribeBillingSettings(cb: (s: BillingSettings) => void): Unsu
         foundingCount: typeof d.foundingCount === 'number' ? d.foundingCount : 0,
         locksWeb: d.locks?.web === true,
         locksApp: d.locks?.app === true,
+        earlyAccessStart: millis(d.earlyAccess?.start),
+        earlyAccessDays: typeof d.earlyAccess?.days === 'number' ? d.earlyAccess.days : EARLY_ACCESS_DAYS,
       });
     },
     () => cb(DEFAULT_BILLING_SETTINGS),
@@ -105,6 +115,7 @@ export function subscribeEntitlement(uid: string, cb: (e: Entitlement) => void):
         founding: d.founding === true,
         trialUsed: d.trialUsed === true,
         source: d.source === 'razorpay' ? 'razorpay' : null,
+        earlyAccessDeferred: d.earlyAccessDeferred === true,
       });
     },
     () => cb(FREE_ENTITLEMENT),

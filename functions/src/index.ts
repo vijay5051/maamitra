@@ -1088,6 +1088,8 @@ const LANG_VOICE: Record<string, { languageCode: string; name: string }> = {
 
 const TTS_MAX_CHARS = 1200;
 
+import { hasFullAccess } from './billing/access';
+
 export const synthesizeSpeech = functions
   .runWith({ memory: '256MB', timeoutSeconds: 30 })
   .https.onCall(async (data: { text?: string; lang?: string }, context) => {
@@ -1099,10 +1101,7 @@ export const synthesizeSpeech = functions
     }
     const billing = (await admin.firestore().doc('app_settings/billing').get()).data();
     if (billing?.locks?.app === true) {
-      const ent = (await admin.firestore().doc(`entitlements/${context.auth.uid}`).get()).data();
-      const until = ent?.activeUntil as admin.firestore.Timestamp | undefined;
-      const paid = (ent?.plan === 'plus' || ent?.plan === 'family') && !!until && until.toMillis() > Date.now();
-      if (!paid) {
+      if (!(await hasFullAccess(context.auth.uid, billing))) {
         throw new functions.https.HttpsError('permission-denied', 'Reading answers aloud is part of MaaMitra Plus.');
       }
     }

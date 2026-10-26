@@ -8,6 +8,17 @@
 
 ## Active task
 
+**Early members: 3 months free (2026-10-26, Claude).** Accounts created
+(Firebase Auth creationTime) before `app_settings/billing.earlyAccess.start`
+get Family-level access for `earlyAccess.days` (90). The start is stamped by
+BillingSwitchCard the FIRST time an admin turns either plan lock on. Client:
+`lib/plans.ts earlyAccessUntil`, `hooks/usePlanAccess.ts activeEarlyAccess`,
+`usePlanStore.accountCreatedAt` (set in app/_layout). Server mirror:
+`functions/src/billing/access.ts hasFullAccess` (vaccine reminders, read
+aloud). Subscribing during the free period defers the first Razorpay charge
+to its end (`earlyAccessDeferred`, no 7-day trial). Pricing page, plan card
+and Terms §7 explain it. Server parts need the backend deploy (IAM blocker).
+
 **Kids: no duplicate names, twins, DOB date fix (2026-10-26, Claude).**
 `lib/kids.ts` (tests `tests/kids.test.ts`). `addKid` refuses a new child whose
 name is already on the profile (returns false); Add Child, Edit Child and the

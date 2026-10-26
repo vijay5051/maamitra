@@ -4,6 +4,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { LegalPage, P, H2, A, LEGAL_UPDATED } from '../components/legal/LegalPage';
 import { WebCheckout, YourPlanCard } from '../components/billing/WebCheckout';
 import { useBillingSettings, useEntitlement } from '../hooks/useBilling';
+import { activeEarlyAccess } from '../hooks/usePlanAccess';
+import { usePlanStore } from '../store/usePlanStore';
+
+const longDate = (ms: number) =>
+  new Date(ms).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
 import type { PaidPlanId } from '../lib/plans';
 import { Colors, Fonts } from '../constants/theme';
 
@@ -80,6 +85,8 @@ const PLANS: Plan[] = [
 export default function PricingScreen() {
   const settings = useBillingSettings();
   const { entitlement, isActive } = useEntitlement();
+  const accountCreatedAt = usePlanStore((st) => st.accountCreatedAt);
+  const earlyUntil = activeEarlyAccess(settings, accountCreatedAt);
   // Purchases are web-only: Google Play does not allow selling or linking to
   // web purchases inside the Android app.
   const canBuyHere = Platform.OS === 'web' && settings.webCheckoutEnabled;
@@ -92,14 +99,16 @@ export default function PricingScreen() {
         <View style={s.notice}>
           <Ionicons name="sparkles-outline" size={18} color={Colors.primary} />
           <Text style={s.noticeText}>
-            {canBuyHere
+            {earlyUntil !== null
+              ? `You are an early member: every feature is free until ${longDate(earlyUntil)}. After that, Free-plan limits apply unless you choose a plan. Choose one now and your first payment is on ${longDate(earlyUntil)}.`
+              : canBuyHere
               ? 'Choose a plan below. You pay securely through Razorpay with UPI, card, net banking or a wallet, and your plan works in the app too.'
               : 'MaaMitra is free today, with every feature included. The paid plans below are launching soon; we will tell you in the app before anything changes.'}
           </Text>
         </View>
       )}
 
-      {canBuyHere && !isActive ? <WebCheckout settings={settings} entitlement={entitlement} /> : null}
+      {canBuyHere && !isActive ? <WebCheckout settings={settings} entitlement={entitlement} earlyAccessUntil={earlyUntil} /> : null}
 
       {PLANS.map((p) => (
         <View key={p.name} style={[s.plan, { backgroundColor: p.tint }]}>
@@ -124,6 +133,14 @@ export default function PricingScreen() {
           <Text style={s.offerText}>
             Plus for the first {settings.foundingLimit.toLocaleString('en-IN')} mothers, price locked while you stay subscribed.
             {settings.webCheckoutEnabled ? ` ${Math.max(0, settings.foundingLimit - settings.foundingCount).toLocaleString('en-IN')} places left.` : ''}
+          </Text>
+        </View>
+        <View style={[s.offer, { backgroundColor: '#FFF1D6' }]}>
+          <Text style={s.offerTitle}>Already with us? 3 months free</Text>
+          <Text style={s.offerText}>
+            {settings.earlyAccessStart !== null
+              ? `Everyone who joined before ${longDate(settings.earlyAccessStart)} gets every feature free until ${longDate(settings.earlyAccessStart + settings.earlyAccessDays * 86400000)}.`
+              : 'Everyone who joins before paid plans launch gets every feature free for 3 months from launch day.'}
           </Text>
         </View>
         <View style={[s.offer, { backgroundColor: '#E6EDD9' }]}>

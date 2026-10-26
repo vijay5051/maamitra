@@ -54,6 +54,7 @@ export default function TermsScreen() {
       <LI><B>Billing:</B> in the Android app, paid plans are bought and billed through Google Play. On the website, they are billed through our payment partner Razorpay.</LI>
       <LI><B>Auto-renewal:</B> monthly and yearly plans renew automatically at the end of each period and you are charged the then-current price, unless you cancel before the renewal date.</LI>
       <LI><B>Free trials:</B> if you start a free trial, you will be charged when it ends unless you cancel before then.</LI>
+      <LI><B>Early members:</B> if your account was created before paid plans launched, every feature stays free for 3 months from the launch date. After that, the Free plan's limits apply unless you choose a paid plan. If you choose one during those 3 months, your first payment is taken when they end.</LI>
       <LI><B>Cancelling</B> stops future renewals. You keep your paid features until the end of the period you have paid for. See our <A href="/refund">Refund & Cancellation Policy</A>.</LI>
       <LI><B>Price changes:</B> we will tell you at least 30 days before a price change, and it applies from your next renewal.</LI>
       <LI><B>Offers:</B> promotional prices (for example, Founding Mothers) apply only as described in the offer. A locked price lasts while your subscription stays active without a break.</LI>

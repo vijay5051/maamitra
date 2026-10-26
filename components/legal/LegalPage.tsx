@@ -16,7 +16,7 @@ import { Fonts, Colors } from '../../constants/theme';
 export const OPERATOR_NAME = 'Divya Shekhawat';
 export const OPERATOR_PLACE = 'Jaipur, Rajasthan, India';
 export const SUPPORT_EMAIL = 'info@maamitra.co.in';
-export const LEGAL_UPDATED = '23 October 2026';
+export const LEGAL_UPDATED = '26 October 2026';
 
 const LEGAL_LINKS: { label: string; href: Href }[] = [
   { label: 'Terms', href: '/terms' },
