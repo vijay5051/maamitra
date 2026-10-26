@@ -449,10 +449,15 @@ service cloud.firestore {
     // The doc only carries non-sensitive runtime config; the live API keys
     // doc `/integrations` keeps its own admin-only rule above.
     // Paid plan per user. Written only by the Razorpay webhook (Admin SDK);
-    // billing_subscriptions / billing_events / billing_meta have no rule, so
-    // clients cannot touch them at all.
+    // billing_subscriptions / billing_events / billing_meta have no rule (except
+    // the admin-readable billing_meta/webhook_status), so clients cannot touch them.
     match /entitlements/{uid} {
       allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      allow write: if false;
+    }
+    // Last Razorpay webhook result (written by the webhook), shown to admins.
+    match /billing_meta/webhook_status {
+      allow read: if isAdmin();
       allow write: if false;
     }
 

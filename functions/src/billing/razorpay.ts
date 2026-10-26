@@ -223,6 +223,29 @@ export function buildCancelRazorpaySubscription() {
     });
 }
 
+/**
+ * Last webhook call, shown in Admin → Integrations → Razorpay so a wrong
+ * secret or a failing event is visible without reading server logs.
+ */
+async function recordWebhookStatus(
+  outcome: 'ok' | 'no-secret' | 'no-signature' | 'invalid-signature' | 'error',
+  event: string | null,
+  subscriptionId: string | null,
+  detail?: string,
+): Promise<void> {
+  await db()
+    .doc('billing_meta/webhook_status')
+    .set({
+      outcome,
+      event,
+      subscriptionId,
+      detail: detail ?? null,
+      at: admin.firestore.FieldValue.serverTimestamp(),
+      ...(outcome === 'ok' ? { lastOkAt: admin.firestore.FieldValue.serverTimestamp() } : {}),
+    }, { merge: true })
+    .catch((e) => console.warn('[razorpayWebhook] could not record status', e));
+}
+
 function signatureValid(rawBody: Buffer | undefined, signature: string | undefined, secret: string): boolean {
   if (!rawBody || !signature || !secret) return false;
   const expected = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
@@ -329,8 +352,12 @@ export function buildRazorpayWebhook() {
       }
       const cfg = (await getIntegrationConfig()).razorpay;
       const signature = req.get('x-razorpay-signature') ?? undefined;
+      const event = typeof req.body?.event === 'string' ? req.body.event : null;
       if (!signatureValid(req.rawBody as Buffer | undefined, signature, cfg.webhookSecret)) {
-        console.warn('[razorpayWebhook] bad or missing signature');
+        const outcome = !cfg.webhookSecret ? 'no-secret' : !signature ? 'no-signature' : 'invalid-signature';
+        console.warn('[razorpayWebhook] rejected:', outcome);
+        // Only record calls that look like Razorpay's, so random probes don't overwrite the status.
+        if (signature) await recordWebhookStatus(outcome, event, null);
         res.status(400).send('invalid-signature');
         return;
       }
@@ -355,10 +382,12 @@ export function buildRazorpayWebhook() {
         } catch (e) {
           console.error('[razorpayWebhook] failed to apply event', req.body.event, e);
           if (eventId) await db().doc(`billing_events/${eventId}`).delete().catch(() => {});
+          await recordWebhookStatus('error', event, sub.id, String((e as Error)?.message ?? e).slice(0, 300));
           res.status(500).send('error');
           return;
         }
       }
+      await recordWebhookStatus('ok', event, sub?.id ?? null);
       res.status(200).send('ok');
     });
 }

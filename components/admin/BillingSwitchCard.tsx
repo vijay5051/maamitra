@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Switch, Text, View } from 'react-native';
-import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { doc, onSnapshot, serverTimestamp, setDoc, Timestamp } from 'firebase/firestore';
 
 import { db } from '../../services/firebase';
 import { logAdminAction } from '../../services/audit';
@@ -18,6 +18,21 @@ export function BillingSwitchCard() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => subscribeBillingSettings(setSettings), []);
+
+  // Last Razorpay webhook call (written by the server), so a wrong secret is visible here.
+  const [webhook, setWebhook] = useState<{ outcome: string; event: string | null; at: number | null; lastOkAt: number | null; detail: string | null } | null>(null);
+  useEffect(() => {
+    if (!db) return;
+    return onSnapshot(
+      doc(db, 'billing_meta/webhook_status'),
+      (snap) => {
+        const d = snap.data();
+        const ms = (v: unknown) => (v instanceof Timestamp ? v.toMillis() : null);
+        setWebhook(d ? { outcome: String(d.outcome ?? ''), event: d.event ?? null, at: ms(d.at), lastOkAt: ms(d.lastOkAt), detail: d.detail ?? null } : null);
+      },
+      () => setWebhook(null),
+    );
+  }, []);
 
   const toggle = async (key: Key, value: boolean) => {
     if (!db || !user) return;
@@ -88,9 +103,28 @@ export function BillingSwitchCard() {
           ? `Early members: accounts created before ${longDate(settings.earlyAccessStart)} have every feature free until ${longDate(settings.earlyAccessStart + settings.earlyAccessDays * 86400000)}.`
           : `Early members: the first time you turn plan locks on, everyone who already has an account gets every feature free for ${EARLY_ACCESS_DAYS / 30} months from that moment.`}
       </Text>
+      <Text style={[s.hint, webhook && webhook.outcome !== 'ok' ? s.webhookBad : null]}>
+        {webhookLine(webhook)}
+      </Text>
       {error ? <Text style={s.error}>{error}</Text> : null}
     </View>
   );
+}
+
+const WEBHOOK_OUTCOMES: Record<string, string> = {
+  ok: 'received and applied',
+  'invalid-signature': 'REJECTED: the Webhook Secret here does not match the secret on the webhook in Razorpay',
+  'no-secret': 'REJECTED: no Webhook Secret saved here yet',
+  'no-signature': 'REJECTED: the request had no Razorpay signature',
+  error: 'received but could not be applied',
+};
+
+function webhookLine(w: { outcome: string; event: string | null; at: number | null; lastOkAt: number | null; detail: string | null } | null): string {
+  if (!w || !w.at) return 'Razorpay webhook: nothing received yet. Razorpay sends one after each subscription payment or change.';
+  const when = new Date(w.at).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+  const what = WEBHOOK_OUTCOMES[w.outcome] ?? w.outcome;
+  const last = w.outcome !== 'ok' && w.lastOkAt ? ` Last success: ${new Date(w.lastOkAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}.` : '';
+  return `Last Razorpay webhook (${when}${w.event ? `, ${w.event}` : ''}): ${what}.${w.detail ? ` ${w.detail}` : ''}${last}`;
 }
 
 const longDate = (ms: number) =>
@@ -112,4 +146,5 @@ const s = StyleSheet.create({
   label: { fontFamily: Fonts.sansBold, fontSize: 13, color: Colors.textDark },
   hint: { fontFamily: Fonts.sansRegular, fontSize: 12, lineHeight: 17, color: Colors.textMuted, marginTop: 2 },
   error: { fontFamily: Fonts.sansMedium, fontSize: 12, color: '#B42318' },
+  webhookBad: { color: '#B42318', fontFamily: Fonts.sansMedium },
 });
