@@ -83,6 +83,8 @@ interface PushJob {
   data?: Record<string, string>;
   fromUid?: string;
   pushType?: string;
+  // For broadcasts, which per-topic pref gates delivery (default announcements).
+  prefKey?: keyof NotifPrefs;
   // For personal pushes, the in-app notification type so we can look up
   // the matching per-topic pref on the recipient.
   //   reaction / comment / message / follow_* → social
@@ -93,7 +95,8 @@ interface PushJob {
     | 'follow_request'
     | 'follow_accepted'
     | 'message'
-    | 'vaccine_reminder';
+    | 'vaccine_reminder'
+    | 'growth_reminder';
 }
 
 interface ResolvedRecipient {
@@ -111,6 +114,8 @@ interface NotifPrefs {
   follows: boolean;
   announcements: boolean;
   vaccines: boolean;
+  content: boolean;
+  reminders: boolean;
 }
 
 const DEFAULT_PREFS: NotifPrefs = {
@@ -120,6 +125,8 @@ const DEFAULT_PREFS: NotifPrefs = {
   follows: true,
   announcements: true,
   vaccines: true,
+  content: true,
+  reminders: true,
 };
 
 const MAX_BATCH = 500;
@@ -365,15 +372,16 @@ async function resolveRecipients(
       : typeof d.motherName === 'string'
         ? d.motherName
         : undefined;
-    // Respect announcements opt-out. Missing prefs default to true.
-    const wantsAnnouncements = d.notifPrefs?.announcements !== false;
-    if (!wantsAnnouncements) {
+    // Respect the topic opt-out (announcements unless the job says otherwise).
+    // Missing prefs default to true.
+    const prefKey = job.prefKey ?? 'announcements';
+    if (d.notifPrefs?.[prefKey] === false) {
       out.push({
         uid: doc.id,
         email,
         name,
         tokens: [],
-        skippedReason: 'pref-off:announcements',
+        skippedReason: `pref-off:${prefKey}`,
       });
       return;
     }
@@ -432,6 +440,8 @@ function personalPrefKey(
       return 'follows';
     case 'vaccine_reminder':
       return 'vaccines';
+    case 'growth_reminder':
+      return 'reminders';
     default:
       // Missing type (older client) — don't gate. Better to deliver than
       // silently drop during rollout.
@@ -1577,3 +1587,10 @@ import {
 export const createRazorpaySubscription = buildCreateRazorpaySubscription();
 export const cancelRazorpaySubscription = buildCancelRazorpaySubscription();
 export const razorpayWebhook = buildRazorpayWebhook();
+
+// Monthly growth/milestone reminders on each child's month-birthday, and a
+// weekly "New on MaaMitra" digest of new articles and travel recipes.
+import { buildGrowthReminderCron } from './notifications/growthReminderCron';
+import { buildContentDigestCron } from './notifications/contentDigestCron';
+export const growthReminderCron = buildGrowthReminderCron();
+export const contentDigestCron = buildContentDigestCron();

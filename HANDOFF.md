@@ -8,6 +8,14 @@
 
 ## Active task
 
+**Notifications (2026-10-26, Claude) — app parts live with this push; new
+crons NOT deployed (same IAM blocker as billing).** New prefs `content` (weekly
+"New on MaaMitra" digest, `contentDigestCron`, Sun 10:00 IST) and `reminders`
+(month-birthday growth/milestone push, `growthReminderCron`, daily 09:30 IST);
+`announcements` relabelled "Updates & new features". Broadcast jobs can set
+`prefKey` to pick which pref gates them. Home shows `NotificationsPrompt`
+to users who haven't granted permission (re-asks at most once a quarter).
+
 **Paid plans via Razorpay, piece 1 of 2 (2026-10-23, Claude) — code on main,
 switched OFF, Cloud Functions + Firestore rules NOT deployed yet.**
 Website-only purchases (Google Play forbids selling/linking web purchases in

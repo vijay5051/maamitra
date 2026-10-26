@@ -30,11 +30,13 @@ import { usePlanAccess } from '../../hooks/usePlanAccess';
 
 const PREF_ROWS: Array<{ key: keyof NotifPrefs; label: string; sub: string }> = [
   { key: 'vaccines',      label: 'Vaccine reminders', sub: 'Due, upcoming and overdue vaccines for your children' },
+  { key: 'reminders',     label: 'Growth & milestone reminders', sub: 'On each monthly birthday: log growth and see new milestones' },
+  { key: 'content',       label: 'New recipes & articles', sub: 'A weekly round-up when something new is added' },
+  { key: 'announcements', label: 'Updates & new features', sub: 'New features, app updates and news from MaaMitra' },
   { key: 'reactions',     label: 'Reactions',         sub: 'When someone reacts to your post' },
   { key: 'comments',      label: 'Comments',          sub: 'When someone comments on your post' },
   { key: 'dms',           label: 'Direct messages',   sub: 'New chat messages' },
   { key: 'follows',       label: 'Follows',           sub: 'Follow requests & accepts' },
-  { key: 'announcements', label: 'Announcements',     sub: 'Broadcasts from MaaMitra' },
 ];
 
 export default function NotificationsScreen() {

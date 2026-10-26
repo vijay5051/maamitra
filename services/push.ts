@@ -23,6 +23,10 @@ export interface NotifPrefs {
    * path is a single toggle in /settings/notifications.
    */
   vaccines: boolean;
+  /** Weekly "New on MaaMitra" digest of new articles and recipes. */
+  content: boolean;
+  /** Month-birthday reminders to log growth and check milestones. */
+  reminders: boolean;
 }
 
 export const DEFAULT_NOTIF_PREFS: NotifPrefs = {
@@ -32,6 +36,8 @@ export const DEFAULT_NOTIF_PREFS: NotifPrefs = {
   follows: true,
   announcements: true,
   vaccines: true,
+  content: true,
+  reminders: true,
 };
 
 /** Read the user's current prefs, defaulting missing fields to true. */
