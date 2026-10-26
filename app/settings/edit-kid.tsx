@@ -32,6 +32,7 @@ import DatePickerField from '../../components/ui/DatePickerField';
 import { ScreenHeader } from '../../components/settings/ScreenHeader';
 import FoodAllergySetupRow from '../../components/health/allergy/FoodAllergySetupRow';
 import { KidFoodAllergies, readKidAllergies } from '../../lib/foodAllergies';
+import { dobDay, duplicateNameMessage, findKidWithName, twinsOf } from '../../lib/kids';
 import { Colors, Fonts, Radius, Spacing } from '../../constants/theme';
 
 async function pickSquareImage(): Promise<string | null> {
@@ -135,9 +136,10 @@ function EditKidForm({
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
   const { updateKid } = useProfileStore();
+  const kids = useProfileStore((st) => st.kids);
   const [name, setName] = useState(kid.name || '');
   const [stage, setStage] = useState<Stage>(kid.stage === 'pregnant' ? 'pregnant' : 'newborn');
-  const [keyDate, setKeyDate] = useState(kid.dob ? kid.dob.split('T')[0] : '');
+  const [keyDate, setKeyDate] = useState(dobDay(kid.dob) ?? '');
   const [dateError, setDateError] = useState<string | null>(null);
   const [genderChip, setGenderChip] = useState<GenderChipValue | null>(
     kid.gender === 'boy' || kid.gender === 'girl' || kid.gender === 'surprise' ? kid.gender : null,
@@ -199,8 +201,13 @@ function EditKidForm({
     }
   };
 
+  const nameTaken = findKidWithName(kids, name.trim() || kid.name, kid.id);
+  const nameError = nameTaken
+    ? duplicateNameMessage(name.trim() || kid.name, twinsOf(kids, keyDate || kid.dob, stage === 'pregnant', kid.id).length > 0)
+    : null;
+
   const handleSave = async () => {
-    if (dateError) return;
+    if (dateError || nameError) return;
     setSaving(true);
     try {
       const updates: Partial<Omit<Kid, 'id'>> = {};
@@ -296,6 +303,7 @@ function EditKidForm({
           placeholderTextColor="#9ca3af"
           autoCapitalize="words"
         />
+        {nameError ? <Text style={s.editFieldError}>{nameError}</Text> : null}
 
         <Text style={[s.editSectionTitle, { marginTop: 18 }]}>Gender</Text>
         <GenderChip stage={stage} value={genderChip} onChange={setGenderChip} />
@@ -311,7 +319,7 @@ function EditKidForm({
           </>
         )}
 
-        <TouchableOpacity style={s.saveBtn} onPress={handleSave} activeOpacity={0.85} disabled={saving}>
+        <TouchableOpacity style={s.saveBtn} onPress={handleSave} activeOpacity={0.85} disabled={saving || !!nameError}>
           <LinearGradient colors={[Colors.primary, Colors.primary]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.saveBtnGrad}>
             <Text style={s.saveBtnText}>{saving ? 'Saving…' : 'Save Changes'}</Text>
           </LinearGradient>

@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import JustInTimePrompt from './JustInTimePrompt';
 import { useProfileStore } from '../../store/useProfileStore';
+import { duplicateNameMessage, findKidWithName, twinsOf } from '../../lib/kids';
 import { Colors, Fonts, Spacing } from '../../constants/theme';
 
 const FALLBACK_NAMES = ['Little one', 'Sibling'];
@@ -21,9 +22,14 @@ export default function KidNamePrompt() {
 
   if (!visible) return null;
 
+  const nameError = value.trim() && findKidWithName(kids, value, activeKid.id)
+    ? duplicateNameMessage(value, twinsOf(kids, activeKid.dob, !!activeKid.isExpecting, activeKid.id).length > 0)
+    : null;
+  const canSave = !!value.trim() && !nameError;
+
   const handleSubmit = () => {
     const trimmed = value.trim();
-    if (!trimmed || !activeKid) return;
+    if (!trimmed || !activeKid || nameError) return;
     updateKid(activeKid.id, { name: trimmed });
     dismiss('kidName');
   };
@@ -48,21 +54,23 @@ export default function KidNamePrompt() {
         />
         <Pressable
           onPress={handleSubmit}
-          style={[styles.saveBtn, !value.trim() && styles.saveBtnDisabled]}
+          style={[styles.saveBtn, !canSave && styles.saveBtnDisabled]}
           accessibilityRole="button"
           accessibilityLabel="Save name"
-          disabled={!value.trim()}
+          disabled={!canSave}
         >
           {/* Checkmark-shaped inner dot — minimal, token-only */}
           <View style={styles.saveBtnInner} />
         </Pressable>
       </View>
+      {nameError ? <Text style={styles.error}>{nameError}</Text> : null}
     </JustInTimePrompt>
   );
 }
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'center' },
+  error: { fontFamily: Fonts.sansMedium, fontSize: 12, color: Colors.error, marginTop: 6 },
   input: {
     flex: 1,
     minHeight: 44,

@@ -8,6 +8,16 @@
 
 ## Active task
 
+**Kids: no duplicate names, twins, DOB date fix (2026-10-26, Claude).**
+`lib/kids.ts` (tests `tests/kids.test.ts`). `addKid` refuses a new child whose
+name is already on the profile (returns false); Add Child, Edit Child and the
+kid-name prompt show the error, and a "Twins?" hint when the birthday/due date
+matches. On sign-in, exact copies (same name + same DOB day, from old
+re-run-onboarding/double-tap bugs) are folded into the first entry, vaccines
+and milestones merged. DOBs are local-midnight instants (11 May IST =
+"…05-10T18:30Z"): edit-kid used to read them a day early and shift on save;
+birthday card and `growthReminderCron` now read the local/IST date.
+
 **Birthday cards (2026-10-26, Claude) — app part ships with this push;
 birthday push NOT deployed (same IAM blocker).** On a child's birthday Home
 opens a card (`components/birthday/BirthdayCard.tsx`, logic + notes in

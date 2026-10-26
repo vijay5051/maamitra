@@ -9,6 +9,7 @@ export type ParentRelation = 'mother' | 'father' | 'guardian' | 'grandparent' | 
 export type VaccineScheduleType = 'iap' | 'nis';
 
 import type { KidFoodAllergies } from '../lib/foodAllergies';
+import { findKidWithName } from '../lib/kids';
 
 /** A parent's record for one developmental milestone. Never set automatically from age. */
 export interface MilestoneState {
@@ -192,7 +193,8 @@ interface ProfileState {
 
   setMotherName: (name: string) => void;
   setProfile: (profile: Profile) => void;
-  addKid: (kid: Omit<Kid, 'ageInMonths' | 'ageInWeeks' | 'id'> & { id?: string }) => void;
+  /** Returns false (and adds nothing) if the id or the name is already taken. */
+  addKid: (kid: Omit<Kid, 'ageInMonths' | 'ageInWeeks' | 'id'> & { id?: string }) => boolean;
   updateKid: (id: string, data: Partial<Omit<Kid, 'id'>>) => void;
   removeKid: (id: string) => void;
   setActiveKidId: (id: string) => void;
@@ -277,6 +279,15 @@ export const useProfileStore = create<ProfileState>()(
 
       addKid: (kidData) => {
         const id = (kidData as any).id ?? Date.now().toString();
+        // One name per child on a profile (twins share a DOB, never a name).
+        // Also stops a re-run onboarding or a double tap adding the same child
+        // twice. Hydration passes stored ids and is deduped by the caller.
+        const existing = get().kids;
+        const isNew = !(kidData as any).id;
+        if (existing.some((k) => k.id === id) || (isNew && findKidWithName(existing, kidData.name))) {
+          console.warn('[profile] addKid skipped: duplicate id or name', kidData.name);
+          return false;
+        }
         // Safety: if DOB is in the past, never treat as expecting
         const dobDate = kidData.dob ? new Date(kidData.dob) : null;
         const dobInFuture = dobDate ? dobDate > new Date() : false;
@@ -290,6 +301,7 @@ export const useProfileStore = create<ProfileState>()(
           kids: [...state.kids, kid],
           activeKidId: state.activeKidId ?? id,
         }));
+        return true;
       },
 
       updateKid: (id, data) => {

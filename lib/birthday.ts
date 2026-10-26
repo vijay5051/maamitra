@@ -2,9 +2,15 @@
 // tests/birthday.test.ts. The server push (functions/src/notifications/
 // growthReminderCron.ts) uses the same "Feb 29 → Feb 28" rule.
 
-/** Years the child turns today, or null if today isn't their birthday. */
+import { dobDay } from './kids';
+
+/**
+ * Years the child turns today, or null if today isn't their birthday.
+ * DOBs are stored as the instant of local midnight (e.g. 11 May in India is
+ * "2026-05-10T18:30:00.000Z"), so read the date in the device's time zone.
+ */
 export function birthdayToday(dob: string | undefined | null, now: Date = new Date()): number | null {
-  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(dob ?? '');
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dobDay(dob) ?? '');
   if (!match) return null;
   const [dy, dm, dd] = [Number(match[1]), Number(match[2]), Number(match[3])];
   const y = now.getFullYear();

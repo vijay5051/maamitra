@@ -29,10 +29,23 @@ function daysInMonth(y: number, m: number): number {
 }
 
 /** Months completed today if today is the child's month-birthday, else null. */
+/**
+ * Calendar date of a stored DOB in India. The app stores local midnight as an
+ * instant, so 11 May in India arrives as "2026-05-10T18:30:00.000Z".
+ */
+export function dobDateIst(dob: string): { y: number; m: number; d: number } | null {
+  const plain = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dob);
+  if (plain) return { y: Number(plain[1]), m: Number(plain[2]), d: Number(plain[3]) };
+  const t = Date.parse(dob);
+  if (Number.isNaN(t)) return null;
+  const ist = new Date(t + 5.5 * 3600 * 1000);
+  return { y: ist.getUTCFullYear(), m: ist.getUTCMonth() + 1, d: ist.getUTCDate() };
+}
+
 export function monthBirthday(dob: string, today: { y: number; m: number; d: number }): number | null {
-  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(dob);
-  if (!match) return null;
-  const [dy, dm, dd] = [Number(match[1]), Number(match[2]), Number(match[3])];
+  const born = dobDateIst(dob);
+  if (!born) return null;
+  const [dy, dm, dd] = [born.y, born.m, born.d];
   const months = (today.y - dy) * 12 + (today.m - dm);
   if (months < 1) return null;
   // A child born on the 31st has their month-birthday on the last day of shorter months.

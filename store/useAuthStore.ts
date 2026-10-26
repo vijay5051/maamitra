@@ -31,6 +31,7 @@ import { useGrowthStore } from './useGrowthStore';
 import { useMealPlannerStore } from './useMealPlannerStore';
 import { useDMStore } from './useDMStore';
 import { logAuthEvent } from '../lib/authObservability';
+import { dobDay, findKidWithName } from '../lib/kids';
 
 // Lazy-accessed to avoid circular dependency (useSocialStore imports useAuthStore)
 const getSocialStore = () => require('./useSocialStore').useSocialStore;
@@ -144,7 +145,22 @@ async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
     setCachedProfileUid(uid);
     setMotherName(fullProfile.motherName);
     if (fullProfile.profile) setProfile(fullProfile.profile as any);
-    fullProfile.kids.forEach((kid: any) =>
+    // Older builds could save the same child twice (re-run onboarding, double
+    // tap): same name AND same date of birth. Fold the copy's vaccine and
+    // milestone records into the first entry so nothing is lost; the next
+    // profile save drops the copy from Firestore.
+    const mergedInto: Record<string, string> = {};
+    fullProfile.kids.forEach((kid: any) => {
+      const keep = findKidWithName(useProfileStore.getState().kids, kid.name ?? '', kid.id);
+      if (keep && dobDay(keep.dob) === dobDay(kid.dob) && !!keep.isExpecting === !!kid.isExpecting) {
+        mergedInto[kid.id] = keep.id;
+        if (kid.milestoneStates && typeof kid.milestoneStates === 'object') {
+          useProfileStore.getState().updateKid(keep.id, {
+            milestoneStates: { ...kid.milestoneStates, ...(keep.milestoneStates ?? {}) },
+          });
+        }
+        return;
+      }
       addKid({
         id: kid.id,
         name: kid.name,
@@ -166,9 +182,10 @@ async function hydrateProfileFromFirestore(uid: string): Promise<boolean> {
         ...(kid.bornEarly === 'yes' || kid.bornEarly === 'no' ? { bornEarly: kid.bornEarly } : {}),
         ...(kid.growthChartSex === 'boy' || kid.growthChartSex === 'girl' ? { growthChartSex: kid.growthChartSex } : {}),
         ...(Array.isArray(kid.allergies) ? { allergies: kid.allergies } : {}),
-      })
-    );
-    Object.entries(fullProfile.completedVaccines).forEach(([kidId, vaccines]: [string, any]) => {
+      });
+    });
+    Object.entries(fullProfile.completedVaccines).forEach(([rawKidId, vaccines]: [string, any]) => {
+      const kidId = mergedInto[rawKidId] ?? rawKidId;
       if (typeof vaccines === 'object' && vaccines !== null && !('done' in vaccines)) {
         Object.entries(vaccines).forEach(([vaccineId, val]: [string, any]) => {
           if (val?.done) markVaccineDone(vaccineId, kidId, val.doneDate);

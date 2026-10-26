@@ -40,6 +40,7 @@ import BackToHomeButton from '../../components/ui/BackToHomeButton';
 import { useCommunityEnabled } from '../../lib/communityGate';
 import FoodAllergySetupRow from '../../components/health/allergy/FoodAllergySetupRow';
 import { EMPTY_ALLERGIES, KidFoodAllergies } from '../../lib/foodAllergies';
+import { duplicateNameMessage, findKidWithName, twinsOf } from '../../lib/kids';
 import { usePlanAccess } from '../../hooks/usePlanAccess';
 
 // ─── ChildCard ─────────────────────────────────────────────────────────────────
@@ -220,10 +221,12 @@ function AddChildModal({
   visible,
   onClose,
   onAdd,
+  existingKids,
 }: {
   visible: boolean;
   onClose: () => void;
   onAdd: (data: { name: string; dob: string; isExpecting: boolean; gender: 'girl' | 'boy' | 'surprise'; foodAllergies?: KidFoodAllergies }) => void;
+  existingKids: Kid[];
 }) {
   const [stage, setStage] = useState<Stage | null>(null);
   const [keyDate, setKeyDate] = useState('');
@@ -271,10 +274,26 @@ function AddChildModal({
     return `${who} is ${months} ${months === 1 ? 'month' : 'months'} old. Vaccines and milestones loaded.`;
   }, [stage, keyDate, dateError, kidName]);
 
-  const canAdd = !!(stage && keyDate && !dateError);
+  // Twins share a birthday (or due date) but never a name.
+  const twins = useMemo(() => {
+    if (!stage || !keyDate || dateError) return [];
+    return twinsOf(existingKids, keyDate, stage === 'pregnant');
+  }, [existingKids, stage, keyDate, dateError]);
+  const nameError = useMemo(() => {
+    if (!stage || !keyDate || dateError) return null;
+    const name = kidName.trim() || 'Little one';
+    return findKidWithName(existingKids, name) ? duplicateNameMessage(name, twins.length > 0) : null;
+  }, [existingKids, stage, keyDate, dateError, kidName, twins.length]);
+  const twinHint = twins.length > 0 && !nameError
+    ? stage === 'pregnant'
+      ? `Same due date as ${twins.map((k) => k.name).join(' and ')}. Expecting twins? How lovely! 💕`
+      : `Same birthday as ${twins.map((k) => k.name).join(' and ')}. Twins? How lovely! 💕`
+    : null;
+
+  const canAdd = !!(stage && keyDate && !dateError && !nameError);
 
   const handleAdd = () => {
-    if (!stage || !keyDate || dateError) return;
+    if (!stage || !keyDate || dateError || nameError) return;
     const isExpecting = stage === 'pregnant';
     const gender: 'boy' | 'girl' | 'surprise' = genderChip ?? (isExpecting ? 'surprise' : 'surprise');
     onAdd({
@@ -342,6 +361,8 @@ function AddChildModal({
                     autoCapitalize="words"
                     returnKeyType="done"
                   />
+                  {nameError ? <Text style={addChildStyles.errorText}>{nameError}</Text> : null}
+                  {twinHint ? <Text style={addChildStyles.twinText}>{twinHint}</Text> : null}
                 </View>
 
                 <View style={addChildStyles.field}>
@@ -419,6 +440,12 @@ const addChildStyles = StyleSheet.create({
     color: Colors.error,
     marginTop: 6,
   },
+  twinText: {
+    fontFamily: Fonts.sansMedium,
+    fontSize: 12.5,
+    color: Colors.primary,
+    marginTop: 6,
+  },
 });
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
@@ -467,7 +494,7 @@ export default function FamilyScreen() {
     gender: 'girl' | 'boy' | 'surprise';
     foodAllergies?: KidFoodAllergies;
   }) => {
-    addKid({
+    const added = addKid({
       name,
       dob,
       stage: isExpecting ? 'pregnant' : 'newborn',
@@ -475,6 +502,7 @@ export default function FamilyScreen() {
       isExpecting,
       ...(foodAllergies ? { foodAllergies } : {}),
     });
+    if (!added) return;
     if (user?.uid) {
       const updatedState = useProfileStore.getState();
       saveFullProfile(user.uid, {
@@ -701,6 +729,7 @@ export default function FamilyScreen() {
         visible={showAddModal}
         onClose={() => setShowAddModal(false)}
         onAdd={handleAddKid}
+        existingKids={kids}
       />
     </View>
   );
