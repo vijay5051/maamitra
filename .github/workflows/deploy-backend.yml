@@ -36,4 +36,6 @@ jobs:
         run: |
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/sa.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          # Which account the deploy runs as (an address, not a secret), so IAM roles go on the right one.
+          echo "Deploying as: $(jq -r .client_email "$RUNNER_TEMP/sa.json" | sed 's/@/ at /')"
           npx --yes firebase-tools@latest deploy --only "$TARGETS" --project maa-mitra-7kird8 --non-interactive
