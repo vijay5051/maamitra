@@ -8,6 +8,14 @@
 
 ## Active task
 
+**Backend deployed (2026-10-26 09:55 UTC).** `deploy-backend.yml` now works:
+the deploy SA has Rules Admin, Cloud Functions Admin, Service Account User and
+Cloud Scheduler Admin. Firestore rules + all 10 functions (billing,
+growth/birthday + vaccine crons, content digest, dispatchPush, TTS,
+integrations) are live. Notes below saying "NOT deployed" are superseded.
+Remaining for billing: Razorpay test keys + webhook secret in
+/admin/integrations, then a test purchase, then the switches.
+
 **Early members: 3 months free (2026-10-26, Claude).** Accounts created
 (Firebase Auth creationTime) before `app_settings/billing.earlyAccess.start`
 get Family-level access for `earlyAccess.days` (90). The start is stamped by
