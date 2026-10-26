@@ -8,6 +8,16 @@
 
 ## Active task
 
+**Razorpay test purchase verified (2026-10-26, Claude).** Test keys work;
+testuser@maamitra.app bought Family monthly (sub_TsWG3qhrOwURNa) with test
+card 4718 6091 0820 4366 → entitlement family/active until 26 Nov 2026.
+Activation now goes through `verifyRazorpaySubscription` (website sends the
+signed checkout result), not only the webhook. The webhook had NOT applied
+either test payment — likely secret mismatch; its last result now shows in
+the Razorpay admin card (`billing_meta/webhook_status`). Fix before live, or
+renewals/cancellations won't sync. Cancel the test subscriptions in the
+Razorpay test dashboard when done.
+
 **Backend deployed (2026-10-26 09:55 UTC).** `deploy-backend.yml` now works:
 the deploy SA has Rules Admin, Cloud Functions Admin, Service Account User and
 Cloud Scheduler Admin. Firestore rules + all 10 functions (billing,
