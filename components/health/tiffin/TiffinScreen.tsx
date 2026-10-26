@@ -19,6 +19,8 @@ import KidAllergyCard from '../allergy/KidAllergyCard';
 import { useAllergyGate } from '../allergy/useAllergyGate';
 import { tiffinMeal, useKidAllergies } from '../../../hooks/useKidAllergies';
 import { RECIPES } from '../../../data/recipes';
+import { usePlanAccess } from '../../../hooks/usePlanAccess';
+import { libraryRank } from '../../../lib/libraryTiers';
 
 const ROSE = Colors.primary;
 const PLUM = Colors.primary;
@@ -87,8 +89,20 @@ export default function TiffinScreen({ kidId, kidName, ageMonths, diet }: Props)
     () => new Set(RECIPES.filter((r) => match(tiffinMeal(r)).length > 0).map((r) => r.id)),
     [match],
   );
+  const planAccess = usePlanAccess();
+  const lockedRecipeIds = useMemo(
+    () => new Set(RECIPES.filter((r) => !planAccess.allowsItem('tiffin', libraryRank('tiffin', r.id))).map((r) => r.id)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [planAccess.limits],
+  );
   // Opening a recipe that matches shows the allergy popup first.
-  const openRecipeGated = (r: Recipe) => gate.open(tiffinMeal(r), () => setOpenRecipe(r));
+  const openRecipeGated = (r: Recipe) => {
+    if (lockedRecipeIds.has(r.id)) {
+      planAccess.upgrade({ kind: 'library', library: 'tiffin' });
+      return;
+    }
+    gate.open(tiffinMeal(r), () => setOpenRecipe(r));
+  };
 
   const pick = useMemo(() => {
     return pickDailyRecipe({
@@ -99,11 +113,11 @@ export default function TiffinScreen({ kidId, kidName, ageMonths, diet }: Props)
       todayISO: today.toISOString().slice(0, 10),
       dayOfWeek: today.getDay(),
       todayPlanned,
-      excludeRecipeIds: allergenRecipeIds,
+      excludeRecipeIds: new Set([...allergenRecipeIds, ...lockedRecipeIds]),
       skip: swapCount,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ageBand, diet, kidPlanner, flaggedFoodIds, todayPlanned, swapCount, allergenRecipeIds]);
+  }, [ageBand, diet, kidPlanner, flaggedFoodIds, todayPlanned, swapCount, allergenRecipeIds, lockedRecipeIds]);
 
   const pickedRecipe: Recipe | null = pick.recipeId ? RECIPE_BY_ID[pick.recipeId] ?? null : null;
 

@@ -40,6 +40,7 @@ import BackToHomeButton from '../../components/ui/BackToHomeButton';
 import { useCommunityEnabled } from '../../lib/communityGate';
 import FoodAllergySetupRow from '../../components/health/allergy/FoodAllergySetupRow';
 import { EMPTY_ALLERGIES, KidFoodAllergies } from '../../lib/foodAllergies';
+import { usePlanAccess } from '../../hooks/usePlanAccess';
 
 // ─── ChildCard ─────────────────────────────────────────────────────────────────
 
@@ -426,6 +427,14 @@ export default function FamilyScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { kids, activeKidId, setActiveKidId, addKid, motherName } = useProfileStore();
+  const planAccess = usePlanAccess();
+  const openAddChild = () => {
+    if (kids.length >= planAccess.limits.children) {
+      planAccess.upgrade({ kind: 'children' });
+      return;
+    }
+    setShowAddModal(true);
+  };
   const { activeKid } = useActiveKid();
   const { user } = useAuthStore();
   const [showAddModal, setShowAddModal] = useState(false);
@@ -509,7 +518,7 @@ export default function FamilyScreen() {
             {/* Family-specific: add child */}
             <TouchableOpacity
               style={styles.headerBtn}
-              onPress={() => setShowAddModal(true)}
+              onPress={openAddChild}
               activeOpacity={0.8}
               accessibilityRole="button"
               accessibilityLabel="Add child"
@@ -586,7 +595,7 @@ export default function FamilyScreen() {
             </Text>
             <GradientButton
               title="Add First Child"
-              onPress={() => setShowAddModal(true)}
+              onPress={openAddChild}
               style={{ marginTop: 16 }}
             />
           </Card>
@@ -608,7 +617,7 @@ export default function FamilyScreen() {
               ))}
               <TouchableOpacity
                 style={styles.addKidBtn}
-                onPress={() => setShowAddModal(true)}
+                onPress={openAddChild}
                 activeOpacity={0.75}
               >
                 <View style={styles.addKidInner}>
@@ -661,7 +670,7 @@ export default function FamilyScreen() {
                   <TouchableOpacity
                     style={styles.manageSecondaryBtn}
                     activeOpacity={0.82}
-                    onPress={() => setShowAddModal(true)}
+                    onPress={openAddChild}
                   >
                     <Text style={styles.manageSecondaryBtnText}>Add another child</Text>
                   </TouchableOpacity>

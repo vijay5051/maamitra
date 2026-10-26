@@ -50,6 +50,7 @@ import { AppIcon } from '../../components/ui/AppIcon';
 import type { IllustrationName } from '../../lib/illustrations';
 import { Fonts, Gradients, withAlpha } from '../../constants/theme';
 import { Colors } from '../../constants/theme';
+import { usePlanAccess } from '../../hooks/usePlanAccess';
 
 type SubTab = 'vaccines' | 'teeth' | 'foods' | 'growth' | 'milestones' | 'routine' | 'schemes' | 'myhealth' | 'nuskhe' | 'travel';
 
@@ -599,6 +600,7 @@ function VaccinesSection({
   router: ReturnType<typeof useRouter>;
 }) {
   const [changeOpen, setChangeOpen] = useState(false);
+  const planAccess = usePlanAccess();
 
   if (!activeKid) {
     return (
@@ -682,14 +684,18 @@ function VaccinesSection({
           child's completed, overdue and upcoming vaccines. Native: share
           sheet. Web: browser print dialog (Save as PDF). */}
       <TouchableOpacity
-        onPress={() =>
+        onPress={() => {
+          if (!planAccess.has('vaccinePdf')) {
+            planAccess.upgrade({ kind: 'feature', feature: 'vaccinePdf' });
+            return;
+          }
           downloadVaccineReport({
             kid: activeKid,
             motherName: useProfileStore.getState().motherName,
             vaccines,
             scheduleLabel: info.fullName,
-          })
-        }
+          });
+        }}
         style={vStyles.downloadBtn}
         activeOpacity={0.8}
         accessibilityRole="button"

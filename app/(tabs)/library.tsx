@@ -41,6 +41,7 @@ import { Illustration } from '../../components/ui/Illustration';
 import { Fonts } from '../../constants/theme';
 import { Colors, withAlpha } from '../../constants/theme';
 import BackToHomeButton from '../../components/ui/BackToHomeButton';
+import { usePlanAccess } from '../../hooks/usePlanAccess';
 
 type SubTab = 'read' | 'books' | 'products' | 'saved' | 'journey';
 type SortMode = 'Featured' | 'Price ↑' | 'Price ↓' | 'Top Rated';
@@ -1025,6 +1026,7 @@ const journeyStyles = StyleSheet.create({
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function LibraryScreen() {
+  const planAccess = usePlanAccess();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   // Deep-links from Home's Quick Jump + Recommended Reads:
@@ -1624,6 +1626,21 @@ export default function LibraryScreen() {
               <Text style={styles.emptyText}>
                 Add your child's details in the Family tab to see your personalised timeline.
               </Text>
+            </View>
+          ) : !planAccess.has('journey') ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyEmoji}>🔒</Text>
+              <Text style={styles.emptyTitle}>Journey is part of MaaMitra Plus</Text>
+              <Text style={styles.emptyText}>
+                See every milestone, vaccine and first in one timeline of your child's growing up.
+              </Text>
+              <TouchableOpacity
+                onPress={() => planAccess.upgrade({ kind: 'feature', feature: 'journey' })}
+                style={{ marginTop: 14, backgroundColor: Colors.primary, borderRadius: 999, paddingHorizontal: 22, paddingVertical: 11 }}
+                accessibilityRole="button"
+              >
+                <Text style={{ color: Colors.white, fontFamily: Fonts.sansBold, fontSize: 14 }}>See what's included</Text>
+              </TouchableOpacity>
             </View>
           ) : (
             <>

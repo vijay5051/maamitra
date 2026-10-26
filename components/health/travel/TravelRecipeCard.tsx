@@ -15,9 +15,10 @@ interface Props {
   hotWeather?: boolean;
   onPress: () => void;
   onBookmark?: () => void;
+  locked?: boolean;
 }
 
-export default function TravelRecipeCard({ recipe, isBookmarked, hotWeather, onPress, onBookmark }: Props) {
+export default function TravelRecipeCard({ recipe, isBookmarked, hotWeather, onPress, onBookmark, locked }: Props) {
   const { match } = useKidAllergies();
   const matches = match(travelMeal(recipe));
   const cat = CATEGORY_BY_KEY[recipe.category];
@@ -50,7 +51,7 @@ export default function TravelRecipeCard({ recipe, isBookmarked, hotWeather, onP
 
         <View style={styles.body}>
           <View style={styles.titleRow}>
-            <Text style={styles.title} numberOfLines={2}>{recipe.title}</Text>
+            <Text style={[styles.title, locked && { opacity: 0.6 }]} numberOfLines={2}>{locked ? '🔒 ' : ''}{recipe.title}</Text>
             {onBookmark && (
               <TouchableOpacity onPress={onBookmark} hitSlop={10} style={styles.bookmarkBtn}>
                 <Ionicons

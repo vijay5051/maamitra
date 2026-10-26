@@ -18,6 +18,8 @@ import TravelRecipeDetail from './TravelRecipeDetail';
 import KidAllergyCard from '../allergy/KidAllergyCard';
 import { useAllergyGate } from '../allergy/useAllergyGate';
 import { travelMeal } from '../../../hooks/useKidAllergies';
+import { usePlanAccess } from '../../../hooks/usePlanAccess';
+import { libraryRank } from '../../../lib/libraryTiers';
 
 interface Section {
   title: string;
@@ -54,9 +56,17 @@ export default function TravelRecipeHub() {
 
   // Saving to My Travel Pack never happens silently for a flagged recipe.
   // Removing from the pack is always allowed.
+  const planAccess = usePlanAccess();
+  const isRecipeLocked = (r: TravelRecipe) => !planAccess.allowsItem('travel', libraryRank('travel', r.id));
   const toggleBookmarkGated = (recipe: TravelRecipe, g: typeof gate, fromDetail: boolean) => {
     if (isBookmarked(recipe.id)) {
       toggleBookmark(recipe.id);
+      return;
+    }
+    if (!planAccess.has('travelPack')) {
+      // The upgrade sheet is mounted at the root, so close the detail modal first.
+      if (fromDetail) setSelectedRecipe(null);
+      planAccess.upgrade({ kind: 'feature', feature: 'travelPack' });
       return;
     }
     g.select(travelMeal(recipe), () => toggleBookmark(recipe.id), {
@@ -92,7 +102,12 @@ export default function TravelRecipeHub() {
         recipe={item}
         isBookmarked={isBookmarked(item.id)}
         hotWeather={filter.hotWeather}
-        onPress={() => gate.open(travelMeal(item), () => setSelectedRecipe(item))}
+        locked={isRecipeLocked(item)}
+        onPress={() =>
+          isRecipeLocked(item)
+            ? planAccess.upgrade({ kind: 'library', library: 'travel' })
+            : gate.open(travelMeal(item), () => setSelectedRecipe(item))
+        }
         onBookmark={() => toggleBookmarkGated(item, gate, false)}
       />
     </View>

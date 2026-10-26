@@ -8,7 +8,7 @@ import { BillingSettings, DEFAULT_BILLING_SETTINGS, subscribeBillingSettings } f
 import { useAuthStore } from '../../store/useAuthStore';
 import { Colors, Fonts } from '../../constants/theme';
 
-type Key = 'webCheckoutEnabled' | 'trialEnabled' | 'foundingOfferEnabled';
+type Key = 'webCheckoutEnabled' | 'trialEnabled' | 'foundingOfferEnabled' | 'locksWeb' | 'locksApp';
 
 export function BillingSwitchCard() {
   const user = useAuthStore((s) => s.user);
@@ -26,7 +26,11 @@ export function BillingSwitchCard() {
       const patch =
         key === 'foundingOfferEnabled'
           ? { foundingOffer: { enabled: value, limit: settings.foundingLimit } }
-          : { [key]: value };
+          : key === 'locksWeb'
+            ? { locks: { web: value } }
+            : key === 'locksApp'
+              ? { locks: { app: value } }
+              : { [key]: value };
       await setDoc(doc(db, 'app_settings/billing'), { ...patch, updatedAt: serverTimestamp() }, { merge: true });
       await logAdminAction({ uid: user.uid, email: user.email }, 'integration.update', { label: `billing.${key}` }, { value }).catch(() => {});
     } catch (e: any) {
@@ -63,6 +67,16 @@ export function BillingSwitchCard() {
         k="foundingOfferEnabled"
         label="Founding Mothers offer"
         hint={`Plus yearly at ₹699. ${settings.foundingCount.toLocaleString('en-IN')} of ${settings.foundingLimit.toLocaleString('en-IN')} places taken.`}
+      />
+      <Row
+        k="locksWeb"
+        label={settings.locksWeb ? 'Plan locks ON (website)' : 'Plan locks OFF (website)'}
+        hint="Free users on maamitra.co.in get Free-plan limits. Turn on together with checkout."
+      />
+      <Row
+        k="locksApp"
+        label={settings.locksApp ? 'Plan locks ON (app)' : 'Plan locks OFF (app)'}
+        hint="Keep OFF until plans can be bought inside the Android app. Otherwise app users lose features with no way to pay."
       />
       {error ? <Text style={s.error}>{error}</Text> : null}
     </View>

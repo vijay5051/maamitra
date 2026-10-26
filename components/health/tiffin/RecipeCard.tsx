@@ -6,6 +6,8 @@ import { Recipe } from '../../../data/recipes';
 import { tiffinRecipeImage } from '../../../data/tiffinRecipeImages';
 import { tiffinMeal, useKidAllergies } from '../../../hooks/useKidAllergies';
 import { AllergyChips } from '../allergy/AllergyNotice';
+import { usePlanAccess } from '../../../hooks/usePlanAccess';
+import { libraryRank } from '../../../lib/libraryTiers';
 
 const INK = '#1C1033';
 const STONE = '#6B7280';
@@ -19,9 +21,18 @@ interface Props {
   /** IDs from babyFoods.ts that triggered an uncleared rash/vomit for this kid. */
   flaggedFoodIds?: Set<string>;
   onPress: () => void;
+  /** Runs before the upgrade sheet opens for a locked recipe, e.g. to close a parent modal. */
+  onBeforeUpgrade?: () => void;
 }
 
-export default function RecipeCard({ recipe, flaggedFoodIds, onPress }: Props) {
+export default function RecipeCard({ recipe, flaggedFoodIds, onPress, onBeforeUpgrade }: Props) {
+  const planAccess = usePlanAccess();
+  const locked = !planAccess.allowsItem('tiffin', libraryRank('tiffin', recipe.id));
+  const handlePress = () => {
+    if (!locked) return onPress();
+    onBeforeUpgrade?.();
+    planAccess.upgrade({ kind: 'library', library: 'tiffin' });
+  };
   const cuisine = CUISINE_BY_ID[recipe.cuisine];
   const photo = tiffinRecipeImage(recipe.id);
   const { match } = useKidAllergies();
@@ -36,7 +47,12 @@ export default function RecipeCard({ recipe, flaggedFoodIds, onPress }: Props) {
     .join(' · ');
 
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={styles.card}>
+    <TouchableOpacity
+      onPress={handlePress}
+      activeOpacity={0.85}
+      style={[styles.card, locked && { opacity: 0.6 }]}
+      accessibilityLabel={locked ? `${recipe.name}. Locked, part of a paid plan.` : undefined}
+    >
       {photo ? (
         <Image source={photo} style={styles.photo} accessibilityIgnoresInvertColors />
       ) : (
@@ -45,7 +61,7 @@ export default function RecipeCard({ recipe, flaggedFoodIds, onPress }: Props) {
         </View>
       )}
       <View style={{ flex: 1, minWidth: 0 }}>
-        <Text style={styles.name} numberOfLines={1}>{recipe.name}</Text>
+        <Text style={styles.name} numberOfLines={1}>{locked ? '🔒 ' : ''}{recipe.name}</Text>
         <Text style={styles.meta} numberOfLines={1}>
           {cuisine.label} · {recipe.timeMinutes} min{tagsLine ? ` · ${tagsLine}` : ''}
         </Text>

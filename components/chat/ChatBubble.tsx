@@ -17,6 +17,7 @@ import { Fonts } from '../../constants/theme';
 import { detectLanguage } from '../../services/voice';
 import { synthesizeSpeech, synthesisToDataUrl } from '../../services/cloudTts';
 import { Colors } from '../../constants/theme';
+import { usePlanAccess } from '../../hooks/usePlanAccess';
 
 /**
  * Action chips embedded by the AI in the form `[GO:Label|/path]` — see the
@@ -146,6 +147,7 @@ function formatTime(date: Date | string): string {
 }
 
 export default function ChatBubble({ message, onSave, isFirstInGroup = true }: ChatBubbleProps) {
+  const planAccess = usePlanAccess();
   const isAssistant = message.role === 'assistant';
   const router = useRouter();
   const voiceLanguage = useChatStore((s) => s.voiceLanguage);
@@ -182,6 +184,10 @@ export default function ChatBubble({ message, onSave, isFirstInGroup = true }: C
       return;
     }
     if (loadingAudio) return;
+    if (!planAccess.has('readAloud')) {
+      planAccess.upgrade({ kind: 'feature', feature: 'readAloud' });
+      return;
+    }
     setLoadingAudio(true);
     try {
       // Prefer the language the message was actually written in (so Hindi

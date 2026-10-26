@@ -31,6 +31,9 @@ import {
   type STTHandle,
 } from '../../services/voice';
 import { Colors } from '../../constants/theme';
+import { usePlanAccess } from '../../hooks/usePlanAccess';
+import { useAiQuotaStore } from '../../store/useAiQuotaStore';
+import { useAuthStore } from '../../store/useAuthStore';
 
 interface ChatInputProps {
   onSend: (text: string, attachment?: { dataUrl: string; mimeType: string }) => void;
@@ -115,6 +118,8 @@ async function compressImageNative(
 }
 
 export default function ChatInput({ onSend, disabled = false, prefill }: ChatInputProps) {
+  const planAccess = usePlanAccess();
+  const uid = useAuthStore((s) => s.user?.uid ?? null);
   const [text, setText] = useState('');
   const [listening, setListening] = useState(false);
   const [langPickerOpen, setLangPickerOpen] = useState(false);
@@ -169,6 +174,15 @@ export default function ChatInput({ onSend, disabled = false, prefill }: ChatInp
     // Allow sending an image-only message (trimmed may be empty).
     if (isSendingRef.current || disabled) return;
     if (!trimmed && !attachment) return;
+    // Plan checks run before the text is cleared, so nothing typed is lost.
+    if (attachment && !planAccess.has('photoQuestions')) {
+      planAccess.upgrade({ kind: 'feature', feature: 'photoQuestions' });
+      return;
+    }
+    if (uid && useAiQuotaStore.getState().usedToday(uid) >= planAccess.limits.aiQuestionsPerDay) {
+      planAccess.upgrade({ kind: 'aiQuestions' });
+      return;
+    }
     isSendingRef.current = true;
     onSend(trimmed, attachment ?? undefined);
     setText('');
@@ -177,6 +191,10 @@ export default function ChatInput({ onSend, disabled = false, prefill }: ChatInp
   };
 
   const handleAttachPress = async () => {
+    if (!planAccess.has('photoQuestions')) {
+      planAccess.upgrade({ kind: 'feature', feature: 'photoQuestions' });
+      return;
+    }
     if (Platform.OS === 'web') {
       fileInputRef.current?.click();
       return;

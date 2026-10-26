@@ -19,6 +19,8 @@ import { useActiveKid } from '../../hooks/useActiveKid';
 import { calculateAgeInMonths } from '../../store/useProfileStore';
 import { Fonts, Colors } from '../../constants/theme';
 import { yourKid } from '../../lib/kidStage';
+import { usePlanAccess } from '../../hooks/usePlanAccess';
+import { libraryRank } from '../../lib/libraryTiers';
 
 const INK = '#1C1033';
 const STONE = '#6B7280';
@@ -157,6 +159,7 @@ function CategoryAccordion({
   expanded: boolean;
   onToggle: () => void;
 }) {
+  const planAccess = usePlanAccess();
   // Body fade + chevron rotation, no measured height. RN flex re-flows when
   // children render so the accordion stays clean even when copy wraps.
   const opacity = useSharedValue(expanded ? 1 : 0);
@@ -200,14 +203,29 @@ function CategoryAccordion({
 
       {expanded && (
         <Animated.View style={[catStyles.body, bodyStyle]}>
-          {category.remedies.map((r) => (
-            <RemedyCard
-              key={r.id}
-              remedy={r}
-              accent={category.accent}
-              ageOk={ageMonths === null || ageMonths >= r.minAgeMonths}
-            />
-          ))}
+          {category.remedies.map((r) =>
+            planAccess.allowsItem('nuskhe', libraryRank('nuskhe', r.id)) ? (
+              <RemedyCard
+                key={r.id}
+                remedy={r}
+                accent={category.accent}
+                ageOk={ageMonths === null || ageMonths >= r.minAgeMonths}
+              />
+            ) : (
+              <TouchableOpacity
+                key={r.id}
+                onPress={() => planAccess.upgrade({ kind: 'library', library: 'nuskhe' })}
+                activeOpacity={0.8}
+                style={catStyles.locked}
+                accessibilityRole="button"
+                accessibilityLabel={`${r.name}. Locked, part of a paid plan.`}
+              >
+                <Ionicons name="lock-closed" size={15} color={category.accent} />
+                <Text style={catStyles.lockedName} numberOfLines={1}>{r.name}</Text>
+                <Text style={[catStyles.lockedTag, { color: category.accent }]}>Plus</Text>
+              </TouchableOpacity>
+            ),
+          )}
         </Animated.View>
       )}
     </View>
@@ -215,6 +233,20 @@ function CategoryAccordion({
 }
 
 const catStyles = StyleSheet.create({
+  locked: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: Colors.white,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.borderSoft,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 8,
+  },
+  lockedName: { flex: 1, fontFamily: Fonts.sansMedium, fontSize: 14, color: Colors.textDark, opacity: 0.7 },
+  lockedTag: { fontFamily: Fonts.sansBold, fontSize: 12 },
   wrap: {
     marginBottom: 10,
   },

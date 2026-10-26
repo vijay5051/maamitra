@@ -1085,6 +1085,15 @@ export const synthesizeSpeech = functions
         'Sign in to use voice playback.',
       );
     }
+    const billing = (await admin.firestore().doc('app_settings/billing').get()).data();
+    if (billing?.locks?.app === true) {
+      const ent = (await admin.firestore().doc(`entitlements/${context.auth.uid}`).get()).data();
+      const until = ent?.activeUntil as admin.firestore.Timestamp | undefined;
+      const paid = (ent?.plan === 'plus' || ent?.plan === 'family') && !!until && until.toMillis() > Date.now();
+      if (!paid) {
+        throw new functions.https.HttpsError('permission-denied', 'Reading answers aloud is part of MaaMitra Plus.');
+      }
+    }
     const text = String(data?.text ?? '').trim();
     const lang = String(data?.lang ?? 'en-IN').trim();
     if (!text) {

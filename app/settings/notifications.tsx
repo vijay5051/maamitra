@@ -26,6 +26,7 @@ import {
   type PushSupportStatus,
 } from '../../services/push';
 import { Colors, Fonts, Radius, Spacing } from '../../constants/theme';
+import { usePlanAccess } from '../../hooks/usePlanAccess';
 
 const PREF_ROWS: Array<{ key: keyof NotifPrefs; label: string; sub: string }> = [
   { key: 'vaccines',      label: 'Vaccine reminders', sub: 'Due, upcoming and overdue vaccines for your children' },
@@ -40,6 +41,7 @@ export default function NotificationsScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
   const uid = user?.uid;
+  const planAccess = usePlanAccess();
 
   const [support, setSupport] = useState<PushSupportStatus | null>(null);
   const [permission, setPermission] = useState<'unsupported' | 'default' | 'granted' | 'denied'>('default');
@@ -233,8 +235,15 @@ export default function NotificationsScreen() {
     }
   };
 
+  const vaccineLocked = !planAccess.has('vaccineReminders');
+  const prefOn = (key: keyof NotifPrefs) => prefs[key] && !(key === 'vaccines' && vaccineLocked);
+
   const togglePref = async (key: keyof NotifPrefs) => {
     if (!uid) return;
+    if (key === 'vaccines' && vaccineLocked) {
+      planAccess.upgrade({ kind: 'feature', feature: 'vaccineReminders' });
+      return;
+    }
     const next = !prefs[key];
     setPrefs((p) => ({ ...p, [key]: next }));
     try {
@@ -281,11 +290,14 @@ export default function NotificationsScreen() {
                       activeOpacity={0.75}
                     >
                       <View style={s.prefContent}>
-                        <Text style={s.prefLabel}>{row.label}</Text>
+                        <Text style={s.prefLabel}>
+                          {row.label}
+                          {row.key === 'vaccines' && vaccineLocked ? '  🔒 Plus' : ''}
+                        </Text>
                         <Text style={s.prefSub}>{row.sub}</Text>
                       </View>
-                      <View style={[s.toggleTrack, prefs[row.key] && s.toggleTrackOn]}>
-                        <View style={[s.toggleThumb, prefs[row.key] && s.toggleThumbOn]} />
+                      <View style={[s.toggleTrack, prefOn(row.key) && s.toggleTrackOn]}>
+                        <View style={[s.toggleThumb, prefOn(row.key) && s.toggleThumbOn]} />
                       </View>
                     </TouchableOpacity>
                   </React.Fragment>

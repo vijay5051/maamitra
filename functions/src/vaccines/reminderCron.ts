@@ -67,6 +67,11 @@ export function buildVaccineReminderCron() {
         return null;
       }
 
+      // Due-date reminders are a Plus/Family feature once app plan locks are on
+      // (they reach users as phone notifications, so the app switch governs).
+      const billing = (await db.doc('app_settings/billing').get()).data();
+      const planLocked = billing?.locks?.app === true;
+
       let scanned = 0;
       let kidsConsidered = 0;
       let remindersQueued = 0;
@@ -76,6 +81,7 @@ export function buildVaccineReminderCron() {
         scanned++;
         const data = userSnap.data() as UserDoc;
         if (data.notifPrefs?.vaccines === false) continue;
+        if (planLocked && !(await hasPaidPlan(userSnap.id))) continue;
 
         const kids = Array.isArray(data.kids) ? data.kids : [];
         if (kids.length === 0) continue;
@@ -168,3 +174,9 @@ function isoDay(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+
+async function hasPaidPlan(uid: string): Promise<boolean> {
+  const ent = (await admin.firestore().doc(`entitlements/${uid}`).get()).data();
+  const until = ent?.activeUntil as admin.firestore.Timestamp | undefined;
+  return (ent?.plan === 'plus' || ent?.plan === 'family') && !!until && until.toMillis() > Date.now();
+}

@@ -20,9 +20,14 @@ the Android app; the app only reads the plan). New: `functions/src/billing/`
 Needs, in order: (1) `firebase deploy --only functions,firestore:rules` from a
 machine with Firebase login; (2) Razorpay test keys + webhook secret entered in
 /admin/integrations, webhook pointed at .../razorpayWebhook; (3) test purchase.
-Do NOT switch checkout on until piece 2 (plan limits/locks: chat caps, kids,
-tiffin/travel/nuskhe tiers, vaccine reminders) ships — today a paid plan
-unlocks nothing extra.
+Piece 2 (plan locks) is on main too, also OFF: `app_settings/billing.locks.web`
+/ `.locks.app` switches in /admin/integrations. Client gates via
+`hooks/usePlanAccess.ts` + root `components/billing/UpgradeSheet.tsx`; limits in
+`lib/plans.ts`, item tiers in `lib/libraryTiers.ts`; AI daily count is on-device
+(`store/useAiQuotaStore.ts`). Server checks (reminderCron, synthesizeSpeech) only
+apply when locks.app is on. NOT yet server-enforced: AI chat cap in the
+Cloudflare worker (needs a wrangler deploy). Keep locks.app OFF until in-app
+purchase (Play Billing) exists.
 
 **Legal pages for Razorpay review (2026-10-23, Claude).** New public routes
 `/pricing` and `/refund`; `/contact` is now a real page (was a redirect to

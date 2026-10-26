@@ -19,6 +19,8 @@ import { maybeEnablePreviewAdmin } from '../lib/devPreviewAdmin';
 import { useAppSettingsStore } from '../store/useAppSettingsStore';
 import { useFeedbackStore } from '../store/useFeedbackStore';
 import { useRuntimeConfigStore } from '../store/useRuntimeConfigStore';
+import { usePlanStore } from '../store/usePlanStore';
+import UpgradeSheet from '../components/billing/UpgradeSheet';
 import FeedbackSurveyModal from '../components/feedback/FeedbackSurveyModal';
 import MaintenanceOverlay from '../components/MaintenanceOverlay';
 import ForceUpdateOverlay from '../components/ForceUpdateOverlay';
@@ -168,8 +170,16 @@ export default function RootLayout() {
     markInstalledIfNeeded();
     // Subscribe once at root so every screen reads from a single live source.
     useRuntimeConfigStore.getState().subscribe();
-    return () => useRuntimeConfigStore.getState().unsubscribe();
+    usePlanStore.getState().start();
+    return () => {
+      useRuntimeConfigStore.getState().unsubscribe();
+      usePlanStore.getState().stop();
+    };
   }, []);
+
+  useEffect(() => {
+    usePlanStore.getState().watchUser(user?.uid ?? null);
+  }, [user?.uid]);
 
   // Wire native FCM token-refresh + foreground message listeners once
   // the user is signed in. Idempotent and unsubscribes cleanly on
@@ -273,6 +283,7 @@ export default function RootLayout() {
           {/* Visibility-control overlays — non-admins only. Order matters:
               ForceUpdate sits underneath Maintenance so a maintenance window
               during a forced rollout still wins. */}
+          <UpgradeSheet />
           <ForceUpdateOverlay />
           <MaintenanceOverlay />
           {splashVisible && !splashDone && (fontsLoaded || fontError) && (

@@ -36,6 +36,8 @@ import type { IllustrationName } from '../../lib/illustrations';
 import { successBump } from '../../lib/haptics';
 import { Fonts } from '../../constants/theme';
 import { Colors, withAlpha } from '../../constants/theme';
+import { usePlanAccess } from '../../hooks/usePlanAccess';
+import { libraryRank } from '../../lib/libraryTiers';
 
 // Score → illustration mapping. Score 5 (best) → glowing, score 1 (lowest) → overwhelmed.
 const MOOD_ILLUSTRATION: Record<number, IllustrationName> = {
@@ -676,9 +678,11 @@ function illustrationForYogaSession(session: YogaSession): IllustrationName {
 function YogaGallery({
   sessions,
   onPress,
+  isLocked,
 }: {
   sessions: YogaSession[];
   onPress: (session: YogaSession) => void;
+  isLocked: (session: YogaSession) => boolean;
 }) {
   return (
     <View style={yogaGalleryStyles.wrapper}>
@@ -721,6 +725,11 @@ function YogaGallery({
                 <View style={yogaGalleryStyles.pill}>
                   <Text style={yogaGalleryStyles.pillText}>{session.level}</Text>
                 </View>
+                {isLocked(session) ? (
+                  <View style={yogaGalleryStyles.pill}>
+                    <Text style={yogaGalleryStyles.pillText}>🔒 Plus</Text>
+                  </View>
+                ) : null}
               </View>
 
               <View style={yogaGalleryStyles.bottomRow}>
@@ -1165,6 +1174,7 @@ const dividerStyles = StyleSheet.create({
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function WellnessScreen() {
+  const planAccess = usePlanAccess();
   const insets = useSafeAreaInsets();
   const { focus } = useLocalSearchParams<{ focus?: string }>();
   const scrollRef = useRef<any>(null);
@@ -1415,7 +1425,12 @@ export default function WellnessScreen() {
 
         <YogaGallery
           sessions={filteredSessions}
+          isLocked={(session) => !planAccess.allowsItem('yoga', libraryRank('yoga', session.id))}
           onPress={(session) => {
+            if (!planAccess.allowsItem('yoga', libraryRank('yoga', session.id))) {
+              planAccess.upgrade({ kind: 'library', library: 'yoga' });
+              return;
+            }
             setSelectedYogaSession(session);
             setShowYogaModal(true);
           }}

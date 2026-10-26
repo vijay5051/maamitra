@@ -10,6 +10,7 @@ import {
 import { recordChatMessage, recordThreadStart } from '../services/chatUsage';
 import { stripActionChips } from '../services/claude';
 import { MAX_CHAT_HISTORY } from '../constants/config';
+import { useAiQuotaStore } from './useAiQuotaStore';
 
 // Lazy-accessed to avoid circular dependency (useAuthStore imports useChatStore)
 const getAuthUid = (): string | undefined => {
@@ -287,7 +288,10 @@ export const useChatStore = create<ChatState>()(
         // Privacy-preserving moderation counter — increments per user msg,
         // no message text leaves the device.
         const uidForUserMsg = getAuthUid();
-        if (uidForUserMsg) void recordChatMessage(uidForUserMsg, 'user');
+        if (uidForUserMsg) {
+          void recordChatMessage(uidForUserMsg, 'user');
+          useAiQuotaStore.getState().record(uidForUserMsg);
+        }
 
         // Build message history for the API (active thread's messages only).
         // Image data is ONLY passed for the latest message — re-sending base64

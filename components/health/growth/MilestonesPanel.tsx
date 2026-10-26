@@ -5,6 +5,7 @@ import GradientButton from '../../ui/GradientButton';
 import DatePickerField from '../../ui/DatePickerField';
 import { Colors, Fonts } from '../../../constants/theme';
 import {
+  DEV_MILESTONES,
   DevMilestone,
   MILESTONE_DOMAINS,
   MILESTONE_SOURCES,
@@ -15,6 +16,12 @@ import {
 import { dateKey } from '../../../lib/growth';
 import { Kid, MilestoneState, useProfileStore } from '../../../store/useProfileStore';
 import { persistProfile } from '../allergy/saveKidAllergies';
+import { usePlanAccess } from '../../../hooks/usePlanAccess';
+import { rankRoundRobin } from '../../../lib/plans';
+
+// Free plan: 18 milestones spread across the four areas; the rest need Plus.
+const FREE_MILESTONES = 18;
+const MILESTONE_RANK = rankRoundRobin(DEV_MILESTONES, (m) => m.id, (m) => m.domain);
 
 const INK = Colors.textDark;
 const STONE = Colors.textLight;
@@ -36,6 +43,9 @@ export default function MilestonesPanel({ kid, ageMonths }: { kid: Kid; ageMonth
   const setKidMilestone = useProfileStore((s) => s.setKidMilestone);
   const [domain, setDomain] = useState<MilestoneDomain | 'all'>('all');
   const [open, setOpen] = useState<DevMilestone | null>(null);
+  const planAccess = usePlanAccess();
+  const isLocked = (m: DevMilestone) =>
+    !planAccess.has('fullMilestones') && (MILESTONE_RANK.get(m.id) ?? 0) >= FREE_MILESTONES;
 
   const list = useMemo(() => milestonesForAge(ageMonths), [ageMonths]);
   const shown = domain === 'all' ? list : list.filter((m) => m.domain === domain);
@@ -72,7 +82,11 @@ export default function MilestonesPanel({ kid, ageMonths }: { kid: Kid; ageMonth
         const observed = st?.reached === true;
         const notYet = st?.reached === false;
         return (
-          <TouchableOpacity key={m.id} onPress={() => setOpen(m)} activeOpacity={0.85} style={styles.card}
+          <TouchableOpacity
+            key={m.id}
+            onPress={() => (isLocked(m) ? planAccess.upgrade({ kind: 'feature', feature: 'fullMilestones' }) : setOpen(m))}
+            activeOpacity={0.85}
+            style={[styles.card, isLocked(m) && { opacity: 0.6 }]}
             accessibilityRole="button"
             accessibilityLabel={`${m.title}. ${milestoneWindowText(m)}. ${observed ? 'Observed' : notYet ? 'Not yet' : 'Not recorded'}. Tap to record.`}>
             <View style={[styles.icon, { backgroundColor: d.tint }]}>
@@ -89,7 +103,9 @@ export default function MilestonesPanel({ kid, ageMonths }: { kid: Kid; ageMonth
               {notYet && <Text style={[styles.state, { color: STONE }]}>Not yet</Text>}
               {!!st?.note && <Text style={styles.note} numberOfLines={2}>“{st.note}”</Text>}
             </View>
-            {observed ? (
+            {isLocked(m) ? (
+              <Ionicons name="lock-closed" size={16} color={Colors.primary} />
+            ) : observed ? (
               <View style={styles.tick}><Ionicons name="checkmark" size={15} color={GREEN} /></View>
             ) : (
               <Text style={styles.record}>{notYet ? 'Update' : 'Record'}</Text>

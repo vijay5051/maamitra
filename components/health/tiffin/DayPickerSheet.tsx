@@ -136,6 +136,7 @@ export default function DayPickerSheet({
                 <RecipeCard
                   recipe={rec}
                   flaggedFoodIds={flaggedFoodIds}
+                  onBeforeUpgrade={onClose}
                   onPress={() =>
                     gate.select(
                       tiffinMeal(rec),

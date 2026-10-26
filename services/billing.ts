@@ -13,6 +13,10 @@ export interface BillingSettings {
   foundingOfferEnabled: boolean;
   foundingLimit: number;
   foundingCount: number;
+  /** Plan locks on the website. Off unless app_settings/billing.locks.web is true. */
+  locksWeb: boolean;
+  /** Plan locks in the Android/iOS app. Keep off until in-app purchase exists. */
+  locksApp: boolean;
 }
 
 export const DEFAULT_BILLING_SETTINGS: BillingSettings = {
@@ -21,6 +25,8 @@ export const DEFAULT_BILLING_SETTINGS: BillingSettings = {
   foundingOfferEnabled: true,
   foundingLimit: 1000,
   foundingCount: 0,
+  locksWeb: false,
+  locksApp: false,
 };
 
 export interface Entitlement {
@@ -68,6 +74,8 @@ export function subscribeBillingSettings(cb: (s: BillingSettings) => void): Unsu
         foundingOfferEnabled: d.foundingOffer?.enabled !== false,
         foundingLimit: typeof d.foundingOffer?.limit === 'number' ? d.foundingOffer.limit : DEFAULT_BILLING_SETTINGS.foundingLimit,
         foundingCount: typeof d.foundingCount === 'number' ? d.foundingCount : 0,
+        locksWeb: d.locks?.web === true,
+        locksApp: d.locks?.app === true,
       });
     },
     () => cb(DEFAULT_BILLING_SETTINGS),
