@@ -342,6 +342,48 @@ async function applySubscriptionEvent(sub: RazorpaySubscription): Promise<void> 
   });
 }
 
+/**
+ * Called by the website right after checkout succeeds. Verifies Razorpay's
+ * signed confirmation (HMAC of "payment_id|subscription_id" with the key
+ * secret), fetches the subscription from Razorpay and applies it, so the plan
+ * is active immediately. The webhook still handles renewals, failures and
+ * cancellations, and re-applying the same state is harmless.
+ */
+export function buildVerifyRazorpaySubscription() {
+  return functions
+    .runWith({ memory: '256MB', timeoutSeconds: 30 })
+    .https.onCall(async (data: { paymentId?: unknown; subscriptionId?: unknown; signature?: unknown }, context) => {
+      const uid = context.auth?.uid;
+      if (!uid) throw new functions.https.HttpsError('unauthenticated', 'Sign in first.');
+      const { paymentId, subscriptionId, signature } = data ?? {};
+      if (typeof paymentId !== 'string' || typeof subscriptionId !== 'string' || typeof signature !== 'string') {
+        throw new functions.https.HttpsError('invalid-argument', 'Missing payment confirmation.');
+      }
+
+      const rec = (await db().doc(`billing_subscriptions/${subscriptionId}`).get()).data() as SubscriptionRecord | undefined;
+      if (!rec || rec.uid !== uid) {
+        throw new functions.https.HttpsError('permission-denied', 'This payment is not linked to your account.');
+      }
+
+      const cfg = await requireRazorpayConfig();
+      const expected = crypto.createHmac('sha256', cfg.keySecret).update(`${paymentId}|${subscriptionId}`).digest('hex');
+      const a = Buffer.from(expected, 'utf8');
+      const b = Buffer.from(signature, 'utf8');
+      if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+        throw new functions.https.HttpsError('permission-denied', 'We could not verify this payment. If you were charged, contact support.');
+      }
+
+      const sub = await rzp<RazorpaySubscription>(cfg, 'GET', `/subscriptions/${encodeURIComponent(subscriptionId)}`);
+      await applySubscriptionEvent(sub);
+      const ent = (await db().doc(`entitlements/${uid}`).get()).data();
+      return {
+        plan: ent?.plan ?? 'free',
+        status: sub.status,
+        activeUntil: (ent?.activeUntil as admin.firestore.Timestamp | undefined)?.toMillis() ?? null,
+      };
+    });
+}
+
 export function buildRazorpayWebhook() {
   return functions
     .runWith({ memory: '256MB', timeoutSeconds: 30 })

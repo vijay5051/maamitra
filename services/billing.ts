@@ -175,7 +175,18 @@ export async function startWebCheckout(opts: CheckoutOptions): Promise<{ subscri
       description: opts.description,
       prefill: opts.prefill,
       theme: { color: '#7B5E9C' },
-      handler: () => resolve({ subscriptionId: created.subscriptionId }),
+      // Have the server verify the signed confirmation and activate the plan now,
+      // instead of waiting for Razorpay's webhook. If that call fails the webhook
+      // still activates it, so the purchase is never reported as failed here.
+      handler: (resp: { razorpay_payment_id?: string; razorpay_subscription_id?: string; razorpay_signature?: string }) => {
+        callable<{ paymentId: string; subscriptionId: string; signature: string }, { plan: string }>('verifyRazorpaySubscription', {
+          paymentId: resp?.razorpay_payment_id ?? '',
+          subscriptionId: resp?.razorpay_subscription_id ?? created.subscriptionId,
+          signature: resp?.razorpay_signature ?? '',
+        })
+          .catch((e) => console.warn('[billing] verify failed; waiting for webhook', e))
+          .finally(() => resolve({ subscriptionId: created.subscriptionId }));
+      },
       modal: { ondismiss: () => reject(new CheckoutDismissed()) },
     });
     rzp.on('payment.failed', (resp: any) => {

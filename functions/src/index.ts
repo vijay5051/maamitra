@@ -1584,10 +1584,12 @@ import {
   buildCancelRazorpaySubscription,
   buildCreateRazorpaySubscription,
   buildRazorpayWebhook,
+  buildVerifyRazorpaySubscription,
 } from './billing/razorpay';
 export const createRazorpaySubscription = buildCreateRazorpaySubscription();
 export const cancelRazorpaySubscription = buildCancelRazorpaySubscription();
 export const razorpayWebhook = buildRazorpayWebhook();
+export const verifyRazorpaySubscription = buildVerifyRazorpaySubscription();
 
 // Monthly growth/milestone reminders on each child's month-birthday (a
 // birthday wish on full-year birthdays), and a
