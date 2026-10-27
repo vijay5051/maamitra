@@ -27,12 +27,14 @@ google-play-developer-notifications@system.gserviceaccount.com Pub/Sub
 Publisher on topic play-billing and set it in Play Console → Monetization
 setup → RTDN. Then `eas build -p android --profile production`, internal
 track, licence-tester purchase, then the switch.
-Play Console status (2026-10-27): payments profile "Vijay Singh Rathore" (INR)
-created, public merchant profile set (MaaMitra, Computer Software), 15% service
-fee enrolment submitted. STILL RESTRICTED ("can't publish apps"): contact phone
-unverified + identity verification failed (appeal ticket 8-4242000040937 —
-developer name "MaaMitra" on a Personal account vs ID "Vijay Singh Rathore").
-PA-CB (BillDesk) cross-border KYC skipped for now (India-only sales).
+Play Console — CORRECTED 2026-10-27: the app `in.maamitra.app` lives in
+**Divya Shekhawat's** personal developer account (nikkishekhawat91@gmail.com,
+account ID 8321311709946534132), already in Production, not restricted. ALL
+Play Billing setup (payments profile in Divya Shekhawat's name, merchant
+profile, 15% enrolment, subscriptions, service-account invite, RTDN) goes in
+THAT account. A separate account "MaaMitra" (rocking.vsr@gmail.com, ID
+7584644039872068795) is restricted and has no apps; a payments profile "Vijay
+Singh Rathore" + 15% enrolment were set up there by mistake — not used.
 
 **Razorpay test purchase verified (2026-10-26, Claude).** Test keys work;
 testuser@maamitra.app bought Family monthly (sub_TsWG3qhrOwURNa) with test
