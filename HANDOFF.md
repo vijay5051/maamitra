@@ -35,6 +35,21 @@ profile, 15% enrolment, subscriptions, service-account invite, RTDN) goes in
 THAT account. A separate account "MaaMitra" (rocking.vsr@gmail.com, ID
 7584644039872068795) is restricted and has no apps; a payments profile "Vijay
 Singh Rathore" + 15% enrolment were set up there by mistake — not used.
+Progress 2026-10-27 (Divya's account): payments profile + merchant profile +
+15% enrolment done; build 41 (1.0.6, EAS b7eb6c4d) on Internal testing;
+subscriptions ACTIVE: maamitra_plus (monthly/yearly/founding) and
+maamitra_family (monthly/yearly), benefits added; NO `trial` offer yet
+(optional). Service account invited with View financial data + Manage orders.
+REMAINING (user doing next): (1) GCP as the account that owns maa-mitra-7kird8
+(not nikkishekhawat91 — that one only sees "My First Project"): enable Google
+Play Android Developer API; Pub/Sub topic play-billing → add
+google-play-developer-notifications@system.gserviceaccount.com as Pub/Sub
+Publisher. (2) Play Console → Monetization setup → RTDN topic
+projects/maa-mitra-7kird8/topics/play-billing → Send test notification
+(check billing_meta/play_status.lastTestAt). (3) License testing: add an
+Android tester's Gmail. (4) Turn on "Android in-app purchases" switch, tester
+buys Plus, verify entitlements source 'play'. User has no Android phone —
+needs a tester's device.
 
 **Razorpay test purchase verified (2026-10-26, Claude).** Test keys work;
 testuser@maamitra.app bought Family monthly (sub_TsWG3qhrOwURNa) with test
