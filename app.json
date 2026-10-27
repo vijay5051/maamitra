@@ -94,7 +94,8 @@
         }
       ],
       "@react-native-firebase/messaging",
-      "expo-image"
+      "expo-image",
+      "expo-iap"
     ],
     "experiments": {
       "typedRoutes": true

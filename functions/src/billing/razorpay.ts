@@ -114,7 +114,7 @@ async function ensurePlan(cfg: RazorpayConfig, plan: PaidPlanId, interval: Billi
   return created.id;
 }
 
-function isActiveEntitlement(ent: admin.firestore.DocumentData | undefined): boolean {
+export function isActiveEntitlement(ent: admin.firestore.DocumentData | undefined): boolean {
   const until = ent?.activeUntil as admin.firestore.Timestamp | undefined;
   return !!ent && ent.plan !== 'free' && !!until && until.toMillis() > Date.now();
 }

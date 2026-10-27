@@ -20,6 +20,8 @@ export interface BillingSettings {
   /** When plans went live (ms). Accounts created before it are early members. Null until locks are first turned on. */
   earlyAccessStart: number | null;
   earlyAccessDays: number;
+  /** Google Play subscriptions in the Android app. Off unless app_settings/billing.playBilling.enabled is true. */
+  playBillingEnabled: boolean;
 }
 
 export const DEFAULT_BILLING_SETTINGS: BillingSettings = {
@@ -32,6 +34,7 @@ export const DEFAULT_BILLING_SETTINGS: BillingSettings = {
   locksApp: false,
   earlyAccessStart: null,
   earlyAccessDays: EARLY_ACCESS_DAYS,
+  playBillingEnabled: false,
 };
 
 export interface Entitlement {
@@ -43,7 +46,7 @@ export interface Entitlement {
   cancelAtPeriodEnd: boolean;
   founding: boolean;
   trialUsed: boolean;
-  source: 'razorpay' | null;
+  source: 'razorpay' | 'play' | null;
   /** The subscription's first payment waits for the end of the early-member free period. */
   earlyAccessDeferred: boolean;
 }
@@ -86,6 +89,7 @@ export function subscribeBillingSettings(cb: (s: BillingSettings) => void): Unsu
         locksApp: d.locks?.app === true,
         earlyAccessStart: millis(d.earlyAccess?.start),
         earlyAccessDays: typeof d.earlyAccess?.days === 'number' ? d.earlyAccess.days : EARLY_ACCESS_DAYS,
+        playBillingEnabled: d.playBilling?.enabled === true,
       });
     },
     () => cb(DEFAULT_BILLING_SETTINGS),
@@ -114,7 +118,7 @@ export function subscribeEntitlement(uid: string, cb: (e: Entitlement) => void):
         cancelAtPeriodEnd: d.cancelAtPeriodEnd === true,
         founding: d.founding === true,
         trialUsed: d.trialUsed === true,
-        source: d.source === 'razorpay' ? 'razorpay' : null,
+        source: d.source === 'razorpay' || d.source === 'play' ? d.source : null,
         earlyAccessDeferred: d.earlyAccessDeferred === true,
       });
     },
@@ -122,7 +126,7 @@ export function subscribeEntitlement(uid: string, cb: (e: Entitlement) => void):
   );
 }
 
-async function callable<In, Out>(name: string, data: In): Promise<Out> {
+export async function callable<In, Out>(name: string, data: In): Promise<Out> {
   const { getFunctions, httpsCallable } = await import('firebase/functions');
   const fn = httpsCallable<In, Out>(getFunctions(app ?? undefined), name);
   return (await fn(data)).data;

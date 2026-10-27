@@ -3,6 +3,8 @@ import { Linking, Platform, StyleSheet, Text, TouchableOpacity, View } from 'rea
 import { Ionicons } from '@expo/vector-icons';
 import { LegalPage, P, H2, A, LEGAL_UPDATED } from '../components/legal/LegalPage';
 import { WebCheckout, YourPlanCard } from '../components/billing/WebCheckout';
+import { PlayCheckout } from '../components/billing/PlayCheckout';
+import { playBillingSupported } from '../services/playBilling';
 import { useBillingSettings, useEntitlement } from '../hooks/useBilling';
 import { activeEarlyAccess } from '../hooks/usePlanAccess';
 import { usePlanStore } from '../store/usePlanStore';
@@ -90,17 +92,21 @@ export default function PricingScreen() {
   // Purchases are web-only: Google Play does not allow selling or linking to
   // web purchases inside the Android app.
   const canBuyHere = Platform.OS === 'web' && settings.webCheckoutEnabled;
+  // Android app: Google Play Billing only (Play policy forbids Razorpay in the app).
+  const canBuyOnPlay = playBillingSupported && settings.playBillingEnabled;
 
   return (
     <LegalPage title="Pricing" meta={`Last updated: ${LEGAL_UPDATED}`}>
       {isActive ? (
-        <YourPlanCard entitlement={entitlement} canManage={Platform.OS === 'web'} />
+        <YourPlanCard entitlement={entitlement} />
       ) : (
         <View style={s.notice}>
           <Ionicons name="sparkles-outline" size={18} color={Colors.primary} />
           <Text style={s.noticeText}>
-            {earlyUntil !== null
+            {earlyUntil !== null && !canBuyOnPlay
               ? `You are an early member: every feature is free until ${longDate(earlyUntil)}. After that, Free-plan limits apply unless you choose a plan. Choose one now and your first payment is on ${longDate(earlyUntil)}.`
+              : canBuyOnPlay
+              ? 'Choose a plan below. You pay through Google Play, and your plan also works on maamitra.co.in.'
               : canBuyHere
               ? 'Choose a plan below. You pay securely through Razorpay with UPI, card, net banking or a wallet, and your plan works in the app too.'
               : 'MaaMitra is free today, with every feature included. The paid plans below are launching soon; we will tell you in the app before anything changes.'}
@@ -109,6 +115,7 @@ export default function PricingScreen() {
       )}
 
       {canBuyHere && !isActive ? <WebCheckout settings={settings} entitlement={entitlement} earlyAccessUntil={earlyUntil} /> : null}
+      {canBuyOnPlay && !isActive ? <PlayCheckout settings={settings} earlyAccessUntil={earlyUntil} /> : null}
 
       {PLANS.map((p) => (
         <View key={p.name} style={[s.plan, { backgroundColor: p.tint }]}>
@@ -152,7 +159,11 @@ export default function PricingScreen() {
       <H2>Good to know</H2>
       <P>Prices are in Indian rupees and include GST. Yearly plans save about 44% compared with paying monthly.</P>
       <P>Paid plans renew automatically until you cancel. You can cancel any time and keep your plan until the end of the period you paid for.</P>
-      <P>On the website, payments go through Razorpay (cards, UPI, net banking and wallets). A plan bought on the website works in the app on the same account.</P>
+      {Platform.OS === 'web' ? (
+        <P>On the website, payments go through Razorpay (cards, UPI, net banking and wallets). A plan bought on the website works in the app on the same account.</P>
+      ) : (
+        <P>In the Android app, plans are billed by Google Play and managed in the Play Store → Payments & subscriptions. Your plan works on every device where you sign in with the same account.</P>
+      )}
       <P>
         See our <A href="/refund">Refund & Cancellation Policy</A> and <A href="/terms">Terms & Conditions</A>.
         MaaMitra never shows ads. AI answers are guidance, not medical advice.

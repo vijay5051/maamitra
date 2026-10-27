@@ -9,7 +9,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { Colors, Fonts } from '../../constants/theme';
 import { EARLY_ACCESS_DAYS } from '../../lib/plans';
 
-type Key = 'webCheckoutEnabled' | 'trialEnabled' | 'foundingOfferEnabled' | 'locksWeb' | 'locksApp';
+type Key = 'webCheckoutEnabled' | 'trialEnabled' | 'foundingOfferEnabled' | 'locksWeb' | 'locksApp' | 'playBillingEnabled';
 
 export function BillingSwitchCard() {
   const user = useAuthStore((s) => s.user);
@@ -46,7 +46,9 @@ export function BillingSwitchCard() {
             ? { locks: { web: value } }
             : key === 'locksApp'
               ? { locks: { app: value } }
-              : { [key]: value };
+              : key === 'playBillingEnabled'
+                ? { playBilling: { enabled: value } }
+                : { [key]: value };
       // The first time plan locks go on, stamp the launch: every account created
       // before it is an early member with everything free for EARLY_ACCESS_DAYS.
       const startsEarlyAccess = (key === 'locksWeb' || key === 'locksApp') && value && settings.earlyAccessStart === null;
@@ -94,9 +96,14 @@ export function BillingSwitchCard() {
         hint="Free users on maamitra.co.in get Free-plan limits. Turn on together with checkout."
       />
       <Row
+        k="playBillingEnabled"
+        label={settings.playBillingEnabled ? 'Android in-app purchases ON' : 'Android in-app purchases OFF'}
+        hint="Google Play Billing in the Android app (needs the new app build and the Play Console subscriptions). Test with a Play licence tester first."
+      />
+      <Row
         k="locksApp"
         label={settings.locksApp ? 'Plan locks ON (app)' : 'Plan locks OFF (app)'}
-        hint="Keep OFF until plans can be bought inside the Android app. Otherwise app users lose features with no way to pay."
+        hint="Turn on only after Android in-app purchases work. Otherwise app users lose features with no way to pay."
       />
       <Text style={s.hint}>
         {settings.earlyAccessStart !== null

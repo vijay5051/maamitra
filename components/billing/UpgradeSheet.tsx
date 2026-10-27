@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, Fonts } from '../../constants/theme';
 import { usePlanAccess } from '../../hooks/usePlanAccess';
 import { usePlanStore, UpgradeReason } from '../../store/usePlanStore';
+import { playBillingSupported } from '../../services/playBilling';
 import { cheapestPlanWhere, GatedFeature, GatedLibrary, PLAN_LIMITS, PLAN_NAMES, PlanLimits } from '../../lib/plans';
 
 const FEATURE_COPY: Record<GatedFeature, { title: string; body: string }> = {
@@ -61,10 +62,12 @@ export default function UpgradeSheet() {
   const reason = usePlanStore((s) => s.upgradeReason);
   const close = usePlanStore((s) => s.closeUpgrade);
   const { limits } = usePlanAccess();
+  const playOn = usePlanStore((s) => s.settings.playBillingEnabled) && playBillingSupported;
   if (!reason) return null;
 
   const { title, body, needs } = describe(reason, limits);
-  const onWeb = Platform.OS === 'web';
+  // Web: Razorpay on /pricing. Android: Google Play on /pricing once switched on.
+  const canBuy = Platform.OS === 'web' || playOn;
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={close}>
@@ -76,7 +79,7 @@ export default function UpgradeSheet() {
           </View>
           <Text style={s.title}>{title}</Text>
           <Text style={s.body}>{body}</Text>
-          {onWeb ? (
+          {canBuy ? (
             <TouchableOpacity
               style={s.primary}
               onPress={() => {
@@ -93,7 +96,7 @@ export default function UpgradeSheet() {
             </Text>
           )}
           <TouchableOpacity style={s.secondary} onPress={close} accessibilityRole="button">
-            <Text style={s.secondaryText}>{onWeb ? 'Not now' : 'OK'}</Text>
+            <Text style={s.secondaryText}>{canBuy ? 'Not now' : 'OK'}</Text>
           </TouchableOpacity>
         </Pressable>
       </Pressable>

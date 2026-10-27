@@ -8,6 +8,26 @@
 
 ## Active task
 
+**Google Play Billing (Android in-app), code done 2026-10-27, Claude. Switched
+OFF; needs a NEW NATIVE BUILD + Play Console setup.** `expo-iap@6.0.2` (pinned),
+`services/playBilling.ts`, `components/billing/PlayCheckout.tsx` (on /pricing,
+Android only; upgrade sheet links there), admin switch "Android in-app
+purchases" (`app_settings/billing.playBilling.enabled`). Server:
+`functions/src/billing/play.ts` → `verifyPlayPurchase` (callable, checks the
+token with the Play Developer API, acknowledges, writes entitlements source
+'play') and `playBillingNotifications` (Pub/Sub topic `play-billing`, RTDN).
+Old binaries get the OTA safely (`playBillingSupported` is false without the
+native module). Products to create in Play Console: `maamitra_plus` (base
+plans monthly ₹149, yearly ₹999, founding ₹699/yr; offer `trial` 7-day free
+on monthly+yearly, new customers) and `maamitra_family` (monthly ₹249, yearly
+₹1,799). Setup: invite maa-mitra-7kird8@appspot.gserviceaccount.com in Play
+Console (View financial data + Manage orders and subscriptions); enable
+"Google Play Android Developer API" in GCP; give
+google-play-developer-notifications@system.gserviceaccount.com Pub/Sub
+Publisher on topic play-billing and set it in Play Console → Monetization
+setup → RTDN. Then `eas build -p android --profile production`, internal
+track, licence-tester purchase, then the switch.
+
 **Razorpay test purchase verified (2026-10-26, Claude).** Test keys work;
 testuser@maamitra.app bought Family monthly (sub_TsWG3qhrOwURNa) with test
 card 4718 6091 0820 4366 → entitlement family/active until 26 Nov 2026.

@@ -1591,6 +1591,11 @@ export const cancelRazorpaySubscription = buildCancelRazorpaySubscription();
 export const razorpayWebhook = buildRazorpayWebhook();
 export const verifyRazorpaySubscription = buildVerifyRazorpaySubscription();
 
+// Android in-app subscriptions through Google Play Billing.
+import { buildPlayBillingNotifications, buildVerifyPlayPurchase } from './billing/play';
+export const verifyPlayPurchase = buildVerifyPlayPurchase();
+export const playBillingNotifications = buildPlayBillingNotifications();
+
 // Monthly growth/milestone reminders on each child's month-birthday (a
 // birthday wish on full-year birthdays), and a
 // weekly "New on MaaMitra" digest of new articles and travel recipes.

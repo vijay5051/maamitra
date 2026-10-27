@@ -126,3 +126,14 @@ export function earlyAccessUntil(
   if (accountCreatedMs >= startMs) return null;
   return startMs + days * 86400 * 1000;
 }
+
+// ─── Google Play (Android in-app) ─────────────────────────────────────
+// Mirrors functions/src/billing/plans.ts. Created in Play Console → Monetize →
+// Subscriptions: one product per plan, base plans "monthly" and "yearly", plus
+// a "founding" base plan (₹699/yr) on Plus and a 7-day "trial" offer on Plus.
+export const PLAY_PRODUCTS: Record<PaidPlanId, string> = {
+  plus: 'maamitra_plus',
+  family: 'maamitra_family',
+};
+export const PLAY_FOUNDING_BASE_PLAN = 'founding';
+export const PLAY_TRIAL_OFFER_ID = 'trial';

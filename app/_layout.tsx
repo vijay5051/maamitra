@@ -28,6 +28,7 @@ import ImpersonationBanner from '../components/ImpersonationBanner';
 import RootErrorBoundary from '../components/ui/RootErrorBoundary';
 import { SplashAnimation } from '../components/ui/SplashAnimation';
 import { auth, hasSubmittedTesterFeedback } from '../services/firebase';
+import { playBillingSupported, startPlayBilling, stopPlayBilling } from '../services/playBilling';
 import { captureFirstVisitAttribution, writeAttributionToUser } from '../services/attribution';
 
 SplashScreen.preventAutoHideAsync();
@@ -183,6 +184,15 @@ export default function RootLayout() {
     const createdMs = created ? Date.parse(created) : NaN;
     usePlanStore.getState().watchUser(user?.uid ?? null, Number.isNaN(createdMs) ? null : createdMs);
   }, [user?.uid]);
+
+  // Android: connect to Google Play once signed in, so a purchase interrupted
+  // earlier (app closed mid-way) is verified and acknowledged on next launch.
+  const playBillingOn = usePlanStore((s) => s.settings.playBillingEnabled);
+  useEffect(() => {
+    if (!user?.uid || !playBillingOn || !playBillingSupported) return;
+    void startPlayBilling();
+    return () => stopPlayBilling();
+  }, [user?.uid, playBillingOn]);
 
   // Wire native FCM token-refresh + foreground message listeners once
   // the user is signed in. Idempotent and unsubscribes cleanly on

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -19,9 +19,11 @@ import {
   PaidPlanId,
   PLAN_NAMES,
   PLAN_PRICES,
+  PLAY_PRODUCTS,
   TRIAL_DAYS,
 } from '../../lib/plans';
 import { SUPPORT_EMAIL } from '../legal/LegalPage';
+import { openPlaySubscriptions, playBillingSupported } from '../../services/playBilling';
 
 const rupees = (n: number) => `₹${n.toLocaleString('en-IN')}`;
 const longDate = (ms: number) =>
@@ -184,7 +186,7 @@ export function WebCheckout({
   );
 }
 
-export function YourPlanCard({ entitlement, canManage }: { entitlement: Entitlement; canManage: boolean }) {
+export function YourPlanCard({ entitlement }: { entitlement: Entitlement }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const now = Date.now();
@@ -210,8 +212,10 @@ export function YourPlanCard({ entitlement, canManage }: { entitlement: Entitlem
     line = `Free as an early member until ${longDate(until)}. Your first payment${price ? ` of ${rupees(price)}` : ''} is on that day.`;
   } else if (inTrial) {
     line = `Free trial until ${longDate(until)}. Your first payment${price ? ` of ${rupees(price)}` : ''} is on that day.`;
-  } else if (entitlement.status === 'pending') {
-    line = "We couldn't take your last payment. Razorpay will try again, and your plan stays active meanwhile.";
+  } else if (entitlement.status === 'pending' || entitlement.status === 'in_grace_period') {
+    line = entitlement.source === 'play'
+      ? "Google Play couldn't take your last payment. Update your payment method in the Play Store; your plan stays active meanwhile."
+      : "We couldn't take your last payment. Razorpay will try again, and your plan stays active meanwhile.";
   } else {
     line = `Renews on ${longDate(until)}${price ? ` · ${rupees(price)}` : ''}.`;
   }
@@ -243,12 +247,23 @@ export function YourPlanCard({ entitlement, canManage }: { entitlement: Entitlem
         </Text>
       </View>
       <Text style={s.boxText}>{line}</Text>
-      {canManage && entitlement.source === 'razorpay' && !entitlement.cancelAtPeriodEnd ? (
+      {Platform.OS === 'web' && entitlement.source === 'razorpay' && !entitlement.cancelAtPeriodEnd ? (
         <TouchableOpacity style={s.link} onPress={cancel} disabled={busy} accessibilityRole="button">
           {busy ? <ActivityIndicator color={Colors.primary} /> : <Text style={s.linkText}>Cancel renewal</Text>}
         </TouchableOpacity>
       ) : null}
-      {!canManage ? <Text style={s.small}>To change or cancel your plan, email {SUPPORT_EMAIL}.</Text> : null}
+      {entitlement.source === 'play' ? (
+        playBillingSupported ? (
+          <TouchableOpacity style={s.link} onPress={() => openPlaySubscriptions(PLAY_PRODUCTS[entitlement.plan as PaidPlanId])} accessibilityRole="button">
+            <Text style={s.linkText}>Manage in Google Play</Text>
+          </TouchableOpacity>
+        ) : (
+          <Text style={s.small}>Bought in the Android app: change or cancel it in the Google Play Store → Payments & subscriptions.</Text>
+        )
+      ) : null}
+      {entitlement.source === 'razorpay' && Platform.OS !== 'web' ? (
+        <Text style={s.small}>To change or cancel your plan, email {SUPPORT_EMAIL}.</Text>
+      ) : null}
       {error ? <Text style={s.error}>{error}</Text> : null}
     </View>
   );
