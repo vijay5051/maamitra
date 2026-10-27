@@ -27,6 +27,12 @@ google-play-developer-notifications@system.gserviceaccount.com Pub/Sub
 Publisher on topic play-billing and set it in Play Console → Monetization
 setup → RTDN. Then `eas build -p android --profile production`, internal
 track, licence-tester purchase, then the switch.
+Play Console status (2026-10-27): payments profile "Vijay Singh Rathore" (INR)
+created, public merchant profile set (MaaMitra, Computer Software), 15% service
+fee enrolment submitted. STILL RESTRICTED ("can't publish apps"): contact phone
+unverified + identity verification failed (appeal ticket 8-4242000040937 —
+developer name "MaaMitra" on a Personal account vs ID "Vijay Singh Rathore").
+PA-CB (BillDesk) cross-border KYC skipped for now (India-only sales).
 
 **Razorpay test purchase verified (2026-10-26, Claude).** Test keys work;
 testuser@maamitra.app bought Family monthly (sub_TsWG3qhrOwURNa) with test
