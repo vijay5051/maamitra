@@ -302,14 +302,23 @@ async function applySubscriptionEvent(sub: RazorpaySubscription): Promise<void> 
         break;
       }
       case 'active':
-        activeUntil = later(activeUntil, ts(sub.current_end));
+        // Razorpay's current period end is the paid-up date. Take it as is (not
+        // the later of old and new): the caller always passes Razorpay's latest
+        // state, and a stale extended date must not survive.
+        activeUntil = ts(sub.current_end) ?? activeUntil;
         break;
       case 'halted':
         activeUntil = now;
         break;
+      case 'cancelled':
+      case 'completed':
+      case 'expired':
+        // Access runs to the end of the period already paid for. No current_end
+        // means it never got past the trial/authorisation stage: keep that end.
+        activeUntil = ts(sub.current_end) ?? activeUntil;
+        break;
       default:
         // pending: Razorpay is retrying the charge, keep access meanwhile.
-        // cancelled / completed / expired: access runs to the end already paid for.
         break;
     }
 
@@ -420,7 +429,13 @@ export function buildRazorpayWebhook() {
       const sub = req.body?.payload?.subscription?.entity as RazorpaySubscription | undefined;
       if (typeof req.body?.event === 'string' && req.body.event.startsWith('subscription.') && sub?.id) {
         try {
-          await applySubscriptionEvent(sub);
+          // Webhooks can arrive late or out of order, so apply Razorpay's current
+          // state rather than the snapshot in this event. Fall back to the
+          // payload only if Razorpay can't be reached.
+          const current = cfg.keyId && cfg.keySecret
+            ? await rzp<RazorpaySubscription>(cfg, 'GET', `/subscriptions/${encodeURIComponent(sub.id)}`).catch(() => sub)
+            : sub;
+          await applySubscriptionEvent(current);
         } catch (e) {
           console.error('[razorpayWebhook] failed to apply event', req.body.event, e);
           if (eventId) await db().doc(`billing_events/${eventId}`).delete().catch(() => {});
