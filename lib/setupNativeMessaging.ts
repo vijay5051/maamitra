@@ -20,7 +20,7 @@
 
 import { Platform } from 'react-native';
 
-import { ensureAlertsChannel, showForegroundPush } from './notificationChannel';
+import { ensureAlertsChannel, openPushTarget, showForegroundPush } from './notificationChannel';
 
 let backgroundHandlerRegistered = false;
 
@@ -57,6 +57,8 @@ export function attachForegroundMessaging(uid: string): () => void {
 
   let unsubToken: (() => void) | null = null;
   let unsubMessage: (() => void) | null = null;
+  let unsubOpened: (() => void) | null = null;
+  let unsubLocalTap: (() => void) | null = null;
 
   (async () => {
     try {
@@ -84,6 +86,26 @@ export function attachForegroundMessaging(uid: string): () => void {
         await showForegroundPush(remoteMessage);
       });
 
+      // Tapping a push opens the screen it points to (data.url), e.g. Pricing
+      // for a plans announcement. Covers taps while backgrounded, the tap that
+      // launched the app, and taps on banners we posted in the foreground.
+      unsubOpened = messaging().onNotificationOpenedApp((m: any) => openPushTarget(m?.data));
+      messaging()
+        .getInitialNotification()
+        .then((m: any) => {
+          if (m) openPushTarget(m.data);
+        })
+        .catch(() => {});
+      try {
+        const Notifications = await import('expo-notifications');
+        const sub = Notifications.addNotificationResponseReceivedListener((r) =>
+          openPushTarget(r.notification.request.content.data as Record<string, unknown>),
+        );
+        unsubLocalTap = () => sub.remove();
+      } catch {
+        /* expo-notifications unavailable */
+      }
+
       // One-time top-up: if the user opted in earlier but for whatever
       // reason their token wasn't saved (e.g. transient Firestore
       // failure during the original opt-in), grab + register now.
@@ -99,5 +121,7 @@ export function attachForegroundMessaging(uid: string): () => void {
   return () => {
     try { unsubToken?.(); } catch {}
     try { unsubMessage?.(); } catch {}
+    try { unsubOpened?.(); } catch {}
+    try { unsubLocalTap?.(); } catch {}
   };
 }

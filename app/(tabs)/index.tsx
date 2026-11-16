@@ -67,6 +67,7 @@ import { getTimeOfDay } from '../../lib/timeOfDay';
 import KidNamePrompt from '../../components/jit/KidNamePrompt';
 import NotificationsPrompt from '../../components/jit/NotificationsPrompt';
 import { BirthdayCelebration } from '../../components/birthday/BirthdayCard';
+import { PlansLaunchBanner } from '../../components/billing/PlansLaunchBanner';
 
 // Quick-action card id → brand illustration.
 // Every possible TodayCard id must resolve here so we NEVER fall back to
@@ -965,6 +966,7 @@ export default function HomeTab() {
 
         <View style={{ paddingHorizontal: 22 }}>
           <BirthdayCelebration />
+          <PlansLaunchBanner />
           <KidNamePrompt />
           <NotificationsPrompt />
         </View>

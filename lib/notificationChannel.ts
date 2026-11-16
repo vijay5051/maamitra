@@ -66,3 +66,23 @@ export async function showForegroundPush(remoteMessage: any): Promise<void> {
     console.warn('[push] could not show foreground notification', err);
   }
 }
+
+/** Open the in-app screen a push points to (data.url, an app route such as "/pricing"). */
+export function openPushTarget(data: Record<string, unknown> | undefined | null): void {
+  const url = typeof data?.url === 'string' ? data.url : null;
+  if (!url || !url.startsWith('/') || url.startsWith('//')) return;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { router } = require('expo-router');
+    // Give the navigator a moment to mount when the tap launched the app.
+    setTimeout(() => {
+      try {
+        router.push(url);
+      } catch {
+        /* route not available in this build */
+      }
+    }, 600);
+  } catch {
+    /* expo-router not ready */
+  }
+}

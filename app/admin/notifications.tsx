@@ -51,6 +51,14 @@ import { can } from '../../lib/admin';
 import { confirmAction, infoAlert } from '../../lib/cross-platform-alerts';
 
 type Audience = 'all' | 'pregnant' | 'newborn' | 'toddler' | 'custom';
+
+// Broadcast tap targets (app routes; the web service worker opens the same paths).
+const OPEN_TARGETS: Array<{ url: string; label: string }> = [
+  { url: '/', label: 'Home' },
+  { url: '/pricing', label: 'Plans & pricing' },
+  { url: '/(tabs)/health?tab=vaccines', label: 'Vaccines' },
+  { url: '/(tabs)/library', label: 'Library' },
+];
 type NotifType = 'info' | 'reminder' | 'alert' | 'celebration';
 
 const AUDIENCE_OPTIONS: { key: Audience; label: string; icon: string; desc: string }[] = [
@@ -191,6 +199,8 @@ function ComposeTab({ onSent }: { onSent: () => Promise<void> }) {
   const [body, setBody] = useState('');
   const [audience, setAudience] = useState<Audience>('all');
   const [type, setType] = useState<NotifType>('info');
+  // Screen the app opens when the push is tapped.
+  const [openUrl, setOpenUrl] = useState<string>('/');
   const [scheduleEnabled, setScheduleEnabled] = useState(false);
   const [scheduleDate, setScheduleDate] = useState('');
   const [sending, setSending] = useState(false);
@@ -405,6 +415,7 @@ function ComposeTab({ onSent }: { onSent: () => Promise<void> }) {
           body: body.trim(),
           audience,
           pushType: type,
+          data: { url: openUrl },
           scheduledFor: parsedSchedule,
         });
         infoAlert('Scheduled', `Will fire at ${parsedSchedule.toLocaleString('en-IN')}.`);
@@ -414,6 +425,7 @@ function ComposeTab({ onSent }: { onSent: () => Promise<void> }) {
           body: body.trim(),
           audience,
           type,
+          data: { url: openUrl },
         });
         await logAdminAction(actor, 'push.broadcast', { docId: id ?? undefined, label: title.trim() }, { audience, type });
         infoAlert('Sent', 'The push job is queued. The dispatcher fans out to matching devices in seconds.');
@@ -495,6 +507,20 @@ function ComposeTab({ onSent }: { onSent: () => Promise<void> }) {
               <Text style={styles.typeBadgeText}>{t.emoji}</Text>
             </View>
             <Text style={[styles.typeLabel, type === t.key && { color: t.color, fontWeight: '700' }]}>{t.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Where a tap on the notification takes the user */}
+      <Text style={styles.sectionTitle}>When tapped, open</Text>
+      <View style={styles.typeRow}>
+        {OPEN_TARGETS.map((t) => (
+          <TouchableOpacity
+            key={t.url}
+            style={[styles.typeChip, openUrl === t.url && { backgroundColor: '#7B5E9C18', borderColor: '#7B5E9C' }]}
+            onPress={() => setOpenUrl(t.url)}
+          >
+            <Text style={[styles.typeLabel, openUrl === t.url && { color: '#7B5E9C', fontWeight: '700' }]}>{t.label}</Text>
           </TouchableOpacity>
         ))}
       </View>

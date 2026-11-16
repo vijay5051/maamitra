@@ -94,6 +94,19 @@ export default function PricingScreen() {
   const canBuyHere = Platform.OS === 'web' && settings.webCheckoutEnabled;
   // Android app: Google Play Billing only (Play policy forbids Razorpay in the app).
   const canBuyOnPlay = playBillingSupported && settings.playBillingEnabled;
+  // Android build from before in-app purchases: plans are on sale but this
+  // app version cannot sell them (and may not point to the website).
+  const needsAppUpdate = Platform.OS === 'android' && settings.playBillingEnabled && !playBillingSupported;
+  const earlyLine = earlyUntil !== null ? `You are an early member: every feature is free until ${longDate(earlyUntil)}.` : null;
+  const noticeText = canBuyOnPlay
+    ? 'Choose a plan below. You pay through Google Play, and your plan also works on maamitra.co.in.'
+    : canBuyHere
+      ? earlyLine
+        ? `${earlyLine} After that, Free-plan limits apply unless you choose a plan. Choose one now and your first payment is on ${longDate(earlyUntil!)}.`
+        : 'Choose a plan below. You pay securely through Razorpay with UPI, card, net banking or a wallet, and your plan works in the app too.'
+      : needsAppUpdate
+        ? `${earlyLine ? `${earlyLine} ` : ''}To choose a plan, update MaaMitra to the latest version from the Play Store.`
+        : earlyLine ?? 'MaaMitra is free today, with every feature included. The paid plans below are launching soon; we will tell you in the app before anything changes.';
 
   return (
     <LegalPage title="Pricing" meta={`Last updated: ${LEGAL_UPDATED}`}>
@@ -103,13 +116,7 @@ export default function PricingScreen() {
         <View style={s.notice}>
           <Ionicons name="sparkles-outline" size={18} color={Colors.primary} />
           <Text style={s.noticeText}>
-            {earlyUntil !== null && !canBuyOnPlay
-              ? `You are an early member: every feature is free until ${longDate(earlyUntil)}. After that, Free-plan limits apply unless you choose a plan. Choose one now and your first payment is on ${longDate(earlyUntil)}.`
-              : canBuyOnPlay
-              ? 'Choose a plan below. You pay through Google Play, and your plan also works on maamitra.co.in.'
-              : canBuyHere
-              ? 'Choose a plan below. You pay securely through Razorpay with UPI, card, net banking or a wallet, and your plan works in the app too.'
-              : 'MaaMitra is free today, with every feature included. The paid plans below are launching soon; we will tell you in the app before anything changes.'}
+            {noticeText}
           </Text>
         </View>
       )}
