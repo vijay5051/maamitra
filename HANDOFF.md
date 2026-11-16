@@ -8,6 +8,12 @@
 
 ## Active task
 
+**LAUNCHED (website) 2026-11-16.** Live: Razorpay checkout ON (live keys),
+plan locks WEB ON, Android in-app purchases ON, plan locks APP OFF until Play
+build 41 (1.0.6) is "Available on Google Play" (submitted to Production
+16 Nov) — then turn locks.app ON. Early access stamped: accounts created before
+16 Nov 2026 11:21 UTC free until 14 Feb 2027. Launch announcement broadcast sent.
+
 **Google Play Billing (Android in-app), code done 2026-10-27, Claude. Switched
 OFF; needs a NEW NATIVE BUILD + Play Console setup.** `expo-iap@6.0.2` (pinned),
 `services/playBilling.ts`, `components/billing/PlayCheckout.tsx` (on /pricing,
