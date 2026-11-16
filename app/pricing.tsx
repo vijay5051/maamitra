@@ -176,16 +176,19 @@ export default function PricingScreen() {
         MaaMitra never shows ads. AI answers are guidance, not medical advice.
       </P>
 
-      <TouchableOpacity
-        onPress={() => Linking.openURL(PLAY_URL)}
-        style={s.cta}
-        activeOpacity={0.85}
-        accessibilityRole="link"
-        accessibilityLabel="Get MaaMitra on Google Play"
-      >
-        <Ionicons name="logo-google-playstore" size={18} color={Colors.white} />
-        <Text style={s.ctaText}>Get MaaMitra on Google Play</Text>
-      </TouchableOpacity>
+      {/* Only on the website: people inside the app already have it. */}
+      {Platform.OS === 'web' ? (
+        <TouchableOpacity
+          onPress={() => Linking.openURL(PLAY_URL)}
+          style={s.cta}
+          activeOpacity={0.85}
+          accessibilityRole="link"
+          accessibilityLabel="Get MaaMitra on Google Play"
+        >
+          <Ionicons name="logo-google-playstore" size={18} color={Colors.white} />
+          <Text style={s.ctaText}>Get MaaMitra on Google Play</Text>
+        </TouchableOpacity>
+      ) : null}
     </LegalPage>
   );
 }
