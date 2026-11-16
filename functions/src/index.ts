@@ -218,6 +218,17 @@ export const dispatchPush = functions.firestore
             body: job.body,
           },
           data: sanitiseData(job.data),
+          // Pop up at the top of the screen on Android: high delivery priority,
+          // the app's HIGH-importance channel (lib/notificationChannel.ts), sound.
+          android: {
+            priority: 'high',
+            notification: {
+              channelId: 'maamitra_alerts',
+              sound: 'default',
+              color: '#7B5E9C',
+              defaultVibrateTimings: true,
+            },
+          },
           webpush: {
             fcmOptions: { link: job.data?.url || '/' },
             notification: {

@@ -20,6 +20,8 @@
 
 import { Platform } from 'react-native';
 
+import { ensureAlertsChannel, showForegroundPush } from './notificationChannel';
+
 let backgroundHandlerRegistered = false;
 
 if (Platform.OS !== 'web') {
@@ -72,13 +74,14 @@ export function attachForegroundMessaging(uid: string): () => void {
         }
       });
 
+      // High-importance channel so pushes pop up at the top of the screen.
+      void ensureAlertsChannel();
+
       // Foreground message handler — Android does NOT show a system
-      // notification when the app is in the foreground; we handle it
-      // ourselves. For now we just log; downstream UI can subscribe
-      // via a custom event if we want in-app banners.
-      unsubMessage = messaging().onMessage(async (_remoteMessage: any) => {
-        // No-op for now. Hook a banner here if desired. Background and
-        // killed-state pushes still surface via the system tray.
+      // notification when the app is in the foreground, so post it ourselves.
+      // Background and killed-state pushes surface via the system tray.
+      unsubMessage = messaging().onMessage(async (remoteMessage: any) => {
+        await showForegroundPush(remoteMessage);
       });
 
       // One-time top-up: if the user opted in earlier but for whatever
