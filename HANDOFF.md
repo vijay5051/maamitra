@@ -42,7 +42,12 @@ maamitra_family (monthly/yearly), benefits added; NO `trial` offer yet
 (optional). Service account invited with View financial data + Manage orders.
 DONE 2026-10-30: Play Android Developer API enabled; Pub/Sub publisher granted;
 RTDN topic set; test notification received (billing_meta/play_status.lastTestAt
-30 Oct 13:40 IST). REMAINING NOW: steps (3) and (4) below only.
+30 Oct 13:40 IST). REMAINING NOW: none for setup. 2026-11-16: licence tester bought Plus
+in-app (test card) → app shows "Your plan: Plus (monthly)", Manage in Google
+Play. Razorpay LIVE: keys + live webhook working (refund.processed applied
+3 Nov), website checkout ON. Android in-app switch ON during test — turn OFF
+until launch (First 10 testers aren't licence testers). Play prices show
+₹150/₹250 (rounded) — set India price to 149/249 in Play Console if wanted.
 OLD LIST: (1) GCP as the account that owns maa-mitra-7kird8
 (not nikkishekhawat91 — that one only sees "My First Project"): enable Google
 Play Android Developer API; Pub/Sub topic play-billing → add

@@ -194,8 +194,9 @@ export function YourPlanCard({ entitlement }: { entitlement: Entitlement }) {
   // Early member who subscribed during the free period: first charge on activeUntil.
   const inEarlyFree = entitlement.earlyAccessDeferred && entitlement.status === 'authenticated' && (entitlement.activeUntil ?? 0) > now;
   const until = entitlement.activeUntil ?? now;
+  // Google Play sets its own (localised, rounded) price, so only quote ours for website plans.
   const price =
-    entitlement.plan === 'free' || !entitlement.interval
+    entitlement.plan === 'free' || !entitlement.interval || entitlement.source === 'play'
       ? null
       : entitlement.founding
         ? FOUNDING_PLUS_YEARLY
