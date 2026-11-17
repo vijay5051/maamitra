@@ -107,6 +107,18 @@ function buildConfig(d) {
             webhookVerifyToken: str(m.webhookVerifyToken, process.env.META_WEBHOOK_VERIFY_TOKEN),
             adAccountId: str(m.adAccountId, process.env.META_AD_ACCOUNT_ID),
         },
+        whatsapp: {
+            phoneNumberId: str(d.whatsapp?.phoneNumberId, process.env.WHATSAPP_PHONE_NUMBER_ID),
+            wabaId: str(d.whatsapp?.wabaId, process.env.WHATSAPP_WABA_ID),
+            accessToken: str(d.whatsapp?.accessToken, process.env.WHATSAPP_ACCESS_TOKEN),
+            appSecret: str(d.whatsapp?.appSecret, process.env.WHATSAPP_APP_SECRET),
+            webhookVerifyToken: str(d.whatsapp?.webhookVerifyToken, process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN),
+        },
+        razorpay: {
+            keyId: str(d.razorpay?.keyId, process.env.RAZORPAY_KEY_ID),
+            keySecret: str(d.razorpay?.keySecret, process.env.RAZORPAY_KEY_SECRET),
+            webhookSecret: str(d.razorpay?.webhookSecret, process.env.RAZORPAY_WEBHOOK_SECRET),
+        },
         factoryResetToken: str(d.factoryResetToken, process.env.FACTORY_RESET_TOKEN),
     };
 }

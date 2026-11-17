@@ -52,8 +52,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.syncArticleSocialDraft = exports.syncPublishedArticleToMarketingDraft = exports.sendArticleToMarketingDraft = exports.retryArticleImage = exports.processPendingArticleImage = exports.generateArticleNow = exports.updateIntegrationConfig = exports.checkIntegrationHealth = exports.getTemplateImage = exports.probeMarketingHealthNow = exports.probeMarketingHealth = exports.composeStudioLogo = exports.uploadStudioImage = exports.editStudioImage = exports.generateTemplatePrefill = exports.createStudioDraft = exports.generateStudioVariants = exports.boostMarketingDraft = exports.renderUgcAsDraft = exports.generateWeeklyInsightDigest = exports.pollMarketingAccountInsights = exports.pollMarketingInsights = exports.publishMarketingDraftNow = exports.scheduledMarketingPublisher = exports.metaInboxReplyPublisher = exports.classifyInboxThread = exports.generateInboxReplies = exports.metaWebhookReceiver = exports.generateAheadDrafts = exports.dailyMarketingDraftCron = exports.unscheduleMarketingDraft = exports.scheduleMarketingDraft = exports.regenerateMarketingDraft = exports.generateMarketingDraft = exports.scoreMarketingDraft = exports.renderMarketingTemplate = exports.repairCommunityCounters = exports.onUserCreated = exports.onFollowDelete = exports.onFollowCreate = exports.onPostDelete = exports.onCommentDelete = exports.onCommentCreate = exports.synthesizeSpeech = exports.adminFactoryReset = exports.factoryReset = exports.processScheduledPushes = exports.adminCreateUser = exports.adminDeleteUser = exports.dispatchPush = void 0;
-exports.vaccineReminderCron = exports.expireStaleLibrary = exports.dailyLibraryAiCron = exports.archiveLibraryItem = exports.generateProductsNow = exports.generateBooksNow = void 0;
+exports.syncPublishedArticleToMarketingDraft = exports.sendArticleToMarketingDraft = exports.retryArticleImage = exports.processPendingArticleImage = exports.generateArticleNow = exports.updateIntegrationConfig = exports.checkIntegrationHealth = exports.getTemplateImage = exports.probeMarketingHealthNow = exports.probeMarketingHealth = exports.composeStudioLogo = exports.uploadStudioImage = exports.editStudioImage = exports.generateTemplatePrefill = exports.createStudioDraft = exports.generateStudioVariants = exports.boostMarketingDraft = exports.renderUgcAsDraft = exports.generateWeeklyInsightDigest = exports.pollMarketingAccountInsights = exports.pollMarketingInsights = exports.publishMarketingDraftNow = exports.scheduledMarketingPublisher = exports.metaInboxReplyPublisher = exports.classifyInboxThread = exports.generateInboxReplies = exports.whatsappWebhookReceiver = exports.metaWebhookReceiver = exports.generateAheadDrafts = exports.dailyMarketingDraftCron = exports.unscheduleMarketingDraft = exports.scheduleMarketingDraft = exports.regenerateMarketingDraft = exports.generateMarketingDraft = exports.scoreMarketingDraft = exports.renderMarketingTemplate = exports.repairCommunityCounters = exports.onUserCreated = exports.onFollowDelete = exports.onFollowCreate = exports.onPostDelete = exports.onCommentDelete = exports.onCommentCreate = exports.synthesizeSpeech = exports.adminFactoryReset = exports.factoryReset = exports.processScheduledPushes = exports.adminCreateUser = exports.adminDeleteUser = exports.dispatchPush = void 0;
+exports.contentDigestCron = exports.growthReminderCron = exports.playBillingNotifications = exports.verifyPlayPurchase = exports.verifyRazorpaySubscription = exports.razorpayWebhook = exports.cancelRazorpaySubscription = exports.createRazorpaySubscription = exports.vaccineReminderCron = exports.expireStaleLibrary = exports.dailyLibraryAiCron = exports.archiveLibraryItem = exports.generateProductsNow = exports.generateBooksNow = exports.syncArticleSocialDraft = void 0;
 const functions = __importStar(require("firebase-functions/v1"));
 const admin = __importStar(require("firebase-admin"));
 const crypto = __importStar(require("crypto"));
@@ -75,6 +75,8 @@ const DEFAULT_PREFS = {
     follows: true,
     announcements: true,
     vaccines: true,
+    content: true,
+    reminders: true,
 };
 const MAX_BATCH = 500;
 exports.dispatchPush = functions.firestore
@@ -146,6 +148,17 @@ exports.dispatchPush = functions.firestore
                     body: job.body,
                 },
                 data: sanitiseData(job.data),
+                // Pop up at the top of the screen on Android: high delivery priority,
+                // the app's HIGH-importance channel (lib/notificationChannel.ts), sound.
+                android: {
+                    priority: 'high',
+                    notification: {
+                        channelId: 'maamitra_alerts',
+                        sound: 'default',
+                        color: '#7B5E9C',
+                        defaultVibrateTimings: true,
+                    },
+                },
                 webpush: {
                     fcmOptions: { link: job.data?.url || '/' },
                     notification: {
@@ -277,15 +290,16 @@ async function resolveRecipients(db, job) {
             : typeof d.motherName === 'string'
                 ? d.motherName
                 : undefined;
-        // Respect announcements opt-out. Missing prefs default to true.
-        const wantsAnnouncements = d.notifPrefs?.announcements !== false;
-        if (!wantsAnnouncements) {
+        // Respect the topic opt-out (announcements unless the job says otherwise).
+        // Missing prefs default to true.
+        const prefKey = job.prefKey ?? 'announcements';
+        if (d.notifPrefs?.[prefKey] === false) {
             out.push({
                 uid: doc.id,
                 email,
                 name,
                 tokens: [],
-                skippedReason: 'pref-off:announcements',
+                skippedReason: `pref-off:${prefKey}`,
             });
             return;
         }
@@ -327,6 +341,9 @@ function personalPrefKey(type) {
             return 'follows';
         case 'vaccine_reminder':
             return 'vaccines';
+        case 'growth_reminder':
+        case 'birthday':
+            return 'reminders';
         default:
             // Missing type (older client) — don't gate. Better to deliver than
             // silently drop during rollout.
@@ -880,11 +897,18 @@ const LANG_VOICE = {
     'hi': { languageCode: 'hi-IN', name: 'hi-IN-Neural2-A' },
 };
 const TTS_MAX_CHARS = 1200;
+const access_1 = require("./billing/access");
 exports.synthesizeSpeech = functions
     .runWith({ memory: '256MB', timeoutSeconds: 30 })
     .https.onCall(async (data, context) => {
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'Sign in to use voice playback.');
+    }
+    const billing = (await admin.firestore().doc('app_settings/billing').get()).data();
+    if (billing?.locks?.app === true) {
+        if (!(await (0, access_1.hasFullAccess)(context.auth.uid, billing))) {
+            throw new functions.https.HttpsError('permission-denied', 'Reading answers aloud is part of MaaMitra Plus.');
+        }
     }
     const text = String(data?.text ?? '').trim();
     const lang = String(data?.lang ?? 'en-IN').trim();
@@ -1206,6 +1230,11 @@ exports.generateAheadDrafts = (0, marketing_1.buildGenerateAheadDrafts)(ADMIN_EM
 // generateInboxReplies + classifyInboxThread are admin-callables that
 // reuse the same OPENAI_API_KEY as the M2 caption generator.
 exports.metaWebhookReceiver = (0, marketing_1.buildMetaWebhookReceiver)();
+// whatsappWebhookReceiver — same contract for MaaMitra's WhatsApp number
+// (Meta app "MaaMitra WA"). Verify token + app secret live under
+// `whatsapp` in app_settings/integrations. Inbound messages land in
+// marketing_inbox as wa_message threads.
+exports.whatsappWebhookReceiver = (0, marketing_1.buildWhatsAppWebhookReceiver)();
 exports.generateInboxReplies = (0, marketing_1.buildGenerateInboxReplies)(ADMIN_EMAILS);
 exports.classifyInboxThread = (0, marketing_1.buildClassifyInboxThread)(ADMIN_EMAILS);
 // M4b — outbound reply publisher. Firestore trigger on new outbound
@@ -1313,3 +1342,23 @@ exports.expireStaleLibrary = (0, library_1.buildExpireStaleLibrary)();
 // pref + a 7-day cooldown so the parent isn't badgered.
 const reminderCron_1 = require("./vaccines/reminderCron");
 exports.vaccineReminderCron = (0, reminderCron_1.buildVaccineReminderCron)();
+// Razorpay subscriptions for website purchases. Off until app_settings/billing
+// has webCheckoutEnabled: true and keys are saved in /admin/integrations.
+// Razorpay dashboard → Webhooks should point at razorpayWebhook with the
+// subscription.* events enabled and the same webhook secret.
+const razorpay_1 = require("./billing/razorpay");
+exports.createRazorpaySubscription = (0, razorpay_1.buildCreateRazorpaySubscription)();
+exports.cancelRazorpaySubscription = (0, razorpay_1.buildCancelRazorpaySubscription)();
+exports.razorpayWebhook = (0, razorpay_1.buildRazorpayWebhook)();
+exports.verifyRazorpaySubscription = (0, razorpay_1.buildVerifyRazorpaySubscription)();
+// Android in-app subscriptions through Google Play Billing.
+const play_1 = require("./billing/play");
+exports.verifyPlayPurchase = (0, play_1.buildVerifyPlayPurchase)();
+exports.playBillingNotifications = (0, play_1.buildPlayBillingNotifications)();
+// Monthly growth/milestone reminders on each child's month-birthday (a
+// birthday wish on full-year birthdays), and a
+// weekly "New on MaaMitra" digest of new articles and travel recipes.
+const growthReminderCron_1 = require("./notifications/growthReminderCron");
+const contentDigestCron_1 = require("./notifications/contentDigestCron");
+exports.growthReminderCron = (0, growthReminderCron_1.buildGrowthReminderCron)();
+exports.contentDigestCron = (0, contentDigestCron_1.buildContentDigestCron)();

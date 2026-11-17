@@ -55,6 +55,7 @@ const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions/v1"));
 const schedule_1 = require("./schedule");
 const pick_1 = require("./pick");
+const access_1 = require("../billing/access");
 const RUN_LIMIT_USERS = 400;
 const REMINDER_COOLDOWN_DAYS = 7;
 function buildVaccineReminderCron() {
@@ -78,6 +79,11 @@ function buildVaccineReminderCron() {
             console.log('[vaccineReminderCron] no push-enabled users to scan');
             return null;
         }
+        // Due-date reminders are a Plus/Family feature (or early-member free period)
+        // once app plan locks are on
+        // (they reach users as phone notifications, so the app switch governs).
+        const billing = (await db.doc('app_settings/billing').get()).data();
+        const planLocked = billing?.locks?.app === true;
         let scanned = 0;
         let kidsConsidered = 0;
         let remindersQueued = 0;
@@ -86,6 +92,8 @@ function buildVaccineReminderCron() {
             scanned++;
             const data = userSnap.data();
             if (data.notifPrefs?.vaccines === false)
+                continue;
+            if (planLocked && !(await (0, access_1.hasFullAccess)(userSnap.id, billing)))
                 continue;
             const kids = Array.isArray(data.kids) ? data.kids : [];
             if (kids.length === 0)

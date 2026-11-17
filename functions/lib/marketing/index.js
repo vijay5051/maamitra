@@ -50,7 +50,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.buildGetTemplateImage = exports.buildProbeMarketingHealthNow = exports.buildProbeMarketingHealth = exports.buildComposeStudioLogo = exports.buildUploadStudioImage = exports.buildEditStudioImage = exports.buildCreateStudioDraft = exports.buildGenerateStudioVariants = exports.buildBoostMarketingDraft = exports.buildRenderUgcAsDraft = exports.buildGenerateWeeklyInsightDigest = exports.buildPollMarketingAccountInsights = exports.buildPollMarketingInsights = exports.buildPublishMarketingDraftNow = exports.buildScheduledMarketingPublisher = exports.buildMetaInboxReplyPublisher = exports.buildClassifyInboxThread = exports.buildGenerateInboxReplies = exports.buildMetaWebhookReceiver = exports.buildGenerateAheadDrafts = exports.buildDailyMarketingDraftCron = exports.buildUnscheduleMarketingDraft = exports.buildScheduleMarketingDraft = exports.buildRegenerateMarketingDraft = exports.buildGenerateMarketingDraft = exports.buildScoreMarketingDraft = void 0;
+exports.buildGetTemplateImage = exports.buildProbeMarketingHealthNow = exports.buildProbeMarketingHealth = exports.buildComposeStudioLogo = exports.buildUploadStudioImage = exports.buildEditStudioImage = exports.buildCreateStudioDraft = exports.buildGenerateStudioVariants = exports.buildBoostMarketingDraft = exports.buildRenderUgcAsDraft = exports.buildGenerateWeeklyInsightDigest = exports.buildPollMarketingAccountInsights = exports.buildPollMarketingInsights = exports.buildPublishMarketingDraftNow = exports.buildScheduledMarketingPublisher = exports.buildMetaInboxReplyPublisher = exports.buildClassifyInboxThread = exports.buildGenerateInboxReplies = exports.buildWhatsAppWebhookReceiver = exports.buildMetaWebhookReceiver = exports.buildGenerateAheadDrafts = exports.buildDailyMarketingDraftCron = exports.buildUnscheduleMarketingDraft = exports.buildScheduleMarketingDraft = exports.buildRegenerateMarketingDraft = exports.buildGenerateMarketingDraft = exports.buildScoreMarketingDraft = void 0;
 exports.buildRenderMarketingTemplate = buildRenderMarketingTemplate;
 exports.buildGenerateTemplatePrefill = buildGenerateTemplatePrefill;
 const admin = __importStar(require("firebase-admin"));
@@ -70,6 +70,7 @@ Object.defineProperty(exports, "buildDailyMarketingDraftCron", { enumerable: tru
 Object.defineProperty(exports, "buildGenerateAheadDrafts", { enumerable: true, get: function () { return generator_1.buildGenerateAheadDrafts; } });
 var inbox_1 = require("./inbox");
 Object.defineProperty(exports, "buildMetaWebhookReceiver", { enumerable: true, get: function () { return inbox_1.buildMetaWebhookReceiver; } });
+Object.defineProperty(exports, "buildWhatsAppWebhookReceiver", { enumerable: true, get: function () { return inbox_1.buildWhatsAppWebhookReceiver; } });
 Object.defineProperty(exports, "buildGenerateInboxReplies", { enumerable: true, get: function () { return inbox_1.buildGenerateInboxReplies; } });
 Object.defineProperty(exports, "buildClassifyInboxThread", { enumerable: true, get: function () { return inbox_1.buildClassifyInboxThread; } });
 var publisher_1 = require("./publisher");

@@ -168,6 +168,19 @@ async function probeAnthropicWorker(workerUrl) {
         return 'Worker reachable';
     throw new Error(`HTTP ${res.status}`);
 }
+async function probeRazorpay(keyId, keySecret) {
+    if (!keyId || !keySecret)
+        throw new Error('Key ID or Key Secret not configured.');
+    const res = await fetch('https://api.razorpay.com/v1/plans?count=1', {
+        headers: { Authorization: `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString('base64')}` },
+        signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(`HTTP ${res.status}: ${body?.error?.description ?? res.statusText}`);
+    }
+    return `Connected — ${keyId.startsWith('rzp_live_') ? 'live' : 'test'} mode`;
+}
 function buildCheckIntegrationHealth(allowList) {
     return functions
         .runWith({ memory: '256MB', timeoutSeconds: 60 })
@@ -177,7 +190,7 @@ function buildCheckIntegrationHealth(allowList) {
         }
         const cfg = await (0, integrationConfig_1.getIntegrationConfig)();
         const igToken = (cfg.meta.fbPageAccessToken?.startsWith('EAA') ? cfg.meta.fbPageAccessToken : cfg.meta.igAccessToken) ?? '';
-        const [openai, gemini, replicate, pexels, ig, fb, anthropicWorker] = await Promise.all([
+        const [openai, gemini, replicate, pexels, ig, fb, anthropicWorker, razorpay] = await Promise.all([
             probe(() => probeOpenAI(cfg.openai.apiKey)),
             probe(() => probeGemini(cfg.gemini.apiKey)),
             probe(() => probeReplicate(cfg.replicate.apiToken)),
@@ -185,11 +198,12 @@ function buildCheckIntegrationHealth(allowList) {
             probe(() => probeMetaIG(cfg.meta.igUserId, igToken)),
             probe(() => probeMetaFB(cfg.meta.fbPageId, cfg.meta.fbPageAccessToken || igToken)),
             probe(() => probeAnthropicWorker(cfg.anthropic.workerUrl)),
+            probe(() => probeRazorpay(cfg.razorpay.keyId, cfg.razorpay.keySecret)),
         ]);
         return {
             ok: true,
             checkedAt: new Date().toISOString(),
-            results: { openai, gemini, replicate, pexels, ig, fb, anthropicWorker },
+            results: { openai, gemini, replicate, pexels, ig, fb, anthropicWorker, razorpay },
         };
     });
 }
@@ -217,7 +231,7 @@ function buildUpdateIntegrationConfig(allowList) {
     });
 }
 function sanitizePatch(raw) {
-    const allowed = new Set(['openai', 'replicate', 'gemini', 'pexels', 'anthropic', 'meta', 'notes']);
+    const allowed = new Set(['openai', 'replicate', 'gemini', 'pexels', 'anthropic', 'meta', 'whatsapp', 'razorpay', 'notes']);
     const out = {};
     for (const [k, v] of Object.entries(raw)) {
         if (!allowed.has(k))

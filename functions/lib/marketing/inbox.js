@@ -13,6 +13,13 @@
 //                        the thread's sentiment + intent + urgency.
 //                        Updates marketing_inbox/{threadId}.
 //
+// whatsappWebhookReceiver — same contract for MaaMitra's WhatsApp
+//                        Cloud API number (separate Meta app, so its
+//                        own secret + verify token under `whatsapp`
+//                        in app_settings/integrations). Inbound
+//                        messages become wa_message inbox threads;
+//                        delivery statuses go to whatsapp_message_status.
+//
 // Note: until Meta App Review approves the webhook subscription,
 // Meta won't actually fire to this endpoint. The endpoint and
 // signature verification still work — you can test it manually
@@ -56,6 +63,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildMetaWebhookReceiver = buildMetaWebhookReceiver;
+exports.buildWhatsAppWebhookReceiver = buildWhatsAppWebhookReceiver;
 exports.buildGenerateInboxReplies = buildGenerateInboxReplies;
 exports.buildClassifyInboxThread = buildClassifyInboxThread;
 const crypto = __importStar(require("crypto"));
@@ -257,6 +265,118 @@ async function ingestEvents(body) {
                 text,
                 parentObjectId: null,
             });
+        }
+    }
+}
+// ── whatsappWebhookReceiver ───────────────────────────────────────────────
+function buildWhatsAppWebhookReceiver() {
+    return functions
+        .runWith({ memory: '256MB', timeoutSeconds: 30 })
+        .https.onRequest(async (req, res) => {
+        const { whatsapp } = await (0, integrationConfig_1.getIntegrationConfig)();
+        if (req.method === 'GET') {
+            const mode = req.query['hub.mode'];
+            const token = req.query['hub.verify_token'];
+            const challenge = req.query['hub.challenge'];
+            if (!whatsapp.webhookVerifyToken) {
+                res.status(503).send('webhook not configured');
+                return;
+            }
+            if (mode === 'subscribe' && token === whatsapp.webhookVerifyToken) {
+                res.status(200).send(String(challenge ?? ''));
+                return;
+            }
+            res.status(403).send('verify_token mismatch');
+            return;
+        }
+        if (req.method !== 'POST') {
+            res.status(405).send('method not allowed');
+            return;
+        }
+        // Fail closed, same as metaWebhookReceiver.
+        if (!whatsapp.appSecret) {
+            console.error('[whatsappWebhookReceiver] whatsapp.appSecret not configured — refusing event');
+            res.status(503).send('webhook not configured');
+            return;
+        }
+        const verify = verifySignatureDiag(req.rawBody, String(req.headers['x-hub-signature-256'] ?? ''), whatsapp.appSecret);
+        if (!verify.ok) {
+            console.warn('[whatsappWebhookReceiver] signature verification failed:', verify.reason);
+            res.status(403).send('signature mismatch');
+            return;
+        }
+        try {
+            await ingestWhatsAppEvents(req.body ?? {}, whatsapp.phoneNumberId);
+        }
+        catch (e) {
+            console.error('[whatsappWebhookReceiver] ingest failed', e);
+            // Still 200 so Meta doesn't retry forever; we have the data in logs.
+        }
+        res.status(200).send('OK');
+    });
+}
+// Text for the inbox preview. Non-text messages (images, stickers, …)
+// get a bracketed type so the thread still shows up.
+function whatsAppMessageText(m) {
+    switch (m?.type) {
+        case 'text': return String(m?.text?.body ?? '');
+        case 'button': return String(m?.button?.text ?? '[button]');
+        case 'interactive':
+            return String(m?.interactive?.button_reply?.title ?? m?.interactive?.list_reply?.title ?? '[interactive]');
+        case 'reaction': return `[reaction ${m?.reaction?.emoji ?? ''}]`.trim();
+        default: return `[${m?.type ?? 'message'}]${m?.[m?.type]?.caption ? ` ${m[m.type].caption}` : ''}`;
+    }
+}
+async function ingestWhatsAppEvents(body, ourPhoneNumberId) {
+    if (body?.object !== 'whatsapp_business_account' || !Array.isArray(body?.entry))
+        return;
+    const db = admin.firestore();
+    for (const entry of body.entry) {
+        for (const change of entry?.changes ?? []) {
+            if (change?.field !== 'messages')
+                continue;
+            const v = change.value ?? {};
+            // Only our number — ignore events for any other number on the WABA.
+            if (ourPhoneNumberId && v?.metadata?.phone_number_id !== ourPhoneNumberId)
+                continue;
+            const names = new Map();
+            for (const c of v?.contacts ?? []) {
+                if (c?.wa_id)
+                    names.set(String(c.wa_id), String(c?.profile?.name ?? c.wa_id));
+            }
+            for (const m of v?.messages ?? []) {
+                const from = String(m?.from ?? '');
+                const text = whatsAppMessageText(m);
+                if (!from || !m?.id || !text)
+                    continue;
+                await upsertThreadAndMessage(db, {
+                    channel: 'wa_message',
+                    authorId: from,
+                    authorName: names.get(from) ?? from,
+                    externalEventId: String(m.id),
+                    text,
+                    parentObjectId: null,
+                });
+            }
+            // Delivery receipts for messages we sent (sent → delivered → read, or failed).
+            for (const s of v?.statuses ?? []) {
+                if (!s?.id)
+                    continue;
+                const status = String(s?.status ?? 'unknown');
+                const statusAt = s?.timestamp ? admin.firestore.Timestamp.fromMillis(Number(s.timestamp) * 1000) : null;
+                // Receipts can arrive out of order, so keep one timestamp per stage
+                // alongside the most recent `status`.
+                await db.collection('whatsapp_message_status').doc(String(s.id)).set({
+                    status,
+                    [`${status}At`]: statusAt,
+                    recipientId: String(s?.recipient_id ?? ''),
+                    errors: Array.isArray(s?.errors)
+                        ? s.errors.map((e) => ({ code: e?.code ?? null, title: String(e?.title ?? ''), details: String(e?.error_data?.details ?? '') }))
+                        : [],
+                    pricingCategory: s?.pricing?.category ?? null,
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                }, { merge: true });
+            }
         }
     }
 }

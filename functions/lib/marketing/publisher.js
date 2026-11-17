@@ -117,6 +117,21 @@ function buildMetaInboxReplyPublisher() {
             return null;
         }
         const publisherCfg = await (0, integrationConfig_1.getIntegrationConfig)();
+        // WhatsApp runs on its own app + token, so it skips the IG credential
+        // gate below. Free-form replies only work inside the 24h window that
+        // opens when the user messages us.
+        if (thread.channel === 'wa_message') {
+            try {
+                const wamid = await sendWhatsAppText(String(thread.authorExternalId ?? ''), text);
+                await snap.ref.update({ outboundStatus: 'sent', outboundError: null, externalId: wamid });
+            }
+            catch (e) {
+                const msg = e?.message ?? String(e);
+                console.warn(`[metaInboxReplyPublisher] thread=${threadId} message=${messageId} WhatsApp send failed:`, msg);
+                await snap.ref.update({ outboundStatus: 'failed', outboundError: msg.slice(0, 400) });
+            }
+            return null;
+        }
         if (!publisherCfg.meta.igUserId || !igGraphToken(publisherCfg.meta.fbPageAccessToken, publisherCfg.meta.igAccessToken)) {
             await snap.ref.update({ outboundError: 'Manual send required — Instagram credentials are not configured in the Integration Hub yet.' });
             return null;
@@ -185,6 +200,28 @@ async function sendIgDirectMessage(recipientId, text) {
         const body = (await res.json().catch(() => ({})));
         throw new Error(`Graph ${res.status}: ${body?.error?.message ?? 'unknown'}`);
     }
+}
+// Returns the WhatsApp message id (wamid) so delivery receipts in
+// whatsapp_message_status can be matched back to the inbox message.
+async function sendWhatsAppText(to, text) {
+    if (!to)
+        throw new Error('empty recipient');
+    const { whatsapp } = await (0, integrationConfig_1.getIntegrationConfig)();
+    if (!whatsapp.phoneNumberId || !whatsapp.accessToken) {
+        throw new Error('WhatsApp credentials not configured — set whatsapp.phoneNumberId and accessToken in the Integration Hub');
+    }
+    const res = await fetch(`${GRAPH_BASE}/${whatsapp.phoneNumberId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${whatsapp.accessToken}` },
+        body: JSON.stringify({ messaging_product: 'whatsapp', to, type: 'text', text: { body: text } }),
+    });
+    const body = (await res.json().catch(() => ({})));
+    // Outside the 24h window Meta still returns 200 here and reports the
+    // failure later as a webhook status (code 131047), so check
+    // whatsapp_message_status/{wamid} for delivery.
+    if (!res.ok)
+        throw new Error(`Graph ${res.status}: ${body?.error?.message ?? 'unknown'}`);
+    return String(body?.messages?.[0]?.id ?? '');
 }
 async function replyToIgComment(commentId, text) {
     if (!commentId)
