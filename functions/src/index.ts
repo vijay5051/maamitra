@@ -53,6 +53,7 @@ import {
   buildGenerateWeeklyInsightDigest,
   buildMetaInboxReplyPublisher,
   buildMetaWebhookReceiver,
+  buildWhatsAppWebhookReceiver,
   buildPollMarketingAccountInsights,
   buildPollMarketingInsights,
   buildProbeMarketingHealth,
@@ -1466,6 +1467,11 @@ export const generateAheadDrafts = buildGenerateAheadDrafts(ADMIN_EMAILS);
 // generateInboxReplies + classifyInboxThread are admin-callables that
 // reuse the same OPENAI_API_KEY as the M2 caption generator.
 export const metaWebhookReceiver = buildMetaWebhookReceiver();
+// whatsappWebhookReceiver — same contract for MaaMitra's WhatsApp number
+// (Meta app "MaaMitra WA"). Verify token + app secret live under
+// `whatsapp` in app_settings/integrations. Inbound messages land in
+// marketing_inbox as wa_message threads.
+export const whatsappWebhookReceiver = buildWhatsAppWebhookReceiver();
 export const generateInboxReplies = buildGenerateInboxReplies(ADMIN_EMAILS);
 export const classifyInboxThread = buildClassifyInboxThread(ADMIN_EMAILS);
 

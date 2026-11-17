@@ -33,7 +33,7 @@ export {
   buildDailyMarketingDraftCron,
   buildGenerateAheadDrafts,
 } from './generator';
-export { buildMetaWebhookReceiver, buildGenerateInboxReplies, buildClassifyInboxThread } from './inbox';
+export { buildMetaWebhookReceiver, buildWhatsAppWebhookReceiver, buildGenerateInboxReplies, buildClassifyInboxThread } from './inbox';
 export {
   buildMetaInboxReplyPublisher,
   buildScheduledMarketingPublisher,

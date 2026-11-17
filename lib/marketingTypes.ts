@@ -647,7 +647,8 @@ export interface BoostInfo {
 
 // ── Inbox (M4) ──────────────────────────────────────────────────────────────
 
-export type InboxChannel = 'ig_comment' | 'ig_dm' | 'fb_comment' | 'fb_message';
+// wa_message = WhatsApp Cloud API (MaaMitra number), via whatsappWebhookReceiver.
+export type InboxChannel = 'ig_comment' | 'ig_dm' | 'fb_comment' | 'fb_message' | 'wa_message';
 export type InboxStatus = 'unread' | 'replied' | 'resolved' | 'archived' | 'spam';
 export type InboxSentiment = 'positive' | 'question' | 'complaint' | 'neutral' | 'spam';
 export type InboxIntent = 'greeting' | 'question_general' | 'question_medical' | 'praise' | 'complaint' | 'lead' | 'spam' | 'other';

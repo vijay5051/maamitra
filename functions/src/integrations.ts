@@ -229,7 +229,7 @@ export function buildUpdateIntegrationConfig(allowList: ReadonlySet<string>) {
 }
 
 function sanitizePatch(raw: Record<string, any>): Record<string, any> {
-  const allowed = new Set(['openai', 'replicate', 'gemini', 'pexels', 'anthropic', 'meta', 'razorpay', 'notes']);
+  const allowed = new Set(['openai', 'replicate', 'gemini', 'pexels', 'anthropic', 'meta', 'whatsapp', 'razorpay', 'notes']);
   const out: Record<string, any> = {};
   for (const [k, v] of Object.entries(raw)) {
     if (!allowed.has(k)) continue;

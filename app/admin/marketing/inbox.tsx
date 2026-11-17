@@ -65,6 +65,7 @@ const CHANNEL_LABEL: Record<string, string> = {
   ig_dm: 'IG · DM',
   fb_comment: 'FB · Comment',
   fb_message: 'FB · Msg',
+  wa_message: 'WhatsApp',
 };
 
 const SENTIMENT_TONE: Record<string, string> = {

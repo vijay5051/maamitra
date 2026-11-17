@@ -21,6 +21,17 @@ export interface MetaConfig {
   adAccountId: string;
 }
 
+// MaaMitra's WhatsApp Cloud API number. Lives in its own Meta app
+// ("MaaMitra WA"), so it has its own app secret + verify token, separate
+// from the IG/FB marketing app above.
+export interface WhatsAppConfig {
+  phoneNumberId: string;
+  wabaId: string;
+  accessToken: string;
+  appSecret: string;
+  webhookVerifyToken: string;
+}
+
 export interface RazorpayConfig {
   keyId: string;
   keySecret: string;
@@ -34,6 +45,7 @@ export interface IntegrationConfig {
   pexels: { apiKey: string };
   anthropic: { workerUrl: string };
   meta: MetaConfig;
+  whatsapp: WhatsAppConfig;
   razorpay: RazorpayConfig;
   factoryResetToken: string;
 }
@@ -100,6 +112,13 @@ function buildConfig(d: Record<string, any>): IntegrationConfig {
       appSecret:          str(m.appSecret,           process.env.META_APP_SECRET),
       webhookVerifyToken: str(m.webhookVerifyToken,  process.env.META_WEBHOOK_VERIFY_TOKEN),
       adAccountId:        str(m.adAccountId,         process.env.META_AD_ACCOUNT_ID),
+    },
+    whatsapp: {
+      phoneNumberId:      str(d.whatsapp?.phoneNumberId,      process.env.WHATSAPP_PHONE_NUMBER_ID),
+      wabaId:             str(d.whatsapp?.wabaId,             process.env.WHATSAPP_WABA_ID),
+      accessToken:        str(d.whatsapp?.accessToken,        process.env.WHATSAPP_ACCESS_TOKEN),
+      appSecret:          str(d.whatsapp?.appSecret,          process.env.WHATSAPP_APP_SECRET),
+      webhookVerifyToken: str(d.whatsapp?.webhookVerifyToken, process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN),
     },
     razorpay: {
       keyId:         str(d.razorpay?.keyId,         process.env.RAZORPAY_KEY_ID),

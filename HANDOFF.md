@@ -8,6 +8,21 @@
 
 ## Active task
 
+**WhatsApp (MaaMitra number) — in progress 2026-11-17, Claude.** Number
++1 555-754-0257, phone_number_id 1484661554725273, WABA 925930867152323
+(owned by the Soonicorn Ventures portfolio — user decision: stay under
+Soonicorn, no separate MaaMitra entity). NEVER touch the Soonicorn numbers
+or the Soonicorn app `svdeal-wa` (webhook → deals.soonicornventures.com).
+Done: template `maamitra_test` (approved, Meta re-categorised MARKETING)
+delivered to the user's phone. Code: `whatsappWebhookReceiver` (inbox.ts)
+→ inbound = `marketing_inbox` threads channel `wa_message`; receipts →
+`whatsapp_message_status/{wamid}`; inbox replies send via
+`metaInboxReplyPublisher` (24h window only). Config: `whatsapp.*` in
+`app_settings/integrations`. Next: finish creating Meta app "MaaMitra WA"
+(Soonicorn portfolio; was blocked by Meta new-device 2FA hold), set
+callback URL + verify token, subscribe the MaaMitra WABA, store app
+secret + permanent system-user token, publish app, test a reply.
+
 **LAUNCHED (website) 2026-11-16.** Live: Razorpay checkout ON (live keys),
 plan locks WEB ON, Android in-app purchases ON, plan locks APP OFF until Play
 build 41 (1.0.6) is "Available on Google Play" (submitted to Production

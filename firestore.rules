@@ -551,6 +551,12 @@ service cloud.firestore {
         allow read, write: if isAdmin();
       }
     }
+    // WhatsApp delivery receipts, one doc per sent message id (wamid).
+    // whatsappWebhookReceiver writes via the service account; admin reads.
+    match /whatsapp_message_status/{wamid} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
     // Cost log — one row per render call (renderMarketingTemplate writes).
     // Admin reads for the dashboard; writes only happen server-side via the
     // Cloud Function's service account, which bypasses these rules. Rule
