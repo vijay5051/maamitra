@@ -14,7 +14,7 @@ import { useRuntimeConfigStore } from '../store/useRuntimeConfigStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { isAdminEmail } from '../lib/admin';
 
-const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.maamitra.app';
+const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=in.maamitra.app';
 const APP_STORE_URL = 'https://apps.apple.com/app/maamitra/id0000000000';
 
 function currentBuildNumber(): number {
