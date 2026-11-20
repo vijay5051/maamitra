@@ -14,7 +14,13 @@
 Soonicorn, no separate MaaMitra entity). NEVER touch the Soonicorn numbers
 or the Soonicorn app `svdeal-wa` (webhook → deals.soonicornventures.com).
 Done: template `maamitra_test` (approved, Meta re-categorised MARKETING)
-delivered to the user's phone. Code: `whatsappWebhookReceiver` (inbox.ts)
+delivered to the user's phone. Display name APPROVED 2026-11-20. Template
+`maamitra_app_intro` (MARKETING, approved; video header + "Download now" →
+Play in.maamitra.app utm_source=whatsapp) delivered 2026-11-20 — send with
+header video https://maamitra.co.in/videos/whatsapp-intro-v2.mp4 (v2 opens
+on the logo card = WhatsApp thumbnail). Video source is local-only in
+marketing/video/source-whatsapp-intro (git-excluded). OTA intentionally NOT
+published (30+ pending commits incl. billing) — user decision pending. Code: `whatsappWebhookReceiver` (inbox.ts)
 → inbound = `marketing_inbox` threads channel `wa_message`; receipts →
 `whatsapp_message_status/{wamid}`; inbox replies send via
 `metaInboxReplyPublisher` (24h window only). Config: `whatsapp.*` in
