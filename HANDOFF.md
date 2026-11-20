@@ -20,7 +20,16 @@ Play in.maamitra.app utm_source=whatsapp) delivered 2026-11-20 — send with
 header video https://maamitra.co.in/videos/whatsapp-intro-v2.mp4 (v2 opens
 on the logo card = WhatsApp thumbnail). Video source is local-only in
 marketing/video/source-whatsapp-intro (git-excluded). OTA intentionally NOT
-published (30+ pending commits incl. billing) — user decision pending. Code: `whatsappWebhookReceiver` (inbox.ts)
+published (30+ pending commits incl. billing) — user decision pending.
+Meta app **MaaMitra WA** (ID 2980811778940926, Soonicorn portfolio) created +
+PUBLISHED 2026-11-20; MaaMitra WABA subscribed to it (svdeal-wa still also
+subscribed — remove only with user OK). Webhook → whatsappWebhookReceiver,
+`messages` field subscribed, Meta test event accepted (signature OK).
+Config in app_settings/integrations.whatsapp via scripts/set-whatsapp-config.mjs
+(appSecret entered by user, never in chat). Still missing: whatsapp.accessToken
+(permanent system-user token) — needed for sending inbox replies.
+2026-11-20 user-insisted broadcast of maamitra_app_intro to 1,058 group
+contacts: ~812 delivered, 31% read, 27 clicks, ~₹770; quality still High. Code: `whatsappWebhookReceiver` (inbox.ts)
 → inbound = `marketing_inbox` threads channel `wa_message`; receipts →
 `whatsapp_message_status/{wamid}`; inbox replies send via
 `metaInboxReplyPublisher` (24h window only). Config: `whatsapp.*` in
